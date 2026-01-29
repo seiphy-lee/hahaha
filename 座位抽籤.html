@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室座位抽籤系統</title>
+    <!-- 更換為支援樣式 (Style) 的 SheetJS 版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --desk-color: #ecf0f1;
+            --void-color: #95a5a6;
+            --text-color: #2c3e50;
+            --podium-color: #d35400;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        textarea {
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            resize: vertical;
+        }
+
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            width: 80px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-reset {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-excel {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        /* 新增：儲存區域樣式 */
+        .storage-area {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .storage-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .storage-slot span {
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+
+        .storage-btn-group {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+
+        .btn-save { background-color: #95a5a6; color: white; }
+        .btn-load { background-color: #34495e; color: white; }
+
+
+        /* 教室佈局區域 */
+        #classroom-container {
+            perspective: 1000px;
+            margin-top: 20px;
+            overflow: auto;
+            max-width: 100%;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 講桌樣式 */
+        .podium {
+            width: 300px;
+            height: 50px;
+            background-color: var(--podium-color);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            font-weight: bold;
+            letter-spacing: 2px;
+            position: relative;
+        }
+        
+        .podium::after {
+            content: "(黑板方向)";
+            position: absolute;
+            top: -20px;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        #classroom {
+            display: grid;
+            gap: 15px;
+            margin: 0 auto;
+        }
+
+        .desk {
+            width: 100px;
+            height: 60px;
+            background-color: var(--desk-color);
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-color);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+            user-select: none;
+            box-shadow: 0 4px 0 #bdc3c7;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+
+        .desk:active {
+            box-shadow: 0 2px 0 #bdc3c7;
+            transform: translateY(2px);
+        }
+
+        /* 排除座位的樣式 */
+        .desk.void {
+            background-color: transparent;
+            border: 2px dashed var(--void-color);
+            color: var(--void-color);
+            box-shadow: none;
+        }
+        
+        .desk.void::after {
+            content: "❌";
+            font-size: 1.2rem;
+            opacity: 0.5;
+        }
+
+        /* 名字顯現動畫 */
+        .desk.filled {
+            background-color: #2ecc71;
+            color: white;
+            border-color: #27ae60;
+            box-shadow: 0 4px 0 #27ae60;
+            transform: scale(0);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .status-bar {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>教室座位抽籤系統</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>1. 設定教室矩陣</label>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                排 (Rows): <input type="number" id="rows" value="6" min="1">
+                列 (Cols): <input type="number" id="cols" value="8" min="1">
+            </div>
+            <button class="btn-secondary" onclick="generateGrid()">生成/重置座位表</button>
+            <small>提示：點擊座位可設為「走道」或「不排人」。</small>
+        </div>
+
+        <div class="control-group">
+            <label>2. 輸入學生名單 (每行一個名字)</label>
+            <textarea id="student-list" placeholder="張三&#10;李四&#10;王五&#10;..."></textarea>
+            
+            <!-- 新增：常用名單儲存區 -->
+            <div class="storage-area">
+                <div class="storage-slot">
+                    <span>名單 1</span>
+                    <div class="storage-btn-group">
+                        <button class="btn-sm btn-save" onclick="saveList(1)">💾 存</button>
+                        <button class="btn-sm btn-load" onclick="loadList(1)">📂 讀</button>
+                    </div>
+                </div>
+                <div class="storage-slot">
+                    <span>名單 2</span>
+                    <div class="storage-btn-group">
+                        <button class="btn-sm btn-save" onclick="saveList(2)">💾 存</button>
+                        <button class="btn-sm btn-load" onclick="loadList(2)">📂 讀</button>
+                    </div>
+                </div>
+                <div class="storage-slot">
+                    <span>名單 3</span>
+                    <div class="storage-btn-group">
+                        <button class="btn-sm btn-save" onclick="saveList(3)">💾 存</button>
+                        <button class="btn-sm btn-load" onclick="loadList(3)">📂 讀</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-bar" id="status-text">目前名單：0 人 | 可用座位：0</div>
+        </div>
+
+        <div class="control-group" style="flex: 0 0 100%;">
+            <label>3. 執行操作</label>
+            <div class="btn-group">
+                <button class="btn-primary" onclick="startLottery()">🚀 開始隨機排列</button>
+                <button class="btn-reset" onclick="clearNames()">🧹 清除名字</button>
+                <button class="btn-excel" onclick="exportToExcel()">📊 下載 Excel 座位表</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="classroom-container">
+        <!-- 講桌區塊 -->
+        <div class="podium">講桌 (Teacher's Desk)</div>
+        <!-- 座位區塊 -->
+        <div id="classroom"></div>
+    </div>
+
+    <script>
+        // Fisher-Yates Shuffle 演算法
+        function shuffle(array) {
+            let currentIndex = array.length,  randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 預設生成 50 個名字方便測試
+            let demoNames = [];
+            for(let i=1; i<=50; i++) demoNames.push(`學生 ${i}`);
+            document.getElementById('student-list').value = demoNames.join('\n');
+            
+            generateGrid();
+            updateCount();
+        });
+
+        document.getElementById('student-list').addEventListener('input', updateCount);
+
+        function updateCount() {
+            const names = getNames();
+            const validSeats = document.querySelectorAll('.desk:not(.void)').length;
+            const status = document.getElementById('status-text');
+            status.innerHTML = `目前名單：${names.length} 人 | 可用座位：${validSeats}`;
+            
+            if(names.length > validSeats) {
+                status.style.color = '#e74c3c';
+                status.innerHTML += ' (⚠️ 座位不足！)';
+            } else {
+                status.style.color = '#7f8c8d';
+            }
+        }
+
+        function getNames() {
+            const raw = document.getElementById('student-list').value;
+            return raw.split('\n').map(n => n.trim()).filter(n => n !== '');
+        }
+
+        // 新增：名單儲存功能
+        function saveList(slotId) {
+            const currentList = document.getElementById('student-list').value;
+            if(!currentList.trim()) {
+                alert('目前的文字框是空的，無法儲存！');
+                return;
+            }
+            localStorage.setItem('classroom_seat_list_' + slotId, currentList);
+            alert(`名單 ${slotId} 已成功儲存到瀏覽器！`);
+        }
+
+        // 新增：名單讀取功能
+        function loadList(slotId) {
+            const savedList = localStorage.getItem('classroom_seat_list_' + slotId);
+            if(savedList) {
+                if(confirm(`確定要載入「名單 ${slotId}」嗎？\n目前的輸入框內容將被覆蓋。`)) {
+                    document.getElementById('student-list').value = savedList;
+                    updateCount();
+                }
+            } else {
+                alert(`名單 ${slotId} 目前是空的，請先儲存！`);
+            }
+        }
+
+        function generateGrid() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            const classroom = document.getElementById('classroom');
+            
+            // 設定 CSS Grid
+            classroom.style.gridTemplateColumns = `repeat(${cols}, 100px)`;
+            classroom.style.gridTemplateRows = `repeat(${rows}, 60px)`;
+            classroom.innerHTML = ''; // 清空
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const desk = document.createElement('div');
+                    desk.className = 'desk';
+                    desk.dataset.index = r * cols + c;
+                    
+                    // 點擊事件：切換是否為特殊座位 (Void)
+                    desk.addEventListener('click', function() {
+                        if (this.classList.contains('filled')) return; 
+                        this.classList.toggle('void');
+                        if (this.classList.contains('void')) {
+                            this.innerText = '';
+                        }
+                        updateCount();
+                    });
+
+                    classroom.appendChild(desk);
+                }
+            }
+            updateCount();
+        }
+
+        function clearNames() {
+            const desks = document.querySelectorAll('.desk');
+            desks.forEach(desk => {
+                desk.classList.remove('filled');
+                if(!desk.classList.contains('void')) desk.innerText = '';
+            });
+        }
+
+        function startLottery() {
+            // 1. 準備數據
+            const names = getNames();
+            const shuffledNames = shuffle([...names]); 
+            
+            // 2. 獲取所有「可用」的座位
+            const allDesks = Array.from(document.querySelectorAll('.desk'));
+            const availableDesks = allDesks.filter(d => !d.classList.contains('void'));
+
+            // 檢查數量：學生多於座位
+            if (shuffledNames.length > availableDesks.length) {
+                alert(`錯誤：學生人數 (${shuffledNames.length}) 多於可用座位 (${availableDesks.length})。請增加座位或減少學生。`);
+                return;
+            }
+
+            // 新增檢查：學生少於座位
+            if (shuffledNames.length < availableDesks.length) {
+                // 在狀態列顯示警告
+                const status = document.getElementById('status-text');
+                status.innerHTML = `目前名單：${names.length} 人 | 可用座位：${availableDesks.length} <span style="color:red; margin-left:10px; font-weight:bold;">(⚠️ 學生人數小於座位數量)</span>`;
+                // 彈出警告
+                alert("學生人數小於座位數量，暫不執行排列。");
+                return;
+            }
+
+            // 3. 清除舊的結果
+            clearNames();
+
+            // 4. 洗牌座位，決定誰坐哪 (物理位置分配)
+            const seatsForLottery = shuffle([...availableDesks]);
+            
+            // 5. 建立動畫序列 (配對)
+            let animations = [];
+            for(let i=0; i < shuffledNames.length; i++) {
+                animations.push({
+                    desk: seatsForLottery[i],
+                    name: shuffledNames[i]
+                });
+            }
+
+            // 6. 再次洗牌動畫序列，決定「顯示順序」
+            const finalSequence = shuffle(animations);
+
+            // 7. 執行動畫
+            let delay = 0;
+            const interval = 100; // 每個名字間隔 0.1 秒
+
+            finalSequence.forEach(item => {
+                setTimeout(() => {
+                    item.desk.innerText = item.name;
+                    item.desk.classList.add('filled');
+                }, delay);
+                delay += interval;
+            });
+        }
+
+        // Excel 匯出功能 (最終優化版)
+        function exportToExcel() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            const classroom = document.getElementById('classroom');
+            const desks = classroom.children;
+
+            // 1. 抓取原始 Grid 資料
+            let gridData = [];
+            for (let r = 0; r < rows; r++) {
+                let rowData = [];
+                for (let c = 0; c < cols; c++) {
+                    const index = r * cols + c;
+                    const desk = desks[index];
+                    let text = desk.innerText;
+                    
+                    if (desk.classList.contains('void')) {
+                        text = "(X)";
+                    } else if (text === "") {
+                        text = "(空)";
+                    }
+                    rowData.push(text);
+                }
+                gridData.push(rowData);
+            }
+
+            // 輔助函式：插入空行與空列 (Expand with Spacers)
+            function expandGridWithSpacers(originalGrid) {
+                if (originalGrid.length === 0) return [];
+                const R = originalGrid.length;
+                const C = originalGrid[0].length;
+                let newGrid = [];
+
+                for (let r = 0; r < R; r++) {
+                    let newRow = [];
+                    for (let c = 0; c < C; c++) {
+                        newRow.push(originalGrid[r][c]); // 插入座位
+                        if (c < C - 1) {
+                            newRow.push(""); // 插入水平間隔 (欄)
+                        }
+                    }
+                    newGrid.push(newRow); // 插入整列
+                    
+                    if (r < R - 1) {
+                        // 插入垂直間隔 (列)
+                        let spacerRow = new Array(newRow.length).fill("");
+                        newGrid.push(spacerRow);
+                    }
+                }
+                return newGrid;
+            }
+
+            // 2. 準備基礎資料
+            let studentBaseData = gridData;
+            let teacherBaseData = [...gridData].reverse().map(row => [...row].reverse());
+
+            let expandedStudentData = expandGridWithSpacers(studentBaseData);
+            let expandedTeacherData = expandGridWithSpacers(teacherBaseData);
+
+            // 3. 建立活頁簿
+            const wb = XLSX.utils.book_new();
+
+            // ==== A. 後視角 (學生視角) ====
+            // 規則：座位從第三列 (Index 2) 開始
+            
+            // 3.1 寫入 Grid 資料 (從 A3 開始)
+            const ws_student = XLSX.utils.aoa_to_sheet(expandedStudentData, {origin: "A3"});
+
+            // 3.2 寫入講桌 (E1)
+            XLSX.utils.sheet_add_aoa(ws_student, [["講桌"]], {origin: "E1"});
+
+            // ==== B. 前視角 (老師視角) ====
+            
+            // 3.3 寫入 Grid 資料 (從 A3 開始，保留上方標題空間一致性)
+            const ws_teacher = XLSX.utils.aoa_to_sheet(expandedTeacherData, {origin: "A3"});
+            
+            // 3.4 寫入上方參考標題 (A1)
+            XLSX.utils.sheet_add_aoa(ws_teacher, [["教室後方 (Back)"]], {origin: "A1"});
+
+            // 3.5 計算講桌位置
+            // Grid 從 Index 2 開始。Grid 總行數 = expandedTeacherData.length
+            // Grid 結束的 Row Index = 2 + length - 1
+            const gridRowCount = expandedTeacherData.length;
+            const gridEndRowIdx = 2 + gridRowCount - 1;
+            const spacerRowIdx = gridEndRowIdx + 1; // 下一列 (間隔)
+            const podiumRowIdx = spacerRowIdx + 1;    // 再下一列 (講桌)
+
+            // 3.6 寫入講桌 (在 calculated Row, Column E/Index 4)
+            XLSX.utils.sheet_add_aoa(ws_teacher, [["講桌"]], {origin: {r: podiumRowIdx, c: 4}});
+
+
+            // ==== C. 樣式設定 ====
+
+            // 共用樣式定義
+            const borderStyle = {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "thin", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+            };
+            const centerStyle = { vertical: "center", horizontal: "center", wrapText: true };
+            const podiumFont = { sz: 16, name: "Arial", bold: true };
+            const normalFont = { sz: 12, name: "Arial" };
+            const titleFont = { sz: 12, name: "Arial", bold: true };
+
+            // 函式：套用 Grid 樣式 (欄寬、列高、邊框)
+            function applyGridStyles(ws, startRow, rowCount, colCount) {
+                // rowCount, colCount 是擴展後的數量
+                
+                // 設定欄寬 (Global) - 需確保覆蓋到 Column I (Index 8)
+                const maxColIndex = Math.max(colCount, 9); 
+                const colWidths = [];
+                for(let c = 0; c < maxColIndex; c++) {
+                    // 偶數索引是座位/講桌範圍(9)，奇數索引是間隔(2)
+                    colWidths.push({ wch: (c % 2 === 0) ? 9 : 2 });
+                }
+                ws['!cols'] = colWidths;
+
+                // 設定列高與儲存格樣式
+                if(!ws['!rows']) ws['!rows'] = [];
+                
+                for(let r = 0; r < rowCount; r++) {
+                    const currentRow = startRow + r;
+                    // 偶數相對行是座位(40)，奇數相對行是間隔(15)
+                    ws['!rows'][currentRow] = { hpt: (r % 2 === 0) ? 40 : 15 };
+
+                    for(let c = 0; c < colCount; c++) {
+                        // 判斷是否為座位 (偶數行, 偶數列)
+                        if (r % 2 === 0 && c % 2 === 0) {
+                            const cellRef = XLSX.utils.encode_cell({c: c, r: currentRow});
+                            if(!ws[cellRef]) ws[cellRef] = {t:'s', v:''};
+                            if(!ws[cellRef].s) ws[cellRef].s = {};
+                            ws[cellRef].s.border = borderStyle;
+                            ws[cellRef].s.alignment = centerStyle;
+                            ws[cellRef].s.font = normalFont;
+                        }
+                    }
+                }
+            }
+
+            const totalRows = expandedStudentData.length;
+            const totalCols = expandedStudentData[0].length;
+
+            // 套用 Grid 樣式
+            applyGridStyles(ws_student, 2, totalRows, totalCols);
+            applyGridStyles(ws_teacher, 2, totalRows, totalCols);
+
+            // 函式：套用講桌樣式與合併
+            function applyPodium(ws, rIdx) {
+                // 合併 E(4) 到 I(8)
+                if(!ws['!merges']) ws['!merges'] = [];
+                ws['!merges'].push({ s: {r: rIdx, c: 4}, e: {r: rIdx, c: 8} });
+
+                // 針對合併範圍內的每一個儲存格都設定邊框，確保外框完整
+                for (let c = 4; c <= 8; c++) {
+                    const cellRef = XLSX.utils.encode_cell({c: c, r: rIdx});
+                    if(!ws[cellRef]) ws[cellRef] = {t:'s', v:''};
+                    if(!ws[cellRef].s) ws[cellRef].s = {};
+                    
+                    ws[cellRef].s.border = borderStyle;
+                    // 字體和對齊只需要設定在最左上角 (c=4) 的儲存格即可，
+                    // 但為了保險起見，邊框必須每個都加
+                }
+
+                // 設定主要內容樣式 (合併後的左上角)
+                const mainCellRef = XLSX.utils.encode_cell({c: 4, r: rIdx});
+                ws[mainCellRef].s.alignment = centerStyle;
+                ws[mainCellRef].s.font = podiumFont;
+
+                // 設定列高
+                if(!ws['!rows']) ws['!rows'] = [];
+                ws['!rows'][rIdx] = { hpt: 40 };
+            }
+
+            // ==== 設定後視角特定格式 ====
+            // Row 1 (Index 0)
+            applyPodium(ws_student, 0); 
+            // Row 2 (Index 1) Gap
+            ws_student['!rows'][1] = { hpt: 15 };
+
+            // ==== 設定前視角特定格式 ====
+            // Row 1 (Title)
+            ws_teacher['!rows'][0] = { hpt: 30 };
+             // Row 2 (Gap)
+            ws_teacher['!rows'][1] = { hpt: 15 };
+            // Spacer Row
+            ws_teacher['!rows'][spacerRowIdx] = { hpt: 15 };
+            // Podium Row
+            applyPodium(ws_teacher, podiumRowIdx);
+
+
+            // 4. 加入工作表並下載
+            XLSX.utils.book_append_sheet(wb, ws_student, "後視角(學生視角)");
+            XLSX.utils.book_append_sheet(wb, ws_teacher, "前視角(老師視角)");
+
+            XLSX.writeFile(wb, "班級座位表.xlsx");
+        }
+    </script>
+</body>
+</html>

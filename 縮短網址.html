@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子連結傳送門 | Quantum Link Porter</title>
+    <!-- 引入 QR Code 生成庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        /* CSS reset & 基本設定 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #050505; /* 深空黑 */
+            color: #fff;
+            overflow: hidden; /* 防止捲軸出現 */
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 背景粒子畫布 */
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 主控制面板 - 玻璃擬態 (Glassmorphism) */
+        .container {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 500px;
+            background: rgba(20, 20, 30, 0.7);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #00f3ff; /* 霓虹青 */
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #333;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #ff0055; /* 霓虹粉 */
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.3);
+        }
+
+        button {
+            background: linear-gradient(45deg, #00f3ff, #0077ff);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.7);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* 結果顯示區 */
+        .result-area {
+            margin-top: 30px;
+            display: none; /* 初始隱藏 */
+            flex-direction: column;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
+        }
+
+        .short-url-box {
+            background: rgba(255, 0, 85, 0.1);
+            border: 1px solid #ff0055;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-family: monospace;
+            color: #ff0055;
+            text-shadow: 0 0 5px rgba(255, 0, 85, 0.5);
+            position: relative;
+            transition: all 0.3s;
+            word-break: break-all;
+        }
+        
+        .short-url-box:hover {
+            background: rgba(255, 0, 85, 0.2);
+        }
+        
+        .short-url-box::after {
+            content: '點擊複製';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            background: #fff;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .short-url-box:hover::after {
+            opacity: 1;
+        }
+
+        /* QR Code 容器 */
+        #qrcode {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            margin-bottom: 10px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        #qrcode:hover {
+            transform: scale(1.05) rotate(2deg);
+        }
+
+        #qrcode img {
+            display: block; /* 移除圖片底部的空白 */
+        }
+
+        .status-msg {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        /* 響應式 */
+        @media (max-width: 600px) {
+            .container {
+                width: 95%;
+                padding: 20px;
+            }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景粒子特效 -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- 主介面 -->
+    <div class="container">
+        <h1>QUANTUM LINK PORTER</h1>
+        <p style="color: #ccc; margin-bottom: 20px; font-size: 0.9rem;">輸入原始網址，進行量子壓縮與矩陣化</p>
+        
+        <div class="input-group">
+            <input type="text" id="urlInput" placeholder="在此貼上冗長的網址 (https://...)" autocomplete="off">
+        </div>
+
+        <button onclick="processLink()">啟動轉換程序</button>
+
+        <div class="result-area" id="resultArea">
+            <div id="shortUrlContainer" class="short-url-box" onclick="copyToClipboard()" title="點擊複製">
+                正在壓縮空間...
+            </div>
+            <div id="qrcode"></div>
+            <p class="status-msg" id="statusMsg">QR Code 已生成</p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 背景粒子物理模擬 (視覺特效) ---
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 1.5; // 速度
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.size = Math.random() * 2 + 1;
+                this.color = Math.random() > 0.5 ? '#00f3ff' : '#ff0055'; // 青或粉
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 邊界反彈 (像氣體分子撞擊容器壁)
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // 初始化粒子網格
+        for (let i = 0; i < 60; i++) {
+            particles.push(new Particle());
+        }
+
+        // 動畫迴圈
+        function animate() {
+            // 創造拖影效果 (Trails) - 這是老師的堅持
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.1)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // 繪製粒子間的連線 (模擬數據網絡)
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 150) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+
+        // --- 2. 核心功能邏輯 ---
+
+        const urlInput = document.getElementById('urlInput');
+        const resultArea = document.getElementById('resultArea');
+        const shortUrlBox = document.getElementById('shortUrlContainer');
+        const qrContainer = document.getElementById('qrcode');
+        const statusMsg = document.getElementById('statusMsg');
+        let qrcodeObj = null;
+
+        async function processLink() {
+            let originalUrl = urlInput.value.trim();
+
+            if (!originalUrl) {
+                alert("請輸入有效的網址，物理學不處理虛無！");
+                return;
+            }
+
+            // 簡單的網址補全 (如果沒打 http)
+            if (!originalUrl.match(/^https?:\/\//)) {
+                originalUrl = 'https://' + originalUrl;
+            }
+
+            // 顯示結果區
+            resultArea.style.display = 'flex';
+            shortUrlBox.textContent = "正在透過 API 壓縮...";
+            statusMsg.textContent = "正在計算矩陣...";
+            statusMsg.style.color = "#aaa";
+            
+            // 清除舊的 QR Code
+            qrContainer.innerHTML = '';
+
+            // 1. 生成 QR Code (優先執行，保證視覺回饋)
+            generateQRCode(originalUrl);
+
+            // 2. 嘗試縮網址
+            try {
+                const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(originalUrl)}`);
+                const text = await response.text();
+                const shortUrl = text.trim();
+
+                // ✨ 嚴格過濾機制 (Physics-Grade Validation)
+                // 1. 必須是 http 開頭
+                // 2. 絕對不能包含 HTML 標籤符號 '<' 或 '>' (這是過濾掉網頁原始碼的關鍵)
+                // 3. 不能包含空白
+                // 4. 長度合理
+                const isValidUrl = shortUrl.startsWith('http') && 
+                                 !shortUrl.includes('<') && 
+                                 !shortUrl.includes('>') &&
+                                 !shortUrl.includes(' ') &&
+                                 shortUrl.length < 100;
+
+                if (response.ok && isValidUrl) {
+                    shortUrlBox.textContent = shortUrl;
+                    statusMsg.textContent = "量子壓縮成功！連結與 QR Code 皆已就緒";
+                    statusMsg.style.color = "#00f3ff";
+                } else {
+                    // 如果檢查失敗，直接拋出錯誤，讓 catch 區塊接手，不顯示錯誤內容
+                    throw new Error("API 回傳內容包含 HTML 或格式錯誤");
+                }
+            } catch (error) {
+                console.warn("縮網址切換至備援模式:", error);
+                // 靜默失敗：直接顯示原始網址，不讓使用者看到任何錯誤或奇怪的網頁原始碼
+                shortUrlBox.textContent = originalUrl; 
+                statusMsg.textContent = "外部壓縮力場受阻，已自動切換為原始連結通道 (QR Code 功能正常)";
+            }
+        }
+
+        function generateQRCode(text) {
+            // 使用 qrcode.js 生成
+            qrcodeObj = new QRCode(qrContainer, {
+                text: text,
+                width: 180,
+                height: 180,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+
+        function copyToClipboard() {
+            const text = shortUrlBox.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = statusMsg.textContent;
+                statusMsg.textContent = "已複製到剪貼簿！";
+                statusMsg.style.color = "#ff0055"; // 複製成功用粉紅色提示
+                setTimeout(() => {
+                    statusMsg.textContent = originalText;
+                    statusMsg.style.color = originalText.includes("成功") ? "#00f3ff" : "#aaa";
+                }, 2000);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+            });
+        }
+
+        // 按下 Enter 觸發
+        urlInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                processLink();
+            }
+        });
+
+        // ✨ 新增功能：點擊輸入框時重置狀態
+        urlInput.addEventListener("focus", function() {
+            this.value = '';
+            resultArea.style.display = 'none';
+            qrContainer.innerHTML = '';
+            shortUrlBox.textContent = "正在壓縮空間...";
+            statusMsg.textContent = "QR Code 已生成";
+            statusMsg.style.color = "#aaa";
+        });
+
+    </script>
+</body>
+</html>
