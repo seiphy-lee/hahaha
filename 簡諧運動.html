@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：簡諧運動全攻略模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; user-select: none; }
+        canvas { touch-action: none; } /* Prevent scrolling on mobile when touching canvas */
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3B82F6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .tab-active {
+            background-color: #2563EB;
+            color: white;
+            border-bottom: 4px solid #1E40AF;
+        }
+        .tab-inactive {
+            background-color: #E5E7EB;
+            color: #374151;
+            border-bottom: 4px solid #9CA3AF;
+        }
+        .tab-inactive:hover {
+            background-color: #D1D5DB;
+        }
+        .btn-control {
+            transition: all 0.2s;
+        }
+        .btn-control:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white shadow-md z-10">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight">🔬 簡諧運動 (SHM) 實驗室</h1>
+            <div class="text-sm text-gray-500 hidden md:block">拖曳物體可設定振幅</div>
+        </div>
+        <div class="flex justify-center space-x-2 pb-2 bg-gray-50">
+            <button id="btn-tab1" onclick="switchTab(1)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-active">1. 參考圓與投影</button>
+            <button id="btn-tab2" onclick="switchTab(2)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive">2. 水平彈簧系統</button>
+            <button id="btn-tab3" onclick="switchTab(3)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive">3. 單擺系統</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col lg:flex-row relative p-2 gap-2 overflow-hidden">
+        
+        <!-- Canvas Container -->
+        <div class="flex-1 bg-slate-900 rounded-xl shadow-lg relative flex flex-col border border-gray-700">
+            <!-- Main Simulation Canvas -->
+            <div class="relative flex-grow bg-slate-900 rounded-xl overflow-hidden cursor-crosshair">
+                <canvas id="simCanvas" class="w-full h-full block"></canvas>
+                <!-- Overlay Instructions -->
+                <div id="dragHint" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/20 text-white px-4 py-1 rounded-full text-sm pointer-events-none opacity-0 transition-opacity duration-300 backdrop-blur-sm border border-white/30">
+                    拖曳物體以改變釋放位置
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Sidebar -->
+        <div class="w-full lg:w-80 bg-white rounded-xl shadow-lg p-5 border border-gray-200 flex flex-col gap-6 overflow-y-auto">
+            
+            <!-- Global Controls -->
+            <div class="space-y-3 pb-4 border-b border-gray-200">
+                <h3 class="font-bold text-gray-700 flex items-center">⚙️ 全局設定</h3>
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600">慢動作 (Slow Mo)</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="slowMoToggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-600">顯示向量 (速度/力)</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="vectorToggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+                
+                <div class="flex gap-2 text-xs mt-2">
+                    <div class="flex items-center gap-1"><div class="w-3 h-3 bg-green-400 rounded-full"></div> 速度 v</div>
+                    <div id="legend-a" class="flex items-center gap-1"><div class="w-3 h-3 bg-red-400 rounded-full"></div> 受力/加速度 a</div>
+                </div>
+            </div>
+
+            <!-- Tab Specific Controls (Injected via JS) -->
+            <div id="controls-container" class="space-y-6">
+                <!-- Controls will be populated here -->
+            </div>
+
+            <div class="mt-auto text-xs text-gray-400 text-center pt-4 border-t">
+                物理大師模擬實驗室 v1.9 (修正文字切邊問題)
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Configuration & State ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const controlsContainer = document.getElementById('controls-container');
+        
+        let currentTab = 1;
+        let animationId;
+        let lastTime = 0;
+        let time = 0;
+        
+        // Global Settings
+        const config = {
+            slowMo: false,
+            showVectors: true,
+            pixelsPerMeter: 100, // Scale factor
+        };
+
+        // Input Handling State
+        const mouse = { x: 0, y: 0, isDown: false };
+        let draggedObject = null; // 'mass', 'bob', 'particle'
+
+        // --- Helper Functions ---
+        function updateT2Display() {
+            const T = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
+            const el = document.getElementById('calc-T2');
+            if (el) el.innerText = T.toFixed(2) + " s";
+            return T; // Return Period for sim logic
+        }
+
+        function updateT3Display() {
+            const T = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
+            const el = document.getElementById('calc-T3');
+            if (el) el.innerText = T.toFixed(2) + " s";
+            return T;
+        }
+
+        function toggleSim2Run() {
+            sim2.isRunning = !sim2.isRunning;
+            document.getElementById('btn-sim2-toggle').innerHTML = sim2.isRunning ? "⏸ 暫停" : "▶ 開始";
+            document.getElementById('btn-sim2-toggle').className = sim2.isRunning ? 
+                "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold" :
+                "btn-control w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold";
+        }
+
+        function toggleSim3Run() {
+            sim3.isRunning = !sim3.isRunning;
+            document.getElementById('btn-sim3-toggle').innerHTML = sim3.isRunning ? "⏸ 暫停" : "▶ 開始";
+            document.getElementById('btn-sim3-toggle').className = sim3.isRunning ? 
+                "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold" :
+                "btn-control w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold";
+        }
+
+        // --- Phase Preservation Update Functions ---
+        
+        function updateSpringParams(newK, newM) {
+            const oldOmega = sim2.omega;
+            const currentTotalPhase = oldOmega * sim2.simTime + sim2.phase;
+            
+            if (newK !== undefined) sim2.k = parseFloat(newK);
+            if (newM !== undefined) sim2.m = parseFloat(newM);
+            
+            const newOmega = sim2.omega;
+            sim2.phase = currentTotalPhase - newOmega * sim2.simTime;
+            
+            document.getElementById('val-k').innerText = sim2.k;
+            document.getElementById('val-m').innerText = sim2.m;
+            updateT2Display();
+        }
+
+        function updatePendulumParams(newL, newM) {
+            const oldOmega = sim3.omega;
+            const currentTotalPhase = oldOmega * sim3.simTime + sim3.phase;
+
+            if (newL !== undefined) sim3.L = parseFloat(newL);
+            if (newM !== undefined) sim3.m = parseFloat(newM);
+
+            const newOmega = sim3.omega;
+            sim3.phase = currentTotalPhase - newOmega * sim3.simTime;
+
+            document.getElementById('val-L').innerText = sim3.L;
+            document.getElementById('val-m3').innerText = sim3.m;
+            updateT3Display();
+        }
+
+        // --- Sim Objects (State for each tab) ---
+        
+        const sim1 = {
+            radius: 1.5, omega: 2, angle: 0,
+            showLightH: false, showLightV: false,
+            init() { this.angle = 0; this.updateControls(); },
+            updateControls() {
+                controlsContainer.innerHTML = `
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-gray-700">實驗 1: 參考圓與投影</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">角速度 ω (rad/s)</label>
+                            <input type="range" min="0.5" max="5" step="0.1" value="${this.omega}" 
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                oninput="sim1.omega = parseFloat(this.value); document.getElementById('val-omega').innerText = this.value">
+                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-omega">${this.omega}</span> rad/s</div>
+                        </div>
+                        <div class="flex flex-col gap-3 pt-2">
+                             <button onclick="sim1.showLightH = !sim1.showLightH; this.classList.toggle('bg-yellow-100'); this.classList.toggle('border-yellow-400')" 
+                                class="w-full py-2 border rounded-lg flex items-center justify-center gap-2 ${this.showLightH ? 'bg-yellow-100 border-yellow-400' : 'bg-white border-gray-300'}">
+                                🔦 右側平行光 (水平投影)
+                             </button>
+                             <button onclick="sim1.showLightV = !sim1.showLightV; this.classList.toggle('bg-yellow-100'); this.classList.toggle('border-yellow-400')" 
+                                class="w-full py-2 border rounded-lg flex items-center justify-center gap-2 ${this.showLightV ? 'bg-yellow-100 border-yellow-400' : 'bg-white border-gray-300'}">
+                                💡 上方平行光 (垂直投影)
+                             </button>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const sim2 = {
+            k: 20, m: 1, amp: 1.5, phase: 0, simTime: 0,
+            isRunning: true,
+            cycleTimer: 0,
+            
+            init() {
+                this.simTime = 0;
+                this.cycleTimer = 0;
+                this.isRunning = true;
+                this.updateControls();
+            },
+            get omega() { return Math.sqrt(this.k / this.m); },
+            updateControls() {
+                controlsContainer.innerHTML = `
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-gray-700">實驗 2: 水平彈簧系統</h3>
+                        
+                        <div class="flex gap-2">
+                            <button id="btn-sim2-toggle" onclick="toggleSim2Run()" class="btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold">⏸ 暫停</button>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">彈性常數 k (N/m)</label>
+                            <input type="range" min="5" max="50" step="1" value="${this.k}" 
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                oninput="updateSpringParams(this.value, undefined)">
+                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-k">${this.k}</span> N/m</div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">物體質量 m (kg)</label>
+                            <input type="range" min="0.5" max="5" step="0.1" value="${this.m}" 
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                oninput="updateSpringParams(undefined, this.value)">
+                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-m">${this.m}</span> kg</div>
+                        </div>
+
+                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <div class="text-xs text-gray-600">理論週期 T = 2π√(m/k)</div>
+                            <div class="text-lg font-bold text-blue-800" id="calc-T2">
+                                ${ (2 * Math.PI * Math.sqrt(this.m/this.k)).toFixed(2) } s
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const sim3 = {
+            L: 2, m: 1, g: 9.8, thetaMax: Math.PI / 6, phase: 0, simTime: 0,
+            isRunning: true,
+            cycleTimer: 0,
+
+            init() {
+                this.simTime = 0;
+                this.cycleTimer = 0;
+                this.isRunning = true;
+                this.updateControls();
+            },
+            get omega() { return Math.sqrt(this.g / this.L); },
+            updateControls() {
+                controlsContainer.innerHTML = `
+                    <div class="space-y-4">
+                        <h3 class="font-bold text-gray-700">實驗 3: 單擺系統</h3>
+
+                        <div class="flex gap-2">
+                            <button id="btn-sim3-toggle" onclick="toggleSim3Run()" class="btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold">⏸ 暫停</button>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">擺長 L (m)</label>
+                            <input type="range" min="0.5" max="3" step="0.1" value="${this.L}" 
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                oninput="updatePendulumParams(this.value, undefined)">
+                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-L">${this.L}</span> m</div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">擺錘質量 m (kg)</label>
+                            <input type="range" min="0.5" max="5" step="0.1" value="${this.m}" 
+                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                oninput="updatePendulumParams(undefined, this.value)">
+                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-m3">${this.m}</span> kg</div>
+                        </div>
+
+                         <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <div class="text-xs text-gray-600">理論週期 T = 2π√(L/g)</div>
+                            <div class="text-lg font-bold text-blue-800" id="calc-T3">
+                                ${ (2 * Math.PI * Math.sqrt(this.L/this.g)).toFixed(2) } s
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        // --- Core Functions ---
+
+        function switchTab(tabIndex) {
+            currentTab = tabIndex;
+            const legendA = document.getElementById('legend-a');
+            if (legendA) {
+                if (tabIndex === 1) legendA.style.display = 'none';
+                else legendA.style.display = 'flex';
+            }
+            [1, 2, 3].forEach(i => {
+                const btn = document.getElementById(`btn-tab${i}`);
+                if (i === tabIndex) {
+                    btn.className = "px-6 py-2 rounded-t-lg font-semibold transition-all tab-active";
+                } else {
+                    btn.className = "px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive";
+                }
+            });
+            if(tabIndex === 1) sim1.init();
+            if(tabIndex === 2) sim2.init();
+            if(tabIndex === 3) sim3.init();
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = container.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        // --- Drawing Helpers ---
+
+        function drawArrow(ctx, x1, y1, x2, y2, color, width = 3) {
+            if (!config.showVectors) return;
+            const headLength = 10; 
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.sqrt(dx*dx + dy*dy);
+            if (length < 5) return;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(x2, y2);
+            ctx.fillStyle = color; ctx.fill();
+        }
+
+        function drawSpring(ctx, x1, y1, x2, y2, coils, width, color) {
+            const dx = x2 - x1; const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.save();
+            ctx.translate(x1, y1);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(20, 0);
+            for (let i = 0; i <= coils; i++) {
+                const x = 20 + (len - 40) * (i / coils);
+                const y = (i % 2 === 0 ? -1 : 1) * width * (i === 0 || i === coils ? 0 : 1);
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(len, 0);
+            ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawTimer(ctx, x, y, time, period) {
+            ctx.save();
+            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+            ctx.beginPath();
+            ctx.roundRect(x - 100, y - 30, 200, 60, 10);
+            ctx.fill();
+            
+            ctx.fillStyle = "#4ade80"; // Green text
+            ctx.font = "bold 42px monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("t: " + time.toFixed(2) + "s", x, y);
+            ctx.restore();
+        }
+
+        function drawProjectionScreen(ctx, x, y, width, height, isHorizontal, labelType) {
+            ctx.save();
+            // Draw "Wall" or "Screen" background
+            // Light Blue (#e0f2fe)
+            ctx.fillStyle = "#e0f2fe";
+            ctx.strokeStyle = "#7dd3fc"; // Sky 300
+            ctx.lineWidth = 2;
+            
+            if (isHorizontal) {
+                // Horizontal Screen (Bottom)
+                ctx.beginPath();
+                ctx.roundRect(x, y, width, height, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                // Axis Line
+                ctx.beginPath();
+                ctx.moveTo(x + 10, y + height/2);
+                ctx.lineTo(x + width - 10, y + height/2);
+                ctx.strokeStyle = "#334155"; // Slate 700
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Ticks
+                const mid = x + width/2;
+                const range = (width - 40) / 2; // Approximate range A
+                
+                // Labels - Dark Text, Larger & Bold
+                ctx.fillStyle = "#0f172a"; // Slate 900
+                ctx.font = "bold 14px sans-serif";
+                ctx.textAlign = "center";
+                
+                // Center
+                ctx.beginPath(); ctx.moveTo(mid, y + height/2 - 5); ctx.lineTo(mid, y + height/2 + 5); ctx.stroke();
+                ctx.fillText("平衡點", mid, y + height + 20);
+                
+                // Left (-A)
+                ctx.beginPath(); ctx.moveTo(mid - range, y + height/2 - 5); ctx.lineTo(mid - range, y + height/2 + 5); ctx.stroke();
+                ctx.fillText("端點", mid - range, y + height + 20);
+
+                // Right (+A)
+                ctx.beginPath(); ctx.moveTo(mid + range, y + height/2 - 5); ctx.lineTo(mid + range, y + height/2 + 5); ctx.stroke();
+                ctx.fillText("端點", mid + range, y + height + 20);
+
+            } else {
+                // Vertical Screen (Left)
+                ctx.beginPath();
+                ctx.roundRect(x, y, width, height, 5);
+                ctx.fill();
+                ctx.stroke();
+
+                // Axis Line
+                ctx.beginPath();
+                ctx.moveTo(x + width/2, y + 10);
+                ctx.lineTo(x + width/2, y + height - 10);
+                ctx.strokeStyle = "#334155"; // Slate 700
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Ticks
+                const mid = y + height/2;
+                const range = (height - 40) / 2;
+
+                ctx.fillStyle = "#0f172a"; // Slate 900
+                ctx.font = "bold 14px sans-serif";
+                
+                // CHANGED: Align text to the LEFT side (start of text) 
+                // and position it to the RIGHT of the wall to avoid clipping on the left edge of canvas
+                ctx.textAlign = "left"; 
+                
+                // Center
+                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid); ctx.lineTo(x + width/2 + 5, mid); ctx.stroke();
+                // Draw text at x + width + 5 (Right side of wall)
+                ctx.fillText("平衡點", x + width + 5, mid + 4);
+
+                // Top (+A)
+                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid - range); ctx.lineTo(x + width/2 + 5, mid - range); ctx.stroke();
+                ctx.fillText("端點", x + width + 5, mid - range + 4);
+
+                // Bottom (-A)
+                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid + range); ctx.lineTo(x + width/2 + 5, mid + range); ctx.stroke();
+                ctx.fillText("端點", x + width + 5, mid + range + 4);
+            }
+            ctx.restore();
+        }
+
+
+        // --- Physics & Render Loops ---
+
+        function update(dt) {
+            if (config.slowMo) dt *= 0.2;
+            
+            // Tab 1
+            if (currentTab === 1) {
+                sim1.angle += sim1.omega * dt;
+            }
+
+            // Tab 2
+            else if (currentTab === 2) {
+                if (!draggedObject && sim2.isRunning) {
+                    sim2.simTime += dt;
+                    const period = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
+                    sim2.cycleTimer += dt;
+                    if (sim2.cycleTimer > period) sim2.cycleTimer -= period;
+                }
+            }
+
+            // Tab 3
+            else if (currentTab === 3) {
+                if (!draggedObject && sim3.isRunning) {
+                    sim3.simTime += dt;
+                    const period = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
+                    sim3.cycleTimer += dt;
+                    if (sim3.cycleTimer > period) sim3.cycleTimer -= period;
+                }
+            }
+        }
+
+        function draw() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            const cx = w / 2;
+            const cy = h / 2;
+            const ppm = config.pixelsPerMeter;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Tab 1: Reference Circle
+            if (currentTab === 1) {
+                const rPix = sim1.radius * ppm;
+                const ballX = cx + rPix * Math.cos(sim1.angle);
+                const ballY = cy - rPix * Math.sin(sim1.angle);
+                const vMag = sim1.radius * sim1.omega;
+                const vMathX = -vMag * Math.sin(sim1.angle);
+                const vMathY = vMag * Math.cos(sim1.angle);
+                const vScale = 0.3 * ppm; 
+
+                // Draw Reference Circle
+                ctx.beginPath(); ctx.arc(cx, cy, rPix, 0, Math.PI * 2);
+                ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+                // Draw Projection Screens
+                const screenPadding = 20; 
+                // Vertical Screen (Left)
+                drawProjectionScreen(ctx, 40, cy - rPix - screenPadding, 40, 2*rPix + 2*screenPadding, false);
+                
+                // Horizontal Screen (Bottom)
+                // CHANGED: Move horizontal screen UP by 30px (h - 90 instead of h - 60)
+                drawProjectionScreen(ctx, cx - rPix - screenPadding, h - 90, 2*rPix + 2*screenPadding, 40, true);
+
+                // Projection Lines
+                ctx.strokeStyle = "#FCD34D"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                if (sim1.showLightH) { ctx.beginPath(); ctx.moveTo(w, ballY); ctx.lineTo(60, ballY); ctx.stroke(); }
+                
+                // CHANGED: Target y for Vertical light is now h - 70 (top of bottom wall)
+                if (sim1.showLightV) { ctx.beginPath(); ctx.moveTo(ballX, 0); ctx.lineTo(ballX, h - 70); ctx.stroke(); }
+                ctx.setLineDash([]); 
+
+                if (sim1.showLightH) {
+                    // Shadow on Left Screen
+                    ctx.beginPath(); ctx.arc(60, ballY, 15, 0, Math.PI * 2); ctx.fillStyle = "#1e293b"; ctx.fill();
+                    // Vector
+                    drawArrow(ctx, 60, ballY, 60, ballY - vMathY * vScale, "#4ade80");
+                }
+                if (sim1.showLightV) {
+                    // Shadow on Bottom Screen
+                    // Draw at new center y = h - 70
+                    ctx.beginPath(); ctx.arc(ballX, h - 70, 15, 0, Math.PI * 2); ctx.fillStyle = "#1e293b"; ctx.fill();
+                    // Vector
+                    drawArrow(ctx, ballX, h - 70, ballX + vMathX * vScale, h - 70, "#4ade80");
+                }
+
+                // Reference Ball - Radius reduced to 15
+                ctx.beginPath(); ctx.arc(ballX, ballY, 15, 0, Math.PI * 2); ctx.fillStyle = "#ef4444"; ctx.fill();
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+                drawArrow(ctx, ballX, ballY, ballX + vMathX * vScale, ballY - vMathY * vScale, "#4ade80"); 
+            }
+
+            // Tab 2: Spring
+            else if (currentTab === 2) {
+                let x;
+                if (draggedObject === 'mass') {
+                    x = (mouse.x - cx) / ppm;
+                } else {
+                    x = sim2.amp * Math.cos(sim2.omega * sim2.simTime + sim2.phase);
+                }
+
+                const blockX = cx + x * ppm;
+                const blockY = cy + 50;
+                const wallX = 50;
+                
+                ctx.beginPath(); ctx.moveTo(0, blockY + 30); ctx.lineTo(w, blockY + 30);
+                ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 4; ctx.stroke();
+
+                ctx.beginPath(); ctx.moveTo(cx, blockY - 50); ctx.lineTo(cx, blockY + 50);
+                ctx.strokeStyle = "#94a3b8"; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillStyle = "#cbd5e1"; ctx.fillText("平衡點 (x=0)", cx - 30, blockY + 70);
+
+                ctx.fillStyle = "#94a3b8"; ctx.fillRect(0, blockY - 100, wallX, 130);
+                drawSpring(ctx, wallX, blockY, blockX, blockY, 15, 20, "#ffffff");
+
+                ctx.fillStyle = draggedObject ? "#F3D5A8" : "#E2C08D";
+                ctx.fillRect(blockX - 30, blockY - 30, 60, 60);
+                
+                ctx.strokeStyle = "#C19A6B"; ctx.lineWidth = 2; ctx.beginPath();
+                ctx.moveTo(blockX - 20, blockY - 20); ctx.lineTo(blockX - 20, blockY + 20);
+                ctx.moveTo(blockX, blockY - 25); ctx.lineTo(blockX, blockY + 25);
+                ctx.moveTo(blockX + 20, blockY - 20); ctx.lineTo(blockX + 20, blockY + 20);
+                ctx.stroke();
+                
+                ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(blockX - 30, blockY - 30, 60, 60);
+                ctx.fillStyle = "#5c4033"; ctx.textAlign = "center"; ctx.font = "bold 14px sans-serif"; ctx.fillText("m", blockX, blockY + 5);
+
+                const period = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
+                drawTimer(ctx, cx, blockY + 120, sim2.cycleTimer, period);
+
+                if (!draggedObject) {
+                    const v = -sim2.amp * sim2.omega * Math.sin(sim2.omega * sim2.simTime + sim2.phase);
+                    const a = -sim2.omega * sim2.omega * x;
+                    
+                    // Reduced vectors to 1/3 length: 
+                    // Velocity: 20 -> 6.66
+                    // Accel: 5 -> 1.66
+                    const vScale = 20 / 3;
+                    const aScale = 5 / 3;
+                    
+                    drawArrow(ctx, blockX, blockY - 35, blockX + v * vScale, blockY - 35, "#4ade80");
+                    drawArrow(ctx, blockX, blockY, blockX + a * aScale, blockY, "#f87171");
+                }
+            }
+
+            // Tab 3: Pendulum
+            else if (currentTab === 3) {
+                const pivotX = cx;
+                const pivotY = 50;
+
+                let theta;
+                if (draggedObject === 'bob') {
+                    const dx = mouse.x - pivotX;
+                    const dy = mouse.y - pivotY;
+                    theta = Math.atan2(dx, dy);
+                } else {
+                    theta = sim3.thetaMax * Math.cos(sim3.omega * sim3.simTime + sim3.phase);
+                }
+
+                const visualScale = 1.5;
+                const lenPix = sim3.L * ppm * visualScale;
+                
+                const bobX = pivotX + lenPix * Math.sin(theta);
+                const bobY = pivotY + lenPix * Math.cos(theta);
+
+                ctx.fillStyle = "#94a3b8"; ctx.fillRect(cx - 50, pivotY - 10, 100, 10);
+
+                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bobX, bobY);
+                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+
+                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(pivotX, pivotY + lenPix + 50);
+                ctx.setLineDash([5, 5]); ctx.strokeStyle = "#64748b"; ctx.stroke(); ctx.setLineDash([]);
+
+                // Reduced Size: Original (15 + mass*5) / 3
+                const bobRadius = (15 + sim3.m * 5) / 3;
+                ctx.beginPath(); ctx.arc(bobX, bobY, bobRadius, 0, Math.PI * 2);
+                ctx.fillStyle = draggedObject ? "#60A5FA" : "#3B82F6"; ctx.fill();
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+
+                const period = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
+                drawTimer(ctx, cx, h - 80, sim3.cycleTimer, period);
+
+                if (!draggedObject) {
+                    const angularVel = -sim3.thetaMax * sim3.omega * Math.sin(sim3.omega * sim3.simTime + sim3.phase);
+                    const vTangential = angularVel * lenPix;
+                    
+                    const vX = vTangential * Math.cos(theta);
+                    const vY = -vTangential * Math.sin(theta);
+                    const aTangential = -9.8 * Math.sin(theta) * 20;
+
+                    // Vectors Scale: 0.2 (old) * 1.5 = 0.3
+                    const vecScale = 0.3;
+                    
+                    drawArrow(ctx, bobX, bobY, bobX + vX * vecScale, bobY + vY * vecScale, "#4ade80");
+                    
+                    // Corrected Acceleration Direction (Tangential towards equilibrium)
+                    // Tangent vector is (cos(theta), -sin(theta))
+                    // aTangential magnitude calculated is negative when theta > 0
+                    // Correct draw logic: add (cos, -sin) scaled by magnitude
+                    drawArrow(ctx, bobX, bobY, bobX + Math.cos(theta)*aTangential * vecScale, bobY - Math.sin(theta)*aTangential * vecScale, "#f87171");
+                }
+            }
+        }
+
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            update(dt);
+            draw();
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // --- Interaction Handlers ---
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = (e.clientX - rect.left) * window.devicePixelRatio / rect.width * canvas.width / window.devicePixelRatio;
+            mouse.y = (e.clientY - rect.top) * window.devicePixelRatio / rect.height * canvas.height / window.devicePixelRatio;
+            mouse.isDown = true;
+            
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            const cx = w / 2;
+            const cy = h / 2;
+            const ppm = config.pixelsPerMeter;
+
+            if (currentTab === 2) {
+                const x = sim2.amp * Math.cos(sim2.omega * sim2.simTime + sim2.phase);
+                const blockX = cx + x * ppm;
+                const blockY = cy + 50;
+                
+                if (Math.abs(mouse.x - blockX) < 40 && Math.abs(mouse.y - blockY) < 40) {
+                    draggedObject = 'mass';
+                    canvas.style.cursor = 'grabbing';
+                    sim2.isRunning = false; // Pause while dragging
+                }
+            } else if (currentTab === 3) {
+                const theta = sim3.thetaMax * Math.cos(sim3.omega * sim3.simTime + sim3.phase);
+                const visualScale = 1.5;
+                const lenPix = sim3.L * ppm * visualScale;
+                
+                const bobX = cx + lenPix * Math.sin(theta);
+                const bobY = 50 + lenPix * Math.cos(theta);
+                
+                if (Math.hypot(mouse.x - bobX, mouse.y - bobY) < 40) {
+                    draggedObject = 'bob';
+                    canvas.style.cursor = 'grabbing';
+                    sim3.isRunning = false; // Pause while dragging
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width); // Scaled for draw
+            mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+        });
+
+        window.addEventListener('mouseup', () => {
+            mouse.isDown = false;
+            canvas.style.cursor = 'crosshair';
+            
+            if (draggedObject === 'mass') {
+                const w = canvas.width / window.devicePixelRatio;
+                const cx = w / 2;
+                const newX = (mouse.x - cx) / config.pixelsPerMeter;
+                sim2.amp = Math.abs(newX);
+                sim2.phase = newX > 0 ? 0 : Math.PI;
+                sim2.simTime = 0;
+                sim2.cycleTimer = 0; // Reset timer on release
+                sim2.isRunning = true; // Auto resume
+                document.getElementById('btn-sim2-toggle').innerHTML = "⏸ 暫停";
+                document.getElementById('btn-sim2-toggle').className = "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold";
+                if(document.getElementById('calc-T2')) 
+                    document.getElementById('calc-T2').innerText = (2 * Math.PI * Math.sqrt(sim2.m/sim2.k)).toFixed(2) + " s";
+            } else if (draggedObject === 'bob') {
+                const w = canvas.width / window.devicePixelRatio;
+                const cx = w / 2;
+                const dx = mouse.x - cx;
+                const dy = mouse.y - 50;
+                let newTheta = Math.atan2(dx, dy);
+                
+                sim3.thetaMax = Math.abs(newTheta);
+                sim3.phase = newTheta > 0 ? 0 : Math.PI;
+                sim3.simTime = 0;
+                sim3.cycleTimer = 0; // Reset timer on release
+                sim3.isRunning = true; // Auto resume
+                document.getElementById('btn-sim3-toggle').innerHTML = "⏸ 暫停";
+                document.getElementById('btn-sim3-toggle').className = "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold";
+                 if(document.getElementById('calc-T3')) 
+                    document.getElementById('calc-T3').innerText = (2 * Math.PI * Math.sqrt(sim3.L/sim3.g)).toFixed(2) + " s";
+            }
+            draggedObject = null;
+        });
+
+        // Toggle Listeners
+        document.getElementById('slowMoToggle').addEventListener('change', (e) => {
+            config.slowMo = e.target.checked;
+        });
+        document.getElementById('vectorToggle').addEventListener('change', (e) => {
+            config.showVectors = e.target.checked;
+        });
+
+        // Initialize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        sim1.init(); 
+        switchTab(1);
+        requestAnimationFrame(loop);
+
+        setTimeout(() => {
+            document.getElementById('dragHint').classList.remove('opacity-0');
+            setTimeout(() => {
+                document.getElementById('dragHint').classList.add('opacity-0');
+            }, 4000);
+        }, 1000);
+
+    </script>
+</body>
+</html>

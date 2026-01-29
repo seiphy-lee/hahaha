@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理展示：克卜勒第三定律模擬</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505; /* 深邃宇宙黑 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            display: flex; /* 使用 Flexbox 佈局 */
+            height: 100vh; /* 滿版高度 */
+        }
+
+        /* 左側獨立側邊欄 */
+        #controls {
+            width: 320px; /* 固定寬度 */
+            min-width: 320px;
+            height: 100%;
+            background: #1e1e28;
+            padding: 20px;
+            box-sizing: border-box; /* 確保 padding 不會撐大寬度 */
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto; /* 如果內容太多可捲動 */
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.5);
+        }
+
+        /* 右側畫布容器 */
+        #canvas-container {
+            flex-grow: 1; /* 佔滿剩餘空間 */
+            position: relative;
+            height: 100%;
+            background-color: #050505;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 1.4rem;
+            color: #4db8ff;
+            text-shadow: 0 0 5px rgba(77, 184, 255, 0.5);
+        }
+
+        p {
+            font-size: 0.95rem;
+            color: #ccc;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #ddd;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        
+        /* 數值顯示的小標籤 */
+        .value-display {
+            float: right;
+            font-size: 0.85rem;
+            color: #4db8ff;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        .legend {
+            margin-top: auto; /* 推到底部 */
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 20px;
+            line-height: 1.8;
+        }
+        
+        .formula {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid #4db8ff;
+        }
+    </style>
+</head>
+<body>
+
+<!-- HTML 結構 -->
+<div id="controls">
+    <h1>克卜勒第三定律</h1>
+    
+    <div class="formula">T² ∝ R³</div>
+
+    <p>老師的話：<br>透過左側面板控制，觀察行星運動週期與軌道半徑的關係。注意哈雷彗星在近日點與遠日點的速度變化。</p>
+
+    <div class="control-group">
+        <label for="speedSlider">模擬速度 (Time) <span id="speedVal" class="value-display">1.0x</span></label>
+        <input type="range" id="speedSlider" min="0" max="5" step="0.1" value="1">
+    </div>
+
+    <!-- 畫面縮放 -->
+    <div class="control-group">
+        <label for="zoomSlider">畫面縮放 (Zoom) <span id="zoomVal" class="value-display">1.0x</span></label>
+        <input type="range" id="zoomSlider" min="0.5" max="3" step="0.1" value="1">
+    </div>
+
+    <div class="control-group" style="background: none; padding: 0;">
+        <div class="checkbox-group">
+            <input type="checkbox" id="showTrails" checked>
+            <label for="showTrails">顯示軌跡 (Trails)</label>
+        </div>
+        
+        <div class="checkbox-group">
+            <input type="checkbox" id="showLabels" checked>
+            <label for="showLabels">顯示標籤 (Labels)</label>
+        </div>
+    </div>
+
+    <div class="legend">
+        <strong>圖例說明：</strong><br>
+        <span style="color: #FFD700">●</span> 太陽 (Sun)<br>
+        <span style="color: #aaa">●</span> 行星 (Planets)<br>
+        <span style="color: #666">. .</span> 小行星帶 (Asteroids)<br>
+        <span style="color: #00ffcc">/</span> 哈雷彗星 (Halley)
+    </div>
+</div>
+
+<div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+</div>
+
+<script>
+    /**
+     * 高中物理模擬：克卜勒第三定律 (優化版：絲滑文字 + High DPI)
+     * 作者：物理動畫大師
+     */
+
+    const canvas = document.getElementById('simCanvas');
+    const container = document.getElementById('canvas-container'); // 取得容器
+    const ctx = canvas.getContext('2d');
+    
+    // UI 元素
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomVal = document.getElementById('zoomVal');
+    const showTrailsCb = document.getElementById('showTrails');
+    const showLabelsCb = document.getElementById('showLabels');
+
+    let width, height, centerX, centerY;
+    let baseScale = 1;
+    let userZoom = 1;
+    let scale = 1;
+    let speedMultiplier = 1;
+    let dpr = 1; // Device Pixel Ratio
+
+    // 定義天體資料
+    const planetsData = [
+        { name: "水星", color: "#A5A5A5", distance: 60, radius: 3 },
+        { name: "金星", color: "#E3BB76", distance: 85, radius: 5 },
+        { name: "地球", color: "#4da6ff", distance: 115, radius: 5.5 },
+        { name: "火星", color: "#ff6666", distance: 150, radius: 4 },
+        { name: "木星", color: "#ffae42", distance: 260, radius: 14 },
+        { name: "土星", color: "#f4d03f", distance: 340, radius: 12, hasRing: true },
+        { name: "天王星", color: "#66ccff", distance: 410, radius: 9 },
+        { name: "海王星", color: "#3366cc", distance: 470, radius: 8 }
+    ];
+
+    // 小行星帶粒子
+    const asteroids = [];
+    const ASTEROID_COUNT = 150;
+
+    // 哈雷彗星資料
+    const halley = {
+        name: "哈雷彗星",
+        color: "#00ffcc",
+        a: 200, 
+        e: 0.85, 
+        angle: Math.PI, 
+        trail: []
+    };
+
+    // 初始化與響應式調整 (包含 High DPI 支援)
+    function resize() {
+        // 取得螢幕的像素密度 (Retina 螢幕通常是 2 或 3)
+        dpr = window.devicePixelRatio || 1;
+        
+        // 邏輯寬高 (CSS 像素)
+        width = container.clientWidth;
+        height = container.clientHeight;
+        
+        // 設定 Canvas 的「物理像素」大小 (乘上 DPR)
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        
+        // 設定 Canvas 的「CSS 樣式」大小 (維持原狀)
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        
+        centerX = width / 2;
+        centerY = height / 2;
+        
+        const minDim = Math.min(width, height);
+        baseScale = (minDim / 2) / 550; 
+        updateTotalScale();
+    }
+
+    function updateTotalScale() {
+        scale = baseScale * userZoom;
+    }
+    
+    window.addEventListener('resize', resize);
+
+    // 初始化小行星帶
+    for (let i = 0; i < ASTEROID_COUNT; i++) {
+        const minDist = 170;
+        const maxDist = 230;
+        const dist = minDist + Math.random() * (maxDist - minDist);
+        asteroids.push({
+            distance: dist,
+            angle: Math.random() * Math.PI * 2,
+            size: Math.random() * 1.5 + 0.5,
+            angularSpeed: 50 / Math.pow(dist, 1.5)
+        });
+    }
+
+    // 初始化行星物件
+    const planets = planetsData.map(p => {
+        return {
+            ...p,
+            angle: Math.random() * Math.PI * 2,
+            angularSpeed: 50 / Math.pow(p.distance, 1.5), 
+            trail: []
+        };
+    });
+
+    // 繪製與更新迴圈
+    function animate() {
+        // 1. 重置變換矩陣並應用 DPR 縮放
+        // 這樣所有的繪圖指令都會自動縮放以適應高解析度螢幕
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // 清除畫布
+        ctx.fillStyle = "#050505";
+        ctx.fillRect(0, 0, width, height);
+
+        // 繪製背景星星
+        drawStars();
+
+        // 儲存標籤資料的陣列，稍後統一繪製
+        const labelsToDraw = [];
+
+        ctx.save();
+        // 應用模擬的縮放與平移
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+
+        // 1. 繪製太陽
+        drawSun();
+
+        // 2. 更新並繪製小行星
+        ctx.fillStyle = "#666";
+        asteroids.forEach(ast => {
+            ast.angle += ast.angularSpeed * speedMultiplier * 0.1;
+            const x = Math.cos(ast.angle) * ast.distance;
+            const y = Math.sin(ast.angle) * ast.distance;
+            ctx.beginPath();
+            ctx.arc(x, y, ast.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 3. 更新並繪製行星
+        planets.forEach(p => {
+            p.angle += p.angularSpeed * speedMultiplier * 0.1;
+
+            const x = Math.cos(p.angle) * p.distance;
+            const y = Math.sin(p.angle) * p.distance;
+
+            // 軌跡與軌道線
+            if (showTrailsCb.checked) {
+                // 靜態軌道
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+                ctx.lineWidth = 1 / scale; 
+                if (ctx.lineWidth < 0.5) ctx.lineWidth = 0.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, p.distance, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // 動態拖尾
+                p.trail.push({x, y});
+                if (p.trail.length > 50) p.trail.shift();
+                
+                ctx.beginPath();
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = Math.max(1 / scale, 1);
+                
+                for (let i = 0; i < p.trail.length - 1; i++) {
+                   ctx.globalAlpha = (i / p.trail.length) * 0.5;
+                   ctx.beginPath();
+                   ctx.moveTo(p.trail[i].x, p.trail[i].y);
+                   ctx.lineTo(p.trail[i+1].x, p.trail[i+1].y);
+                   ctx.stroke();
+                }
+                ctx.globalAlpha = 1.0;
+            } else {
+                p.trail = [];
+            }
+
+            // 繪製行星本體
+            let drawRadius = p.radius;
+            if (scale < 0.5) drawRadius = p.radius * (0.5 / scale);
+
+            ctx.beginPath();
+            ctx.fillStyle = p.color;
+            ctx.arc(x, y, drawRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (p.hasRing) {
+                ctx.strokeStyle = "rgba(200, 180, 100, 0.6)";
+                ctx.lineWidth = Math.max(3 / scale, 2);
+                ctx.beginPath();
+                ctx.ellipse(x, y, drawRadius * 2.2, drawRadius * 0.8, p.angle + Math.PI/4, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // 關鍵修改：不直接在這裡畫文字
+            // 而是將計算出的螢幕座標存起來
+            if (showLabelsCb.checked) {
+                // 將模擬座標轉換為螢幕座標
+                const screenX = centerX + x * scale;
+                const screenY = centerY + y * scale;
+                // 標籤偏移量 (也需要考慮 scale，讓它視覺上距離固定)
+                const offsetX = drawRadius * scale + 8;
+                const offsetY = 4;
+                
+                labelsToDraw.push({
+                    text: p.name,
+                    x: screenX + offsetX,
+                    y: screenY + offsetY,
+                    color: "#fff",
+                    isItalic: false
+                });
+            }
+        });
+
+        // 4. 哈雷彗星邏輯
+        const hResult = updateHalleyLogic(); 
+        // 畫哈雷彗星本體與軌跡 (仍在 scaled context 內)
+        drawHalley(hResult);
+        
+        // 收集哈雷彗星標籤
+        if (showLabelsCb.checked) {
+             const screenX = centerX + hResult.x * scale;
+             const screenY = centerY + hResult.y * scale;
+             labelsToDraw.push({
+                 text: halley.name,
+                 x: screenX + 12,
+                 y: screenY,
+                 color: "#00ffcc",
+                 isItalic: true
+             });
+        }
+
+        ctx.restore(); // 恢復到只有 DPR 縮放的狀態 (沒有 translate/scale)
+
+        // 5. 最後：繪製所有標籤 (使用整數座標以消除抖動)
+        drawLabels(labelsToDraw);
+
+        requestAnimationFrame(animate);
+    }
+
+    function drawSun() {
+        const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, 40);
+        gradient.addColorStop(0, "rgba(255, 220, 100, 1)");
+        gradient.addColorStop(0.5, "rgba(255, 150, 0, 0.5)");
+        gradient.addColorStop(1, "rgba(255, 100, 0, 0)");
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, 40, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function updateHalleyLogic() {
+        const r = (halley.a * (1 - halley.e * halley.e)) / (1 + halley.e * Math.cos(halley.angle));
+        const angularVelocity = 800 / (r * r); 
+        halley.angle += angularVelocity * speedMultiplier * 0.1;
+
+        const x = r * Math.cos(halley.angle);
+        const y = r * Math.sin(halley.angle);
+        
+        return {x, y};
+    }
+
+    function drawHalley(pos) {
+        const {x, y} = pos;
+        
+        if (showTrailsCb.checked) {
+            halley.trail.push({x, y});
+            if (halley.trail.length > 80) halley.trail.shift();
+            
+            ctx.beginPath();
+            ctx.strokeStyle = halley.color;
+            for (let i = 0; i < halley.trail.length - 1; i++) {
+                ctx.globalAlpha = (i / halley.trail.length) * 0.6;
+                ctx.lineWidth = Math.max((i / halley.trail.length) * 3 / scale, 1);
+                ctx.beginPath();
+                ctx.moveTo(halley.trail[i].x, halley.trail[i].y);
+                ctx.lineTo(halley.trail[i+1].x, halley.trail[i+1].y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+        } else {
+            halley.trail = [];
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        let size = Math.max(3/scale, 2);
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = "rgba(0, 255, 204, 0.5)";
+        ctx.beginPath();
+        ctx.arc(x, y, size * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 專門用來畫標籤的函數 (消除抖動關鍵)
+    function drawLabels(labels) {
+        labels.forEach(l => {
+            ctx.fillStyle = l.color;
+            // 字體大小固定，不隨縮放變得太小，但也不要太大
+            const fontSize = 12; 
+            ctx.font = l.isItalic ? `italic ${fontSize}px Arial` : `${fontSize}px Arial`;
+            
+            // 關鍵：使用 Math.round 強制座標整數化
+            // 這樣文字就不會落在小數點座標上 (例如 10.5px)，造成渲染引擎的次像素抖動
+            ctx.fillText(l.text, Math.round(l.x), Math.round(l.y));
+        });
+    }
+
+    const stars = [];
+    for(let i=0; i<300; i++) {
+        stars.push({
+            x: Math.random(),
+            y: Math.random(),
+            size: Math.random() * 1.5,
+            alpha: Math.random()
+        });
+    }
+
+    function drawStars() {
+        ctx.save();
+        ctx.fillStyle = "white";
+        stars.forEach(s => {
+            ctx.globalAlpha = s.alpha;
+            ctx.beginPath();
+            ctx.arc(s.x * width, s.y * height, s.size, 0, Math.PI*2);
+            ctx.fill();
+        });
+        ctx.restore();
+    }
+
+    // 事件監聽
+    speedSlider.addEventListener('input', (e) => {
+        speedMultiplier = parseFloat(e.target.value);
+        speedVal.textContent = speedMultiplier.toFixed(1) + "x";
+    });
+
+    zoomSlider.addEventListener('input', (e) => {
+        userZoom = parseFloat(e.target.value);
+        zoomVal.textContent = userZoom.toFixed(1) + "x";
+        updateTotalScale();
+    });
+
+    // 啟動
+    resize();
+    animate();
+
+</script>
+
+</body>
+</html>
