@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：動量守恆虛擬實驗室</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --bg: #f3f4f6;
+            --panel-bg: #ffffff;
+            --text: #1f2937;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Header & Tabs */
+        header {
+            width: 100%;
+            background-color: #1e3a8a;
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
+        .subtitle { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+            gap: 1rem;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .tab-btn:hover { background: rgba(255,255,255,0.2); }
+        .tab-btn.active {
+            background: white;
+            color: #1e3a8a;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Main Container */
+        .container {
+            width: 95%;
+            max-width: 1000px;
+            margin: 20px auto;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Canvas Area */
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(to bottom, #e0f2fe 0%, #fff 80%, #f0fdf4 80%); /* Sky to ground hint */
+            border-bottom: 1px solid #e5e7eb;
+            cursor: default;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* Prevent scroll on touch devices */
+        }
+
+        /* Controls Area */
+        .controls {
+            padding: 20px;
+            background-color: #fafafa;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            align-items: start;
+        }
+
+        .control-group {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #4b5563;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .input-row label { flex: 1; }
+        .input-row input[type="range"] { flex: 1.5; margin: 0 10px; }
+        .input-row span { width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+        .input-row input[type="checkbox"] { width: auto; margin-right: 10px; }
+
+        button.action-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button.action-btn:hover { background-color: #2563eb; }
+        button.action-btn.secondary { background-color: #6b7280; }
+        button.action-btn.secondary:hover { background-color: #4b5563; }
+        
+        button.action-btn.stop { background-color: #dc2626; }
+        button.action-btn.stop:hover { background-color: #b91c1c; }
+
+        /* Physics Info Box */
+        .physics-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .physics-info div { margin-bottom: 4px; }
+        .highlight { color: var(--primary); font-weight: bold; }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        /* Scenes Visibility */
+        .scene { display: none; }
+        .scene.active { display: block; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>高中物理模擬實驗室</h1>
+    <div class="subtitle">動量守恆與質心運動</div>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('scene1')">實驗一：人船模型</button>
+        <button class="tab-btn" onclick="switchTab('scene2')">實驗二：滑塊曲面</button>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Scene 1: Man and Cart -->
+    <div id="scene1" class="scene active">
+        <div class="canvas-wrapper">
+            <canvas id="canvas1"></canvas>
+            <div class="physics-info" id="info1">
+                <div>系統總動量: 0 kg·m/s</div>
+                <div>質心位置: 固定 (無外力)</div>
+                <div style="color: #666; margin-top:5px; font-style:italic;">提示：滑鼠可拖曳人物，亦可拖曳下方紫色箭頭標記</div>
+            </div>
+            <div id="tooltip1" class="tooltip"></div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <h3>角色設定</h3>
+                <div class="input-row">
+                    <label><input type="checkbox" id="checkManL" checked> 左側人物 (乙)</label>
+                </div>
+                <div class="input-row">
+                    <label>質量 (m1)</label>
+                    <input type="range" id="massManL" min="20" max="120" value="50">
+                    <span id="valMassManL">50kg</span>
+                </div>
+                <div class="input-row">
+                    <label><input type="checkbox" id="checkManR" checked> 右側人物 (甲)</label>
+                </div>
+                <div class="input-row">
+                    <label>質量 (m2)</label>
+                    <input type="range" id="massManR" min="20" max="120" value="80">
+                    <span id="valMassManR">80kg</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <h3>台車設定</h3>
+                <div class="input-row">
+                    <label>台車質量 (M)</label>
+                    <input type="range" id="massCart" min="10" max="200" value="40">
+                    <span id="valMassCart">40kg</span>
+                </div>
+                <div class="input-row">
+                    <label><input type="checkbox" id="showCM" checked> 顯示質心線 (CM)</label>
+                </div>
+                <button class="action-btn secondary" onclick="sim1.resetPositions()">重置位置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scene 2: Bowl and Ball -->
+    <div id="scene2" class="scene">
+        <div class="canvas-wrapper">
+            <canvas id="canvas2"></canvas>
+            <div class="physics-info" id="info2">
+                <div>水平動量守恆</div>
+                <div>力學能守恆</div>
+                <div>球速度: <span id="vBall">0.0</span> m/s</div>
+                <div>質心位置: 固定</div>
+                <div style="color: #666; margin-top:5px; font-style:italic;">提示：下方紫色箭頭標記可拖曳</div>
+            </div>
+        </div>
+        <div class="controls">
+            <div class="control-group">
+                <h3>系統參數</h3>
+                <div class="input-row">
+                    <label>小鋼珠質量 (m)</label>
+                    <input type="range" id="massBall" min="1" max="20" value="5">
+                    <span id="valMassBall">5kg</span>
+                </div>
+                <div class="input-row">
+                    <label>半圓碗質量 (M)</label>
+                    <input type="range" id="massBowl" min="5" max="100" value="20">
+                    <span id="valMassBowl">20kg</span>
+                </div>
+                <div class="input-row">
+                    <label>碗半徑 (R)</label>
+                    <input type="range" id="radiusBowl" min="2" max="5" step="0.5" value="3">
+                    <span id="valRadiusBowl">3m</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <h3>操作控制</h3>
+                <button class="action-btn" id="btnStart2" onclick="sim2.toggleAnimation()">開始釋放</button>
+                <button class="action-btn secondary" onclick="sim2.reset()">重置系統</button>
+                <div style="margin-top:10px; font-size:0.9rem; color:#666;">
+                    * 假設地面光滑，無摩擦力。<br>
+                    * 紅色虛線為系統共同質心 (CM)。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * 物理模擬核心邏輯
+ * * 1. 人船模型 (CartSimulation): 基於質心守恆公式 (靜態/幾何變換)
+ * 2. 滑塊曲面 (BowlSimulation): 基於運動方程式 (動態/數值積分)
+ */
+
+// --- 通用工具 ---
+function getMousePos(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: evt.clientX - rect.left,
+        y: evt.clientY - rect.top
+    };
+}
+
+// --- 模擬一：人船模型 (Man & Cart) ---
+class CartSimulation {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        
+        // 物理參數 (SI單位)
+        this.M = 40;  // 車重
+        this.m1 = 50; // 左人重
+        this.m2 = 80; // 右人重
+        this.L = 10;  // 車長 (meters)
+        
+        // 狀態
+        this.activeM1 = true;
+        this.activeM2 = true;
+        this.xCart = 0; // 車子中心相對於系統質心的位置
+        this.x1Rel = -4; // 人1相對於車中心的位置 (預設往左一點)
+        this.x2Rel = 4;  // 人2相對於車中心的位置
+        
+        // 可移動標記 (Marker)
+        this.markerX = -5; // 標記位置 (meters)
+
+        // 繪圖參數
+        this.scale = 60; // pixels per meter
+        this.groundY = 300;
+        this.cartHeight = 20;
+        this.wheelRadius = 10;
+        
+        // 互動
+        this.dragging = null; // 'm1', 'm2', 'marker'
+        this.dragOffsetX = 0;
+        this.showCM = true;
+
+        this.initListeners();
+        this.resize();
+        this.calculatePhysics(); // 初始計算
+        this.draw();
+    }
+
+    initListeners() {
+        // UI Inputs
+        document.getElementById('massManL').oninput = (e) => { this.m1 = +e.target.value; document.getElementById('valMassManL').innerText = this.m1+'kg'; this.calculatePhysics(); this.draw(); };
+        document.getElementById('massManR').oninput = (e) => { this.m2 = +e.target.value; document.getElementById('valMassManR').innerText = this.m2+'kg'; this.calculatePhysics(); this.draw(); };
+        document.getElementById('massCart').oninput = (e) => { this.M = +e.target.value; document.getElementById('valMassCart').innerText = this.M+'kg'; this.calculatePhysics(); this.draw(); };
+        document.getElementById('checkManL').onchange = (e) => { this.activeM1 = e.target.checked; this.calculatePhysics(); this.draw(); };
+        document.getElementById('checkManR').onchange = (e) => { this.activeM2 = e.target.checked; this.calculatePhysics(); this.draw(); };
+        document.getElementById('showCM').onchange = (e) => { this.showCM = e.target.checked; this.draw(); };
+
+        // Mouse Interaction
+        this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        window.addEventListener('mouseup', () => this.onMouseUp());
+        
+        // Touch support
+        this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.onMouseDown(e.touches[0]); }, {passive: false});
+        window.addEventListener('touchmove', (e) => { if(this.dragging) { e.preventDefault(); this.onMouseMove(e.touches[0]); } }, {passive: false});
+        window.addEventListener('touchend', () => this.onMouseUp());
+    }
+
+    resize() {
+        this.canvas.width = this.canvas.parentElement.offsetWidth;
+        this.canvas.height = this.canvas.parentElement.offsetHeight;
+        this.originX = this.canvas.width / 2; // 螢幕中心設為系統質心位置 (假設質心不動)
+        this.groundY = this.canvas.height * 0.75;
+        this.draw();
+    }
+
+    // 物理核心：計算車的位置
+    calculatePhysics() {
+        let totalMass = this.M;
+        let momentSum = 0;
+
+        if (this.activeM1) {
+            totalMass += this.m1;
+            momentSum += this.m1 * this.x1Rel;
+        }
+        if (this.activeM2) {
+            totalMass += this.m2;
+            momentSum += this.m2 * this.x2Rel;
+        }
+
+        this.xCart = -momentSum / totalMass;
+    }
+
+    resetPositions() {
+        this.x1Rel = -this.L/2 + 1;
+        this.x2Rel = this.L/2 - 1;
+        this.markerX = -5;
+        this.calculatePhysics();
+        this.draw();
+    }
+
+    // 坐標變換
+    toCanvasX(physX) { return this.originX + physX * this.scale; }
+    toPhysX(canvasX) { return (canvasX - this.originX) / this.scale; }
+
+    onMouseDown(evt) {
+        const pos = getMousePos(this.canvas, evt);
+        const mousePhysX = this.toPhysX(pos.x);
+        
+        const cartX = this.xCart;
+        const hitThreshold = 0.8; // meter for people
+        const markerThreshold = 0.5; // meter for marker
+
+        // Check Marker (Bottom Priority, but visual is distinct)
+        // Hit test for marker (Check Y coordinate too to differentiate)
+        if (Math.abs(mousePhysX - this.markerX) < markerThreshold && pos.y > this.groundY) {
+            this.dragging = 'marker';
+            this.dragOffsetX = this.markerX - mousePhysX;
+            return;
+        }
+
+        // Check People
+        if (this.activeM1 && Math.abs(mousePhysX - (cartX + this.x1Rel)) < hitThreshold && pos.y < this.groundY) {
+            this.dragging = 'm1';
+            this.dragOffsetX = this.x1Rel - (mousePhysX - cartX); 
+        } else if (this.activeM2 && Math.abs(mousePhysX - (cartX + this.x2Rel)) < hitThreshold && pos.y < this.groundY) {
+            this.dragging = 'm2';
+            this.dragOffsetX = this.x2Rel - (mousePhysX - cartX);
+        }
+    }
+
+    onMouseMove(evt) {
+        if (!this.dragging) return;
+        
+        const pos = getMousePos(this.canvas, evt);
+        let mousePhysX = this.toPhysX(pos.x);
+        
+        if (this.dragging === 'marker') {
+            this.markerX = mousePhysX + this.dragOffsetX;
+            this.draw();
+            return;
+        }
+
+        let totalMass = this.M + (this.activeM1 ? this.m1 : 0) + (this.activeM2 ? this.m2 : 0);
+        
+        if (this.dragging === 'm1') {
+            let term = 0;
+            if (this.activeM2) term = (this.m2 * this.x2Rel) / totalMass;
+            let factor = 1 - (this.m1 / totalMass);
+            if (factor > 0) {
+                this.x1Rel = (mousePhysX + term) / factor;
+            }
+        } else if (this.dragging === 'm2') {
+            let term = 0;
+            if (this.activeM1) term = (this.m1 * this.x1Rel) / totalMass;
+            let factor = 1 - (this.m2 / totalMass);
+            if (factor > 0) {
+                this.x2Rel = (mousePhysX + term) / factor;
+            }
+        }
+
+        // 限制人不能跑出車子 (修改：允許移動到最邊緣，limit = L/2)
+        let limit = this.L / 2; // 剛好在邊緣，所以有一半身體(一隻腳)會懸空
+        
+        if (this.dragging === 'm1') this.x1Rel = Math.max(-limit, Math.min(limit, this.x1Rel));
+        if (this.dragging === 'm2') this.x2Rel = Math.max(-limit, Math.min(limit, this.x2Rel));
+
+        this.calculatePhysics();
+        this.draw();
+    }
+
+    onMouseUp() {
+        this.dragging = null;
+    }
+
+    draw() {
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // 1. 畫地面與刻度
+        ctx.strokeStyle = '#9ca3af';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, this.groundY);
+        ctx.lineTo(width, this.groundY);
+        ctx.stroke();
+        
+        // 刻度
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#6b7280';
+        ctx.textAlign = 'center';
+        for (let x = -10; x <= 10; x++) {
+            let cx = this.toCanvasX(x);
+            if (cx > 0 && cx < width) {
+                ctx.beginPath();
+                ctx.moveTo(cx, this.groundY);
+                ctx.lineTo(cx, this.groundY + 10);
+                ctx.stroke();
+                if (x % 2 === 0) ctx.fillText(x + "m", cx, this.groundY + 25);
+            }
+        }
+
+        // 2. 畫質心 (CM) 標記 - 鉛直虛線
+        if (this.showCM) {
+            let cmX = this.toCanvasX(0); 
+            ctx.strokeStyle = '#ef4444'; 
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]); 
+            ctx.beginPath();
+            ctx.moveTo(cmX, 0);
+            ctx.lineTo(cmX, this.groundY + 30);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            ctx.fillStyle = '#ef4444';
+            ctx.fillText("CM", cmX + 15, 50);
+            
+            ctx.beginPath();
+            ctx.arc(cmX, this.groundY - 5, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 車子位置
+        let cartCX = this.toCanvasX(this.xCart);
+        let cartY = this.groundY - this.wheelRadius * 2 - this.cartHeight;
+        let cartW = this.L * this.scale;
+        
+        // 3. 畫輪子
+        ctx.fillStyle = '#4b5563';
+        let wheelY = this.groundY - this.wheelRadius;
+        ctx.beginPath();
+        ctx.arc(cartCX - cartW/2 + 30, wheelY, this.wheelRadius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cartCX + cartW/2 - 30, wheelY, this.wheelRadius, 0, Math.PI*2);
+        ctx.fill();
+
+        // 4. 畫車身
+        ctx.fillStyle = '#d97706'; 
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 3;
+        ctx.fillRect(cartCX - cartW/2, cartY, cartW, this.cartHeight);
+        ctx.strokeRect(cartCX - cartW/2, cartY, cartW, this.cartHeight);
+        
+        // NEW: 畫台車質心 (黃點) - 正中間
+        let cartCenterY = cartY + this.cartHeight / 2;
+        ctx.fillStyle = '#facc15'; // Yellow
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cartCX, cartCenterY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 5. 畫人
+        const drawPerson = (relX, mass, color, label) => {
+            let px = cartCX + relX * this.scale;
+            let py = cartY - 15; 
+            let size = 20 + (mass - 40) * 0.15;
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(px, py - size - 10, 10, 0, Math.PI*2); 
+            ctx.fill();
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(px, py - size);
+            ctx.lineTo(px, py); // 軀幹
+            
+            ctx.moveTo(px, py);
+            ctx.lineTo(px - 10, py + 15); // 左腳
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + 10, py + 15); // 右腳
+            
+            ctx.moveTo(px, py - size + 5);
+            ctx.lineTo(px - 10, py - size + 15);
+            ctx.moveTo(px, py - size + 5);
+            ctx.lineTo(px + 10, py - size + 15);
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.fillText(label, px, py - size - 25);
+        };
+
+        if (this.activeM1) drawPerson(this.x1Rel, this.m1, '#10b981', '乙');
+        if (this.activeM2) drawPerson(this.x2Rel, this.m2, '#3b82f6', '甲');
+
+        // NEW: 畫可移動標記 (紫色箭頭)
+        let mkX = this.toCanvasX(this.markerX);
+        let mkY = this.groundY + 15;
+        
+        ctx.fillStyle = '#8b5cf6'; // Violet
+        ctx.strokeStyle = '#5b21b6';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mkX, mkY); // Tip
+        ctx.lineTo(mkX - 8, mkY + 15); // Left
+        ctx.lineTo(mkX - 3, mkY + 15);
+        ctx.lineTo(mkX - 3, mkY + 25); // Stem
+        ctx.lineTo(mkX + 3, mkY + 25);
+        ctx.lineTo(mkX + 3, mkY + 15);
+        ctx.lineTo(mkX + 8, mkY + 15); // Right
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+// --- 模擬二：滑塊與曲面 (Bowl & Ball) ---
+class BowlSimulation {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        
+        this.m = 5;  
+        this.M = 20; 
+        this.R = 3;  
+        this.g = 9.8;
+        
+        // 初始化角度為精確的 -90度 (球心與圓心等高)
+        this.theta = -Math.PI / 2; 
+        this.omega = 0; 
+        this.xBowl = 0; 
+        this.vBowl = 0; 
+        
+        this.fixedCmPx = 0; // 用於儲存初始質心位置
+        
+        // 可移動標記
+        this.markerX = -3; // 預設標記位置
+
+        this.running = false;
+        this.lastTime = 0;
+        this.scale = 60; 
+        this.groundY = 320;
+        
+        // 互動
+        this.dragging = false;
+        this.dragOffsetX = 0;
+
+        this.initListeners();
+        this.resize();
+        this.reset();
+        
+        requestAnimationFrame((t) => this.loop(t));
+    }
+
+    initListeners() {
+        document.getElementById('massBall').oninput = (e) => { this.m = +e.target.value; document.getElementById('valMassBall').innerText = this.m+'kg'; this.reset(); };
+        document.getElementById('massBowl').oninput = (e) => { this.M = +e.target.value; document.getElementById('valMassBowl').innerText = this.M+'kg'; this.reset(); };
+        document.getElementById('radiusBowl').oninput = (e) => { this.R = +e.target.value; document.getElementById('valRadiusBowl').innerText = this.R+'m'; this.reset(); };
+    
+        // Add Mouse Listeners for Marker
+        this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+        window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+        window.addEventListener('mouseup', () => this.onMouseUp());
+        
+        // Touch support
+        this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.onMouseDown(e.touches[0]); }, {passive: false});
+        window.addEventListener('touchmove', (e) => { if(this.dragging) { e.preventDefault(); this.onMouseMove(e.touches[0]); } }, {passive: false});
+        window.addEventListener('touchend', () => this.onMouseUp());
+    }
+
+    // --- Added missing toPhysX method ---
+    toPhysX(canvasX) { 
+        return (canvasX - this.originX) / this.scale; 
+    }
+
+    onMouseDown(evt) {
+        const pos = getMousePos(this.canvas, evt);
+        const mousePhysX = this.toPhysX(pos.x);
+        
+        // Hit test for marker
+        if (Math.abs(mousePhysX - this.markerX) < 0.5 && pos.y > this.groundY) {
+            this.dragging = true;
+            this.dragOffsetX = this.markerX - mousePhysX;
+        }
+    }
+
+    onMouseMove(evt) {
+        if (this.dragging) {
+            const pos = getMousePos(this.canvas, evt);
+            const mousePhysX = this.toPhysX(pos.x);
+            this.markerX = mousePhysX + this.dragOffsetX;
+            if (!this.running) this.draw(); // Redraw if not animating
+        }
+    }
+
+    onMouseUp() {
+        this.dragging = false;
+    }
+
+    resize() {
+        this.canvas.width = this.canvas.parentElement.offsetWidth;
+        this.canvas.height = this.canvas.parentElement.offsetHeight;
+        this.originX = this.canvas.width / 2;
+        this.groundY = this.canvas.height * 0.8;
+        // Resize 會改變 originX，需要重算視覺質心位置
+        this.calculateFixedCM();
+        this.draw();
+    }
+
+    toggleAnimation() {
+        this.running = !this.running;
+        const btn = document.getElementById('btnStart2');
+        if (this.running) {
+            btn.innerText = "暫停模擬";
+            btn.classList.add('stop');
+            this.lastTime = performance.now();
+        } else {
+            btn.innerText = "繼續模擬";
+            btn.classList.remove('stop');
+        }
+    }
+
+    calculateFixedCM() {
+        // 在初始狀態下計算質心的螢幕座標，並將其鎖定
+        // 此時 xBowl = 0 (相對於 originX)
+        const rPx = this.R * this.scale;
+        const ballRadius = 12;
+        const trajR = rPx - ballRadius;
+        
+        // 初始球的位置 (相對 originX)
+        // x_ball = x_bowl + trajR * sin(theta)
+        // x_bowl = 0
+        const initialBallRelX = trajR * Math.sin(this.theta);
+        const initialBowlRelX = 0;
+        
+        const cmRelX = (this.M * initialBowlRelX + this.m * initialBallRelX) / (this.M + this.m);
+        this.fixedCmPx = this.originX + cmRelX;
+    }
+
+    reset() {
+        this.running = false;
+        document.getElementById('btnStart2').innerText = "開始釋放";
+        document.getElementById('btnStart2').classList.remove('stop');
+        
+        // 修正：初始位置在 -PI/2 (球心對齊碗最高點水平線)
+        this.theta = -Math.PI / 2; 
+        this.omega = 0;
+        this.xBowl = 0;
+        this.vBowl = 0;
+        
+        this.calculateFixedCM(); // 計算並鎖定質心線位置
+        
+        this.draw();
+        this.updateInfo();
+    }
+
+    // 計算角加速度 alpha
+    calculateAlpha(theta, omega) {
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+        const num = -(this.M + this.m) * this.g * sinT - this.m * this.R * omega * omega * sinT * cosT;
+        const den = this.R * (this.M + this.m * sinT * sinT);
+        return num / den;
+    }
+
+    updatePhysics(dt) {
+        if (dt > 0.05) dt = 0.05;
+
+        // 使用 RK4 (Runge-Kutta 4th Order) 積分法來替代歐拉法，大幅提高精確度
+        // 狀態變數: theta, omega
+        
+        // k1
+        const k1_theta = this.omega;
+        const k1_omega = this.calculateAlpha(this.theta, this.omega);
+
+        // k2
+        const k2_theta = this.omega + 0.5 * dt * k1_omega;
+        const k2_omega = this.calculateAlpha(this.theta + 0.5 * dt * k1_theta, this.omega + 0.5 * dt * k1_omega);
+
+        // k3
+        const k3_theta = this.omega + 0.5 * dt * k2_omega;
+        const k3_omega = this.calculateAlpha(this.theta + 0.5 * dt * k2_theta, this.omega + 0.5 * dt * k2_omega);
+
+        // k4
+        const k4_theta = this.omega + dt * k3_omega;
+        const k4_omega = this.calculateAlpha(this.theta + dt * k3_theta, this.omega + dt * k3_omega);
+
+        // 更新狀態
+        this.theta += (dt / 6.0) * (k1_theta + 2 * k2_theta + 2 * k3_theta + k4_theta);
+        this.omega += (dt / 6.0) * (k1_omega + 2 * k2_omega + 2 * k3_omega + k4_omega);
+        
+        // 根據水平動量守恆，計算碗的速度
+        this.vBowl = - (this.m * this.R * this.omega * Math.cos(this.theta)) / (this.M + this.m);
+        this.xBowl += this.vBowl * dt;
+    }
+
+    updateInfo() {
+        let v_rel = this.R * this.omega;
+        let v_bx = this.vBowl + v_rel * Math.cos(this.theta);
+        let v_by = v_rel * Math.sin(this.theta);
+        let v_total = Math.sqrt(v_bx*v_bx + v_by*v_by);
+        
+        document.getElementById('vBall').innerText = v_total.toFixed(2);
+    }
+
+    loop(timestamp) {
+        if (this.running) {
+            const dt = (timestamp - this.lastTime) / 1000;
+            this.lastTime = timestamp;
+            const steps = 5;
+            for(let i=0; i<steps; i++) {
+                this.updatePhysics(dt/steps);
+            }
+            this.updateInfo();
+        }
+        this.draw();
+        requestAnimationFrame((t) => this.loop(t));
+    }
+
+    toCanvasX(physX) { return this.originX + physX * this.scale; }
+
+    draw() {
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // 1. 地面
+        ctx.strokeStyle = '#9ca3af';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, this.groundY);
+        ctx.lineTo(width, this.groundY);
+        ctx.stroke();
+
+        // 2. 刻度尺
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#6b7280';
+        ctx.textAlign = 'center';
+        // 這裡我們畫的是實驗室座標系 (Lab Frame) 的刻度，因為碗在移動
+        for (let x = -10; x <= 10; x++) {
+            let cx_tick = this.toCanvasX(x);
+            if (cx_tick > 0 && cx_tick < width) {
+                ctx.beginPath();
+                ctx.moveTo(cx_tick, this.groundY);
+                ctx.lineTo(cx_tick, this.groundY + 10);
+                ctx.stroke();
+                if (x % 2 === 0) ctx.fillText(x + "m", cx_tick, this.groundY + 25);
+            }
+        }
+
+        // 碗中心坐標
+        const cx = this.toCanvasX(this.xBowl);
+        // cy 是碗的幾何中心(圓心)，也是碗口平面的高度
+        const rPx = this.R * this.scale;
+
+        // 畫碗 (半圓)
+        ctx.fillStyle = 'rgba(147, 197, 253, 0.5)'; 
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 4;
+        
+        ctx.beginPath();
+        ctx.arc(cx, this.groundY - rPx, rPx, 0, Math.PI); 
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = '#1e40af';
+        ctx.fillRect(cx - rPx, this.groundY, rPx*2, 5);
+
+        // NEW: 畫碗的質心 (黃點) - 修正為半圓形質心位置 (4R/3pi)
+        // 圓心在 cy = this.groundY - rPx
+        // 質心在圓心下方 4R/(3pi) 處
+        let bowlCMY = (this.groundY - rPx) + (4 * rPx) / (3 * Math.PI);
+
+        ctx.fillStyle = '#facc15'; // Yellow
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, bowlCMY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 畫球
+        const ballRadius = 12;
+        const trajR = rPx - ballRadius;
+        const ballPx = cx + trajR * Math.sin(this.theta);
+        const ballPy = (this.groundY - rPx) + trajR * Math.cos(this.theta); 
+        
+        ctx.fillStyle = '#f59e0b'; 
+        ctx.beginPath();
+        ctx.arc(ballPx, ballPy, ballRadius, 0, Math.PI*2); 
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // 畫系統共同質心 (CM) - 紅色虛線
+        let cmPx = this.fixedCmPx;
+
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(cmPx, 0);
+        ctx.lineTo(cmPx, this.groundY + 30);
+        ctx.stroke();
+        ctx.setLineDash([]); 
+        
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '12px Arial';
+        ctx.fillText("CM", cmPx + 5, 20);
+
+        // NEW: 畫可移動標記 (紫色箭頭)
+        let mkX = this.toCanvasX(this.markerX);
+        let mkY = this.groundY + 15;
+        
+        ctx.fillStyle = '#8b5cf6'; // Violet
+        ctx.strokeStyle = '#5b21b6';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mkX, mkY); // Tip
+        ctx.lineTo(mkX - 8, mkY + 15); // Left
+        ctx.lineTo(mkX - 3, mkY + 15);
+        ctx.lineTo(mkX - 3, mkY + 25); // Stem
+        ctx.lineTo(mkX + 3, mkY + 25);
+        ctx.lineTo(mkX + 3, mkY + 15);
+        ctx.lineTo(mkX + 8, mkY + 15); // Right
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 標記初始位置 (灰色虛線)
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(this.originX, 0);
+        ctx.lineTo(this.originX, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+}
+
+// --- 初始化與切換邏輯 ---
+let sim1, sim2;
+
+window.onload = function() {
+    sim1 = new CartSimulation('canvas1');
+    sim2 = new BowlSimulation('canvas2');
+    
+    window.addEventListener('resize', () => {
+        sim1.resize();
+        sim2.resize();
+    });
+};
+
+function switchTab(sceneId) {
+    document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(sceneId).classList.add('active');
+    
+    if(sceneId === 'scene1') {
+        document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+        sim1.resize(); 
+    } else {
+        document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+        sim2.resize();
+    }
+}
+
+</script>
+</body>
+</html>

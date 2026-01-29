@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物理模擬：軌道任務 (Orbit Mission)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; }
+        .panel {
+            backdrop-filter: blur(10px);
+            background-color: rgba(30, 41, 59, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        /* Scrollbar for panel */
+        .panel::-webkit-scrollbar {
+            width: 4px;
+        }
+        .panel::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-slate-200">
+
+    <!-- Control Panel -->
+    <div class="panel absolute top-4 left-4 w-80 p-5 rounded-2xl shadow-2xl z-10 transition-opacity duration-300" id="controls">
+        <h1 class="text-xl font-bold text-sky-400 mb-2 flex items-center">
+            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            軌道任務：牛頓大砲
+        </h1>
+        <p class="text-xs text-slate-400 mb-4">調整發射速度與高度，觀察軌道變化。</p>
+
+        <!-- Speed Control -->
+        <div class="mb-5">
+            <div class="flex justify-between mb-1">
+                <label class="text-sm font-medium text-slate-300">發射初速 ($v_0$)</label>
+                <span id="speedValue" class="text-sm font-mono text-sky-300">3.0 km/s</span>
+            </div>
+            <input type="range" id="speedSlider" min="0" max="10" step="0.1" value="3.0" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                <span>0</span>
+                <span>環繞</span>
+                <span>逃逸</span>
+            </div>
+        </div>
+
+        <!-- NEW: Height Control -->
+        <div class="mb-5 border-t border-slate-700 pt-4">
+            <div class="flex justify-between mb-1">
+                <label class="text-sm font-medium text-slate-300">發射高度 (h)</label>
+                <span id="heightValue" class="text-sm font-mono text-slate-400">1600 km</span>
+            </div>
+            <input type="range" id="heightSlider" min="0" max="100" step="1" value="15" class="w-full">
+            <div class="text-[10px] text-slate-500 mt-1">
+                高度越高，所需的環繞速度越小
+            </div>
+        </div>
+
+        <!-- NEW: Zoom Control -->
+        <div class="mb-6">
+            <div class="flex justify-between mb-1">
+                <label class="text-sm font-medium text-slate-300">畫面縮放 (Zoom)</label>
+                <span id="zoomValue" class="text-sm font-mono text-slate-400">1.0x</span>
+            </div>
+            <input type="range" id="zoomSlider" min="0.3" max="2.0" step="0.1" value="1.0" class="w-full">
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-2 mb-4">
+            <button id="launchBtn" class="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-lg transition shadow-lg shadow-sky-900/50">
+                發射衛星
+            </button>
+            <button id="resetBtn" class="flex-1 bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition">
+                重置
+            </button>
+        </div>
+
+        <!-- Presets -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <button onclick="setPreset('crash')" class="text-xs py-1 px-2 border border-slate-600 rounded hover:bg-slate-700 text-slate-400">拋體運動</button>
+            <button onclick="setPreset('orbit')" class="text-xs py-1 px-2 border border-green-800 rounded hover:bg-green-900/50 text-green-400 font-bold">正圓軌道</button>
+            <button onclick="setPreset('escape')" class="text-xs py-1 px-2 border border-red-800 rounded hover:bg-red-900/50 text-red-400">脫離軌道</button>
+        </div>
+
+        <!-- Status -->
+        <div class="bg-slate-800/50 rounded-lg p-3 text-sm font-mono space-y-1 border border-slate-700">
+            <div class="flex justify-between">
+                <span class="text-slate-400">狀態:</span>
+                <span id="statusText" class="text-yellow-400 font-bold">準備發射</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-slate-400">距離地心 (r):</span>
+                <span id="distText">-- km</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-slate-400">當前速率 (v):</span>
+                <span id="currSpeedText">-- km/s</span>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-[10px] text-slate-500 leading-tight">
+            * 模擬已進行時間縮放與距離等比微調以利視覺呈現。
+        </div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+    <script>
+        // --- 物理常數與配置 ---
+        const G = 1; 
+        const EARTH_MASS = 2000;
+        const EARTH_RADIUS = 60; // 像素
+        let mountainHeight = 15; // 變數：高山高度 (pixels)
+        let viewScale = 1.0;     // 變數：縮放比例
+        
+        // 顯示映射：60px = 6371km
+        const SCALE_FACTOR = 6371 / EARTH_RADIUS; 
+        
+        // 這些值現在會隨著高度改變而動態計算
+        let LAUNCH_RADIUS = EARTH_RADIUS + mountainHeight;
+        let CIRCULAR_VELOCITY = Math.sqrt((G * EARTH_MASS) / LAUNCH_RADIUS); 
+        let ESCAPE_VELOCITY = Math.sqrt((2 * G * EARTH_MASS) / LAUNCH_RADIUS); 
+
+        // 固定顯示係數：以「地面附近(h=15)」的環繞速度對應到 7.9 km/s 為基準
+        // 這樣 "1 km/s" 在畫面上的物理意義才不會一直變
+        const BASE_LAUNCH_RADIUS = EARTH_RADIUS + 15;
+        const BASE_CIRCULAR_VELOCITY = Math.sqrt((G * EARTH_MASS) / BASE_LAUNCH_RADIUS);
+        const SPEED_DISPLAY_FACTOR = 7.9 / BASE_CIRCULAR_VELOCITY;
+
+        // --- 系統變數 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height, centerX, centerY;
+        
+        let satellite = {
+            active: false,
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            trail: [],
+            crashed: false,
+            escaped: false
+        };
+
+        let animationId;
+        let timeStep = 0.5; 
+
+        // --- DOM 元素 ---
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        
+        const heightSlider = document.getElementById('heightSlider');
+        const heightValue = document.getElementById('heightValue');
+        
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+
+        const statusText = document.getElementById('statusText');
+        const distText = document.getElementById('distText');
+        const currSpeedText = document.getElementById('currSpeedText');
+
+        // --- 初始化 ---
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            centerX = width / 2;
+            centerY = height / 2;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        function updatePhysicsConstants() {
+            LAUNCH_RADIUS = EARTH_RADIUS + mountainHeight;
+            CIRCULAR_VELOCITY = Math.sqrt((G * EARTH_MASS) / LAUNCH_RADIUS);
+            ESCAPE_VELOCITY = Math.sqrt((2 * G * EARTH_MASS) / LAUNCH_RADIUS);
+            
+            // 更新滑桿最大值，讓它稍微超過逃逸速度
+            const maxDisplaySpeed = ESCAPE_VELOCITY * SPEED_DISPLAY_FACTOR * 1.5;
+            // 只有在滑桿最大值差異太大時才更新，避免拉動時跳動
+            if (parseFloat(speedSlider.max) < maxDisplaySpeed * 0.5 || parseFloat(speedSlider.max) > maxDisplaySpeed * 2) {
+                 speedSlider.max = maxDisplaySpeed.toFixed(1);
+            }
+        }
+
+        function init() {
+            resize();
+            updatePhysicsConstants();
+            // 初始滑桿範圍
+            speedSlider.min = 0;
+            speedSlider.max = (ESCAPE_VELOCITY * SPEED_DISPLAY_FACTOR * 1.5).toFixed(1);
+            
+            // 初始化顯示高度文字
+            heightSlider.value = mountainHeight;
+            const realH = Math.round(mountainHeight * SCALE_FACTOR);
+            heightValue.textContent = realH + " km";
+
+            resetSim();
+            updateSliderDisplay();
+            animate();
+        }
+
+        // --- 互動控制 ---
+        speedSlider.addEventListener('input', updateSliderDisplay);
+        
+        heightSlider.addEventListener('input', () => {
+            mountainHeight = parseFloat(heightSlider.value);
+            const realH = Math.round(mountainHeight * SCALE_FACTOR);
+            heightValue.textContent = realH + " km";
+            
+            updatePhysicsConstants();
+            updateSliderDisplay(); // 重新檢查顏色提示
+            
+            // 如果還沒發射，即時更新衛星位置
+            if (!satellite.active) {
+                satellite.y = -(EARTH_RADIUS + mountainHeight);
+                draw();
+            }
+        });
+
+        zoomSlider.addEventListener('input', () => {
+            viewScale = parseFloat(zoomSlider.value);
+            zoomValue.textContent = viewScale.toFixed(1) + "x";
+            draw();
+        });
+
+        function updateSliderDisplay() {
+            const val = parseFloat(speedSlider.value);
+            speedValue.textContent = val.toFixed(1) + " km/s";
+            
+            // 視覺回饋：使用當前高度計算出的 CIRCULAR_VELOCITY
+            const vSim = val / SPEED_DISPLAY_FACTOR;
+            
+            // 判斷誤差範圍
+            const tolerance = 0.2; 
+
+            if (Math.abs(vSim - CIRCULAR_VELOCITY) < tolerance) {
+                speedValue.className = "text-sm font-mono text-green-400 font-bold";
+                statusText.textContent = "預測: 正圓軌道";
+            } else if (vSim > ESCAPE_VELOCITY) {
+                speedValue.className = "text-sm font-mono text-red-400 font-bold";
+                statusText.textContent = "預測: 脫離引力";
+            } else if (vSim < CIRCULAR_VELOCITY * 0.7) {
+                speedValue.className = "text-sm font-mono text-yellow-400";
+                statusText.textContent = "預測: 墜落地球";
+            } else {
+                speedValue.className = "text-sm font-mono text-sky-300";
+                statusText.textContent = "預測: 橢圓軌道";
+            }
+        }
+
+        document.getElementById('launchBtn').addEventListener('click', launch);
+        document.getElementById('resetBtn').addEventListener('click', resetSim);
+
+        function setPreset(type) {
+            let v = 0;
+            // 確保使用當前高度對應的物理速度
+            if (type === 'crash') v = CIRCULAR_VELOCITY * 0.5;
+            if (type === 'orbit') v = CIRCULAR_VELOCITY;
+            if (type === 'escape') v = ESCAPE_VELOCITY * 1.05; 
+            
+            const displayV = v * SPEED_DISPLAY_FACTOR;
+            speedSlider.value = displayV;
+            updateSliderDisplay();
+            launch();
+        }
+
+        function resetSim() {
+            satellite.active = false;
+            satellite.crashed = false;
+            satellite.escaped = false;
+            satellite.trail = [];
+            
+            // 重置位置到北極上方的高山 (考慮當前設定的高度)
+            satellite.x = 0;
+            satellite.y = -(EARTH_RADIUS + mountainHeight);
+            satellite.vx = 0;
+            satellite.vy = 0;
+            
+            statusText.textContent = "準備發射";
+            statusText.className = "text-yellow-400 font-bold";
+            distText.textContent = "-- km";
+            currSpeedText.textContent = "-- km/s";
+            draw();
+        }
+
+        function launch() {
+            // 如果已經在飛，先重置再發射
+            if (satellite.active || satellite.crashed) {
+                resetSim();
+            }
+            
+            // 設定位置
+            satellite.x = 0;
+            satellite.y = -(EARTH_RADIUS + mountainHeight);
+
+            const inputSpeed = parseFloat(speedSlider.value);
+            const simSpeed = inputSpeed / SPEED_DISPLAY_FACTOR;
+            
+            satellite.active = true;
+            satellite.vx = simSpeed; // 水平發射
+            satellite.vy = 0;
+            
+            statusText.textContent = "飛行中...";
+            statusText.className = "text-sky-400 font-bold";
+        }
+
+        // --- 物理核心 ---
+        function updatePhysics() {
+            if (!satellite.active || satellite.crashed) return;
+
+            // 1. 計算距離
+            const dx = satellite.x;
+            const dy = satellite.y;
+            const r2 = dx*dx + dy*dy;
+            const r = Math.sqrt(r2);
+
+            // 2. 碰撞檢測
+            if (r < EARTH_RADIUS) {
+                satellite.crashed = true;
+                satellite.active = false;
+                statusText.textContent = "已墜毀";
+                statusText.className = "text-red-500 font-bold";
+                satellite.x = (dx / r) * EARTH_RADIUS;
+                satellite.y = (dy / r) * EARTH_RADIUS;
+                return;
+            }
+
+            // 3. 逃逸檢測
+            // 根據縮放比例調整判斷範圍，避免縮小時太早判定逃逸
+            const bound = Math.max(width, height) * (3 / viewScale);
+            if (r > bound) {
+                satellite.escaped = true; 
+                statusText.textContent = "已脫離引力範圍";
+                statusText.className = "text-purple-400 font-bold";
+            }
+
+            // 4. 重力計算
+            const F = (G * EARTH_MASS) / r2;
+            const ax = -F * (dx / r);
+            const ay = -F * (dy / r);
+
+            // 5. 更新狀態
+            satellite.vx += ax * timeStep;
+            satellite.vy += ay * timeStep;
+            satellite.x += satellite.vx * timeStep;
+            satellite.y += satellite.vy * timeStep;
+
+            // 6. 軌跡
+            if (satellite.trail.length === 0 || 
+                Math.hypot(satellite.trail[satellite.trail.length-1].x - satellite.x, 
+                           satellite.trail[satellite.trail.length-1].y - satellite.y) > 2) {
+                satellite.trail.push({x: satellite.x, y: satellite.y});
+                if (satellite.trail.length > 1000) satellite.trail.shift();
+            }
+
+            // 7. 數據更新
+            distText.textContent = Math.round(r * SCALE_FACTOR).toLocaleString() + " km";
+            const vTotal = Math.sqrt(satellite.vx*satellite.vx + satellite.vy*satellite.vy);
+            currSpeedText.textContent = (vTotal * SPEED_DISPLAY_FACTOR).toFixed(2) + " km/s";
+        }
+
+        // --- 繪圖渲染 ---
+        function draw() {
+            // 清空
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            
+            // 1. 移動到中心
+            ctx.translate(centerX, centerY);
+            
+            // 2. 應用縮放 (Zoom)
+            ctx.scale(viewScale, viewScale);
+
+            // 3. 畫背景星星 (星星跟著縮放，製造空間感)
+            drawStars();
+
+            // 4. 大氣層
+            const grad = ctx.createRadialGradient(0, 0, EARTH_RADIUS, 0, 0, EARTH_RADIUS * 1.5);
+            grad.addColorStop(0, 'rgba(56, 189, 248, 0.3)');
+            grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, EARTH_RADIUS * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 5. 地球
+            ctx.fillStyle = '#1e293b'; 
+            ctx.beginPath();
+            ctx.arc(0, 0, EARTH_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1; // 線寬也會被 scale 影響，如果想要固定線寬，可以除以 viewScale，但這裡讓它變粗也無妨
+            ctx.beginPath();
+            ctx.arc(0, 0, EARTH_RADIUS, 0, Math.PI * 2);
+            ctx.stroke();
+            // 赤道
+            ctx.beginPath();
+            ctx.ellipse(0, 0, EARTH_RADIUS, EARTH_RADIUS * 0.3, 0, 0, Math.PI*2);
+            ctx.stroke();
+            // 經線
+            ctx.beginPath();
+            ctx.ellipse(0, 0, EARTH_RADIUS * 0.3, EARTH_RADIUS, 0, 0, Math.PI*2);
+            ctx.stroke();
+
+            // 6. 高山 (根據 mountainHeight 繪製)
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            // 從地表開始
+            const mountainBaseY = -EARTH_RADIUS;
+            const mountainTipY = -(EARTH_RADIUS + mountainHeight);
+            
+            ctx.moveTo(0, mountainBaseY);
+            ctx.lineTo(-5, mountainBaseY - 2); 
+            ctx.lineTo(0, mountainTipY);
+            ctx.lineTo(5, mountainBaseY - 2);
+            ctx.fill();
+
+            // 7. 軌跡
+            if (satellite.trail.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2 / viewScale; // 保持軌跡線寬度一致，不隨縮放變太粗
+                ctx.moveTo(satellite.trail[0].x, satellite.trail[0].y);
+                for (let i = 1; i < satellite.trail.length; i++) {
+                    ctx.lineTo(satellite.trail[i].x, satellite.trail[i].y);
+                }
+                ctx.stroke();
+            }
+
+            // 8. 衛星
+            // 計算繪製位置
+            let drawX, drawY;
+            if (!satellite.active && !satellite.crashed) {
+                // 待機位置
+                drawX = 0;
+                drawY = -(EARTH_RADIUS + mountainHeight);
+            } else {
+                drawX = satellite.x;
+                drawY = satellite.y;
+            }
+
+            // 衛星本體
+            ctx.fillStyle = satellite.crashed ? '#ef4444' : '#facc15';
+            ctx.beginPath();
+            // 衛星大小隨縮放調整，以免縮小後看不見
+            const satSize = Math.max(2, 5 / Math.sqrt(viewScale)); 
+            ctx.arc(drawX, drawY, satSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 爆炸
+            if (satellite.crashed) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#f87171';
+                ctx.lineWidth = 2 / viewScale;
+                ctx.arc(drawX, drawY, 10 + Math.random()*5, 0, Math.PI*2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        const stars = [];
+        for(let i=0; i<150; i++) {
+            stars.push({
+                x: Math.random(),
+                y: Math.random(),
+                size: Math.random() * 2,
+                opacity: Math.random()
+            });
+        }
+        function drawStars() {
+            ctx.fillStyle = 'white';
+            stars.forEach(star => {
+                ctx.globalAlpha = star.opacity;
+                // 星星座標是相對畫布中心的偏移
+                const sx = (star.x - 0.5) * width * 1.5; // 擴大分佈範圍以免縮放時邊緣空白
+                const sy = (star.y - 0.5) * height * 1.5;
+                ctx.fillRect(sx, sy, star.size, star.size);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        function animate() {
+            const subSteps = 5;
+            for(let i=0; i<subSteps; i++) {
+                updatePhysics();
+            }
+            draw();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

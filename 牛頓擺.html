@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理實驗室：牛頓擺 (Newton's Cradle)</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --bg-color: #1e293b;
+            --panel-bg: #334155;
+            --text-color: #f8fafc;
+            --accent-color: #10b981;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            justify-content: center; 
+        }
+
+        header {
+            width: 100%;
+            padding: 1rem 0;
+            background-color: rgba(30, 41, 59, 0.95);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            flex-shrink: 0; 
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+
+        /* 主容器 */
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1000px;
+            padding: 15px 20px; /* 減少上下內距 */
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        /* Canvas 區域 */
+        .canvas-wrapper {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            background: radial-gradient(circle at center, #475569 0%, #1e293b 100%);
+            margin-bottom: 15px; /* 減少間距 */
+            border: 1px solid #475569;
+            max-width: 100%;
+        }
+
+        canvas {
+            display: block;
+            cursor: pointer;
+            width: 100%;
+            height: auto;
+        }
+
+        /* 控制面板 */
+        .controls {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0,0,0,0.1);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .control-label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-weight: bold;
+        }
+
+        /* 按鈕群組 */
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            background: #1e293b;
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        .btn-select {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .btn-select:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .btn-select.active {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* 參數滑桿區域 */
+        .slider-group {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0; /* 移除外距 */
+            background: rgba(0,0,0,0.2);
+            padding: 15px; /* 稍微減少內距 */
+            border-radius: 8px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 500px;
+            color: #cbd5e1;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type=range] {
+            width: 100%;
+            max-width: 500px;
+            cursor: pointer;
+            height: 6px;
+        }
+
+        /* 動作按鈕區域 (移到 Canvas 內) */
+        .actions-overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 20;
+            pointer-events: none; /* 讓點擊穿透背景，只在按鈕上生效 */
+        }
+
+        .btn-action {
+            pointer-events: auto; /* 恢復按鈕點擊 */
+            padding: 10px 30px;
+            border: none;
+            border-radius: 30px; /* 圓角更明顯，像膠囊 */
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); /* 增加陰影讓它在 Canvas 上更浮凸 */
+            backdrop-filter: blur(4px); /* 毛玻璃效果 */
+        }
+
+        .btn-start {
+            background-color: rgba(16, 185, 129, 0.9); /* 稍微透明 */
+            color: #fff;
+        }
+
+        .btn-reset {
+            background-color: rgba(239, 68, 68, 0.9);
+            color: white;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            filter: brightness(110%);
+        }
+
+        .btn-action:active {
+            transform: translateY(0);
+        }
+
+        .btn-action:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            background-color: rgba(100, 116, 139, 0.8);
+        }
+
+        /* 物理參數說明 */
+        .info-panel {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            text-align: center;
+            line-height: 1.5;
+            max-width: 800px;
+            background: rgba(30, 41, 59, 0.6);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            .btn-select {
+                padding: 6px 12px;
+            }
+            .actions-overlay {
+                bottom: 15px;
+                gap: 10px;
+            }
+            .btn-action {
+                padding: 8px 20px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>高中物理模擬實驗室</h1>
+    <div class="subtitle">單元：動量守恆與彈性碰撞 (Newton's Cradle)</div>
+</header>
+
+<div class="container">
+    <div class="canvas-wrapper">
+        <canvas id="simCanvas" width="800" height="500"></canvas>
+        
+        <!-- 動作按鈕現在懸浮在 Canvas 底部 -->
+        <div class="actions-overlay">
+            <button class="btn-action btn-start" id="startBtn" onclick="startSimulation()">
+                <span>▶ 開始實驗</span>
+            </button>
+            <button class="btn-action btn-reset" id="resetBtn" onclick="resetSimulation()" disabled>
+                <span>↺ 重置實驗</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <!-- 左側控制 -->
+        <div class="control-group">
+            <div class="control-label">左側拉起數量</div>
+            <div class="btn-group" id="leftBtns">
+                <button class="btn-select active" onclick="setLeft(0)">0</button>
+                <button class="btn-select" onclick="setLeft(1)">1</button>
+                <button class="btn-select" onclick="setLeft(2)">2</button>
+                <button class="btn-select" onclick="setLeft(3)">3</button>
+                <button class="btn-select" onclick="setLeft(4)">4</button>
+            </div>
+        </div>
+
+        <!-- 右側控制 -->
+        <div class="control-group">
+            <div class="control-label">右側拉起數量</div>
+            <div class="btn-group" id="rightBtns">
+                <button class="btn-select active" onclick="setRight(0)">0</button>
+                <button class="btn-select" onclick="setRight(1)">1</button>
+                <button class="btn-select" onclick="setRight(2)">2</button>
+                <button class="btn-select" onclick="setRight(3)">3</button>
+                <button class="btn-select" onclick="setRight(4)">4</button>
+            </div>
+        </div>
+        
+        <!-- 恢復係數控制 -->
+        <div class="slider-group">
+            <div class="slider-label">
+                <span>恢復係數 (e)</span>
+                <span id="restitutionVal">1.00</span>
+            </div>
+            <input type="range" id="restitutionRange" min="0" max="1" step="0.01" value="1.0" oninput="updateRestitutionLabel(this.value)">
+            <div style="font-size: 0.85rem; color: #64748b; margin-top: 5px;">
+                0 = 完全非彈性 &nbsp;|&nbsp; 1 = 完全彈性
+            </div>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <strong>物理筆記：</strong>
+        若 $e=1$，表示系統無動能損耗 (理想狀態)，擺動將無限持續。
+        當兩側拉起數量不同時，碰撞後會交換速度與數量，這是動量守恆最迷人的展示。
+    </div>
+</div>
+
+<script>
+    // --- 物理常數 ---
+    const CONFIG = {
+        gravity: 0.4,       // 重力加速度
+        damping: 0.999,     // 非理想狀態下的空氣阻力
+        ballRadius: 25,     // 球半徑
+        stringLen: 280,     // 擺長
+        spacing: 0,         // 球之間的額外間隙
+        topY: 100,          // 支架頂點Y座標
+        centerX: 400,       // 畫布中心X
+        pullAngle: Math.PI / 4 // 拉起時的角度 (45度)
+    };
+
+    // --- 變數 ---
+    let canvas, ctx;
+    let balls = [];
+    let isSimulating = false;
+    let requestID = null;
+
+    // 狀態設定
+    let leftCount = 0;
+    let rightCount = 0;
+    let restitution = 1.0;
+
+    // --- 球體類別 ---
+    class Ball {
+        constructor(id, xOrigin, yOrigin) {
+            this.id = id;
+            this.origin = { x: xOrigin, y: yOrigin }; // 懸掛點
+            this.length = CONFIG.stringLen;
+            this.radius = CONFIG.ballRadius;
+            this.angle = 0;      // 擺角 (弧度，0為垂直向下)
+            this.aVelocity = 0;  // 角速度
+            this.aAcceleration = 0; // 角加速度
+            
+            // 當前位置 (由 angle 計算)
+            this.x = 0;
+            this.y = 0;
+            this.updatePosition();
+        }
+
+        updatePosition() {
+            this.x = this.origin.x + Math.sin(this.angle) * this.length;
+            this.y = this.origin.y + Math.cos(this.angle) * this.length;
+        }
+
+        // 物理更新 (單擺運動)
+        update(dt) {
+            if (!isSimulating) return;
+
+            // 角加速度公式: alpha = -(g / L) * sin(theta)
+            this.aAcceleration = (-1 * CONFIG.gravity / this.length) * Math.sin(this.angle);
+            
+            // 速度更新
+            this.aVelocity += this.aAcceleration * dt;
+            
+            // 智慧空氣阻力：當 e=1 時，假設為理想真空 (阻力=0)，否則套用設定值
+            let currentDamping = (restitution >= 1.0) ? 1.0 : CONFIG.damping;
+            this.aVelocity *= currentDamping;
+
+            this.angle += this.aVelocity * dt;
+
+            this.updatePosition();
+        }
+
+        // 繪製球體
+        draw(ctx) {
+            // 畫線
+            ctx.beginPath();
+            ctx.moveTo(this.origin.x, this.origin.y);
+            ctx.lineTo(this.x, this.y);
+            ctx.strokeStyle = "rgba(200, 200, 200, 0.5)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 畫陰影
+            let groundY = CONFIG.topY + CONFIG.stringLen + CONFIG.ballRadius + 20;
+            let shadowScale = 1 - (groundY - this.y) / 200;
+            if (shadowScale < 0) shadowScale = 0;
+            
+            ctx.beginPath();
+            ctx.ellipse(this.x, groundY, this.radius * shadowScale, this.radius * 0.3 * shadowScale, 0, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * shadowScale})`;
+            ctx.fill();
+
+            // 畫球 (金屬質感)
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            
+            let grad = ctx.createRadialGradient(
+                this.x - this.radius * 0.3, 
+                this.y - this.radius * 0.3, 
+                this.radius * 0.1, 
+                this.x, 
+                this.y, 
+                this.radius
+            );
+            grad.addColorStop(0, "#f1f5f9");
+            grad.addColorStop(0.3, "#cbd5e1");
+            grad.addColorStop(1, "#334155");
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+            
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }
+
+    // --- 初始化與主邏輯 ---
+
+    function init() {
+        canvas = document.getElementById('simCanvas');
+        ctx = canvas.getContext('2d');
+        
+        let totalWidth = 5 * (CONFIG.ballRadius * 2 + CONFIG.spacing);
+        let startX = CONFIG.centerX - totalWidth / 2 + CONFIG.ballRadius;
+
+        for (let i = 0; i < 5; i++) {
+            let xPos = startX + i * (CONFIG.ballRadius * 2 + CONFIG.spacing);
+            balls.push(new Ball(i, xPos, CONFIG.topY));
+        }
+
+        draw();
+        updateUI();
+    }
+
+    // 設定初始角度
+    function applySetup() {
+        isSimulating = false;
+        
+        balls.forEach(b => {
+            b.angle = 0;
+            b.aVelocity = 0;
+            b.aAcceleration = 0;
+            b.updatePosition();
+        });
+
+        // 左側拉起
+        if (leftCount > 0) {
+            for (let i = 0; i < leftCount; i++) {
+                let ballIndex = i;
+                balls[ballIndex].angle = -CONFIG.pullAngle; 
+                balls[ballIndex].updatePosition();
+            }
+        }
+
+        // 右側拉起
+        if (rightCount > 0) {
+            let totalBalls = balls.length;
+            for (let i = 0; i < rightCount; i++) {
+                let ballIndex = totalBalls - 1 - i;
+                balls[ballIndex].angle = CONFIG.pullAngle; 
+                balls[ballIndex].updatePosition();
+            }
+        }
+        
+        draw();
+    }
+
+    // --- 碰撞處理 ---
+    function checkCollisions() {
+        let e = restitution;
+
+        for (let i = 0; i < balls.length - 1; i++) {
+            let b1 = balls[i];
+            let b2 = balls[i+1];
+
+            let dx = b2.x - b1.x;
+            let dy = b2.y - b1.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+            let minDist = b1.radius + b2.radius; 
+
+            if (distance < minDist) {
+                // === 碰撞發生 ===
+                let v1 = b1.aVelocity;
+                let v2 = b2.aVelocity;
+
+                let v1_new = (v1 * (1 - e) + v2 * (1 + e)) / 2;
+                let v2_new = (v1 * (1 + e) + v2 * (1 - e)) / 2;
+
+                b1.aVelocity = v1_new;
+                b2.aVelocity = v2_new;
+
+                // 位置修正 (推開防黏)
+                let overlap = minDist - distance;
+                let pushAmt = (overlap / CONFIG.stringLen) * 0.5;
+                
+                if (b1.angle > b2.angle) {
+                     let temp = b1.angle; b1.angle = b2.angle; b2.angle = temp;
+                } else {
+                     b1.angle -= pushAmt;
+                     b2.angle += pushAmt;
+                }
+            }
+        }
+    }
+
+    // --- 動畫迴圈 ---
+    function animate() {
+        if (!isSimulating) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 繪製標題文字
+        ctx.font = "bold 36px 'Segoe UI', sans-serif";
+        ctx.fillStyle = "#cbd5e1";
+        ctx.textAlign = "center";
+        ctx.fillText("牛頓擺", CONFIG.centerX, CONFIG.topY - 40);
+
+        // 支架
+        ctx.beginPath();
+        ctx.moveTo(balls[0].origin.x - 20, CONFIG.topY);
+        ctx.lineTo(balls[4].origin.x + 20, CONFIG.topY);
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // 物理更新
+        const steps = 4; 
+        const dt = 1.0 / steps; 
+
+        for(let s=0; s<steps; s++) {
+            balls.forEach(b => b.update(dt)); 
+            checkCollisions();
+        }
+
+        balls.forEach(b => b.draw(ctx));
+
+        requestID = requestAnimationFrame(animate);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 繪製標題文字
+        ctx.font = "bold 36px 'Segoe UI', sans-serif";
+        ctx.fillStyle = "#cbd5e1";
+        ctx.textAlign = "center";
+        ctx.fillText("牛頓擺", CONFIG.centerX, CONFIG.topY - 40);
+
+        ctx.beginPath();
+        ctx.moveTo(balls[0].origin.x - 20, CONFIG.topY);
+        ctx.lineTo(balls[4].origin.x + 20, CONFIG.topY);
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        balls.forEach(b => b.draw(ctx));
+    }
+
+    // --- UI 控制 ---
+
+    function updateRestitutionLabel(val) {
+        document.getElementById('restitutionVal').textContent = parseFloat(val).toFixed(2);
+        restitution = parseFloat(val);
+    }
+
+    function updateUI() {
+        document.querySelectorAll('#leftBtns button').forEach((btn, idx) => {
+            btn.className = idx === leftCount ? 'btn-select active' : 'btn-select';
+        });
+        document.querySelectorAll('#rightBtns button').forEach((btn, idx) => {
+            btn.className = idx === rightCount ? 'btn-select active' : 'btn-select';
+        });
+
+        document.getElementById('startBtn').disabled = isSimulating;
+        document.getElementById('resetBtn').disabled = !isSimulating;
+        
+        const disableSelect = isSimulating;
+        document.querySelectorAll('.btn-select').forEach(b => b.disabled = disableSelect);
+    }
+
+    function setLeft(n) {
+        if (isSimulating) return;
+        if (n + rightCount > 5) rightCount = 5 - n;
+        leftCount = n;
+        updateUI();
+        applySetup();
+    }
+
+    function setRight(n) {
+        if (isSimulating) return;
+        if (n + leftCount > 5) leftCount = 5 - n;
+        rightCount = n;
+        updateUI();
+        applySetup();
+    }
+
+    function startSimulation() {
+        if (isSimulating) return;
+        isSimulating = true;
+        updateUI();
+        animate();
+    }
+
+    function resetSimulation() {
+        isSimulating = false;
+        if (requestID) cancelAnimationFrame(requestID);
+        updateUI();
+        applySetup();
+    }
+
+    window.onload = init;
+
+</script>
+
+</body>
+</html>
