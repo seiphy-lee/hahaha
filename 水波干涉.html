@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高中物理：水波干涉模擬（修正版）</title>
+<style>
+    body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: "Noto Sans TC", sans-serif; }
+    #controls {
+        position: absolute; right: 20px; top: 20px;
+        background: rgba(30, 30, 30, 0.85);
+        color: #fff;
+        backdrop-filter: blur(5px);
+        padding: 20px; border-radius: 12px; width: 280px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    h2 { margin: 0 0 15px; font-size: 18px; text-align: center; color: #4db8ff; border-bottom: 1px solid #555; padding-bottom: 10px;}
+    .control-group { margin-bottom: 12px; }
+    label { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; align-items: center;}
+    input[type=range] { width: 100%; cursor: pointer; accent-color: #4db8ff; }
+    select { width: 100%; padding: 4px; border-radius: 4px; background: #333; color: white; border: 1px solid #555; }
+    .value-display { color: #4db8ff; font-weight: bold; font-family: monospace;}
+    .checkbox-label { justify-content: flex-start; gap: 10px; cursor: pointer;}
+    .legend { display: flex; gap: 10px; margin-top: 5px; font-size: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+<div id="controls">
+    <h2>水波干涉控制台</h2>
+
+    <div class="control-group">
+        <label>波源模式
+            <select id="modeSelect">
+                <option value="double">雙點波源 (雙狹縫)</option>
+                <option value="single">單點波源</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="control-group">
+        <label class="checkbox-label">
+            <input type="checkbox" id="showNode" checked> 顯示節線 (破壞性)
+            <span class="dot" style="background:#00ffff;"></span>
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" id="showAntinode" checked> 顯示腹線 (建設性)
+            <span class="dot" style="background:#ff3333;"></span>
+        </label>
+    </div>
+
+    <div class="control-group">
+        <label>振幅 (Amplitude)<span id="val_A" class="value-display">1.5</span></label>
+        <input type="range" id="inp_A" min="0" max="3" step="0.1" value="1.5">
+    </div>
+
+    <div class="control-group">
+        <label>波源距離 d (倍率 λ)<span id="val_d" class="value-display">3.0</span></label>
+        <input type="range" id="inp_d" min="0.5" max="6" step="0.5" value="3.0">
+    </div>
+
+    <div class="control-group">
+        <label>頻率 (Frequency)<span id="val_f" class="value-display">1.0</span></label>
+        <input type="range" id="inp_f" min="0.5" max="3" step="0.1" value="1.0">
+    </div>
+</div>
+
+<script>
+/**
+ * 物理參數定義
+ * lambda (波長) 固定為 10 單位，方便計算
+ * k (波數) = 2π / lambda
+ * omega (角頻率) = 2π * f
+ */
+const LAMBDA = 10;
+const K = 2 * Math.PI / LAMBDA;
+
+// 模擬參數物件
+const params = {
+    A: 1.5,       // 振幅
+    d_ratio: 3.0, // d 與 lambda 的比值 (d = d_ratio * lambda)
+    freq: 1.0,    // 頻率
+    mode: 'double',
+    showNode: true,
+    showAntinode: true
+};
+
+let scene, camera, renderer, controls;
+let waterMesh, sourceMesh1, sourceMesh2;
+let nodeGroup, antinodeGroup; // 改為群組，存放多條曲線
+const clock = new THREE.Clock();
+
+// 網格解析度 (越高越平滑但越耗能)
+const SEGMENTS = 200; 
+const SIZE = 200;
+
+init();
+animate();
+
+function init() {
+    // 1. 場景設置
+    scene = new THREE.Scene();
+    // 加上一點霧氣增加深海感
+    scene.fog = new THREE.FogExp2(0x111111, 0.002);
+
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 120, 100); // 俯視角度
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio); // 支援高解析螢幕
+    document.body.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    
+    // 2. 燈光設置
+    scene.add(new THREE.AmbientLight(0x404040)); // 環境光
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(50, 100, 50);
+    scene.add(dirLight);
+    
+    // 點光源模擬太陽反光
+    const pointLight = new THREE.PointLight(0x00aaff, 1, 200);
+    pointLight.position.set(0, 50, 0);
+    scene.add(pointLight);
+
+    // 3. 水面網格 (PlaneGeometry)
+    const geometry = new THREE.PlaneGeometry(SIZE, SIZE, SEGMENTS, SEGMENTS);
+    // 使用 Phong 材質模擬水面反光
+    const material = new THREE.MeshPhongMaterial({
+        color: 0x004466,
+        emissive: 0x001122,
+        specular: 0xffffff,
+        shininess: 100,
+        side: THREE.DoubleSide,
+        wireframe: false
+    });
+    waterMesh = new THREE.Mesh(geometry, material);
+    waterMesh.rotation.x = -Math.PI / 2; // 轉水平
+    scene.add(waterMesh);
+
+    // 4. 波源標記 (小球)
+    const sphereGeo = new THREE.SphereGeometry(2, 16, 16);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    sourceMesh1 = new THREE.Mesh(sphereGeo, sphereMat);
+    sourceMesh2 = new THREE.Mesh(sphereGeo, sphereMat);
+    scene.add(sourceMesh1, sourceMesh2);
+
+    // 5. 初始化線條群組
+    nodeGroup = new THREE.Group();
+    antinodeGroup = new THREE.Group();
+    // 稍微抬高一點點，避免與水面 Z-fighting
+    nodeGroup.position.y = 0.5;
+    antinodeGroup.position.y = 0.5;
+    
+    scene.add(nodeGroup);
+    scene.add(antinodeGroup);
+
+    // 綁定 UI 事件
+    bindUI();
+    
+    window.addEventListener('resize', onWindowResize, false);
+}
+
+/**
+ * 使用解析幾何繪製平滑的干涉曲線
+ * 原理：雙源干涉的軌跡是雙曲線 (Hyperbola)
+ * 方程式：x^2/a^2 - y^2/b^2 = 1
+ * 其中 2a = 波程差 (path difference)
+ * c = 兩波源距離的一半 (d/2)
+ * b = sqrt(c^2 - a^2)
+ */
+function updateInterferencePatterns() {
+    // 清除舊的線條
+    while(nodeGroup.children.length > 0){ 
+        const obj = nodeGroup.children.pop();
+        obj.geometry.dispose();
+    }
+    while(antinodeGroup.children.length > 0){
+        const obj = antinodeGroup.children.pop();
+        obj.geometry.dispose();
+    }
+
+    if (params.mode === 'single') {
+        return; // 單波源不顯示
+    }
+    
+    nodeGroup.visible = params.showNode;
+    antinodeGroup.visible = params.showAntinode;
+
+    const halfD = (params.d_ratio * LAMBDA) / 2;
+    const maxOrder = Math.floor(params.d_ratio); // 最大可能的級數
+    
+    // 定義繪圖輔助函數
+    // isNode: true 為節線, false 為腹線
+    // order (m): 級數
+    const drawHyperbola = (isNode, m, group, color) => {
+        let pathDiff; // 波程差 2a
+        if(isNode) {
+            pathDiff = (m + 0.5) * LAMBDA;
+        } else {
+            pathDiff = m * LAMBDA;
+        }
+
+        // 檢查是否有解 (波程差必須小於波源距離)
+        if (pathDiff >= 2 * halfD) return;
+
+        // 特例：中央腹線 (m=0, pathDiff=0) -> 直線
+        if (!isNode && m === 0) {
+            const points = [];
+            points.push(new THREE.Vector3(0, 0, -SIZE/2));
+            points.push(new THREE.Vector3(0, 0, SIZE/2));
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+            group.add(new THREE.Line(geometry, material));
+            return;
+        }
+
+        // 雙曲線參數計算
+        const a = pathDiff / 2;
+        const c = halfD;
+        const b = Math.sqrt(c * c - a * a);
+
+        // 使用參數式繪製雙曲線: x = a*cosh(t), y = b*sinh(t)
+        // 因為水面有邊界 (SIZE)，我們需要計算 t 的範圍
+        // y_max = SIZE/2 = 100
+        // 100 = b * sinh(t) => sinh(t) = 100/b => t = asinh(100/b)
+        const tMax = Math.asinh((SIZE/2) / b);
+        const steps = 50; // 取樣點數
+
+        const pointsRight = []; // 右支 (x > 0)
+        const pointsLeft = [];  // 左支 (x < 0)
+
+        for (let i = 0; i <= steps; i++) {
+            // t 從 -tMax 到 tMax
+            const t = -tMax + (i / steps) * (2 * tMax);
+            
+            const xVal = a * Math.cosh(t);
+            const yVal = b * Math.sinh(t); // 這是平面幾何的 y
+
+            // 轉換到 Three.js 座標: 平面 y -> 3D z (且要注意正負)
+            // 場景中水面是 x-z 平面 (因為 mesh 轉了 90 度，但在 World Space 我們直接畫在 x-z)
+            // 這裡直接用 World Space 思考：x 軸左右，z 軸前後
+            
+            pointsRight.push(new THREE.Vector3(xVal, 0, -yVal));
+            pointsLeft.push(new THREE.Vector3(-xVal, 0, -yVal));
+        }
+
+        const material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+        
+        // 建立右支線條
+        const geoRight = new THREE.BufferGeometry().setFromPoints(pointsRight);
+        group.add(new THREE.Line(geoRight, material));
+
+        // 建立左支線條
+        const geoLeft = new THREE.BufferGeometry().setFromPoints(pointsLeft);
+        group.add(new THREE.Line(geoLeft, material));
+    };
+
+    const nodeColor = 0x00ffff;
+    const antinodeColor = 0xff3333;
+
+    // 繪製腹線 (m = 0, 1, 2...)
+    // m=0 是中央線，只需畫一次
+    drawHyperbola(false, 0, antinodeGroup, antinodeColor); 
+    for(let m = 1; m <= maxOrder; m++) {
+        drawHyperbola(false, m, antinodeGroup, antinodeColor);
+    }
+
+    // 繪製節線 (m = 0, 1, 2...)
+    // 對應 (0.5λ, 1.5λ...)
+    for(let m = 0; m <= maxOrder; m++) {
+        drawHyperbola(true, m, nodeGroup, nodeColor);
+    }
+}
+
+// 動畫循環
+function animate() {
+    requestAnimationFrame(animate);
+    
+    const time = clock.getElapsedTime();
+    const omega = 2 * Math.PI * params.freq;
+    const halfD = (params.d_ratio * LAMBDA) / 2;
+    
+    // 更新波源位置視覺化
+    if (params.mode === 'double') {
+        sourceMesh1.position.set(halfD, 0, 0);
+        sourceMesh2.position.set(-halfD, 0, 0);
+        sourceMesh1.visible = true;
+        sourceMesh2.visible = true;
+    } else {
+        sourceMesh1.position.set(0, 0, 0);
+        sourceMesh1.visible = true;
+        sourceMesh2.visible = false;
+    }
+
+    // 更新水面頂點
+    const positions = waterMesh.geometry.attributes.position;
+    
+    for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const y = positions.getY(i); // Mesh 座標系
+        
+        let z = 0;
+        
+        if (params.mode === 'double') {
+            const r1 = Math.hypot(x - halfD, y);
+            const r2 = Math.hypot(x + halfD, y);
+            // 雙源疊加 y = A sin(kr - wt)
+            z = params.A * Math.sin(K * r1 - omega * time) + 
+                params.A * Math.sin(K * r2 - omega * time);
+            
+            // 距離衰減因子 (可選，讓波傳遠一點會變弱，比較真實)
+            // z *= 100 / (r1 + r2 + 20); 
+            
+        } else {
+            const r = Math.hypot(x, y);
+            z = params.A * Math.sin(K * r - omega * time);
+        }
+        
+        positions.setZ(i, z);
+    }
+    
+    positions.needsUpdate = true;
+    waterMesh.geometry.computeVertexNormals(); // 重新計算法向量以獲得正確光影
+    
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+// UI 事件綁定
+function bindUI() {
+    const updateDisplay = () => {
+        document.getElementById('val_A').textContent = params.A.toFixed(1);
+        document.getElementById('val_d').textContent = params.d_ratio.toFixed(1);
+        document.getElementById('val_f').textContent = params.freq.toFixed(1);
+    };
+    
+    // 當參數改變時，除了更新數值，還要重算干涉圖樣(節線)
+    const onParamChange = () => {
+        updateDisplay();
+        updateInterferencePatterns();
+    };
+
+    document.getElementById('inp_A').addEventListener('input', (e) => {
+        params.A = parseFloat(e.target.value);
+        updateDisplay();
+    });
+    
+    document.getElementById('inp_d').addEventListener('input', (e) => {
+        params.d_ratio = parseFloat(e.target.value);
+        onParamChange();
+    });
+
+    document.getElementById('inp_f').addEventListener('input', (e) => {
+        params.freq = parseFloat(e.target.value);
+        updateDisplay();
+    });
+
+    document.getElementById('modeSelect').addEventListener('change', (e) => {
+        params.mode = e.target.value;
+        onParamChange();
+    });
+
+    document.getElementById('showNode').addEventListener('change', (e) => {
+        params.showNode = e.target.checked;
+        onParamChange();
+    });
+
+    document.getElementById('showAntinode').addEventListener('change', (e) => {
+        params.showAntinode = e.target.checked;
+        onParamChange();
+    });
+
+    // 初始計算一次圖樣
+    onParamChange();
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+</script>
+</body>
+</html>

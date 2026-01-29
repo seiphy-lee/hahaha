@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：波的重疊原理模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .canvas-container {
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            margin-top: -6px;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        .control-group {
+            background-color: #1e293b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4">
+
+    <header class="w-full max-w-4xl mb-6 text-center">
+        <h1 class="text-3xl font-bold text-sky-400 mb-2">波的重疊與干涉 (Superposition Principle)</h1>
+        <p class="text-sm text-slate-400">模擬兩個反向傳遞的脈波相遇時的物理現象。觀察 $y_{total} = y_{right} + y_{left}$ 的變化。</p>
+    </header>
+
+    <main class="w-full max-w-4xl space-y-6">
+        
+        <!-- Canvas Area -->
+        <div class="canvas-container w-full aspect-[2/1] relative border-2 border-slate-700">
+            <canvas id="waveCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Legend overlay -->
+            <div class="absolute top-2 right-2 bg-black/70 p-2 rounded text-xs pointer-events-none border border-slate-700">
+                <div class="flex items-center gap-2 mb-1"><span class="w-3 h-3 rounded-full bg-red-500"></span> 向右傳遞 (波1)</div>
+                <div class="flex items-center gap-2 mb-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span> 向左傳遞 (波2)</div>
+                <div class="flex items-center gap-2"><span class="w-3 h-1 bg-white"></span> 合成波 (重疊結果)</div>
+            </div>
+            
+            <div id="statusText" class="absolute bottom-2 left-2 text-xs text-slate-500 font-mono">t = 0.00s</div>
+        </div>
+
+        <!-- Controls Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
+            <!-- Playback Controls -->
+            <div class="control-group flex flex-col gap-3 justify-center">
+                <h3 class="font-semibold text-slate-300 border-b border-slate-600 pb-1 mb-1">播放控制</h3>
+                <div class="flex gap-2">
+                    <button id="btnPlayPause" class="flex-1 bg-sky-600 hover:bg-sky-500 text-white py-2 px-4 rounded font-bold transition">暫停</button>
+                    <button id="btnReset" class="flex-1 bg-slate-600 hover:bg-slate-500 text-white py-2 px-4 rounded font-bold transition">重置</button>
+                </div>
+                <div class="flex items-center justify-between mt-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="chkSlowMo" class="w-4 h-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                        <span class="text-sm">慢動作 (0.2x)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Wave Settings -->
+            <div class="control-group">
+                <h3 class="font-semibold text-slate-300 border-b border-slate-600 pb-1 mb-2">波形設定</h3>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-red-400 mb-1">紅色波 (波1)</label>
+                            <select id="selShape1" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm focus:border-sky-500 outline-none">
+                                <option value="triangle">三角形</option>
+                                <option value="square">方形</option>
+                                <option value="sine">正弦半波</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-blue-400 mb-1">藍色波 (波2)</label>
+                            <select id="selShape2" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm focus:border-sky-500 outline-none">
+                                <option value="triangle">三角形</option>
+                                <option value="square" selected>方形</option>
+                                <option value="sine">正弦半波</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- New Phase Control -->
+                    <div>
+                        <label class="block text-xs text-yellow-400 mb-1">相位關係 (Phase)</label>
+                        <select id="selPhase" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm focus:border-yellow-500 outline-none">
+                            <option value="in">同相 (In-Phase)</option>
+                            <option value="out">反相 (Out-of-Phase)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physics Parameters -->
+            <div class="control-group space-y-4">
+                <h3 class="font-semibold text-slate-300 border-b border-slate-600 pb-1 mb-2">物理參數</h3>
+                
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span>振幅 (Amplitude)</span>
+                        <span id="valAmp">1.0</span>
+                    </div>
+                    <input type="range" id="rngAmp" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span>波寬/波長 (Width)</span>
+                        <span id="valWidth">100</span>
+                    </div>
+                    <input type="range" id="rngWidth" min="40" max="200" step="10" value="100">
+                </div>
+
+                <div class="pt-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="chkShowSum" checked class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        <span class="text-sm font-bold text-white">顯示合成波 (白色)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /**
+         * Physics Animation Logic
+         * Designed by: The Animation Master
+         */
+        
+        // Canvas Setup
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // State Variables
+        let time = 0;
+        let isRunning = true;
+        let isSlowMo = false;
+        let animationFrameId;
+
+        // Physics Constants
+        const BASE_SPEED = 1.33; // Pixels per frame (Reduced to 1/3 of original 4)
+        let amplitudeScale = 1.0;
+        let waveWidth = 100; // Pixels
+        const MAX_AMPLITUDE_PX = 80; // Base height in pixels for Amp=1.0
+
+        // Wave Definitions
+        let wave1Type = 'triangle';
+        let wave2Type = 'square';
+        let phaseFactor = 1; // 1 for In-Phase, -1 for Out-of-Phase
+        
+        let startX1 = -200; // Start off-screen left
+        let startX2 = 0;    // Will be set to canvas width + 200
+
+        // Current Positions (State tracking for smooth speed changes)
+        let center1 = -200;
+        let center2 = 0;
+
+        // DOM Elements
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const btnReset = document.getElementById('btnReset');
+        const chkSlowMo = document.getElementById('chkSlowMo');
+        const chkShowSum = document.getElementById('chkShowSum');
+        const selShape1 = document.getElementById('selShape1');
+        const selShape2 = document.getElementById('selShape2');
+        const selPhase = document.getElementById('selPhase');
+        const rngAmp = document.getElementById('rngAmp');
+        const valAmp = document.getElementById('valAmp');
+        const rngWidth = document.getElementById('rngWidth');
+        const valWidth = document.getElementById('valWidth');
+        const statusText = document.getElementById('statusText');
+
+        // Initial Layout Calculation
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            startX2 = canvas.width + 200;
+            
+            // Only reset positions if the simulation is at the very beginning (reset state)
+            if (time === 0) {
+                center1 = startX1;
+                center2 = startX2;
+            }
+        }
+
+        // --- Wave Functions (The Core Physics) ---
+        
+        function getDisplacement(type, x, center, width, amp) {
+            const halfWidth = width / 2;
+            const dist = Math.abs(x - center);
+            
+            // If outside the pulse width, displacement is 0
+            if (dist > halfWidth) return 0;
+
+            switch (type) {
+                case 'square':
+                    return amp;
+                
+                case 'triangle':
+                    // Linear decay from center
+                    return amp * (1 - dist / halfWidth);
+                
+                case 'sine':
+                    // Half a sine wave (0 to PI)
+                    const normPos = (x - center) / halfWidth; 
+                    return amp * Math.cos(normPos * Math.PI / 2);
+                
+                default:
+                    return 0;
+            }
+        }
+
+        // --- Rendering Loop ---
+
+        function draw() {
+            // Clear Background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Axis
+            const midY = canvas.height / 2;
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, midY);
+            ctx.lineTo(canvas.width, midY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Physics Update (Incremental)
+            const currentSpeed = isSlowMo ? BASE_SPEED * 0.2 : BASE_SPEED;
+            
+            if (isRunning) {
+                time += 1; // Used for UI display only
+                center1 += currentSpeed; // Wave 1 moves right
+                center2 -= currentSpeed; // Wave 2 moves left
+            }
+
+            // --- Drawing ---
+            
+            ctx.lineWidth = 2;
+            const baseAmp = MAX_AMPLITUDE_PX * amplitudeScale;
+
+            // 1. Draw Wave 1 (Right moving) - Red
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; // Red-500
+            ctx.beginPath();
+            let first = true;
+            for (let x = 0; x <= canvas.width; x++) {
+                // Wave 1 is always positive in base calculation
+                const y = getDisplacement(wave1Type, x, center1, waveWidth, baseAmp);
+                if (first) { ctx.moveTo(x, midY - y); first = false; }
+                else { ctx.lineTo(x, midY - y); }
+            }
+            ctx.stroke();
+
+            // 2. Draw Wave 2 (Left moving) - Blue
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)'; // Blue-500
+            ctx.beginPath();
+            first = true;
+            for (let x = 0; x <= canvas.width; x++) {
+                // Wave 2 direction depends on phaseFactor
+                const y = getDisplacement(wave2Type, x, center2, waveWidth, baseAmp) * phaseFactor;
+                // Subtract y from midY (because canvas Y increases downwards, so -y is up, -(-y) is down)
+                if (first) { ctx.moveTo(x, midY - y); first = false; }
+                else { ctx.lineTo(x, midY - y); }
+            }
+            ctx.stroke();
+
+            // 3. Draw Sum (Superposition) - White
+            if (chkShowSum.checked) {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                first = true;
+                
+                for (let x = 0; x <= canvas.width; x++) {
+                    const y1 = getDisplacement(wave1Type, x, center1, waveWidth, baseAmp);
+                    // y2 depends on phaseFactor
+                    const y2 = getDisplacement(wave2Type, x, center2, waveWidth, baseAmp) * phaseFactor;
+                    const totalY = y1 + y2;
+                    
+                    if (first) { ctx.moveTo(x, midY - totalY); first = false; }
+                    else { ctx.lineTo(x, midY - totalY); }
+                }
+                ctx.stroke();
+                
+                ctx.shadowBlur = 0;
+            }
+
+            // Update Status Text
+            statusText.innerText = `Time Frame: ${time} | Center Dist: ${Math.round(Math.abs(center1 - center2))}px`;
+
+            animationFrameId = requestAnimationFrame(draw);
+        }
+
+        // --- Event Listeners ---
+
+        btnPlayPause.addEventListener('click', () => {
+            isRunning = !isRunning;
+            btnPlayPause.textContent = isRunning ? "暫停" : "播放";
+            btnPlayPause.classList.toggle('bg-sky-600');
+            btnPlayPause.classList.toggle('bg-yellow-600');
+        });
+
+        btnReset.addEventListener('click', () => {
+            time = 0;
+            isRunning = false;
+            
+            // Reset Positions manually
+            center1 = startX1;
+            center2 = startX2;
+
+            btnPlayPause.textContent = "播放";
+            btnPlayPause.classList.remove('bg-yellow-600');
+            btnPlayPause.classList.add('bg-sky-600');
+            
+            // Removed draw() call to prevent stacking animation loops
+        });
+
+        chkSlowMo.addEventListener('change', (e) => {
+            isSlowMo = e.target.checked;
+        });
+
+        selShape1.addEventListener('change', (e) => wave1Type = e.target.value);
+        selShape2.addEventListener('change', (e) => wave2Type = e.target.value);
+        
+        selPhase.addEventListener('change', (e) => {
+            phaseFactor = e.target.value === 'out' ? -1 : 1;
+        });
+
+        rngAmp.addEventListener('input', (e) => {
+            amplitudeScale = parseFloat(e.target.value);
+            valAmp.textContent = amplitudeScale.toFixed(1);
+        });
+
+        rngWidth.addEventListener('input', (e) => {
+            waveWidth = parseInt(e.target.value);
+            valWidth.textContent = waveWidth;
+        });
+
+        // Initialize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Start Loop
+        isRunning = false; 
+        btnPlayPause.textContent = "播放";
+        draw();
+
+    </script>
+</body>
+</html>
