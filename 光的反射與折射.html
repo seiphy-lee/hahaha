@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：光的反射與折射模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: white;
+            overflow: hidden; /* 防止捲動 */
+        }
+
+        /* 自定義 Slider 樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 數值顯示框樣式 */
+        .value-badge {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <!-- Header / Title -->
+    <div class="bg-slate-800 p-4 shadow-lg z-10 border-b border-slate-700 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-sky-400">⚡ 光的反射與折射模擬</h1>
+            <p class="text-xs md:text-sm text-slate-400">高中物理 - 幾何光學篇</p>
+        </div>
+        <div class="text-right hidden md:block">
+            <div id="critical-angle-display" class="text-sm font-mono text-yellow-400 opacity-0 transition-opacity">
+                臨界角 $\theta_c \approx$ <span id="crit-val">--</span>°
+            </div>
+            <div id="tir-warning" class="text-xs font-bold text-red-500 bg-red-900/30 px-2 py-1 rounded mt-1 opacity-0 transition-opacity">
+                ⚠️ 全反射發生中 (Total Internal Reflection)
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-1 flex-col md:flex-row h-full overflow-hidden">
+        
+        <!-- Controls Panel -->
+        <div class="w-full md:w-80 bg-slate-900 p-6 flex flex-col gap-6 border-r border-slate-700 overflow-y-auto z-20 shadow-xl">
+            
+            <!-- Controls Group -->
+            <div class="space-y-6">
+                
+                <!-- Incident Angle -->
+                <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                    <label class="block text-sm font-bold text-gray-300 mb-2 flex justify-between">
+                        <span>入射角 ($\theta_1$)</span>
+                        <span id="angle-val" class="value-badge">45°</span>
+                    </label>
+                    <input type="range" id="angle-slider" min="0" max="89" value="45" step="0.1">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0° (法線)</span>
+                        <span>90°</span>
+                    </div>
+                </div>
+
+                <!-- Index n1 -->
+                <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                    <label class="block text-sm font-bold text-gray-300 mb-2 flex justify-between">
+                        <span class="text-sky-300">介質 1 折射率 ($n_1$)</span>
+                        <span id="n1-val" class="value-badge">1.00</span>
+                    </label>
+                    <input type="range" id="n1-slider" min="1.00" max="3.00" value="1.00" step="0.01">
+                    <div class="text-xs text-gray-500 mt-1 text-right">例如：空氣 $\approx 1.0$</div>
+                </div>
+
+                <!-- Index n2 -->
+                <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                    <label class="block text-sm font-bold text-gray-300 mb-2 flex justify-between">
+                        <span class="text-indigo-300">介質 2 折射率 ($n_2$)</span>
+                        <span id="n2-val" class="value-badge">1.50</span>
+                    </label>
+                    <input type="range" id="n2-slider" min="1.00" max="3.00" value="1.50" step="0.01">
+                    <div class="text-xs text-gray-500 mt-1 text-right">例如：玻璃 $\approx 1.5$, 水 $\approx 1.33$</div>
+                </div>
+
+            </div>
+
+            <!-- Information Box -->
+            <div class="mt-auto bg-slate-800 p-4 rounded border border-slate-600 text-sm">
+                <h3 class="font-bold text-slate-300 mb-2 border-b border-slate-600 pb-1">物理公式筆記</h3>
+                <ul class="list-disc list-inside space-y-1 text-slate-400 text-xs">
+                    <li>反射定律: $\theta_1 = \theta_{refl}$</li>
+                    <li>司乃耳定律: $n_1 \sin\theta_1 = n_2 \sin\theta_2$</li>
+                    <li>臨界角公式: $\sin\theta_c = n_2 / n_1$ (當 $n_1 > n_2$)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Simulation Area -->
+        <div class="flex-1 relative bg-black canvas-container" id="canvas-wrapper">
+            <canvas id="simCanvas" class="block w-full h-full"></canvas>
+            
+            <!-- Floating Labels for Media -->
+            <div class="absolute top-4 left-4 text-sky-500/50 text-4xl font-bold select-none pointer-events-none">
+                $n_1$
+            </div>
+            <div class="absolute bottom-4 left-4 text-indigo-500/50 text-4xl font-bold select-none pointer-events-none">
+                $n_2$
+            </div>
+            
+            <!-- Mobile info overlay -->
+            <div class="md:hidden absolute top-2 right-2 text-right pointer-events-none">
+                 <div id="mobile-tir-warning" class="text-xs font-bold text-red-500 bg-black/80 px-2 py-1 rounded opacity-0">
+                    ⚠️ 全反射
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MathJax for nice formulas (Loaded asynchronously) -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+
+    <script>
+        // --- Physics Engine & Visualization Logic ---
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-wrapper');
+
+        // UI Elements
+        const angleSlider = document.getElementById('angle-slider');
+        const n1Slider = document.getElementById('n1-slider');
+        const n2Slider = document.getElementById('n2-slider');
+        
+        const angleVal = document.getElementById('angle-val');
+        const n1Val = document.getElementById('n1-val');
+        const n2Val = document.getElementById('n2-val');
+        
+        const critAngleDisplay = document.getElementById('critical-angle-display');
+        const critVal = document.getElementById('crit-val');
+        const tirWarning = document.getElementById('tir-warning');
+        const mobileTirWarning = document.getElementById('mobile-tir-warning');
+
+        // State Variables
+        let params = {
+            theta1: 45, // Degrees
+            n1: 1.00,
+            n2: 1.50
+        };
+
+        // Resize Handling
+        let width, height, centerX, centerY;
+        
+        function resize() {
+            width = container.clientWidth;
+            height = container.clientHeight;
+            // Handle high DPI displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            centerX = width / 2;
+            centerY = height / 2;
+            draw();
+        }
+
+        window.addEventListener('resize', resize);
+
+        // Input Handling
+        function updateParams() {
+            params.theta1 = parseFloat(angleSlider.value);
+            params.n1 = parseFloat(n1Slider.value);
+            params.n2 = parseFloat(n2Slider.value);
+
+            // Update Text
+            angleVal.textContent = params.theta1.toFixed(1) + '°';
+            n1Val.textContent = params.n1.toFixed(2);
+            n2Val.textContent = params.n2.toFixed(2);
+
+            // Calculate Critical Angle Logic
+            checkCriticalAngle();
+
+            draw();
+        }
+
+        function checkCriticalAngle() {
+            if (params.n1 > params.n2) {
+                // Critical angle exists
+                const critRad = Math.asin(params.n2 / params.n1);
+                const critDeg = critRad * (180 / Math.PI);
+                
+                critVal.textContent = critDeg.toFixed(1);
+                critAngleDisplay.classList.remove('opacity-0');
+
+                if (params.theta1 > critDeg) {
+                    tirWarning.classList.remove('opacity-0');
+                    mobileTirWarning.classList.remove('opacity-0');
+                } else {
+                    tirWarning.classList.add('opacity-0');
+                    mobileTirWarning.classList.add('opacity-0');
+                }
+            } else {
+                critAngleDisplay.classList.add('opacity-0');
+                tirWarning.classList.add('opacity-0');
+                mobileTirWarning.classList.add('opacity-0');
+            }
+        }
+
+        angleSlider.addEventListener('input', updateParams);
+        n1Slider.addEventListener('input', updateParams);
+        n2Slider.addEventListener('input', updateParams);
+
+        // Drawing Functions
+        function draw() {
+            // Clear
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Draw Media Backgrounds
+            // Medium 1 (Top) - Light Sky Tint
+            ctx.fillStyle = `rgba(14, 165, 233, ${0.05 + (params.n1 - 1) * 0.1})`; 
+            ctx.fillRect(0, 0, width, centerY);
+            
+            // Medium 2 (Bottom) - Light Indigo Tint
+            ctx.fillStyle = `rgba(99, 102, 241, ${0.05 + (params.n2 - 1) * 0.1})`;
+            ctx.fillRect(0, centerY, width, height / 2);
+
+            // 2. Draw Interface Line
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 3. Draw Normal Line (Dashed)
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, height);
+            ctx.strokeStyle = '#64748b'; // Slate 500
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset
+
+            // --- Physics Calculations ---
+            const theta1Rad = params.theta1 * (Math.PI / 180);
+            
+            // Calculate Refraction Angle using Snell's Law
+            // n1 * sin(t1) = n2 * sin(t2) => sin(t2) = (n1/n2) * sin(t1)
+            let theta2Rad = 0;
+            let isTIR = false;
+            
+            const sinTheta2 = (params.n1 / params.n2) * Math.sin(theta1Rad);
+
+            if (Math.abs(sinTheta2) > 1.0) {
+                isTIR = true;
+            } else {
+                theta2Rad = Math.asin(sinTheta2);
+            }
+
+            const rayLength = Math.max(width, height) * 0.8; // Long enough to go off screen
+
+            // 4. Draw Incident Ray (Top-Left quadrant usually)
+            // Coordinates relative to center
+            const incX = centerX - rayLength * Math.sin(theta1Rad);
+            const incY = centerY - rayLength * Math.cos(theta1Rad);
+
+            drawLaser(incX, incY, centerX, centerY, 1.0); // Full intensity
+
+            // 5. Draw Reflected Ray
+            // Symmetric to Normal
+            const refX = centerX + rayLength * Math.sin(theta1Rad);
+            const refY = centerY - rayLength * Math.cos(theta1Rad);
+            
+            // Simple intensity estimation (Fresnel simplified)
+            let reflectionIntensity = 0.3; 
+            if (isTIR) reflectionIntensity = 1.0;
+            else {
+                // Make reflection stronger as angle increases (Glancing angle)
+                reflectionIntensity = 0.2 + (params.theta1 / 90) * 0.6;
+            }
+
+            drawLaser(centerX, centerY, refX, refY, reflectionIntensity);
+
+            // 6. Draw Refracted Ray (Only if not TIR)
+            if (!isTIR) {
+                const refracX = centerX + rayLength * Math.sin(theta2Rad);
+                const refracY = centerY + rayLength * Math.cos(theta2Rad);
+                
+                drawLaser(centerX, centerY, refracX, refracY, 1.0 - (reflectionIntensity * 0.5)); // Conservation roughly
+                
+                // Angle Arc for Refraction
+                drawAngleArc(theta2Rad, false, '#818cf8', 'θ₂');
+            }
+
+            // 7. Visual Helpers (Angle Arcs & Text)
+            drawAngleArc(theta1Rad, true, '#38bdf8', 'θ₁');
+            
+            // Origin Point
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+        }
+
+        function drawLaser(x1, y1, x2, y2, opacity) {
+            ctx.globalAlpha = opacity;
+            ctx.lineCap = 'round';
+
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#f43f5e'; // Red Glow
+            
+            // Core beam
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#f43f5e'; // Rose 500 (Red Laser)
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Inner white core for realism
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#fff1f2'; // Very light pink/white
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.globalAlpha = 1.0; // Reset
+        }
+
+        function drawAngleArc(angleRad, isIncident, color, label) {
+            const r = 60; // Radius of arc
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            // Canvas Angles: 0 is Right (X+), PI/2 is Down (Y+), -PI/2 is Up (Y-)
+            // Normal is Vertical ( -PI/2 to PI/2 )
+            
+            let startAngle, endAngle;
+
+            if (isIncident) {
+                // Incident is in top quadrant (-Y), measured from Normal (Up, -PI/2)
+                // Draw arc from Normal (-PI/2) to Incident Ray (-PI/2 - theta)
+                startAngle = -Math.PI / 2 - angleRad;
+                endAngle = -Math.PI / 2;
+            } else {
+                // Refracted is in bottom quadrant (+Y), measured from Normal (Down, PI/2)
+                // The refracted ray is on the Right side (X+). The Normal is Down (Y+).
+                // We want the arc between the Ray and the Normal.
+                // Normal is PI/2. Ray is (PI/2 - theta).
+                startAngle = Math.PI / 2 - angleRad;
+                endAngle = Math.PI / 2;
+            }
+
+            // Draw Arc
+            ctx.arc(centerX, centerY, r, startAngle, endAngle);
+            ctx.stroke();
+
+            // Draw Text
+            // Position text at the bisector of the angle
+            const bisectAngle = (startAngle + endAngle) / 2;
+            const textR = r + 25;
+            const textX = centerX + textR * Math.cos(bisectAngle);
+            const textY = centerY + textR * Math.sin(bisectAngle);
+
+            ctx.fillStyle = color;
+            ctx.font = '16px "Noto Sans TC"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Convert rad to deg for display
+            const deg = (angleRad * 180 / Math.PI).toFixed(1);
+            ctx.fillText(`${label}`, textX, textY);
+            ctx.font = '12px "Courier New"';
+            ctx.fillText(`${deg}°`, textX, textY + 16);
+        }
+
+        // Initialize
+        resize();
+
+    </script>
+</body>
+</html>

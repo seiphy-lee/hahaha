@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：透鏡成像模擬實驗室</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        canvas { touch-action: none; /* 防止手機上拖曳時畫面捲動 */ }
+        /* 自定義深色模式 Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        .noselect { user-select: none; -webkit-user-select: none; }
+        
+        /* 霓虹光暈效果 */
+        .neon-text { text-shadow: 0 0 5px rgba(255,255,255,0.5); }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen flex flex-col items-center p-4 text-slate-200">
+
+    <!-- 標題區 -->
+    <header class="w-full max-w-4xl bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-4 mb-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-white neon-text">透鏡成像模擬實驗室</h1>
+            <p class="text-sm text-slate-400">拖曳青色物體，觀察像的變化</p>
+        </div>
+        <div class="text-right hidden sm:block">
+            <div class="text-xs text-slate-500">Designed by</div>
+            <div class="font-semibold text-cyan-400">動畫大師</div>
+        </div>
+    </header>
+
+    <!-- 主要模擬區 -->
+    <main class="w-full max-w-4xl bg-slate-800 rounded-xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
+        
+        <!-- 分頁標籤 -->
+        <div class="flex border-b border-slate-700">
+            <button id="btn-convex" class="flex-1 py-3 text-center transition-colors font-bold text-blue-400 border-b-2 border-blue-500 bg-slate-700/50" onclick="switchLens('convex')">
+                凸透鏡 (Convex Lens)
+            </button>
+            <button id="btn-concave" class="flex-1 py-3 text-center transition-colors text-slate-500 hover:text-slate-300 hover:bg-slate-700/30" onclick="switchLens('concave')">
+                凹透鏡 (Concave Lens)
+            </button>
+        </div>
+
+        <!-- 畫布區域 -->
+        <div class="relative w-full aspect-[16/9] bg-slate-900 cursor-crosshair">
+            <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- 浮動提示 -->
+            <!-- [修改3] 字體放大：text-sm 改為 text-2xl -->
+            <div id="img-status" class="absolute top-4 right-4 bg-slate-800/90 backdrop-blur border border-slate-600 px-4 py-3 rounded-lg shadow-lg text-2xl font-mono hidden">
+                <!-- 動態生成的像性質 -->
+            </div>
+        </div>
+
+        <!-- 控制與數據面板 -->
+        <div class="bg-slate-800 p-4 border-t border-slate-700">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                <!-- 控制項 -->
+                <div class="flex items-center space-x-6">
+                    <label class="flex items-center cursor-pointer noselect">
+                        <div class="relative">
+                            <input type="checkbox" id="toggle-rays" class="sr-only" checked onchange="toggleRays()">
+                            <div class="w-10 h-6 bg-slate-600 rounded-full shadow-inner transition-colors toggle-bg"></div>
+                            <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full shadow transition-transform transform translate-x-0"></div>
+                        </div>
+                        <span class="ml-3 text-slate-300 font-medium">顯示光路徑</span>
+                    </label>
+
+                    <button class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 rounded text-sm transition shadow" onclick="resetObject()">
+                        重置位置
+                    </button>
+                </div>
+
+                <!-- 數據顯示 -->
+                <div class="grid grid-cols-3 gap-2 text-center text-sm font-mono text-slate-300 bg-slate-900/50 p-2 rounded border border-slate-700">
+                    <div>
+                        <div class="text-xs text-slate-500">物距 p</div>
+                        <div id="data-p" class="font-bold text-cyan-400">--</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">像距 q</div>
+                        <div id="data-q" class="font-bold text-pink-400">--</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-500">放大率 m</div>
+                        <div id="data-m" class="font-bold text-white">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3 text-xs text-slate-500 text-center font-mono">
+                物理公式驗證： 1/p + 1/q = 1/f &nbsp;|&nbsp; m = -q/p
+            </div>
+        </div>
+    </main>
+
+    <!-- 樣式修正 (Toggle Button) -->
+    <style>
+        input:checked ~ .toggle-bg { background-color: #3b82f6; }
+        input:checked ~ .dot { transform: translateX(100%); }
+    </style>
+
+    <script>
+        /**
+         * 高中物理透鏡模擬核心 (v3.1 - UI Optimization)
+         * Author: 動畫大師
+         */
+
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        // 基礎物理參數 (基準值)
+        const BASE_FOCAL_LENGTH = 100; // 基礎焦距 f
+        const BASE_OBJECT_HEIGHT = 60; // 基礎物體高度 h
+        const BASE_LENS_WIDTH = 12;
+        const BASE_LENS_HEIGHT = 220;
+
+        // 狀態變數
+        let state = {
+            mode: 'convex', // 'convex' or 'concave'
+            f: BASE_FOCAL_LENGTH,
+            objX: 200,      // 物體距離鏡心的水平距離 (p) (像素)
+            showRays: true,
+            isDragging: false,
+            canvasWidth: 0,
+            canvasHeight: 0,
+            originX: 0,     // 鏡心在畫布上的 X
+            originY: 0,     // 主軸在畫布上的 Y
+            lensPosRatio: 0.5, // 鏡心在畫面的相對位置 (0.5 = 置中)
+            zoomScale: 1.0     // 縮放倍率 (凹透鏡時放大)
+        };
+
+        // 初始化
+        function init() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 滑鼠/觸控事件
+            canvas.addEventListener('mousedown', startDrag);
+            canvas.addEventListener('mousemove', onDrag);
+            canvas.addEventListener('mouseup', endDrag);
+            canvas.addEventListener('mouseleave', endDrag);
+            
+            canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // 防止捲動
+                onDrag(e.touches[0]);
+            });
+            canvas.addEventListener('touchend', endDrag);
+
+            draw();
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            state.canvasWidth = rect.width;
+            state.canvasHeight = rect.height;
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // 根據模式設定原點位置
+            state.originX = state.canvasWidth * state.lensPosRatio;
+            state.originY = state.canvasHeight / 2;
+            
+            draw();
+        }
+
+        // --- 互動邏輯 ---
+
+        function startDrag(e) {
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            const physX = state.originX - mouseX; 
+            
+            // 判斷點擊範圍 (考慮縮放後物體較大，點擊範圍也該微調)
+            if (Math.abs(physX - state.objX) < 40 * state.zoomScale) { 
+                state.isDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+
+        function onDrag(e) {
+            if (!state.isDragging) {
+                const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+                const physX = state.originX - mouseX;
+                if (Math.abs(physX - state.objX) < 40 * state.zoomScale) {
+                    canvas.style.cursor = 'grab';
+                } else {
+                    canvas.style.cursor = 'crosshair';
+                }
+                return;
+            }
+
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            let newObjX = state.originX - mouseX;
+
+            // 限制範圍 (最大 4倍焦距)
+            const maxDist = 4 * Math.abs(state.f);
+            if (newObjX < 10) newObjX = 10;
+            if (newObjX > maxDist) newObjX = maxDist;
+
+            state.objX = Math.round(newObjX);
+            draw();
+        }
+
+        function endDrag() {
+            state.isDragging = false;
+            canvas.style.cursor = 'crosshair';
+        }
+
+        function switchLens(mode) {
+            state.mode = mode;
+            // 更新 UI
+            const btnConvex = document.getElementById('btn-convex');
+            const btnConcave = document.getElementById('btn-concave');
+
+            if (mode === 'convex') {
+                btnConvex.className = 'flex-1 py-3 text-center transition-colors font-bold text-blue-400 border-b-2 border-blue-500 bg-slate-700/50';
+                btnConcave.className = 'flex-1 py-3 text-center transition-colors text-slate-500 hover:text-slate-300 hover:bg-slate-700/30';
+                
+                // 凸透鏡：標準模式
+                state.zoomScale = 1.0;
+                state.f = BASE_FOCAL_LENGTH;
+                state.lensPosRatio = 0.5; // 置中
+            } else {
+                btnConvex.className = 'flex-1 py-3 text-center transition-colors text-slate-500 hover:text-slate-300 hover:bg-slate-700/30';
+                btnConcave.className = 'flex-1 py-3 text-center transition-colors font-bold text-blue-400 border-b-2 border-blue-500 bg-slate-700/50';
+                
+                // 凹透鏡：放大 1.8 倍，且鏡心右移
+                state.zoomScale = 1.8;
+                state.f = -(BASE_FOCAL_LENGTH * 1.8);
+                state.lensPosRatio = 0.75; // 靠右 (留左邊 75% 空間)
+            }
+            
+            // 重新計算原點
+            resizeCanvas();
+            // 重置物體位置到 2F 處
+            state.objX = Math.abs(state.f) * 2; 
+            draw();
+        }
+
+        function toggleRays() {
+            state.showRays = document.getElementById('toggle-rays').checked;
+            draw();
+        }
+
+        function resetObject() {
+            state.objX = Math.abs(state.f) * 2;
+            draw();
+        }
+
+        // --- 繪圖核心 ---
+
+        function draw() {
+            ctx.clearRect(0, 0, state.canvasWidth, state.canvasHeight);
+            
+            const { originX, originY, f, objX, zoomScale } = state;
+            const p = objX;
+            
+            // 繪圖時使用的尺寸 (隨 zoomScale 變化)
+            const currentObjHeight = BASE_OBJECT_HEIGHT * zoomScale;
+            
+            drawGrid();
+            drawLens();
+            drawFocusPoints();
+
+            let q = Infinity;
+            let m = 0;
+            
+            // 處理 p = |f| 的情況
+            if (Math.abs(p - Math.abs(f)) < 1) { 
+                q = Infinity; 
+            } else {
+                // q = pf / (p-f)
+                q = (p * f) / (p - f);
+                m = -q / p;
+            }
+
+            // 物體頂端座標
+            const objTipY = originY - currentObjHeight;
+            // 繪製物體
+            // arrowScale 用於線條粗細
+            drawArrow(originX - p, originY, originX - p, objTipY, '#22d3ee', 4 * Math.sqrt(zoomScale), '物 (Object)');
+
+            // 計算像高
+            const imgHeight = Math.abs(currentObjHeight * m);
+            const isReal = q > 0; 
+            const isInverted = m < 0; 
+            
+            let imgTipY;
+            if (isFinite(q)) {
+                imgTipY = isInverted ? originY + imgHeight : originY - imgHeight;
+            }
+
+            if (!isFinite(q)) {
+                drawInfinityHint();
+            } else {
+                const imgX = originX + q;
+                const boundaryLeft = -50;
+                const boundaryRight = state.canvasWidth + 50;
+
+                if (imgX > boundaryRight || imgX < boundaryLeft) {
+                    drawOffScreenHint(imgX, isReal, isInverted);
+                } else {
+                    drawArrow(imgX, originY, imgX, imgTipY, '#f472b6', 4 * Math.sqrt(zoomScale), '像 (Image)', !isReal);
+                }
+            }
+
+            // 繪製光路徑
+            if (state.showRays && isFinite(q)) {
+                drawRayDiagram(p, q, objTipY, imgTipY);
+            }
+
+            updateUI(p, q, m);
+        }
+
+        function drawGrid() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#475569'; // slate-600
+            ctx.lineWidth = 1;
+            
+            // 主軸
+            ctx.moveTo(0, state.originY);
+            ctx.lineTo(state.canvasWidth, state.originY);
+            ctx.stroke();
+
+            // 刻度
+            ctx.fillStyle = '#94a3b8'; // slate-400
+            ctx.textAlign = 'center';
+            // 字體保持上次需求 (25px)
+            ctx.font = '25px monospace';
+            
+            const unit = Math.abs(state.f);
+            
+            // 根據縮放調整刻度數量，避免太密或太疏
+            // 凸透鏡顯示左右，凹透鏡主要顯示左邊
+            let startI = -6; 
+            let endI = 6;
+            if (state.mode === 'concave') {
+                startI = -4; // 左邊多一點
+                endI = 2;    // 右邊少一點
+            }
+
+            for (let i = startI; i <= endI; i++) {
+                if (i === 0) continue;
+                const x = state.originX + i * unit;
+                
+                // 畫刻度線
+                ctx.beginPath();
+                ctx.moveTo(x, state.originY - 8);
+                ctx.lineTo(x, state.originY + 8);
+                ctx.stroke();
+                
+                // 畫文字
+                let label = "";
+                if (Math.abs(i) === 1) label = i > 0 ? "F'" : "F";
+                if (Math.abs(i) === 2) label = i > 0 ? "2F'" : "2F";
+                
+                if (label) {
+                    ctx.fillText(label, x, state.originY + 35); // Y位移也要配合字體調整
+                }
+            }
+        }
+
+        function drawLens() {
+            const { originX, originY, zoomScale } = state;
+            
+            // [修改2] 凹透鏡寬度減半 (Base width * 0.5)
+            const widthMultiplier = state.mode === 'concave' ? 0.5 : 1.0;
+            const lensW = BASE_LENS_WIDTH * zoomScale * widthMultiplier;
+            const lensH = BASE_LENS_HEIGHT * zoomScale;
+
+            if (state.mode === 'convex') {
+                // 凸透鏡 (標準)
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                
+                ctx.beginPath();
+                ctx.ellipse(originX, originY, lensW, lensH/2, 0, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+                
+                drawArrowHead(originX, originY - lensH/2, -Math.PI/2, 8 * zoomScale, '#38bdf8');
+                drawArrowHead(originX, originY + lensH/2, Math.PI/2, 8 * zoomScale, '#38bdf8');
+            } else {
+                // 凹透鏡
+                // 繪製更明顯的雙凹形狀
+                const curveDepth = lensW * 1.5; // 內縮深度
+                const edgeW = lensW * 2;        // 邊緣寬度
+
+                ctx.strokeStyle = '#22d3ee'; // 更亮的青色
+                ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
+                ctx.lineWidth = 4; // 線條加粗
+
+                ctx.beginPath();
+                // 左弧線 (向內凹)
+                ctx.moveTo(originX - edgeW, originY - lensH/2);
+                ctx.quadraticCurveTo(originX - curveDepth * 0.2, originY, originX - edgeW, originY + lensH/2);
+                // 下底
+                ctx.lineTo(originX + edgeW, originY + lensH/2);
+                // 右弧線 (向內凹)
+                ctx.quadraticCurveTo(originX + curveDepth * 0.2, originY, originX + edgeW, originY - lensH/2);
+                // 上底
+                ctx.lineTo(originX - edgeW, originY - lensH/2);
+                ctx.closePath();
+                
+                ctx.fill();
+                ctx.stroke();
+
+                // 畫中心軸線輔助
+                ctx.beginPath();
+                ctx.moveTo(originX, originY - lensH/2);
+                ctx.lineTo(originX, originY + lensH/2);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
+                ctx.stroke();
+
+                // 畫箭頭符號 (反向)
+                drawArrowHead(originX, originY - lensH/2 + 15, Math.PI/2, 12 * zoomScale, '#22d3ee');
+                drawArrowHead(originX, originY + lensH/2 - 15, -Math.PI/2, 12 * zoomScale, '#22d3ee');
+            }
+            
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '16px sans-serif';
+            ctx.fillText("O", originX + 15, originY + 20);
+        }
+
+        function drawFocusPoints() {
+            const { originX, originY, f, zoomScale } = state;
+            const fAbs = Math.abs(f);
+            
+            ctx.fillStyle = '#fb7185'; // Rose-400
+            const r = 4 * Math.sqrt(zoomScale); // 焦點點也稍微放大
+
+            ctx.beginPath();
+            ctx.arc(originX - fAbs, originY, r, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(originX + fAbs, originY, r, 0, 2*Math.PI);
+            ctx.fill();
+        }
+
+        function drawArrow(x1, y1, x2, y2, color, width, label, isDashed = false) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            if (isDashed) ctx.setLineDash([8, 6]); // 虛線也放大間距
+            else ctx.setLineDash([]);
+            
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            drawArrowHead(x2, y2, angle, width * 3, color);
+
+            if (label) {
+                ctx.fillStyle = color;
+                
+                // [修改1] 第1分頁(convex)字體放大為2倍 (28px base)
+                // 凹透鏡(concave)因已有 zoomScale=1.8，為避免過大，我們維持原本的基礎 (14px)
+                const baseFontSize = state.mode === 'convex' ? 28 : 14;
+                ctx.font = `bold ${baseFontSize * state.zoomScale}px sans-serif`;
+                
+                ctx.fillText(label, x2 - 20, y2 < y1 ? y2 - 15 : y2 + 30);
+            }
+        }
+
+        function drawArrowHead(x, y, angle, size, color) {
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - size * Math.cos(angle - Math.PI / 6), y - size * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x - size * Math.cos(angle + Math.PI / 6), y - size * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawInfinityHint() {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("成像於無窮遠處 (平行光)", state.originX - state.f, state.originY - 80);
+        }
+
+        function drawOffScreenHint(imgX, isReal, isInverted) {
+            const { originX, originY, canvasWidth } = state;
+            const isRight = imgX > originX;
+            const xPos = isRight ? canvasWidth - 60 : 60;
+            
+            ctx.fillStyle = 'rgba(244, 114, 182, 0.7)';
+            ctx.textAlign = 'center';
+            ctx.font = '16px sans-serif';
+            ctx.fillText(isRight ? "像在遠處 ->" : "<- 像在遠處", xPos, originY - 30);
+            
+            const miniH = 30;
+            const tipY = isInverted ? originY + miniH : originY - miniH;
+            drawArrow(xPos, originY, xPos, tipY, 'rgba(244, 114, 182, 0.7)', 3, '', !isReal);
+        }
+
+        function drawRayDiagram(p, q, objTipY, imgTipY) {
+            const { originX, originY, f } = state;
+            const objTipX = originX - p;
+            const imgX = originX + q;
+
+            // 顏色定義
+            const cRay1 = '#facc15'; // Yellow
+            const cRay2 = '#4ade80'; // Green
+            const cRay3 = '#c084fc'; // Purple
+
+            ctx.lineWidth = 2; // 光線加粗一點
+
+            // ==========================================
+            // 光線 1: 平行主軸入射 -> 通過/發散自 對側焦點
+            // ==========================================
+            drawRaySegment(objTipX, objTipY, originX, objTipY, cRay1);
+            
+            if (state.mode === 'convex') {
+                drawExtendedRay(originX, objTipY, originX + f, originY, cRay1);
+                if (q < 0) {
+                    drawDashedLine(originX, objTipY, imgX, imgTipY, cRay1);
+                }
+            } else {
+                // 凹透鏡: 虛焦點在左 (originX + f, f < 0)
+                const targetFX = originX + f; 
+                drawExtendedRay(originX, objTipY, 3000, objTipY + (objTipY - originY) * (3000 / Math.abs(f)), cRay1);
+                drawDashedLine(originX, objTipY, imgX, imgTipY, cRay1);
+            }
+
+            // ==========================================
+            // 光線 2: 通過光心 (直進)
+            // ==========================================
+            drawRaySegment(objTipX, objTipY, originX, originY, cRay2);
+            drawExtendedRay(originX, originY, originX + (originX - objTipX), originY + (originY - objTipY), cRay2);
+            if (q < 0) {
+                drawDashedLine(originX, originY, imgX, imgTipY, cRay2);
+            }
+
+            // ==========================================
+            // 光線 3: 通過/瞄準 同側焦點 -> 平行出射
+            // ==========================================
+            if (state.mode === 'convex') {
+                const fxLeft = originX - f;
+                const slope = (originY - objTipY) / (fxLeft - objTipX);
+                const lensIntersectY = originY + slope * (originX - fxLeft);
+
+                drawRaySegment(objTipX, objTipY, originX, lensIntersectY, cRay3);
+                drawRaySegment(originX, lensIntersectY, state.canvasWidth, lensIntersectY, cRay3);
+                
+                if (q < 0) {
+                    drawDashedLine(originX, lensIntersectY, -2000, lensIntersectY, cRay3);
+                }
+                if (p < f) {
+                    drawDashedLine(objTipX, objTipY, fxLeft, originY, cRay3);
+                }
+
+            } else {
+                // 凹透鏡
+                const fxRight = originX - f; // f<0 -> fxRight > originX
+                const slope = (originY - objTipY) / (fxRight - objTipX);
+                const lensIntersectY = objTipY + slope * (originX - objTipX);
+
+                drawRaySegment(objTipX, objTipY, originX, lensIntersectY, cRay3);
+                drawDashedLine(originX, lensIntersectY, fxRight, originY, cRay3);
+                
+                drawRaySegment(originX, lensIntersectY, state.canvasWidth, lensIntersectY, cRay3);
+                // 這裡要往左延伸到無窮遠
+                drawDashedLine(originX, lensIntersectY, -2000, lensIntersectY, cRay3);
+            }
+        }
+
+        function drawRaySegment(x1, y1, x2, y2, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.setLineDash([]);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function drawExtendedRay(x1, y1, x2, y2, color) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const scale = 200; 
+            drawRaySegment(x1, y1, x1 + dx * scale, y1 + dy * scale, color);
+        }
+
+        function drawDashedLine(x1, y1, x2, y2, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.setLineDash([8, 6]);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function updateUI(p, q, m) {
+            
+            const fAbs = Math.abs(state.f);
+            const pRatio = (p / fAbs).toFixed(2);
+            const qRatio = isFinite(q) ? (Math.abs(q) / fAbs).toFixed(2) : '∞';
+
+            document.getElementById('data-p').innerHTML = `${p} px <span class="text-[10px] text-slate-500">(${pRatio}f)</span>`;
+            document.getElementById('data-q').innerHTML = isFinite(q) ? `${Math.round(q)} px <span class="text-[10px] text-slate-500">(${qRatio}f)</span>` : '∞';
+            document.getElementById('data-m').innerText = isFinite(m) ? m.toFixed(2) + 'x' : '∞';
+
+            const statusEl = document.getElementById('img-status');
+            
+            if (!isFinite(q)) {
+                statusEl.innerHTML = `<span class="text-purple-400 font-bold">不成像 (平行光)</span>`;
+                statusEl.classList.remove('hidden');
+                return;
+            }
+
+            let typeText = "";
+            let colorClass = "";
+
+            if (q > 0) {
+                typeText += "倒立 · 實像";
+                colorClass = "text-pink-400";
+            } else {
+                typeText += "正立 · 虛像";
+                colorClass = "text-pink-400"; 
+            }
+
+            const absM = Math.abs(m);
+            if (Math.abs(absM - 1) < 0.05) typeText += " · 等大";
+            else if (absM > 1) typeText += " · 放大";
+            else typeText += " · 縮小";
+
+            statusEl.innerHTML = `<span class="${colorClass} font-bold">${typeText}</span>`;
+            statusEl.classList.remove('hidden');
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
