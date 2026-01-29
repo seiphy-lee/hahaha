@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小精靈慢速完美版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+        }
+
+        body { 
+            margin: 0; 
+            padding: 0;
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #ui-header {
+            width: 100%;
+            padding: 10px 20px;
+            background: #111;
+            border-bottom: 2px solid #444;
+            display: flex;
+            justify-content: space-between;
+            color: #ffcc00;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        #game-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: relative;
+        }
+
+        canvas { 
+            background-color: #000; 
+            box-shadow: 0 0 15px #222;
+            image-rendering: pixelated; /* 保持像素清晰 */
+        }
+
+        #controls {
+            width: 100%;
+            height: 260px; /* 控制器區域高度 */
+            background: #111;
+            border-top: 2px solid #444;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 8px;
+            padding: 10px;
+            padding-bottom: 30px; /* iPhone 底部安全區 */
+        }
+
+        .btn {
+            background: #222;
+            border: 2px solid #666;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            color: #888;
+            transition: background 0.1s, transform 0.05s;
+        }
+
+        .btn:active, .btn.active {
+            background: #444;
+            color: #fff;
+            border-color: #fff;
+            transform: scale(0.95);
+        }
+
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+
+        #msg-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 28px;
+            text-align: center;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+            display: none;
+        }
+
+        #debug {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            color: lime;
+            font-size: 10px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-header">
+        <span>SCORE: <span id="score">0</span></span>
+        <button onclick="initGame()" style="background:#d00; color:white; border:none; padding:5px 15px; border-radius:4px; font-weight:bold;">RESET</button>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        <div id="msg-overlay"></div>
+        <div id="debug">Ready</div>
+    </div>
+
+    <div id="controls">
+        <div id="btn-up" class="btn">▲</div>
+        <div id="btn-left" class="btn">◀</div>
+        <div id="btn-down" class="btn">▼</div>
+        <div id="btn-right" class="btn">▶</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const debugEl = document.getElementById('debug');
+        const msgEl = document.getElementById('msg-overlay');
+        const scoreEl = document.getElementById('score');
+
+        // ★ 地圖修正：移除死角，確保所有 2 (金幣) 都是連通的
+        // 0:空地(無豆), 1:牆壁, 2:豆子
+        const initialMaze = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+            [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,2,1,1,1,1,0,1,1,1,1,2,1,1,2,1], // 修正孤島
+            [1,2,2,2,2,1,2,2,2,2,2,2,2,1,2,2,2,2,1],
+            [1,1,1,1,2,1,2,1,1,0,1,1,2,1,2,1,1,1,1], // 鬼屋入口
+            [1,1,1,1,2,1,2,1,0,0,0,1,2,1,2,1,1,1,1], // 鬼屋內部 (全空)
+            [1,0,0,0,2,0,2,1,0,0,0,1,2,0,2,0,0,0,1], // 左右通道打通
+            [1,1,1,1,2,1,2,1,0,0,0,1,2,1,2,1,1,1,1], // 鬼屋內部 (全空)
+            [1,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,1],
+            [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,1],
+            [1,2,1,1,2,2,2,1,2,2,2,1,2,2,2,1,1,2,1], // 修正下方死角
+            [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
+            [1,2,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        let maze = [];
+        let GRID = 20;
+        let SPEED = 1; // ★ 速度降為 1 (超級慢速，絕對精準)
+        
+        let pacman = { x:0, y:0, dx:0, dy:0, nextDx:0, nextDy:0, mouth:0, mouthSpeed:0.05 };
+        let ghosts = [];
+        let score = 0;
+        let totalPellets = 0;
+        let gameOver = false;
+        let frameCount = 0;
+
+        function initGame() {
+            // 1. 計算適合螢幕的格子大小
+            const w = window.innerWidth * 0.95;
+            const h = window.innerHeight * 0.55; 
+            
+            let rawGrid = Math.min(w/19, h/19);
+            // 只要是整數即可，因為 SPEED=1，任何整數都能被1整除
+            GRID = Math.floor(rawGrid); 
+            
+            if(GRID < 10) GRID = 10; 
+
+            canvas.width = GRID * 19;
+            canvas.height = GRID * 19;
+
+            // 2. 重置數據
+            maze = JSON.parse(JSON.stringify(initialMaze));
+            totalPellets = maze.flat().filter(c => c===2).length;
+            score = 0;
+            scoreEl.innerText = 0;
+            gameOver = false;
+            msgEl.style.display = 'none';
+
+            // 3. 設定 Pacman (放在 (1,1) 的正中心)
+            pacman = {
+                x: GRID * 1.5,
+                y: GRID * 1.5,
+                dx: 0, dy: 0,
+                nextDx: 0, nextDy: 0,
+                mouth: 0, mouthSpeed: 0.05
+            };
+
+            // 4. 設定幽靈 (稍微調慢一點點，或者跟主角一樣快)
+            ghosts = [
+                {r:8, c:9, color:'red', dx:1, dy:0}, // 放在鬼屋內部空地
+                {r:9, c:9, color:'pink', dx:-1, dy:0},
+                {r:9, c:10, color:'cyan', dx:0, dy:1},
+                {r:10, c:9, color:'orange', dx:0, dy:-1}
+            ].map(g => ({
+                ...g,
+                x: g.c * GRID + GRID/2,
+                y: g.r * GRID + GRID/2,
+                speed: SPEED // 速度同步為 1
+            }));
+
+            debugEl.innerText = `SPEED:${SPEED} px/frame`;
+        }
+
+        function setDir(dx, dy, name) {
+            if(gameOver) return;
+            pacman.nextDx = dx;
+            pacman.nextDy = dy;
+            
+            // 靜止起步輔助
+            if(pacman.dx === 0 && pacman.dy === 0) {
+                const c = Math.floor(pacman.x / GRID);
+                const r = Math.floor(pacman.y / GRID);
+                if(!isWall(c + dx, r + dy)) {
+                    pacman.dx = dx;
+                    pacman.dy = dy;
+                }
+            }
+            debugEl.innerText = `Input: ${name}`;
+            if(navigator.vibrate) navigator.vibrate(10);
+        }
+
+        function bindBtn(id, dx, dy, label) {
+            const btn = document.getElementById(id);
+            const press = (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                setDir(dx, dy, label);
+            };
+            const release = (e) => {
+                e.preventDefault();
+                btn.classList.remove('active');
+            };
+            btn.addEventListener('pointerdown', press);
+            btn.addEventListener('pointerup', release);
+            btn.addEventListener('pointerleave', release);
+        }
+
+        bindBtn('btn-up', 0, -1, 'UP');
+        bindBtn('btn-down', 0, 1, 'DOWN');
+        bindBtn('btn-left', -1, 0, 'LEFT');
+        bindBtn('btn-right', 1, 0, 'RIGHT');
+
+        function isWall(c, r) {
+            if(r<0 || r>=19 || c<0 || c>=19) return true;
+            return maze[r][c] === 1;
+        }
+
+        function update() {
+            if(gameOver) return;
+
+            // 1. Pacman 移動邏輯 (精確整除檢查)
+            const half = GRID/2;
+            const atCenterX = (pacman.x - half) % GRID === 0;
+            const atCenterY = (pacman.y - half) % GRID === 0;
+
+            if (atCenterX && atCenterY) {
+                const col = Math.floor(pacman.x / GRID);
+                const row = Math.floor(pacman.y / GRID);
+
+                // 嘗試轉彎
+                if (pacman.nextDx !== 0 || pacman.nextDy !== 0) {
+                    if (!isWall(col + pacman.nextDx, row + pacman.nextDy)) {
+                        pacman.dx = pacman.nextDx;
+                        pacman.dy = pacman.nextDy;
+                    }
+                }
+
+                // 檢查撞牆
+                if (isWall(col + pacman.dx, row + pacman.dy)) {
+                    pacman.dx = 0;
+                    pacman.dy = 0;
+                }
+            }
+
+            pacman.x += pacman.dx * SPEED;
+            pacman.y += pacman.dy * SPEED;
+
+            // 吃豆子
+            const pc = Math.floor(pacman.x / GRID);
+            const pr = Math.floor(pacman.y / GRID);
+            if (maze[pr][pc] === 2) {
+                const dist = Math.hypot(pacman.x - (pc*GRID+half), pacman.y - (pr*GRID+half));
+                if(dist < 5) {
+                    maze[pr][pc] = 0;
+                    score++;
+                    scoreEl.innerText = score;
+                    if(score >= totalPellets) {
+                        endGame(true);
+                    }
+                }
+            }
+
+            // 幽靈 AI (降低更新頻率，讓動作更像舊遊戲)
+            frameCount++;
+            ghosts.forEach((g) => {
+                const gAtCenterX = (g.x - half) % GRID === 0;
+                const gAtCenterY = (g.y - half) % GRID === 0;
+                
+                if (gAtCenterX && gAtCenterY) {
+                    const gc = Math.floor(g.x / GRID);
+                    const gr = Math.floor(g.y / GRID);
+                    
+                    if (isWall(gc + g.dx, gr + g.dy) || Math.random() < 0.05) { // 降低隨機轉向頻率
+                        const candidates = [];
+                        if(!isWall(gc+1, gr) && g.dx!==-1) candidates.push({dx:1, dy:0});
+                        if(!isWall(gc-1, gr) && g.dx!==1) candidates.push({dx:-1, dy:0});
+                        if(!isWall(gc, gr+1) && g.dy!==-1) candidates.push({dx:0, dy:1});
+                        if(!isWall(gc, gr-1) && g.dy!==1) candidates.push({dx:0, dy:-1});
+                        
+                        if(candidates.length > 0) {
+                            const pick = candidates[Math.floor(Math.random()*candidates.length)];
+                            g.dx = pick.dx;
+                            g.dy = pick.dy;
+                        } else {
+                            g.dx *= -1; g.dy *= -1;
+                        }
+                    }
+                }
+                
+                g.x += g.dx * g.speed;
+                g.y += g.dy * g.speed;
+
+                if (Math.hypot(pacman.x - g.x, pacman.y - g.y) < GRID * 0.8) {
+                    endGame(false);
+                }
+            });
+        }
+
+        function endGame(win) {
+            gameOver = true;
+            msgEl.style.display = 'block';
+            msgEl.innerText = win ? "YOU WIN!" : "GAME OVER";
+            msgEl.style.color = win ? "#0f0" : "#f00";
+            if(navigator.vibrate) navigator.vibrate(500);
+        }
+
+        function draw() {
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 畫牆壁 (藍色空心框)
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#4488ff"; 
+            
+            for(let r=0; r<19; r++) {
+                for(let c=0; c<19; c++) {
+                    const x = c * GRID;
+                    const y = r * GRID;
+                    if(maze[r][c] === 1) {
+                        ctx.strokeRect(x+2, y+2, GRID-4, GRID-4);
+                    } else if(maze[r][c] === 2) {
+                        ctx.fillStyle = "#ffb8ae"; // 豆子顏色
+                        ctx.fillRect(x+GRID/2-2, y+GRID/2-2, 4, 4);
+                    }
+                }
+            }
+
+            // 畫 Pacman
+            ctx.save();
+            ctx.translate(pacman.x, pacman.y);
+            let rot = 0;
+            if(pacman.dx===1) rot=0;
+            if(pacman.dx===-1) rot=Math.PI;
+            if(pacman.dy===-1) rot=-Math.PI/2;
+            if(pacman.dy===1) rot=Math.PI/2;
+            ctx.rotate(rot);
+            pacman.mouth += pacman.mouthSpeed;
+            if(pacman.mouth > 0.5 || pacman.mouth < 0) pacman.mouthSpeed *= -1;
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, GRID*0.4, 0.2+pacman.mouth, 2*Math.PI-0.2-pacman.mouth);
+            ctx.lineTo(0,0);
+            ctx.fillStyle = "#ffff00";
+            ctx.fill();
+            ctx.restore();
+
+            // 畫幽靈
+            ghosts.forEach(g => {
+                ctx.fillStyle = g.color;
+                ctx.beginPath();
+                ctx.arc(g.x, g.y-2, GRID*0.4, Math.PI, 0);
+                ctx.lineTo(g.x+GRID*0.4, g.y+GRID*0.4);
+                ctx.lineTo(g.x-GRID*0.4, g.y+GRID*0.4);
+                ctx.fill();
+            });
+
+            update();
+            requestAnimationFrame(draw);
+        }
+
+        initGame();
+        draw();
+
+        document.addEventListener('keydown', e => {
+            if(e.key === "ArrowUp") setDir(0, -1, 'KEY');
+            if(e.key === "ArrowDown") setDir(0, 1, 'KEY');
+            if(e.key === "ArrowLeft") setDir(-1, 0, 'KEY');
+            if(e.key === "ArrowRight") setDir(1, 0, 'KEY');
+        });
+
+    </script>
+</body>
+</html>
