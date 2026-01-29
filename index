@@ -3,15 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>α 老師的動畫教學天地</title>
+    <title>高中物理模擬實驗室</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
-        h1 { color: #333; margin-bottom: 40px; text-align: center; font-size: 2em; }
-        .menu-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; width: 100%; max-width: 800px; }
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background-color: #f0f2f5; 
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .main-layout {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 50px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 300px;
+        }
+
+        .teacher-img {
+            max-width: 350px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(10px 10px 20px rgba(0,0,0,0.2));
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        h1 { color: #333; margin-bottom: 40px; text-align: center; font-size: 2.5em; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+        
+        .menu-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; width: 100%; }
+        
         .category-card {
             background-color: #fff;
-            width: 250px;
-            padding: 30px 20px;
+            width: 200px; /* 稍微把卡片改窄一點，這樣放四張比較剛好 */
+            padding: 25px 15px;
             text-decoration: none;
             border-radius: 15px;
             text-align: center;
@@ -24,35 +69,51 @@
         }
         .category-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
         .icon { font-size: 3em; margin-bottom: 15px; }
-        .title { color: #333; font-size: 1.4em; font-weight: bold; margin-bottom: 10px; }
+        .title { color: #333; font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
         .desc { color: #666; font-size: 0.9em; line-height: 1.5; }
         
-        /* 替不同的卡片加上不同顏色 */
-        .card-motion { border-top-color: #ff6b6b; }
-        .card-waves { border-top-color: #4ecdc4; }
-        .card-optics { border-top-color: #ffe66d; }
+        /* 各分類顏色設定 */
+        .card-motion { border-top-color: #ff6b6b; } /* 紅色 */
+        .card-waves { border-top-color: #4ecdc4; }  /* 藍綠色 */
+        .card-optics { border-top-color: #ffe66d; } /* 黃色 */
+        .card-tools { border-top-color: #a55eea; }  /* 紫色 (新加入) */
     </style>
 </head>
 <body>
 
-    <h1>α 老師的動畫教學天地</h1>
-
-    <div class="menu-container">
+    <div class="main-layout">
         
-        <a href="motion.html" class="category-card card-motion">
-            <div class="icon">🏎️</div>
-            <div class="title">運動與力</div>
-        </a>
+        <div class="content-area">
+            <h1>🚀 高中物理模擬實驗室</h1>
 
-        <a href="waves.html" class="category-card card-waves">
-            <div class="icon">🌊</div>
-            <div class="title">波動</div>
-        </a>
+            <div class="menu-container">
+                <a href="motion.html" class="category-card card-motion">
+                    <div class="icon">🏎️</div>
+                    <div class="title">運動與力</div>
+                    <div class="desc">牛頓定律、拋體運動等經典力學。</div>
+                </a>
 
-        <a href="optics.html" class="category-card card-optics">
-            <div class="icon">🔦</div>
-            <div class="title">光學</div>
-        </a>
+                <a href="waves.html" class="category-card card-waves">
+                    <div class="icon">🌊</div>
+                    <div class="title">波動</div>
+                    <div class="desc">水波、駐波、干涉與繞射現象。</div>
+                </a>
+
+                <a href="optics.html" class="category-card card-optics">
+                    <div class="icon">🔦</div>
+                    <div class="title">光學</div>
+                    <div class="desc">面鏡成像、透鏡折射與光學儀器。</div>
+                </a>
+
+                <a href="tools.html" class="category-card card-tools">
+                    <div class="icon">🧰</div>
+                    <div class="title">小工具</div>
+                    <div class="desc">包含計時器、計算機等教學輔助工具。</div>
+                </a>
+            </div>
+        </div>
+
+        <img src="teacher.png" alt="物理老師" class="teacher-img">
 
     </div>
 
