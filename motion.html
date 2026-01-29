@@ -7,16 +7,9 @@
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fff5f5; display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
         h1 { color: #d63031; margin-bottom: 30px; text-align: center; }
-        .message-box {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            text-align: center;
-            border-top: 5px solid #d63031;
-            max-width: 500px;
-        }
-        .icon { font-size: 4em; margin-bottom: 20px; display: block; }
+        .menu-container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; }
+        .btn { background-color: #fff; color: #d63031; padding: 20px; text-decoration: none; border-radius: 12px; text-align: center; font-size: 1.2em; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #d63031; transition: transform 0.2s; }
+        .btn:hover { transform: translateY(-3px); background-color: #d63031; color: #fff; }
         .back-btn { margin-top: 30px; color: #666; text-decoration: none; font-weight: bold; }
         .back-btn:hover { color: #d63031; }
     </style>
@@ -25,12 +18,12 @@
 
     <h1>🏎️ 運動與力模擬單元</h1>
 
-    <div class="message-box">
-        <span class="icon">🚧</span>
-        <h3>精彩內容籌備中...</h3>
-        <p>這個單元將收錄牛頓運動定律、拋體運動等模擬實驗。</p>
-        <p>敬請期待！</p>
-    </div>
+    <div class="menu-container">
+        <a href="動量守恆--人船模型.html" class="btn">1. 人船模型 (動量守恆)</a>
+        <a href="牛頓大砲.html" class="btn">2. 牛頓大砲</a>
+        <a href="牛頓擺.html" class="btn">3. 牛頓擺</a>
+   
+        </div>
 
     <a href="index.html" class="back-btn">⬅ 回到主選單</a>
 
