@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雙狹縫干涉模擬</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* 1. 基礎設定 */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0f172a; /* 深色背景 */
+            color: #f1f5f9;
+            font-family: 'Noto Sans TC', 'Urbanist', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            background-color: #1e293b;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            border: 1px solid #334155;
+        }
+
+        h1 {
+            color: #deff9a;
+            font-size: 28px;
+            margin: 0 0 25px 0;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #334155;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        /* 2. 模擬視圖佈局 */
+        .sim-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sim-visuals {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            height: 400px;
+        }
+
+        @media (max-width: 768px) {
+            .sim-visuals {
+                flex-direction: column;
+                height: auto;
+            }
+        }
+
+        /* 左側面板：實驗裝置 */
+        .panel {
+            position: relative;
+            background-color: #020617;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .setup-panel {
+            flex: 0 0 35%; /* 佔 35% 寬度 */
+        }
+
+        .pattern-panel {
+            flex: 1; /* 佔剩餘寬度 */
+        }
+
+        .panel-label {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 3. 控制面板區域 */
+        .controls-container {
+            background-color: #334155;
+            border-radius: 12px;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .control-title {
+            color: #f8fafc;
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .control-value {
+            color: #deff9a;
+            font-family: 'Urbanist', monospace;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        /* 滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #64748b;
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #deff9a;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 0 10px rgba(222, 255, 154, 0.3);
+            border: 2px solid #334155;
+        }
+
+        /* 波長滑桿的特殊軌道顏色 */
+        #wavelength::-webkit-slider-thumb {
+            background: #ffffff;
+            border-color: #000;
+        }
+
+        #wavelength::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #5d00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ffa500, #ff0000);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>雙狹縫干涉實驗模擬</h1>
+    
+    <div class="sim-layout">
+        
+        <!-- 上方：視覺化區域 -->
+        <div class="sim-visuals">
+            
+            <!-- 左側：實驗裝置示意圖 -->
+            <div class="panel setup-panel">
+                <div class="panel-label">實驗裝置 (俯視圖)</div>
+                <canvas id="setupCanvas" width="400" height="400"></canvas>
+            </div>
+
+            <!-- 右側：干涉圖樣 -->
+            <div class="panel pattern-panel">
+                <div class="panel-label">干涉圖樣 (屏幕視圖)</div>
+                <canvas id="patternCanvas" width="800" height="400"></canvas>
+            </div>
+            
+        </div>
+
+        <!-- 下方：參數控制 -->
+        <div class="controls-container">
+            
+            <!-- 1. 波長控制 -->
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-title">波長 (λ)</span>
+                    <span id="val-lambda" class="control-value">550 nm</span>
+                </div>
+                <input type="range" id="wavelength" min="400" max="700" value="550" step="1">
+            </div>
+
+            <!-- 2. 狹縫間距控制 -->
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-title">狹縫間距 (d)</span>
+                    <span id="val-d" class="control-value">100 μm</span>
+                </div>
+                <input type="range" id="separation" min="50" max="300" value="100" step="1">
+            </div>
+
+            <!-- 3. 狹縫寬度控制 -->
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-title">單狹縫寬度 (a)</span>
+                    <span id="val-a" class="control-value">20 μm</span>
+                </div>
+                <input type="range" id="width" min="5" max="45" value="20" step="1">
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 物理常數與狀態 ---
+    const L = 1.0; // 屏幕距離 (公尺)
+    
+    // 初始狀態
+    const state = {
+        lambda: 550, // nm
+        d: 100,      // micrometers
+        a: 20        // micrometers
+    };
+
+    // DOM 元素獲取
+    const canvasSetup = document.getElementById('setupCanvas');
+    const ctxSetup = canvasSetup.getContext('2d');
+    const canvasPattern = document.getElementById('patternCanvas');
+    const ctxPattern = canvasPattern.getContext('2d');
+
+    const inputLambda = document.getElementById('wavelength');
+    const inputD = document.getElementById('separation');
+    const inputA = document.getElementById('width');
+
+    const displayLambda = document.getElementById('val-lambda');
+    const displayD = document.getElementById('val-d');
+    const displayA = document.getElementById('val-a');
+
+    // --- 輔助函式：波長轉 RGB 顏色 ---
+    // 這是一個近似算法，將可見光波長對應到螢幕 RGB
+    function wavelengthToRGB(wavelength) {
+        var r, g, b;
+        if (wavelength >= 380 && wavelength < 440) {
+            r = -1 * (wavelength - 440) / (440 - 380); g = 0; b = 1;
+        } else if (wavelength >= 440 && wavelength < 490) {
+            r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
+        } else if (wavelength >= 490 && wavelength < 510) {
+            r = 0; g = 1; b = -1 * (wavelength - 510) / (510 - 490);
+        } else if (wavelength >= 510 && wavelength < 580) {
+            r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
+        } else if (wavelength >= 580 && wavelength < 645) {
+            r = 1; g = -1 * (wavelength - 645) / (645 - 580); b = 0;
+        } else if (wavelength >= 645 && wavelength <= 780) {
+            r = 1; g = 0; b = 0;
+        } else {
+            r = 0; g = 0; b = 0;
+        }
+        
+        return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    }
+
+    // --- 物理核心：計算特定位置的光強度 ---
+    // y: 屏幕上的垂直位置 (公尺)，中心為 0
+    function calculateIntensity(y) {
+        // 單位轉換為公尺 (SI Units)
+        const lambdaM = state.lambda * 1e-9;
+        const dM = state.d * 1e-6;
+        const aM = state.a * 1e-6;
+        
+        // 計算角度 theta (小角度近似: tan(theta) approx sin(theta) approx y/L)
+        const theta = Math.atan(y / L);
+        const sinTheta = Math.sin(theta);
+
+        // Alpha (單狹縫繞射項參數)
+        // alpha = (pi * a * sin(theta)) / lambda
+        const alpha = (Math.PI * aM * sinTheta) / lambdaM;
+        
+        // Beta (雙狹縫干涉項參數)
+        // beta = (pi * d * sin(theta)) / lambda
+        const beta = (Math.PI * dM * sinTheta) / lambdaM;
+
+        // 計算繞射包絡線 (Diffraction Envelope): sinc^2(alpha)
+        let sincSq;
+        if (Math.abs(alpha) < 1e-6) {
+            sincSq = 1; // 避免除以零
+        } else {
+            sincSq = Math.pow(Math.sin(alpha) / alpha, 2);
+        }
+
+        // 計算干涉項 (Interference Term): cos^2(beta)
+        const cosSq = Math.pow(Math.cos(beta), 2);
+
+        // 總強度 = 繞射包絡 * 干涉項
+        return sincSq * cosSq;
+    }
+
+    // --- 繪圖函式：實驗裝置 (左側) ---
+    function drawSetup() {
+        // 設定畫布尺寸讓畫面清晰
+        const w = canvasSetup.width;
+        const h = canvasSetup.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        
+        ctxSetup.clearRect(0, 0, w, h);
+
+        const color = wavelengthToRGB(state.lambda);
+        
+        // 定義擋板的 Y 軸位置 (讓光由下往上，擋板設在靠近底部)
+        const barrierY = h - 120;
+
+        // 1. 繪製光源 (底部區域)
+        ctxSetup.fillStyle = color;
+        ctxSetup.globalAlpha = 0.15;
+        // 畫一個光束區域：從底部 (h) 到擋板 (barrierY)
+        ctxSetup.fillRect(0, barrierY, w, h - barrierY);
+        
+        // 畫光線線條示意 (向上射出)
+        ctxSetup.globalAlpha = 0.8;
+        ctxSetup.strokeStyle = color;
+        ctxSetup.lineWidth = 2;
+        ctxSetup.beginPath();
+        for(let i=1; i<8; i++) {
+            let xPos = (w/8) * i;
+            ctxSetup.moveTo(xPos, h);        // 起點：底部
+            ctxSetup.lineTo(xPos, barrierY); // 終點：擋板
+        }
+        ctxSetup.stroke();
+
+        // 2. 繪製擋板與狹縫
+        // 視覺比例調整
+        const visualScale = 1.0; 
+        const d_vis = state.d * visualScale; 
+        const a_vis = Math.max(state.a * visualScale, 3); 
+        const barrierHeight = 8; // 擋板厚度
+
+        ctxSetup.fillStyle = '#64748b'; // 擋板顏色
+        ctxSetup.globalAlpha = 1.0;
+
+        // 計算狹縫中心位置 (水平排列)
+        // 左狹縫中心
+        const s1_center_x = cx - (d_vis/2);
+        // 右狹縫中心
+        const s2_center_x = cx + (d_vis/2);
+
+        // 繪製擋板的三個部分 (左、中、右)
+        
+        // 左擋塊 (從最左邊到左狹縫左緣)
+        // fillRect(x, y, width, height)
+        ctxSetup.fillRect(0, barrierY, s1_center_x - (a_vis/2), barrierHeight);
+        
+        // 中間擋塊 (兩狹縫之間)
+        ctxSetup.fillRect(s1_center_x + (a_vis/2), barrierY, d_vis - a_vis, barrierHeight);
+        
+        // 右擋塊 (從右狹縫右緣到最右邊)
+        ctxSetup.fillRect(s2_center_x + (a_vis/2), barrierY, w - (s2_center_x + (a_vis/2)), barrierHeight);
+
+
+        // 3. 繪製通過狹縫後的球面波 (示意，向上擴散)
+        ctxSetup.strokeStyle = color;
+        ctxSetup.lineWidth = 1;
+        ctxSetup.globalAlpha = 0.5;
+
+        // 從左狹縫發出的波
+        // 圓心 (s1_center_x, barrierY)
+        // 畫半圓：從 PI (180度) 到 2*PI (360度)
+        for(let r=0; r < barrierY; r+=25) {
+            ctxSetup.beginPath();
+            ctxSetup.arc(s1_center_x, barrierY, r, Math.PI, 2 * Math.PI);
+            ctxSetup.stroke();
+        }
+
+        // 從右狹縫發出的波
+        for(let r=0; r < barrierY; r+=25) {
+            ctxSetup.beginPath();
+            ctxSetup.arc(s2_center_x, barrierY, r, Math.PI, 2 * Math.PI);
+            ctxSetup.stroke();
+        }
+    }
+
+    // --- 繪圖函式：干涉圖樣 (右側) ---
+    function drawPattern() {
+        const w = canvasPattern.width;
+        const h = canvasPattern.height;
+        const cx = w / 2; // 畫布中心 X
+        
+        ctxPattern.clearRect(0, 0, w, h);
+
+        const colorStr = wavelengthToRGB(state.lambda);
+        
+        // 定義屏幕的物理寬度範圍
+        // 若 d=100um, L=1m, lambda=500nm, 第一亮紋位置 y = L*lambda/d = 5mm
+        // 為了讓圖案好看，我們設定畫布寬度對應約 15 公分 (0.15m) 的真實寬度
+        const physicalScreenWidth = 0.15; 
+        
+        ctxPattern.fillStyle = '#000';
+        ctxPattern.fillRect(0,0,w,h);
+
+        // 逐行繪製 (為了效能與漸層效果)
+        // 最佳化：每個像素計算一次強度，畫一條垂直線
+        
+        ctxPattern.fillStyle = colorStr;
+
+        for (let x = 0; x < w; x++) {
+            // 將畫布上的 x 座標映射到真實物理位置 y (公尺)
+            // x=0 -> -0.075m, x=w -> +0.075m
+            const y_pos = ((x - cx) / w) * physicalScreenWidth;
+            
+            // 計算該位置的相對強度 (0.0 到 1.0)
+            const intensity = calculateIntensity(y_pos);
+            
+            // 使用透明度來表現亮度
+            // 這裡使用了 globalAlpha，這是最簡單的模擬光強方法
+            // 如果強度很低，幾乎就是黑色背景
+            ctxPattern.globalAlpha = intensity;
+            ctxPattern.fillRect(x, 0, 1, h);
+        }
+        
+        // 重置透明度
+        ctxPattern.globalAlpha = 1.0;
+        
+        // 畫一個中心標記 (中央亮帶中心)
+        ctxPattern.fillStyle = '#ffffff';
+        ctxPattern.fillRect(cx-1, h-8, 2, 8);
+    }
+
+    function update() {
+        // 讀取拉桿數值
+        state.lambda = parseInt(inputLambda.value);
+        state.d = parseInt(inputD.value);
+        state.a = parseInt(inputA.value);
+
+        // 簡單的物理限制：單狹縫寬度不應大於狹縫間距 (會重疊)
+        // 但為了模擬體驗流暢，這裡不做強制鎖定，讓使用者自己觀察
+        
+        // 更新數值顯示
+        displayLambda.textContent = state.lambda + ' nm';
+        displayD.textContent = state.d + ' μm';
+        displayA.textContent = state.a + ' μm';
+        
+        // 重繪
+        drawSetup();
+        drawPattern();
+    }
+
+    // --- 事件監聽 ---
+    inputLambda.addEventListener('input', update);
+    inputD.addEventListener('input', update);
+    inputA.addEventListener('input', update);
+
+    // 啟動第一次繪製
+    update();
+
+</script>
+
+</body>
+</html>

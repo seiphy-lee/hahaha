@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雙狹縫與單狹縫干涉繞射模擬</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* 1. 基礎設定 */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0f172a; /* 深色背景 */
+            color: #f1f5f9;
+            font-family: 'Noto Sans TC', 'Urbanist', sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1280px;
+            background-color: #1e293b;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            padding: 30px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 導覽列 */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        .nav-btn:hover {
+            color: #f1f5f9;
+            background-color: #334155;
+        }
+
+        .nav-btn.active {
+            background-color: #deff9a;
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        /* 2. 模擬視圖佈局 */
+        .sim-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sim-visuals {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            height: 400px;
+        }
+
+        @media (max-width: 768px) {
+            .sim-visuals {
+                flex-direction: column;
+                height: auto;
+            }
+        }
+
+        /* 面板通用樣式 */
+        .panel {
+            position: relative;
+            background-color: #020617;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setup-panel {
+            flex: 0 0 35%; /* 左側佔 35% */
+        }
+
+        .pattern-panel {
+            flex: 1; /* 右側佔剩餘空間 */
+        }
+
+        .panel-label {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 500;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 比較模式的特殊佈局：上下分割 */
+        #compareWrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+
+        .split-canvas-container {
+            flex: 1;
+            position: relative;
+            border-bottom: 1px solid #334155;
+        }
+        .split-canvas-container:last-child {
+            border-bottom: none;
+        }
+
+        /* 3. 控制面板區域 */
+        .controls-container {
+            background-color: #334155;
+            border-radius: 12px;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            transition: opacity 0.3s;
+        }
+        
+        .control-group.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .control-title {
+            color: #f8fafc;
+            font-weight: 500;
+            font-size: 16px;
+        }
+
+        .control-value {
+            color: #deff9a;
+            font-family: 'Urbanist', monospace;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        /* 滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #64748b;
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #deff9a;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+            box-shadow: 0 0 10px rgba(222, 255, 154, 0.3);
+            border: 2px solid #334155;
+        }
+
+        #wavelength::-webkit-slider-thumb {
+            background: #ffffff;
+            border-color: #000;
+        }
+
+        #wavelength::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, #5d00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ffa500, #ff0000);
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <!-- 導覽列 -->
+    <div class="nav-tabs">
+        <button class="nav-btn active" onclick="setMode('double')">1. 雙狹縫干涉</button>
+        <button class="nav-btn" onclick="setMode('single')">2. 單狹縫繞射</button>
+        <button class="nav-btn" onclick="setMode('compare')">3. 綜合對照</button>
+    </div>
+    
+    <div class="sim-layout">
+        
+        <!-- 上方：視覺化區域 -->
+        <div class="sim-visuals">
+            
+            <!-- 左側：實驗裝置 (共用 Canvas) -->
+            <div class="panel setup-panel">
+                <div class="panel-label" id="setupLabel">實驗裝置</div>
+                <canvas id="setupCanvas" width="400" height="400"></canvas>
+            </div>
+
+            <!-- 右側：結果展示 (根據模式切換內容) -->
+            <div class="panel pattern-panel">
+                
+                <!-- 模式 1 & 2: 單一滿版畫布 -->
+                <div id="singlePatternContainer" style="width: 100%; height: 100%;">
+                    <div class="panel-label" id="singlePatternLabel">干涉圖樣</div>
+                    <canvas id="patternCanvas" width="800" height="400"></canvas>
+                </div>
+
+                <!-- 模式 3: 上下分割對照 -->
+                <div id="compareWrapper" style="display: none;">
+                    <!-- 上半部：雙狹縫 -->
+                    <div class="split-canvas-container">
+                        <div class="panel-label">雙狹縫干涉 (受單狹縫包絡調變)</div>
+                        <canvas id="compareDoubleCanvas" width="800" height="200"></canvas>
+                    </div>
+                    <!-- 下半部：單狹縫 -->
+                    <div class="split-canvas-container">
+                        <div class="panel-label">單狹縫繞射 (對照組)</div>
+                        <canvas id="compareSingleCanvas" width="800" height="200"></canvas>
+                    </div>
+                </div>
+
+            </div>
+            
+        </div>
+
+        <!-- 下方：參數控制 -->
+        <div class="controls-container">
+            
+            <!-- 1. 波長控制 -->
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-title">波長 (λ)</span>
+                    <span id="val-lambda" class="control-value">550 nm</span>
+                </div>
+                <input type="range" id="wavelength" min="400" max="700" value="550" step="1">
+            </div>
+
+            <!-- 2. 狹縫間距控制 (單狹縫模式時隱藏) -->
+            <div class="control-group" id="group-d">
+                <div class="control-header">
+                    <span class="control-title">狹縫間距 (d)</span>
+                    <span id="val-d" class="control-value">100 μm</span>
+                </div>
+                <input type="range" id="separation" min="50" max="300" value="100" step="1">
+            </div>
+
+            <!-- 3. 狹縫寬度控制 -->
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-title">單狹縫寬度 (a)</span>
+                    <span id="val-a" class="control-value">20 μm</span>
+                </div>
+                <input type="range" id="width" min="5" max="45" value="20" step="1">
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 系統狀態 ---
+    const L = 1.0; // 屏幕距離 (公尺)
+    
+    // 初始狀態
+    const state = {
+        mode: 'double', // 'double', 'single', 'compare'
+        lambda: 550,    // nm
+        d: 100,         // micrometers
+        a: 20           // micrometers
+    };
+
+    // --- DOM 元素 ---
+    const canvasSetup = document.getElementById('setupCanvas');
+    const ctxSetup = canvasSetup.getContext('2d');
+
+    // 模式 1 & 2 的畫布
+    const singleContainer = document.getElementById('singlePatternContainer');
+    const canvasPattern = document.getElementById('patternCanvas');
+    const ctxPattern = canvasPattern.getContext('2d');
+    const labelSingle = document.getElementById('singlePatternLabel');
+    const labelSetup = document.getElementById('setupLabel');
+
+    // 模式 3 的畫布
+    const compareWrapper = document.getElementById('compareWrapper');
+    const canvasCompDouble = document.getElementById('compareDoubleCanvas');
+    const ctxCompDouble = canvasCompDouble.getContext('2d');
+    const canvasCompSingle = document.getElementById('compareSingleCanvas');
+    const ctxCompSingle = canvasCompSingle.getContext('2d');
+
+    // 控制項
+    const inputLambda = document.getElementById('wavelength');
+    const inputD = document.getElementById('separation');
+    const inputA = document.getElementById('width');
+    const groupD = document.getElementById('group-d');
+
+    const displayLambda = document.getElementById('val-lambda');
+    const displayD = document.getElementById('val-d');
+    const displayA = document.getElementById('val-a');
+
+    const navButtons = document.querySelectorAll('.nav-btn');
+
+    // --- 核心運算 ---
+
+    function wavelengthToRGB(wavelength) {
+        var r, g, b;
+        if (wavelength >= 380 && wavelength < 440) {
+            r = -1 * (wavelength - 440) / (440 - 380); g = 0; b = 1;
+        } else if (wavelength >= 440 && wavelength < 490) {
+            r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
+        } else if (wavelength >= 490 && wavelength < 510) {
+            r = 0; g = 1; b = -1 * (wavelength - 510) / (510 - 490);
+        } else if (wavelength >= 510 && wavelength < 580) {
+            r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
+        } else if (wavelength >= 580 && wavelength < 645) {
+            r = 1; g = -1 * (wavelength - 645) / (645 - 580); b = 0;
+        } else if (wavelength >= 645 && wavelength <= 780) {
+            r = 1; g = 0; b = 0;
+        } else {
+            r = 0; g = 0; b = 0;
+        }
+        return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+    }
+
+    // 計算強度
+    // y: 位置
+    // calcMode: 'double' (雙狹縫) 或 'single' (單狹縫)
+    function calculateIntensity(y, calcMode) {
+        const lambdaM = state.lambda * 1e-9;
+        const dM = state.d * 1e-6;
+        const aM = state.a * 1e-6;
+        
+        const theta = Math.atan(y / L);
+        const sinTheta = Math.sin(theta);
+
+        // 繞射參數 alpha
+        const alpha = (Math.PI * aM * sinTheta) / lambdaM;
+        // 繞射項 sinc^2
+        let sincSq = (Math.abs(alpha) < 1e-6) ? 1 : Math.pow(Math.sin(alpha) / alpha, 2);
+
+        if (calcMode === 'single') {
+            return sincSq;
+        } else {
+            // 干涉參數 beta
+            const beta = (Math.PI * dM * sinTheta) / lambdaM;
+            // 干涉項 cos^2
+            const cosSq = Math.pow(Math.cos(beta), 2);
+            return sincSq * cosSq;
+        }
+    }
+
+    // --- 繪圖邏輯 ---
+
+    // 繪製左側裝置圖
+    function drawSetup() {
+        const w = canvasSetup.width;
+        const h = canvasSetup.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        
+        ctxSetup.clearRect(0, 0, w, h);
+        const color = wavelengthToRGB(state.lambda);
+        const barrierY = h - 120;
+
+        // 1. 光源 (共同部分)
+        ctxSetup.fillStyle = color;
+        ctxSetup.globalAlpha = 0.15;
+        ctxSetup.fillRect(0, barrierY, w, h - barrierY);
+        
+        ctxSetup.globalAlpha = 0.8;
+        ctxSetup.strokeStyle = color;
+        ctxSetup.lineWidth = 2;
+        ctxSetup.beginPath();
+        for(let i=1; i<8; i++) {
+            let xPos = (w/8) * i;
+            ctxSetup.moveTo(xPos, h);
+            ctxSetup.lineTo(xPos, barrierY);
+        }
+        ctxSetup.stroke();
+
+        // 2. 擋板繪製
+        const visualScale = 1.0; 
+        const a_vis = Math.max(state.a * visualScale, 3); 
+        const barrierHeight = 8;
+        ctxSetup.fillStyle = '#64748b';
+        ctxSetup.globalAlpha = 1.0;
+
+        // 根據模式決定繪製 單狹縫(中央) 還是 雙狹縫(左右)
+        // 注意：在 Compare 模式，左側我們顯示雙狹縫裝置，因為這是主要的比較基準
+        const isSingleMode = (state.mode === 'single');
+
+        if (isSingleMode) {
+            // --- 單狹縫模式：中央一個開口 ---
+            // 左擋板
+            ctxSetup.fillRect(0, barrierY, cx - (a_vis/2), barrierHeight);
+            // 右擋板
+            ctxSetup.fillRect(cx + (a_vis/2), barrierY, w - (cx + (a_vis/2)), barrierHeight);
+
+            // 光波：從中央發出
+            ctxSetup.strokeStyle = color;
+            ctxSetup.lineWidth = 1;
+            ctxSetup.globalAlpha = 0.5;
+            for(let r=0; r < barrierY; r+=25) {
+                ctxSetup.beginPath();
+                ctxSetup.arc(cx, barrierY, r, Math.PI, 2 * Math.PI);
+                ctxSetup.stroke();
+            }
+
+        } else {
+            // --- 雙狹縫模式 (含 Compare) ---
+            const d_vis = state.d * visualScale;
+            const s1_x = cx - (d_vis/2);
+            const s2_x = cx + (d_vis/2);
+
+            // 左擋塊
+            ctxSetup.fillRect(0, barrierY, s1_x - (a_vis/2), barrierHeight);
+            // 中間擋塊
+            ctxSetup.fillRect(s1_x + (a_vis/2), barrierY, d_vis - a_vis, barrierHeight);
+            // 右擋塊
+            ctxSetup.fillRect(s2_x + (a_vis/2), barrierY, w - (s2_x + (a_vis/2)), barrierHeight);
+
+            // 光波：從兩點發出
+            ctxSetup.strokeStyle = color;
+            ctxSetup.lineWidth = 1;
+            ctxSetup.globalAlpha = 0.5;
+            for(let r=0; r < barrierY; r+=25) {
+                ctxSetup.beginPath();
+                ctxSetup.arc(s1_x, barrierY, r, Math.PI, 2 * Math.PI);
+                ctxSetup.stroke();
+                ctxSetup.beginPath();
+                ctxSetup.arc(s2_x, barrierY, r, Math.PI, 2 * Math.PI);
+                ctxSetup.stroke();
+            }
+        }
+    }
+
+    // 通用圖樣繪製函式
+    function drawPatternOnCanvas(targetCtx, targetW, targetH, calcMode) {
+        targetCtx.clearRect(0, 0, targetW, targetH);
+        
+        const cx = targetW / 2;
+        const colorStr = wavelengthToRGB(state.lambda);
+        // 設定物理寬度比例尺 (0.15m)
+        const physicalScreenWidth = 0.15; 
+
+        targetCtx.fillStyle = '#000';
+        targetCtx.fillRect(0,0, targetW, targetH);
+        targetCtx.fillStyle = colorStr;
+
+        for (let x = 0; x < targetW; x++) {
+            const y_pos = ((x - cx) / targetW) * physicalScreenWidth;
+            const intensity = calculateIntensity(y_pos, calcMode);
+            const gammaCorrected = Math.pow(intensity, 0.5); // Gamma校正
+
+            targetCtx.globalAlpha = gammaCorrected;
+            targetCtx.fillRect(x, 0, 1, targetH);
+        }
+        
+        targetCtx.globalAlpha = 1.0;
+        targetCtx.fillStyle = '#ffffff';
+        // 中央標記
+        targetCtx.fillRect(cx-1, targetH-6, 2, 6);
+    }
+
+    function draw() {
+        // 1. 畫左側裝置
+        drawSetup();
+
+        // 2. 畫右側圖樣
+        if (state.mode === 'double') {
+            // 模式1：畫在主畫布，計算模式 Double
+            drawPatternOnCanvas(ctxPattern, canvasPattern.width, canvasPattern.height, 'double');
+        } else if (state.mode === 'single') {
+            // 模式2：畫在主畫布，計算模式 Single
+            drawPatternOnCanvas(ctxPattern, canvasPattern.width, canvasPattern.height, 'single');
+        } else if (state.mode === 'compare') {
+            // 模式3：畫兩個小畫布
+            // 上方：雙狹縫
+            drawPatternOnCanvas(ctxCompDouble, canvasCompDouble.width, canvasCompDouble.height, 'double');
+            // 下方：單狹縫
+            drawPatternOnCanvas(ctxCompSingle, canvasCompSingle.width, canvasCompSingle.height, 'single');
+        }
+    }
+
+    function updateControls() {
+        // 更新數值顯示
+        displayLambda.textContent = state.lambda + ' nm';
+        displayD.textContent = state.d + ' μm';
+        displayA.textContent = state.a + ' μm';
+        
+        // 控制項可見性邏輯
+        // 在單狹縫模式下，隱藏或禁用 d (狹縫間距)
+        if (state.mode === 'single') {
+            groupD.style.opacity = '0.2';
+            groupD.style.pointerEvents = 'none';
+        } else {
+            groupD.style.opacity = '1';
+            groupD.style.pointerEvents = 'auto';
+        }
+
+        // 更新導覽列按鈕狀態
+        navButtons.forEach((btn, index) => {
+            btn.classList.remove('active');
+            if (
+                (index === 0 && state.mode === 'double') ||
+                (index === 1 && state.mode === 'single') ||
+                (index === 2 && state.mode === 'compare')
+            ) {
+                btn.classList.add('active');
+            }
+        });
+
+        // 更新右側面板顯示
+        if (state.mode === 'compare') {
+            singleContainer.style.display = 'none';
+            compareWrapper.style.display = 'flex';
+            labelSetup.textContent = '實驗裝置 (雙狹縫)'; // 修正：強制更新標題為雙狹縫
+        } else {
+            singleContainer.style.display = 'block';
+            compareWrapper.style.display = 'none';
+            
+            // 更新主畫布標題
+            if (state.mode === 'single') {
+                labelSingle.textContent = '單狹縫繞射圖樣';
+                labelSetup.textContent = '實驗裝置 (單狹縫)';
+            } else {
+                labelSingle.textContent = '雙狹縫干涉圖樣';
+                labelSetup.textContent = '實驗裝置 (雙狹縫)';
+            }
+        }
+    }
+
+    // --- 公開給 HTML 呼叫的切換函式 ---
+    window.setMode = function(mode) {
+        state.mode = mode;
+        updateControls();
+        draw();
+    };
+
+    function onInputChanged() {
+        state.lambda = parseInt(inputLambda.value);
+        state.d = parseInt(inputD.value);
+        state.a = parseInt(inputA.value);
+        updateControls();
+        draw();
+    }
+
+    // --- 事件監聽 ---
+    inputLambda.addEventListener('input', onInputChanged);
+    inputD.addEventListener('input', onInputChanged);
+    inputA.addEventListener('input', onInputChanged);
+
+    // 初始化
+    updateControls();
+    draw();
+
+</script>
+
+</body>
+</html>
