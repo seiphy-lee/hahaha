@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多人連線：數學搶答王</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #4338ca;
+            --accent-color: #f59e0b;
+            --bg-color: #f3f4f6;
+            --text-color: #1f2937;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* 防止捲動 */
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 畫面層管理 */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            height: 100%;
+            flex: 1;
+            text-align: center;
+            overflow-y: auto;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box;
+            background: white;
+        }
+        .screen.active { display: flex; z-index: 10; }
+
+        /* 通用元件 */
+        h1 { color: var(--secondary-color); margin-bottom: 0.5rem; }
+        .subtitle { color: #666; margin-bottom: 2rem; }
+        
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin: 10px;
+            width: 80%;
+            max-width: 300px;
+            transition: 0.2s;
+        }
+        .btn:hover { background-color: var(--secondary-color); }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-outline { background: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+
+        input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 300px;
+            margin-bottom: 15px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        /* 大廳 */
+        .lobby-box {
+            background: #f9fafb;
+            padding: 2rem;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .player-list {
+            list-style: none;
+            padding: 0;
+            width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .player-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        .player-item.me { background-color: #e0e7ff; font-weight: bold; }
+
+        /* 遊戲畫面 */
+        .timer-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .timer-bar {
+            height: 100%;
+            background: var(--accent-color);
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+
+        .question-text {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 2rem 0;
+            font-family: 'Courier New', monospace;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+        }
+        .option-btn {
+            background: white;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .option-btn:active { background: var(--primary-color); color: white; }
+        
+        /* 狀態列 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            position: absolute;
+            top: 8px; /* below timer */
+            left: 0;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        /* 排行榜 (結算時顯示) */
+        .leaderboard {
+            width: 100%;
+            text-align: left;
+            margin-top: 20px;
+        }
+        .lb-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .lb-rank-1 { color: #d97706; font-weight: bold; }
+        .lb-rank-2 { color: #9ca3af; font-weight: bold; }
+        .lb-rank-3 { color: #b45309; font-weight: bold; }
+
+        /* 過場 */
+        #interstitial-screen { background: var(--primary-color); color: white; }
+        #interstitial-text { font-size: 3rem; font-weight: bold; }
+
+        /* Loading */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <!-- 1. 登入/大廳畫面 -->
+    <div id="screen-login" class="screen active">
+        <h1>🔢 數學搶答王 Online</h1>
+        <p class="subtitle">多人連線同步對戰</p>
+        
+        <div class="lobby-box">
+            <input type="text" id="input-name" placeholder="請輸入你的暱稱" maxlength="8" />
+            
+            <div id="menu-main">
+                <button class="btn" onclick="showCreateRoom()">建立房間 (我是主持人)</button>
+                <button class="btn btn-outline" onclick="showJoinRoom()">加入房間</button>
+            </div>
+
+            <div id="menu-join" class="hidden">
+                <input type="number" id="input-room-code" placeholder="輸入 4 位數房號" />
+                <button class="btn" onclick="joinRoom()">進入房間</button>
+                <button class="btn btn-outline" onclick="backToMenu()">返回</button>
+            </div>
+
+            <div id="menu-create" class="hidden">
+                <p>選擇題庫來源：</p>
+                <button class="btn" onclick="createRoom(true)">使用預設題庫 (20題)</button>
+                <label for="csvInput" class="btn btn-outline" style="display:inline-block; margin-top:5px; cursor:pointer;">
+                    上傳 CSV 題庫
+                </label>
+                <input type="file" id="csvInput" accept=".csv" style="display:none;" onchange="handleFileSelect(this)" />
+                <button class="btn btn-outline" onclick="backToMenu()">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 等待室 (Lobby) -->
+    <div id="screen-waiting" class="screen">
+        <h1>等待室</h1>
+        <h2 style="font-size: 3rem; margin: 10px 0; color: var(--primary-color); letter-spacing: 5px;" id="display-room-code">----</h2>
+        <p>請將房號告訴朋友加入</p>
+        
+        <div style="width: 100%; text-align: left; padding: 0 20px;">
+            <p>已加入玩家 (<span id="player-count">0</span>):</p>
+            <ul id="waiting-player-list" class="player-list"></ul>
+        </div>
+
+        <div id="host-controls" class="hidden">
+            <button class="btn" onclick="startGame()">開始遊戲</button>
+        </div>
+        <div id="client-msg">
+            <p>等待主持人開始...</p>
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <!-- 3. 過場畫面 -->
+    <div id="screen-interstitial" class="screen" id="interstitial-screen">
+        <div id="interstitial-text">第 1 題</div>
+        <p>準備...</p>
+    </div>
+
+    <!-- 4. 遊戲主畫面 -->
+    <div id="screen-game" class="screen" style="justify-content: start; padding-top: 4rem;">
+        <div class="timer-bar-container"><div id="timer-bar" class="timer-bar"></div></div>
+        
+        <div class="status-bar">
+            <span id="game-q-counter">Q: 1/20</span>
+            <span id="game-score">得分: 0</span>
+        </div>
+
+        <div id="game-question-text" class="question-text">題目載入中...</div>
+
+        <div id="game-options" class="options-grid"></div>
+    </div>
+
+    <!-- 5. 結算/回饋畫面 -->
+    <div id="screen-feedback" class="screen">
+        <h1 id="fb-title">時間到</h1>
+        <p id="fb-points" class="score-change" style="font-size: 1.5rem;">...</p>
+        
+        <div class="leaderboard">
+            <h3>目前排名</h3>
+            <div id="fb-leaderboard"></div>
+        </div>
+
+        <div id="host-feedback-controls" class="hidden" style="margin-top: 20px;">
+            <button class="btn" onclick="nextQuestion()">下一題</button>
+        </div>
+        <div id="client-feedback-msg">
+            <p>等待下一題...</p>
+            <div class="loader"></div>
+        </div>
+    </div>
+
+    <!-- 6. 最終畫面 -->
+    <div id="screen-end" class="screen">
+        <h1>遊戲結束</h1>
+        <p>最終排行榜</p>
+        <div class="leaderboard" style="max-height: 300px; overflow-y: auto;">
+            <div id="end-leaderboard"></div>
+        </div>
+        <button class="btn" onclick="location.reload()">回到首頁</button>
+    </div>
+
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- Firebase 設定 (請勿更動) ---
+    const firebaseConfig = JSON.parse(__firebase_config);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // --- 遊戲狀態 ---
+    let state = {
+        user: null,
+        roomId: null,
+        isHost: false,
+        playerName: "",
+        questions: [], // 題目陣列
+        currentQIdx: 0,
+        score: 0,
+        unsubRoom: null
+    };
+
+    // 預設題目
+    const defaultQuestions = [
+        { q: "5 + 3 = ?", opts: ["6", "7", "8", "9"], a: 3 },
+        { q: "2 + 2 = ?", opts: ["3", "4", "5", "6"], a: 2 },
+        { q: "10 + 5 = ?", opts: ["12", "14", "15", "16"], a: 3 },
+        { q: "7 + 6 = ?", opts: ["11", "12", "13", "14"], a: 3 },
+        { q: "9 + 9 = ?", opts: ["18", "19", "20", "17"], a: 1 },
+        { q: "12 + 4 = ?", opts: ["15", "16", "17", "18"], a: 2 },
+        { q: "8 + 0 = ?", opts: ["0", "8", "16", "80"], a: 2 },
+        { q: "15 + 5 = ?", opts: ["15", "25", "20", "10"], a: 3 },
+        { q: "3 + 11 = ?", opts: ["12", "13", "14", "15"], a: 3 },
+        { q: "6 + 4 = ?", opts: ["9", "10", "11", "12"], a: 2 },
+        { q: "20 + 20 = ?", opts: ["30", "50", "40", "60"], a: 3 },
+        { q: "1 + 18 = ?", opts: ["18", "20", "19", "17"], a: 3 },
+        { q: "7 + 7 = ?", opts: ["14", "15", "13", "12"], a: 1 },
+        { q: "25 + 5 = ?", opts: ["20", "25", "30", "35"], a: 3 },
+        { q: "13 + 6 = ?", opts: ["17", "18", "19", "20"], a: 3 },
+        { q: "2 + 9 = ?", opts: ["10", "11", "12", "13"], a: 2 },
+        { q: "4 + 4 = ?", opts: ["16", "0", "44", "8"], a: 4 },
+        { q: "10 + 10 = ?", opts: ["10", "100", "20", "0"], a: 3 },
+        { q: "30 + 5 = ?", opts: ["35", "40", "30", "25"], a: 1 },
+        { q: "50 + 50 = ?", opts: ["50", "150", "200", "100"], a: 4 }
+    ];
+
+    // --- 初始化 Auth ---
+    async function initAuth() {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+            await signInAnonymously(auth);
+        }
+    }
+    initAuth();
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            state.user = user;
+            console.log("Logged in:", user.uid);
+        }
+    });
+
+    // --- UI 切換邏輯 ---
+    window.showScreen = (id) => {
+        document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    };
+
+    window.backToMenu = () => {
+        document.getElementById('menu-main').classList.remove('hidden');
+        document.getElementById('menu-join').classList.add('hidden');
+        document.getElementById('menu-create').classList.add('hidden');
+    };
+
+    window.showCreateRoom = () => {
+        const name = document.getElementById('input-name').value.trim();
+        if (!name) return alert("請先輸入暱稱");
+        state.playerName = name;
+        document.getElementById('menu-main').classList.add('hidden');
+        document.getElementById('menu-create').classList.remove('hidden');
+    };
+
+    window.showJoinRoom = () => {
+        const name = document.getElementById('input-name').value.trim();
+        if (!name) return alert("請先輸入暱稱");
+        state.playerName = name;
+        document.getElementById('menu-main').classList.add('hidden');
+        document.getElementById('menu-join').classList.remove('hidden');
+    };
+
+    // --- CSV 處理 ---
+    let uploadedQuestions = null;
+    window.handleFileSelect = async (input) => {
+        const file = input.files[0];
+        if (!file) return;
+        const text = await file.text();
+        const lines = text.split('\n');
+        const parsed = [];
+        for (let line of lines) {
+            const parts = line.trim().split(',');
+            if (parts.length >= 6) {
+                parsed.push({
+                    q: parts[0],
+                    opts: [parts[1], parts[2], parts[3], parts[4]],
+                    a: parseInt(parts[5])
+                });
+            }
+        }
+        if (parsed.length > 0) {
+            while(parsed.length < 20) parsed.push(...parsed); // 補滿20題
+            uploadedQuestions = parsed.slice(0, 20);
+            createRoom(false); // 直接開始
+        } else {
+            alert("檔案格式錯誤");
+        }
+    };
+
+    // --- 核心邏輯: 建立房間 ---
+    window.createRoom = async (useDefault) => {
+        if (!state.user) return;
+        
+        state.isHost = true;
+        state.questions = useDefault ? defaultQuestions : (uploadedQuestions || defaultQuestions);
+        
+        // 產生 4 位數房號
+        const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+        state.roomId = roomCode;
+
+        // 寫入 Firestore
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+        
+        // 初始房間資料
+        const roomData = {
+            hostId: state.user.uid,
+            status: 'waiting', // waiting, interstitial, playing, feedback, end
+            currentQIdx: 0,
+            questionStartTime: Date.now(),
+            questions: state.questions, // 將題目存入 DB 讓所有人同步
+            players: {
+                [state.user.uid]: {
+                    name: state.playerName,
+                    score: 0,
+                    avatar: '🐯' // 隨機頭像可之後加
+                }
+            }
+        };
+
+        await setDoc(roomRef, roomData);
+        enterLobby(roomCode);
+    };
+
+    // --- 核心邏輯: 加入房間 ---
+    window.joinRoom = async () => {
+        if (!state.user) return;
+        
+        const code = document.getElementById('input-room-code').value.trim();
+        if (code.length !== 4) return alert("請輸入4位數房號");
+        state.roomId = code;
+        state.isHost = false;
+
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+        const snapshot = await getDoc(roomRef);
+
+        if (!snapshot.exists()) {
+            return alert("房間不存在");
+        }
+
+        // 加入玩家名單
+        const updateData = {};
+        updateData[`players.${state.user.uid}`] = {
+            name: state.playerName,
+            score: 0
+        };
+
+        await updateDoc(roomRef, updateData);
+        enterLobby(code);
+    };
+
+    // --- 進入等待室並開始監聽 ---
+    function enterLobby(roomCode) {
+        window.showScreen('screen-waiting');
+        document.getElementById('display-room-code').textContent = roomCode;
+        
+        if (state.isHost) {
+            document.getElementById('host-controls').classList.remove('hidden');
+            document.getElementById('client-msg').classList.add('hidden');
+        } else {
+            document.getElementById('host-controls').classList.add('hidden');
+            document.getElementById('client-msg').classList.remove('hidden');
+        }
+
+        // 監聽房間變化 (核心 Loop)
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+        state.unsubRoom = onSnapshot(roomRef, (docSnap) => {
+            if (!docSnap.exists()) return;
+            const data = docSnap.data();
+            syncGame(data);
+        }, (error) => {
+            console.error("Sync error:", error);
+        });
+    }
+
+    // --- 同步遊戲狀態 (Sync Game) ---
+    function syncGame(data) {
+        // 1. 同步玩家列表
+        const players = data.players || {};
+        const pList = document.getElementById('waiting-player-list');
+        pList.innerHTML = '';
+        let count = 0;
+        // 轉為陣列並排序分數 (為了之後顯示排名)
+        const sortedPlayers = Object.entries(players).sort((a, b) => b[1].score - a[1].score);
+        
+        sortedPlayers.forEach(([uid, p]) => {
+            count++;
+            const li = document.createElement('li');
+            li.className = `player-item ${uid === state.user.uid ? 'me' : ''}`;
+            li.innerHTML = `<span>${p.name}</span> <span>${p.score}分</span>`;
+            pList.appendChild(li);
+        });
+        document.getElementById('player-count').textContent = count;
+
+        // 2. 同步題目 (如果是 Client)
+        if (!state.isHost && data.questions) {
+            state.questions = data.questions;
+        }
+
+        // 3. 狀態機切換
+        // 避免重複刷新，這裡簡單判定
+        if (state.lastStatus === data.status && state.lastQIdx === data.currentQIdx && data.status !== 'playing') {
+            // 如果狀態沒變，且不是正在倒數的 playing 狀態，就略過 (playing 需要即時檢查時間嗎? 其實不用，靠本地計時)
+            // 但為了安全，還是全跑一次邏輯
+        }
+        state.lastStatus = data.status;
+        state.lastQIdx = data.currentQIdx;
+
+        switch (data.status) {
+            case 'waiting':
+                window.showScreen('screen-waiting');
+                break;
+            case 'interstitial':
+                window.showScreen('screen-interstitial');
+                document.getElementById('interstitial-text').textContent = `第 ${data.currentQIdx + 1} 題`;
+                break;
+            case 'playing':
+                playQuestion(data.currentQIdx, data.questionStartTime);
+                break;
+            case 'feedback':
+                showFeedbackScreen(data.currentQIdx, sortedPlayers);
+                break;
+            case 'end':
+                showEndScreen(sortedPlayers);
+                break;
+        }
+    }
+
+    // --- 遊戲邏輯控制 (Host) ---
+    window.startGame = async () => {
+        await updateStatus('interstitial', 0);
+        // 2秒後進入題目 (Host端的邏輯)
+        setTimeout(() => {
+            updateStatus('playing', 0, Date.now());
+            // 10秒後結算
+            setTimeout(() => {
+                updateStatus('feedback', 0);
+            }, 10000); // 10秒作答
+        }, 2000);
+    };
+
+    window.nextQuestion = async () => {
+        const nextIdx = state.lastQIdx + 1;
+        if (nextIdx >= 20) {
+            await updateStatus('end', nextIdx);
+        } else {
+            await updateStatus('interstitial', nextIdx);
+            setTimeout(() => {
+                updateStatus('playing', nextIdx, Date.now());
+                setTimeout(() => {
+                    updateStatus('feedback', nextIdx);
+                }, 10000);
+            }, 2000);
+        }
+    };
+
+    async function updateStatus(status, qIdx, startTime = null) {
+        if (!state.isHost) return;
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', state.roomId);
+        const updateData = {
+            status: status,
+            currentQIdx: qIdx
+        };
+        if (startTime) updateData.questionStartTime = startTime;
+        await updateDoc(roomRef, updateData);
+    }
+
+    // --- 遊戲畫面邏輯 (Client/Host 通用) ---
+    let timerInterval = null;
+    let hasAnswered = false;
+
+    function playQuestion(idx, serverStartTime) {
+        window.showScreen('screen-game');
+        
+        // 初始化 UI
+        const q = state.questions[idx];
+        document.getElementById('game-q-counter').textContent = `Q: ${idx + 1}/20`;
+        document.getElementById('game-question-text').textContent = q.q;
+        document.getElementById('game-score').textContent = `得分: ${state.score}`;
+        
+        const optsDiv = document.getElementById('game-options');
+        optsDiv.innerHTML = '';
+        hasAnswered = false;
+
+        q.opts.forEach((opt, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = opt;
+            btn.onclick = () => submitAnswer(i + 1, idx);
+            optsDiv.appendChild(btn);
+        });
+
+        // 計時器 (校正時間)
+        const now = Date.now();
+        const elapsed = now - serverStartTime;
+        let timeLeft = 10 - (elapsed / 1000);
+        if (timeLeft < 0) timeLeft = 0;
+
+        const bar = document.getElementById('timer-bar');
+        bar.style.transition = 'none';
+        bar.style.width = `${(timeLeft / 10) * 100}%`;
+        
+        // 啟動動畫
+        setTimeout(() => {
+            bar.style.transition = `width ${timeLeft}s linear`;
+            bar.style.width = '0%';
+        }, 50);
+
+        // 本地倒數顯示
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft -= 0.1;
+            if (timeLeft <= 0) clearInterval(timerInterval);
+        }, 100);
+    }
+
+    async function submitAnswer(selectedOpt, qIdx) {
+        if (hasAnswered) return;
+        hasAnswered = true;
+        
+        // 鎖定按鈕
+        const buttons = document.querySelectorAll('.option-btn');
+        buttons.forEach(b => {
+            b.disabled = true;
+            b.style.opacity = 0.6;
+        });
+
+        // 計算分數 (本地計算即可)
+        // 獲取 timer-bar 的寬度比例當作剩餘時間估算，或者直接 new Date
+        // 這裡簡單用 寬度 % 
+        const barWidth = parseFloat(document.getElementById('timer-bar').style.width) || 0;
+        // width 0~100. 100% = 10s. 
+        // 秒數 = barWidth / 10.
+        // 分數 = 5 (答對) + 秒數
+        
+        const q = state.questions[qIdx];
+        let earned = 0;
+        
+        if (selectedOpt === q.a) {
+            const secondsLeft = Math.ceil(barWidth / 10);
+            earned = 5 + secondsLeft;
+            state.score += earned;
+            buttons[selectedOpt-1].style.backgroundColor = '#10b981'; // Green
+            buttons[selectedOpt-1].style.color = 'white';
+        } else {
+            buttons[selectedOpt-1].style.backgroundColor = '#ef4444'; // Red
+            buttons[selectedOpt-1].style.color = 'white';
+        }
+
+        // 上傳分數
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', state.roomId);
+        const updateData = {};
+        updateData[`players.${state.user.uid}.score`] = state.score;
+        await updateDoc(roomRef, updateData);
+        
+        document.getElementById('game-score').textContent = `得分: ${state.score}`;
+    }
+
+    // --- 結算顯示 ---
+    function showFeedbackScreen(idx, sortedPlayers) {
+        window.showScreen('screen-feedback');
+        
+        // 顯示上一題結果文字
+        const q = state.questions[idx];
+        const correctOpt = q.opts[q.a - 1];
+        
+        document.getElementById('fb-title').textContent = "本題結束";
+        document.getElementById('fb-points').textContent = `正確答案: ${correctOpt}`;
+
+        // 顯示排名
+        renderLeaderboard('fb-leaderboard', sortedPlayers);
+
+        // Host 顯示按鈕
+        if (state.isHost) {
+            document.getElementById('host-feedback-controls').classList.remove('hidden');
+            document.getElementById('client-feedback-msg').classList.add('hidden');
+        } else {
+            document.getElementById('host-feedback-controls').classList.add('hidden');
+            document.getElementById('client-feedback-msg').classList.remove('hidden');
+        }
+    }
+
+    function showEndScreen(sortedPlayers) {
+        window.showScreen('screen-end');
+        renderLeaderboard('end-leaderboard', sortedPlayers);
+    }
+
+    function renderLeaderboard(containerId, players) {
+        const div = document.getElementById(containerId);
+        div.innerHTML = '';
+        players.forEach(([uid, p], index) => {
+            const row = document.createElement('div');
+            row.className = 'lb-item';
+            let rankClass = '';
+            if (index === 0) rankClass = 'lb-rank-1';
+            if (index === 1) rankClass = 'lb-rank-2';
+            if (index === 2) rankClass = 'lb-rank-3';
+
+            row.innerHTML = `
+                <span class="${rankClass}">#${index + 1} ${p.name}</span>
+                <span style="font-weight:bold;">${p.score}</span>
+            `;
+            // 高亮自己
+            if (uid === state.user.uid) {
+                row.style.background = '#eff6ff';
+                row.style.borderLeft = '4px solid var(--primary-color)';
+            }
+            div.appendChild(row);
+        });
+    }
+
+</script>
+
+</body>
+</html>
