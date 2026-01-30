@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光學心率實驗室 V3.0 (專業測量版)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* 畫布與背景 */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI 控制面板 */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 30, 0.95);
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            width: 340px;
+            pointer-events: auto;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        h1 { margin: 0 0 15px 0; font-size: 1.4rem; color: #0ff; text-shadow: 0 0 10px rgba(0,255,255,0.5); }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #ccc; }
+        
+        /* 下拉選單與按鈕 */
+        select {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a2e;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        /* 主按鈕樣式 */
+        .btn-main {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.4);
+        }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 210, 255, 0.6); }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.4);
+            display: none; /* 預設隱藏 */
+        }
+
+        /* 倒數計時遮罩 */
+        #countdown-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #countdown-text {
+            font-size: 10rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 50px #0ff;
+            animation: pulse 1s infinite;
+        }
+        #countdown-hint {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-top: 20px;
+        }
+
+        /* BPM 顯示 */
+        .bpm-container {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+        }
+        #bpmValue { font-size: 3.5rem; font-weight: bold; color: #555; transition: color 0.2s; }
+        #bpmValue.active { color: #f0f; text-shadow: 0 0 20px #f0f; }
+        
+        /* 訊號燈 */
+        .status-light {
+            display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+            background: #333; margin-right: 8px;
+            box-shadow: 0 0 5px #000;
+        }
+        .status-light.green { background: #0f0; box-shadow: 0 0 10px #0f0; }
+        .status-light.red { background: #f00; box-shadow: 0 0 10px #f00; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        video { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="countdown-overlay">
+        <div id="countdown-text">3</div>
+        <div id="countdown-hint">請將手指輕蓋住鏡頭...</div>
+    </div>
+
+    <div id="ui-layer">
+        <h1>💓 物理心率實驗室 V3.0</h1>
+        
+        <div class="control-group">
+            <label>📷 選擇鏡頭 (Camera Source)</label>
+            <select id="cameraSelect">
+                <option value="" disabled selected>掃描鏡頭中...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <button id="btnStart" class="btn-main btn-start">開始測量</button>
+            <button id="btnStop" class="btn-main btn-stop">結束測量</button>
+        </div>
+
+        <div class="control-group">
+            <div style="display:flex; align-items: center; justify-content: space-between;">
+                <label style="margin:0;">訊號品質</label>
+                <div style="display:flex; align-items:center;">
+                    <span id="statusLight" class="status-light"></span>
+                    <span id="statusText" style="font-size:0.8rem; color:#888;">待機中</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bpm-container">
+            <div id="bpmValue">--</div>
+            <div style="font-size: 0.9rem; color:#888; margin-top:5px;">BPM (次/分)</div>
+        </div>
+
+        <div style="margin-top: 15px; font-size: 0.8rem; color: #666; border-top: 1px solid #333; padding-top:10px;">
+            操作提示：<br>
+            1. 選擇鏡頭後按下開始<br>
+            2. 倒數時請將手指蓋好鏡頭<br>
+            3. 若曲線平直代表未偵測到心跳
+        </div>
+    </div>
+
+    <video id="webcam" playsinline></video>
+    <canvas id="canvas"></canvas>
+
+<script>
+    /**
+     * V3.0 架構：狀態機管理
+     * 狀態：IDLE (待機) -> COUNTDOWN (倒數) -> MEASURING (測量中)
+     */
+
+    // DOM 元素
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('webcam');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownText = document.getElementById('countdown-text');
+    const bpmDisplay = document.getElementById('bpmValue');
+    const statusLight = document.getElementById('statusLight');
+    const statusText = document.getElementById('statusText');
+
+    // 系統變數
+    let stream = null;
+    let isMeasuring = false;
+    let animationId = null;
+    
+    // 訊號處理變數
+    let signalBuffer = new Array(400).fill(0);
+    let minBrightness = 255, maxBrightness = 0;
+    let smoothedSignal = 0;
+    const smoothingFactor = 0.92;
+    const gain = 5.0;
+    const MIN_SIGNAL_STRENGTH = 1.5; // 雜訊門檻
+    
+    // 心跳計算變數
+    let lastBeatTime = 0;
+    let bpm = 0;
+    let lastValidSignalTime = 0;
+
+    // 1. 初始化：取得鏡頭列表
+    async function initCameraList() {
+        try {
+            // 先請求一次權限，否則 enumerateDevices 可能拿不到標籤
+            await navigator.mediaDevices.getUserMedia({ video: true });
+            
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            cameraSelect.innerHTML = ''; // 清空
+            
+            videoDevices.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                // 嘗試給出友善名稱
+                let label = device.label || `Camera ${index + 1}`;
+                if (label.toLowerCase().includes('user') || label.toLowerCase().includes('front')) {
+                    label = "👤 前置鏡頭 (螢幕上方)";
+                } else if (label.toLowerCase().includes('environment') || label.toLowerCase().includes('back')) {
+                    label = "🌍 後置鏡頭 (鍵盤上方)";
+                }
+                option.text = label;
+                cameraSelect.appendChild(option);
+            });
+
+            // 停止剛才為了拿權限而開的串流
+            stopStream(); 
+
+        } catch (err) {
+            console.error("Camera Error:", err);
+            cameraSelect.innerHTML = '<option>無法取得相機權限</option>';
+        }
+    }
+
+    // 2. 啟動測量流程
+    btnStart.addEventListener('click', () => {
+        const deviceId = cameraSelect.value;
+        if (!deviceId) { alert("請先選擇鏡頭"); return; }
+        
+        startCountdown(deviceId);
+    });
+
+    btnStop.addEventListener('click', stopMeasurement);
+
+    function startCountdown(deviceId) {
+        // UI 切換
+        btnStart.style.display = 'none';
+        countdownOverlay.style.display = 'flex';
+        let count = 3;
+        countdownText.innerText = count;
+
+        // 預先啟動相機，讓硬體熱身 (Exposure adjustment)
+        startCamera(deviceId);
+
+        const timer = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownText.innerText = count;
+            } else {
+                clearInterval(timer);
+                countdownOverlay.style.display = 'none';
+                startMeasurement();
+            }
+        }, 1000);
+    }
+
+    async function startCamera(deviceId) {
+        if (stream) stopStream(); // 確保舊的已關閉
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    deviceId: { exact: deviceId },
+                    width: 320, height: 240,
+                    frameRate: { ideal: 30 }
+                }
+            });
+            video.srcObject = stream;
+            video.play();
+        } catch (err) {
+            alert("相機啟動失敗：" + err.message);
+            stopMeasurement(); // 回到原點
+        }
+    }
+
+    function startMeasurement() {
+        isMeasuring = true;
+        btnStop.style.display = 'block';
+        statusText.innerText = "測量中...";
+        
+        // 重置數據
+        signalBuffer.fill(0);
+        bpm = 0;
+        bpmDisplay.innerText = "--";
+        bpmDisplay.classList.remove('active');
+        
+        animate();
+    }
+
+    function stopMeasurement() {
+        isMeasuring = false;
+        stopStream();
+        cancelAnimationFrame(animationId);
+
+        // UI 復原
+        btnStop.style.display = 'none';
+        btnStart.style.display = 'block';
+        countdownOverlay.style.display = 'none';
+        statusLight.className = "status-light";
+        statusText.innerText = "待機中";
+        
+        // 清空畫布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid(); // 畫個背景網格看起來專業點
+    }
+
+    function stopStream() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    // 3. 核心運算迴圈
+    function animate() {
+        if (!isMeasuring) return;
+
+        // 畫布設定
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // 殘影背景
+        ctx.fillStyle = 'rgba(5, 5, 5, 0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 取得影像數據
+        let rawBrightness = 0;
+        let isValidSignal = false;
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            const tempC = document.createElement('canvas');
+            tempC.width = 40; tempC.height = 40;
+            const tCtx = tempC.getContext('2d');
+            tCtx.drawImage(video, (video.videoWidth-40)/2, (video.videoHeight-40)/2, 40, 40, 0, 0, 40, 40);
+            const data = tCtx.getImageData(0,0,40,40).data;
+            
+            let sum = 0;
+            for(let i=0; i<data.length; i+=4) sum += data[i]; // 紅色通道
+            rawBrightness = sum / (data.length/4);
+
+            // 動態範圍調整
+            minBrightness = minBrightness * 0.98 + rawBrightness * 0.02;
+            maxBrightness = maxBrightness * 0.98 + rawBrightness * 0.02;
+            if (rawBrightness < minBrightness) minBrightness = rawBrightness;
+            if (rawBrightness > maxBrightness) maxBrightness = rawBrightness;
+
+            const range = maxBrightness - minBrightness;
+
+            // 判斷訊號強度 (Squelch)
+            if (range > MIN_SIGNAL_STRENGTH) {
+                isValidSignal = true;
+                statusLight.className = "status-light green";
+                statusText.innerText = "訊號鎖定";
+                statusText.style.color = "#0f0";
+                
+                let norm = (rawBrightness - minBrightness) / range * 2 - 1;
+                norm = -norm; // 反轉
+                
+                // 平滑化
+                smoothedSignal = smoothedSignal * smoothingFactor + norm * (1 - smoothingFactor);
+                lastValidSignalTime = Date.now();
+            } else {
+                statusLight.className = "status-light red";
+                statusText.innerText = "訊號微弱 (請蓋好)";
+                statusText.style.color = "#f00";
+                smoothedSignal = smoothedSignal * 0.9; // 歸零
+            }
+        }
+
+        // 存入 Buffer
+        signalBuffer.push(smoothedSignal * gain);
+        signalBuffer.shift();
+
+        // 心跳偵測
+        detectHeartbeat(isValidSignal);
+
+        // 繪圖
+        drawGraph();
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    function detectHeartbeat(isValid) {
+        const now = Date.now();
+        
+        if (isValid) {
+            const val = signalBuffer[signalBuffer.length-1];
+            const prev = signalBuffer[signalBuffer.length-2];
+            
+            // 波峰偵測
+            if (val > 0.5 && val > prev && (now - lastBeatTime > 300)) {
+                 const interval = now - lastBeatTime;
+                 if (interval < 2000 && interval > 300) {
+                     let instantBpm = 60000 / interval;
+                     if (bpm === 0) bpm = instantBpm;
+                     else bpm = bpm * 0.7 + instantBpm * 0.3;
+                     
+                     bpmDisplay.innerText = Math.floor(bpm);
+                     bpmDisplay.classList.add('active');
+                     
+                     // 心跳視覺特效
+                     drawPulseEffect();
+                 }
+                 lastBeatTime = now;
+            } else {
+                bpmDisplay.classList.remove('active');
+            }
+        }
+
+        // 超時重置
+        if (now - lastValidSignalTime > 2500) {
+            bpm = 0;
+            bpmDisplay.innerText = "--";
+            bpmDisplay.classList.remove('active');
+        }
+    }
+
+    function drawGraph() {
+        ctx.beginPath();
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#00f7ff'; // 科技藍
+        
+        // 依據 BPM 改變顏色 (心跳快變紅)
+        if (bpm > 100) ctx.strokeStyle = '#ff0055';
+        else if (bpm > 0) ctx.strokeStyle = '#00ff88';
+
+        const step = canvas.width / signalBuffer.length;
+        const centerY = canvas.height / 2;
+
+        for (let i = 0; i < signalBuffer.length; i++) {
+            const x = i * step;
+            const y = centerY - signalBuffer[i] * 50;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+    
+    function drawPulseEffect() {
+        // 簡單的閃爍背景
+        ctx.fillStyle = 'rgba(255, 0, 100, 0.1)';
+        ctx.fillRect(0,0,canvas.width, canvas.height);
+    }
+
+    function drawGrid() {
+        // 靜態背景網格
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 1;
+        
+        for(let x=0; x<canvas.width; x+=50) {
+            ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke();
+        }
+        for(let y=0; y<canvas.height; y+=50) {
+            ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+        }
+    }
+
+    // 視窗調整
+    window.addEventListener('resize', () => {
+        if(!isMeasuring) drawGrid();
+    });
+
+    // 程式啟動
+    drawGrid();
+    initCameraList();
+
+</script>
+</body>
+</html>
