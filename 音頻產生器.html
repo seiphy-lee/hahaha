@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單頻聲波物理實驗室</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --bg-dark: #0a0a0c;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* 控制面板樣式 */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 25, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            width: 300px;
+            z-index: 100;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--neon-blue);
+        }
+
+        .value-display {
+            float: right;
+            font-family: monospace;
+            color: var(--neon-pink);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, var(--neon-blue), #0066ff);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button.off {
+            background: #444;
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: pointer;
+        }
+
+        .instruction {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay" onclick="initAudio()">
+        <div style="text-align: center;">
+            <h1 style="color: var(--neon-blue);">點擊開啟音頻實驗室</h1>
+            <p>（由於瀏覽器安全規範，需互動後才能產生聲音）</p>
+        </div>
+    </div>
+
+    <div id="ui-panel">
+        <h2 style="margin-top: 0; font-size: 1.2rem;">聲波物理模擬器</h2>
+        
+        <div class="control-group">
+            <label>開關狀態 <span id="status-text" class="value-display">已關閉</span></label>
+            <button id="toggle-btn" onclick="toggleSound()">啟動聲音</button>
+        </div>
+
+        <div class="control-group">
+            <label>頻率 Frequency <span id="freq-val" class="value-display">440 Hz</span></label>
+            <!-- 修正：將 max 調整為 20000 Hz -->
+            <input type="range" id="freq-slider" min="20" max="20000" step="1" value="440">
+            <p class="instruction">(範圍: 20 - 20,000 Hz)</p>
+        </div>
+
+        <div class="control-group">
+            <label>音量 Volume <span id="vol-val" class="value-display">0.5</span></label>
+            <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.5">
+        </div>
+
+        <div style="border-top: 1px solid #333; padding-top: 10px;">
+            <p style="font-size: 0.8rem; color: #aaa;">
+                <strong>物理觀察：</strong><br>
+                頻率愈高，橫波波長愈短。<br>
+                振幅愈大，波浪起伏愈明顯。
+            </p>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const freqSlider = document.getElementById('freq-slider');
+        const volSlider = document.getElementById('vol-slider');
+        const freqVal = document.getElementById('freq-val');
+        const volVal = document.getElementById('vol-val');
+        const toggleBtn = document.getElementById('toggle-btn');
+        const statusText = document.getElementById('status-text');
+
+        // Audio Context 相關變數
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+        let isPlaying = false;
+
+        // 初始化畫布尺寸
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 初始化音訊系統
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                document.getElementById('start-overlay').style.display = 'none';
+            }
+        }
+
+        function toggleSound() {
+            if (!audioCtx) return;
+
+            if (!isPlaying) {
+                // 創建振盪器
+                oscillator = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(freqSlider.value, audioCtx.currentTime);
+                
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(volSlider.value, audioCtx.currentTime + 0.1);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                isPlaying = true;
+                toggleBtn.textContent = "關閉聲音";
+                toggleBtn.classList.add('off');
+                statusText.textContent = "播放中";
+                statusText.style.color = "#00ff00";
+            } else {
+                // 優雅地淡出避免爆音
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                setTimeout(() => {
+                    oscillator.stop();
+                    isPlaying = false;
+                }, 100);
+                toggleBtn.textContent = "啟動聲音";
+                toggleBtn.classList.remove('off');
+                statusText.textContent = "已關閉";
+                statusText.style.color = "#ff00ff";
+            }
+        }
+
+        // 更新音訊參數
+        freqSlider.addEventListener('input', () => {
+            const f = freqSlider.value;
+            freqVal.textContent = f + " Hz";
+            if (isPlaying && oscillator) {
+                // 頻率平滑過渡
+                oscillator.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.05);
+            }
+        });
+
+        volSlider.addEventListener('input', () => {
+            const v = volSlider.value;
+            volVal.textContent = v;
+            if (isPlaying && gainNode) {
+                gainNode.gain.setTargetAtTime(v, audioCtx.currentTime, 0.05);
+            }
+        });
+
+        // 視覺化參數
+        let phase = 0;
+
+        function draw() {
+            // 關鍵：使用半透明清除背景，製造「殘影/軌跡」效果
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const frequency = parseFloat(freqSlider.value);
+            const amplitude = parseFloat(volSlider.value) * (canvas.height / 3);
+            
+            // 繪製背景格線
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=50) {
+                ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height);
+            }
+            for(let j=0; j<canvas.height; j+=50) {
+                ctx.moveTo(0, j); ctx.lineTo(canvas.width, j);
+            }
+            ctx.stroke();
+
+            // 繪製聲波主體 (視覺上對頻率進行對數縮放，以適應 20Hz - 20kHz 的巨大跨度)
+            const visualFreq = Math.log10(frequency) * 0.015; 
+            
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            
+            // 根據頻率改變顏色 (對數映射：低頻藍/紫，高頻紅)
+            const freqRatio = (Math.log10(frequency) - Math.log10(20)) / (Math.log10(20000) - Math.log10(20));
+            const hue = 280 - freqRatio * 280;
+            ctx.strokeStyle = `hsla(${hue}, 100%, 60%, 1)`;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.8)`;
+
+            for (let x = 0; x < canvas.width; x += 2) {
+                // y = A * sin(kx - ωt)
+                const y = canvas.height / 2 + Math.sin(x * visualFreq + phase) * amplitude;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // 繪製微粒（模擬空氣分子受聲波擾動）
+            if (isPlaying) {
+                drawParticles(frequency, amplitude, visualFreq);
+            }
+
+            // 更新相位，隨頻率快慢變化，但對高頻做限制避免閃爍過快
+            const phaseSpeed = Math.min(2.0, (frequency / 1000) * 0.5 + 0.05);
+            phase -= phaseSpeed;
+
+            requestAnimationFrame(draw);
+        }
+
+        // 模擬空氣分子振動
+        const particles = [];
+        for(let i=0; i<100; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height
+            });
+        }
+
+        function drawParticles(f, amp, vFreq) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            particles.forEach(p => {
+                // 分子在平衡位置附近作簡諧運動 (SHM)
+                const displacement = Math.sin(p.x * vFreq + phase) * (amp * 0.2);
+                ctx.beginPath();
+                ctx.arc(p.x + displacement, p.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        draw();
+    </script>
+</body>
+</html>
