@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光學心率偵測視覺化 (PPG Physics)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        canvas {
+            box-shadow: 0 0 50px rgba(0, 255, 128, 0.2);
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+
+        /* 懸浮控制面板 UI */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 30, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 200, 0.3);
+            backdrop-filter: blur(5px);
+            width: 300px;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 1.2rem;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #0ff;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: #ffcc00;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+
+        /* 隱藏真實 Video 元素，我們只取數據 */
+        video {
+            display: none;
+        }
+
+        /* 簡單的按鈕樣式 */
+        button {
+            background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+            border: none;
+            padding: 8px 16px;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+        button:hover {
+            box-shadow: 0 0 15px #00d2ff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>💓 光學心率物理視角</h1>
+        
+        <div class="control-group">
+            <label>訊號平滑度 (Smoothing): <span id="smoothVal">0.90</span></label>
+            <input type="range" id="smoothing" min="0" max="0.98" step="0.01" value="0.90">
+        </div>
+
+        <div class="control-group">
+            <label>訊號放大倍率 (Gain): <span id="gainVal">5.0</span></label>
+            <input type="range" id="gain" min="1" max="20" step="0.1" value="5.0">
+        </div>
+
+        <div class="control-group">
+            <label>模式選擇：</label>
+            <button id="toggleMode">切換至：模擬模式</button>
+        </div>
+
+        <div class="status" id="statusText">
+            請允許相機權限。<br>
+            將手指<b>輕輕蓋住</b>鏡頭與環境光來源。<br>
+            保持靜止以觀察波形。
+        </div>
+        <div style="margin-top:10px; font-size: 1.5rem; color: #f0f; font-weight: bold;" id="bpmDisplay">
+            BPM: --
+        </div>
+    </div>
+
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+
+<script>
+    /**
+     * 物理動畫網頁大師 - 光學心率偵測 (PPG)
+     * 核心邏輯：
+     * 1. 取得 Webcam 影像流。
+     * 2. 分析畫面中央區域的平均紅色通道(R)亮度。
+     * 3. 亮度隨血液體積變化產生波動。
+     * 4. 透過濾波器(Filter)平滑雜訊，並繪製波形。
+     */
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('webcam');
+    
+    // UI 元素
+    const smoothingInput = document.getElementById('smoothing');
+    const gainInput = document.getElementById('gain');
+    const smoothValDisplay = document.getElementById('smoothVal');
+    const gainValDisplay = document.getElementById('gainVal');
+    const statusText = document.getElementById('statusText');
+    const bpmDisplay = document.getElementById('bpmDisplay');
+    const toggleBtn = document.getElementById('toggleMode');
+
+    // 畫布設定
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // 物理與訊號參數
+    let isSimulation = false;
+    let signalBuffer = []; // 儲存波形歷史數據
+    const maxBufferLength = 400; // 畫面寬度方向的解析度
+    let currentSignal = 0;
+    let smoothedSignal = 0;
+    let lastBeatTime = 0;
+    let bpm = 0;
+    
+    // 用於心跳偵測的閾值邏輯
+    let peakThreshold = 0.5; 
+    let dynamicMin = 255;
+    let dynamicMax = 0;
+    
+    // 動畫視覺參數
+    let heartScale = 1;
+    let time = 0; // 用於模擬模式的正弦波時間
+
+    // 初始化 Video
+    async function setupCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: 320, height: 240 } 
+            });
+            video.srcObject = stream;
+            video.play();
+            statusText.innerHTML = "相機已啟動。<br>請將手指<b>完全覆蓋</b>鏡頭。<br>若無波形，請確保環境光線充足。";
+        } catch (err) {
+            console.error("Camera access denied or error:", err);
+            statusText.innerHTML = "無法存取相機。<br>已自動切換至<b>原理模擬模式</b>。";
+            isSimulation = true;
+            toggleBtn.textContent = "模式：模擬展示中";
+        }
+    }
+
+    // 模式切換
+    toggleBtn.addEventListener('click', () => {
+        isSimulation = !isSimulation;
+        if(isSimulation) {
+            toggleBtn.textContent = "切換至：真實偵測";
+            statusText.innerHTML = "目前為<b>模擬模式</b>。<br>展示理想的正弦波與雜訊疊加。";
+            // 停止相機以省電 (可選)
+        } else {
+            toggleBtn.textContent = "切換至：模擬模式";
+            statusText.innerHTML = "嘗試讀取相機...<br>請準備好手指。";
+            if(!video.srcObject) setupCamera();
+        }
+    });
+
+    // 數值顯示更新
+    smoothingInput.addEventListener('input', (e) => smoothValDisplay.textContent = e.target.value);
+    gainInput.addEventListener('input', (e) => gainValDisplay.textContent = e.target.value);
+
+    // 核心繪圖迴圈
+    function animate() {
+        // 1. 創造殘影效果 (Trails)
+        // 使用半透明黑色覆蓋上一幀，形成軌跡
+        ctx.fillStyle = 'rgba(5, 5, 5, 0.15)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        let rawValue = 0;
+        let brightness = 0;
+
+        if (isSimulation) {
+            // --- 模擬模式 ---
+            time += 0.05;
+            // 模擬心跳訊號：主波 + 次波 + 隨機雜訊
+            let signal = Math.sin(time) + 0.5 * Math.sin(time * 2 + 0.5) + (Math.random() - 0.5) * 0.2;
+            brightness = 100 + signal * 20;
+        } else {
+            // --- 真實偵測模式 ---
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                // 為了效能，將影片繪製到一個小的虛擬 Canvas 讀取像素
+                // 這裡我們直接利用 video 尺寸讀取中心點
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 50;
+                tempCanvas.height = 50;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 抓取影片中心 50x50 的區域
+                const sx = (video.videoWidth - 50) / 2;
+                const sy = (video.videoHeight - 50) / 2;
+                tempCtx.drawImage(video, sx, sy, 50, 50, 0, 0, 50, 50);
+                
+                const frame = tempCtx.getImageData(0, 0, 50, 50);
+                const data = frame.data;
+                
+                let rTotal = 0;
+                // 計算平均紅色亮度 (PPG 主要看紅光或綠光吸收變化，這裡用紅色通道)
+                for (let i = 0; i < data.length; i += 4) {
+                    rTotal += data[i];
+                }
+                brightness = rTotal / (data.length / 4);
+            }
+        }
+
+        // 2. 訊號處理 (Physics/Math part)
+        // 去除直流分量 (DC Offset) 的簡單方法：減去動態平均值 (或是高通濾波)
+        // 這裡為了簡化，我們做「動態範圍正規化」
+        
+        // 更新動態範圍
+        dynamicMin = dynamicMin * 0.99 + brightness * 0.01; // 緩慢適應
+        dynamicMax = dynamicMax * 0.99 + brightness * 0.01;
+        
+        if (brightness < dynamicMin) dynamicMin = brightness;
+        if (brightness > dynamicMax) dynamicMax = brightness;
+
+        // 正規化到 -1 ~ 1 之間
+        let range = dynamicMax - dynamicMin;
+        if (range < 1) range = 1; // 避免除以零
+        let normalized = (brightness - dynamicMin) / range * 2 - 1; 
+
+        // 倒轉訊號：因為血液多 -> 變暗 -> 數值變小，但我們想在圖上看到波峰，所以乘 -1 (僅真實模式)
+        if (!isSimulation) normalized = -normalized;
+
+        // 平滑濾波 (Low Pass Filter)
+        const alpha = parseFloat(smoothingInput.value);
+        smoothedSignal = smoothedSignal * alpha + normalized * (1 - alpha);
+
+        // 放大訊號 (Gain)
+        const gain = parseFloat(gainInput.value);
+        let plotValue = smoothedSignal * gain;
+
+        // 存入 Buffer
+        signalBuffer.push(plotValue);
+        if (signalBuffer.length > maxBufferLength) {
+            signalBuffer.shift();
+        }
+
+        // 3. 心跳偵測 (Peak Detection)
+        // 簡單邏輯：當訊號穿越閾值且處於上升段
+        // 視覺化心臟跳動
+        if (plotValue > 0.5 && plotValue > signalBuffer[signalBuffer.length - 2]) {
+             // 檢測到可能的波峰
+             const now = Date.now();
+             if (now - lastBeatTime > 400) { // 避免重複計算 (假設心跳不會快於 150bpm)
+                 let instantBpm = 60000 / (now - lastBeatTime);
+                 lastBeatTime = now;
+                 // 平滑 BPM 顯示
+                 bpm = bpm * 0.7 + instantBpm * 0.3;
+                 bpmDisplay.innerText = `BPM: ${Math.floor(bpm)}`;
+                 
+                 // 觸發視覺特效：心臟縮放
+                 heartScale = 1.5;
+             }
+        }
+
+        // 心臟縮放回復
+        heartScale += (1 - heartScale) * 0.1;
+
+        // 4. 繪製波形 (Visuals)
+        drawWaveform();
+        drawHeartVisual();
+
+        requestAnimationFrame(animate);
+    }
+
+    function drawWaveform() {
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#00ffcc'; // 霓虹青色
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00ffcc';
+
+        const startX = (canvas.width - maxBufferLength * 2) / 2;
+        const centerY = canvas.height / 2;
+
+        for (let i = 0; i < signalBuffer.length; i++) {
+            const x = startX + i * 2;
+            const y = centerY - signalBuffer[i] * 50; // 50 是基礎高度縮放
+            
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0; // 重置以免影響其他繪圖
+    }
+
+    function drawHeartVisual() {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2 + 200;
+
+        // 繪製心臟代表圓 (霓虹粉)
+        ctx.beginPath();
+        const radius = 30 * heartScale;
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 0, 128, ${0.5 * heartScale})`;
+        ctx.fill();
+        
+        ctx.strokeStyle = '#ff0080';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 裝飾性光環
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 0, 128, ${0.2 * heartScale})`;
+        ctx.stroke();
+    }
+
+    // 視窗大小調整
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+
+    // 啟動相機 (預設)
+    setupCamera();
+    animate();
+
+</script>
+</body>
+</html>
