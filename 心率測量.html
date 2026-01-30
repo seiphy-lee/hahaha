@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>心動時刻 - 光學心率監測儀</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --primary-color: #00ffcc; /* Neon Cyan */
+            --accent-color: #ff0055;  /* Neon Pink */
+            --text-color: #ffffff;
+            --glass-bg: rgba(20, 20, 20, 0.85);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* Canvas Container */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 隱藏的 Video 元素 */
+        #video-feed { display: none; }
+
+        /* UI Overlay */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Top Bar */
+        .header {
+            text-align: center;
+            background: var(--glass-bg);
+            padding: 10px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            align-self: center;
+            margin-top: 10px;
+            pointer-events: auto;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--primary-color);
+            text-shadow: 0 0 10px var(--primary-color);
+        }
+
+        .status-text {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        /* Center Info (BPM Display) */
+        .center-display {
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .bpm-value {
+            font-size: 5rem;
+            font-weight: bold;
+            color: var(--text-color);
+            text-shadow: 0 0 20px var(--accent-color);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .bpm-label {
+            font-size: 1.2rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        /* Camera Preview Circle */
+        #preview-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -150%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid var(--primary-color);
+            overflow: hidden;
+            display: none;
+            box-shadow: 0 0 15px var(--primary-color);
+            z-index: 10;
+        }
+
+        /* Control Panel */
+        .controls {
+            pointer-events: auto;
+            background: var(--glass-bg);
+            padding: 20px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            align-self: center;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent-color), #ff5500);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 80%;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #444, #666);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            font-size: 1rem;
+            padding: 10px 20px;
+        }
+        
+        button.share-btn {
+            background: linear-gradient(135deg, #00ccff, #0066ff);
+            box-shadow: 0 4px 15px rgba(0, 100, 255, 0.4);
+        }
+
+        button.stop-btn {
+            background: linear-gradient(135deg, #ff3333, #aa0000);
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4);
+        }
+
+        button:active { transform: scale(0.95); }
+        button:disabled { background: #444; box-shadow: none; cursor: not-allowed; color: #888; }
+
+        /* Instructions Overlay */
+        #instructions {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 30px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .course-info {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .course-school {
+            font-size: 1.1rem;
+            color: #ccc;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .course-unit {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+
+        .guide-container {
+            text-align: left; /* 靠左對齊 */
+            max-width: 320px;
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+        }
+
+        .guide-step {
+            margin: 15px 0;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        
+        .highlight { color: var(--primary-color); font-weight: bold; }
+
+        /* Report Overlay */
+        #report-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 5, 0.98);
+            display: none;
+            flex-direction: column;
+            justify-content: flex-start; /* 改為從上開始排，因為內容變多了 */
+            align-items: center;
+            z-index: 90;
+            padding: 20px;
+            padding-top: 40px;
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .chart-box {
+            width: 100%;
+            max-width: 350px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px; 
+            padding: 5px;
+            margin: 10px 0;
+        }
+        
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            max-width: 350px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            margin-bottom: 40px; /* 底部留白 */
+        }
+
+        .export-buttons button {
+            width: auto;
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            flex: 1 0 40%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 隱藏的 Video 元素 -->
+    <video id="video-feed" playsinline></video>
+
+    <!-- 主畫布 -->
+    <div id="canvas-container">
+        <canvas id="main-canvas"></canvas>
+        <div id="preview-container">
+            <canvas id="preview-canvas" width="80" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- UI 層 -->
+    <div class="ui-layer">
+        <div class="header">
+            <h1>心動時刻</h1>
+            <div class="status-text" id="status-display">等待啟動...</div>
+            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.4</div>
+        </div>
+
+        <div class="center-display" id="bpm-display-area" style="opacity: 0; transition: opacity 0.5s;">
+            <div class="bpm-value" id="bpm-value">--</div>
+            <div class="bpm-label">BPM</div>
+        </div>
+
+        <div class="controls">
+            <button id="action-btn">開啟相機權限</button>
+        </div>
+    </div>
+
+    <!-- 初始引導畫面 -->
+    <div id="instructions">
+        <div class="course-info">
+            <div class="course-school">臺中二中探究實作課程</div>
+            <div class="course-unit">單元：心動時刻</div>
+        </div>
+        
+        <h2 style="color: #fff; margin-bottom: 20px;">使用說明</h2>
+        
+        <div class="guide-container">
+            <div class="guide-step">1. 允許瀏覽器使用<span class="highlight">相機</span>。</div>
+            <div class="guide-step">2. 將手指輕輕蓋住<span class="highlight">主鏡頭與閃光燈</span>。</div>
+            <div class="guide-step">3. 保持靜止，放鬆手指，避免用力按壓。</div>
+            <div class="guide-step">4. 觀察即時波形，穩定後按下開始。</div>
+        </div>
+        
+        <div class="guide-step" style="font-size: 0.8rem; color: #666; margin-top: 20px;">
+            (注意：此為物理原理模擬程式，非專業醫療器材)
+        </div>
+        <button id="start-intro-btn" style="margin-top: 30px;">我了解了</button>
+    </div>
+
+    <!-- 結果報告畫面 -->
+    <div id="report-overlay">
+        <div class="course-school" style="font-size: 0.9rem; margin-bottom:0;">心動時刻 - 實驗報告</div>
+        <h2 style="color: var(--primary-color); margin-top: 5px;">測量完成</h2>
+        
+        <div style="font-size: 1rem; color: #aaa;">平均心率</div>
+        <div class="bpm-value" id="final-avg-bpm" style="font-size: 4rem;">--</div>
+        <div class="bpm-label" style="font-size: 1rem; margin-bottom: 15px;">BPM</div>
+        
+        <!-- 圖表 1: 原始訊號 -->
+        <div class="chart-box">
+             <canvas id="signal-chart" width="340" height="150"></canvas>
+        </div>
+
+        <!-- 圖表 2: BPM 趨勢 -->
+        <div class="chart-box">
+             <canvas id="bpm-chart" width="340" height="150"></canvas>
+        </div>
+        
+        <div class="export-buttons">
+            <button class="share-btn" id="share-btn">分享結果 (推薦)</button>
+            <button class="secondary" id="download-img-btn">下載圖表</button>
+            <button class="secondary" id="copy-csv-btn">複製數據</button>
+        </div>
+        
+        <button id="restart-btn" style="width: 80%; max-width: 300px;">重新測量</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video-feed');
+        const mainCanvas = document.getElementById('main-canvas');
+        const ctx = mainCanvas.getContext('2d');
+        const previewCanvas = document.getElementById('preview-canvas');
+        const previewCtx = previewCanvas.getContext('2d');
+        
+        const actionBtn = document.getElementById('action-btn');
+        const statusDisplay = document.getElementById('status-display');
+        const bpmDisplayArea = document.getElementById('bpm-display-area');
+        const bpmValueEl = document.getElementById('bpm-value');
+        const previewContainer = document.getElementById('preview-container');
+        
+        const instructions = document.getElementById('instructions');
+        const reportOverlay = document.getElementById('report-overlay');
+        const signalChart = document.getElementById('signal-chart');
+        const bpmChart = document.getElementById('bpm-chart');
+        
+        const STATE = {
+            IDLE: 'idle',
+            CAMERA_READY: 'camera_ready',
+            COUNTDOWN: 'countdown',
+            MEASURING: 'measuring',
+            RESULT: 'result'
+        };
+        let currentState = STATE.IDLE;
+
+        // 訊號處理變數
+        let signalBuffer = [];       
+        const BUFFER_SIZE = 300;     
+        let brightnessHistory = [];  
+        
+        // 改良版心率計算變數
+        let beats = [];              
+        let displayBPM = 0;          
+        let startTime = 0;
+        let sessionData = [];        // 存儲完整的 {time, bpm} 記錄
+        let rawSignalHistory = [];   // 用於最後畫圖 {time, value}
+        
+        // 動態閾值相關
+        let dynamicThreshold = 0;
+
+        let streamTrack = null;
+
+        function resize() {
+            mainCanvas.width = window.innerWidth;
+            mainCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('start-intro-btn').addEventListener('click', () => {
+            instructions.style.display = 'none';
+        });
+
+        actionBtn.addEventListener('click', handleAction);
+        document.getElementById('restart-btn').addEventListener('click', resetApp);
+        document.getElementById('download-img-btn').addEventListener('click', downloadChartImage);
+        document.getElementById('copy-csv-btn').addEventListener('click', copyCSVData);
+        document.getElementById('share-btn').addEventListener('click', shareResult);
+
+        function resetApp() {
+            reportOverlay.style.display = 'none';
+            currentState = STATE.CAMERA_READY;
+            statusDisplay.textContent = "準備就緒，請蓋住鏡頭";
+            actionBtn.textContent = "開始測量";
+            actionBtn.className = ""; // Reset class
+            actionBtn.disabled = false;
+            bpmDisplayArea.style.opacity = 0;
+            
+            signalBuffer = [];
+            beats = [];
+            sessionData = [];
+            rawSignalHistory = [];
+            displayBPM = 0;
+            
+            previewContainer.style.display = 'block';
+            startAnimationLoop();
+        }
+
+        async function handleAction() {
+            if (currentState === STATE.IDLE) {
+                try {
+                    statusDisplay.textContent = "正在啟動相機...";
+                    const constraints = {
+                        audio: false,
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            frameRate: { ideal: 60 }
+                        }
+                    };
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    video.srcObject = stream;
+                    await video.play();
+
+                    streamTrack = stream.getVideoTracks()[0];
+                    const capabilities = streamTrack.getCapabilities();
+                    if (capabilities.torch) {
+                        try {
+                            await streamTrack.applyConstraints({ advanced: [{ torch: true }] });
+                        } catch (e) {
+                            console.warn("閃光燈開啟失敗", e);
+                            statusDisplay.textContent = "無法開啟閃光燈，請手動補光";
+                        }
+                    }
+
+                    currentState = STATE.CAMERA_READY;
+                    statusDisplay.textContent = "請將手指蓋住鏡頭與閃光燈";
+                    actionBtn.textContent = "開始測量";
+                    previewContainer.style.display = 'block';
+                    
+                    startAnimationLoop();
+
+                } catch (err) {
+                    console.error(err);
+                    alert("無法存取相機。請檢查權限。");
+                    statusDisplay.textContent = "相機啟動失敗";
+                }
+            } else if (currentState === STATE.CAMERA_READY) {
+                startCountdown();
+            } else if (currentState === STATE.MEASURING) {
+                finishMeasurement(); // 手動結束
+            }
+        }
+
+        function startCountdown() {
+            currentState = STATE.COUNTDOWN;
+            actionBtn.disabled = true;
+            let count = 3;
+            
+            const timer = setInterval(() => {
+                count--;
+                if (count <= 0) {
+                    clearInterval(timer);
+                    startMeasurement();
+                }
+            }, 1000);
+            
+            window.countdownValue = 3;
+            const uiTimer = setInterval(() => {
+                window.countdownValue--;
+                if(window.countdownValue <= 0) clearInterval(uiTimer);
+            }, 1000);
+        }
+
+        function startMeasurement() {
+            currentState = STATE.MEASURING;
+            startTime = performance.now();
+            
+            // UI 更新：變為停止按鈕
+            statusDisplay.textContent = "測量中... 按下結束以停止";
+            actionBtn.textContent = "結束測量";
+            actionBtn.className = "stop-btn";
+            actionBtn.disabled = false;
+            
+            bpmDisplayArea.style.opacity = 1;
+            beats = [];
+            brightnessHistory = [];
+            rawSignalHistory = [];
+            sessionData = [];
+            displayBPM = 0;
+            bpmValueEl.textContent = "--";
+        }
+
+        function finishMeasurement() {
+            currentState = STATE.RESULT;
+            
+            previewContainer.style.display = 'none';
+            reportOverlay.style.display = 'flex';
+            
+            // 計算總平均 BPM (剔除極端值)
+            const validReadings = sessionData
+                .map(d => d.bpm)
+                .filter(r => r > 40 && r < 180);
+            
+            const avg = validReadings.length > 5 
+                ? Math.round(validReadings.reduce((a, b) => a + b, 0) / validReadings.length) 
+                : "--";
+            
+            document.getElementById('final-avg-bpm').textContent = avg;
+
+            drawSignalChart(); // 畫原始波形
+            drawBPMChart();    // 畫心率曲線
+        }
+
+        function startAnimationLoop() {
+            requestAnimationFrame(loop);
+        }
+
+        function loop(timestamp) {
+            if (currentState === STATE.RESULT) return;
+
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+            ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const sx = Math.floor(video.videoWidth / 2 - 25);
+                const sy = Math.floor(video.videoHeight / 2 - 25);
+                
+                previewCtx.drawImage(video, sx, sy, 50, 50, 0, 0, 80, 80);
+                const frameData = previewCtx.getImageData(0, 0, 80, 80);
+                const data = frameData.data;
+                
+                let totalRed = 0;
+                let pixelCount = data.length / 4;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    totalRed += data[i];
+                }
+                let avgRed = totalRed / pixelCount;
+
+                // --- 改良的訊號處理 ---
+                
+                brightnessHistory.push(avgRed);
+                if (brightnessHistory.length > 30) brightnessHistory.shift(); 
+                const localAvg = brightnessHistory.reduce((a, b) => a + b, 0) / brightnessHistory.length;
+                
+                let signal = (localAvg - avgRed) * 8; 
+
+                if (currentState === STATE.MEASURING) {
+                    rawSignalHistory.push({ t: (timestamp - startTime) / 1000, val: signal });
+                }
+
+                if (signalBuffer.length > BUFFER_SIZE) signalBuffer.shift();
+                signalBuffer.push(signal);
+
+                drawWaveform(signalBuffer);
+
+                if (currentState === STATE.MEASURING) {
+                    detectHeartbeatAdaptive(signal, timestamp);
+                    drawRecordingStatus(timestamp);
+                } else if (currentState === STATE.COUNTDOWN) {
+                    drawCountdown();
+                }
+
+                if(avgRed < 40) {
+                     statusDisplay.textContent = "光線不足，請緊貼閃光燈";
+                     statusDisplay.style.color = "red";
+                } else if (currentState === STATE.MEASURING) {
+                     statusDisplay.textContent = "測量中... 按下按鈕結束";
+                     statusDisplay.style.color = "var(--primary-color)";
+                } else if (currentState === STATE.CAMERA_READY) {
+                     statusDisplay.textContent = "訊號穩定，請按開始";
+                     statusDisplay.style.color = "#aaa";
+                }
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- 改良版：自適應峰值偵測算法 ---
+        
+        let lastBeatTime = 0;
+        let signalWindow = []; 
+        const WINDOW_SIZE = 60; 
+
+        function detectHeartbeatAdaptive(signal, time) {
+            signalWindow.push(signal);
+            if (signalWindow.length > WINDOW_SIZE) signalWindow.shift();
+
+            let min = Math.min(...signalWindow);
+            let max = Math.max(...signalWindow);
+            let amplitude = max - min;
+            
+            dynamicThreshold = min + amplitude * 0.75;
+            
+            const isSignificant = amplitude > 3.0; 
+
+            if (signal > dynamicThreshold && (time - lastBeatTime > 400) && isSignificant) {
+                
+                let delta = time - lastBeatTime;
+                
+                if (lastBeatTime !== 0) {
+                    let instantBPM = 60000 / delta;
+
+                    if (instantBPM > 40 && instantBPM < 160) {
+                        
+                        if (displayBPM === 0) {
+                            displayBPM = instantBPM;
+                        } else {
+                            displayBPM = displayBPM * 0.7 + instantBPM * 0.3;
+                        }
+
+                        bpmValueEl.textContent = Math.round(displayBPM);
+                        
+                        sessionData.push({
+                            time: (time - startTime) / 1000, 
+                            bpm: Math.round(instantBPM)
+                        });
+
+                        triggerBeatEffect();
+                    }
+                }
+                
+                lastBeatTime = time;
+                beats.push(time);
+            }
+        }
+
+        function triggerBeatEffect() {
+            ctx.fillStyle = 'rgba(255, 0, 85, 0.2)';
+            ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+            bpmValueEl.style.transform = "scale(1.2)";
+            setTimeout(() => bpmValueEl.style.transform = "scale(1)", 100);
+        }
+
+        function drawWaveform(buffer) {
+            if (buffer.length < 2) return;
+
+            const centerY = mainCanvas.height / 2;
+            const stepX = mainCanvas.width / BUFFER_SIZE;
+
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'var(--primary-color)';
+            ctx.lineJoin = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'var(--primary-color)';
+
+            for (let i = 0; i < buffer.length; i++) {
+                const x = i * stepX;
+                const y = centerY - (buffer[i] * 5); 
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            const lastX = (buffer.length - 1) * stepX;
+            const lastY = centerY - (buffer[buffer.length - 1] * 5);
+            ctx.beginPath();
+            ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+        }
+
+        function drawCountdown() {
+            ctx.font = "bold 150px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.fillText(window.countdownValue, mainCanvas.width / 2, mainCanvas.height / 2);
+        }
+
+        function drawRecordingStatus(time) {
+            const elapsed = (time - startTime) / 1000;
+            ctx.fillStyle = "#ff0055";
+            ctx.font = "bold 20px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(`REC ${elapsed.toFixed(1)}s`, mainCanvas.width / 2, mainCanvas.height - 100);
+            
+            if (Math.floor(time / 500) % 2 === 0) {
+                ctx.beginPath();
+                ctx.arc(mainCanvas.width / 2 - 60, mainCanvas.height - 106, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // --- 繪製圖表函數 (共用邏輯) ---
+        function drawChartCommon(canvas, data, xKey, yKey, title, color, yLabel) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const padding = { top: 25, right: 30, bottom: 25, left: 40 };
+            const chartWidth = canvas.width - padding.left - padding.right;
+            const chartHeight = canvas.height - padding.top - padding.bottom;
+
+            if (data.length < 5) {
+                ctx.fillStyle = "#fff";
+                ctx.font = "14px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("數據不足", canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            // 計算範圍
+            let vals = data.map(d => d[yKey]);
+            
+            // 排除極端值 (Smart Scaling)
+            let sortedVals = [...vals].sort((a,b)=>a-b);
+            let minVal = sortedVals[Math.floor(vals.length * 0.05)];
+            let maxVal = sortedVals[Math.floor(vals.length * 0.95)];
+            if(maxVal - minVal < 5) { // 避免範圍太小
+                let mid = (maxVal+minVal)/2;
+                maxVal = mid + 5;
+                minVal = mid - 5;
+            }
+            let valRange = maxVal - minVal;
+
+            let startTime = data[0][xKey];
+            let endTime = data[data.length-1][xKey];
+            let timeRange = endTime - startTime || 1;
+
+            // 繪製背景線
+            ctx.strokeStyle = "rgba(255,255,255,0.1)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            // X軸 & Y軸
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, canvas.height - padding.bottom);
+            ctx.lineTo(canvas.width - padding.right, canvas.height - padding.bottom);
+            ctx.stroke();
+
+            // Y軸標籤
+            ctx.fillStyle = "#aaa";
+            ctx.font = "10px Arial";
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+            for(let i=0; i<=3; i++) {
+                let norm = i/3;
+                let y = padding.top + chartHeight * (1-norm);
+                let val = minVal + valRange * norm;
+                ctx.fillText(Math.round(val), padding.left - 5, y);
+                // 橫線
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(255,255,255,0.05)";
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(canvas.width - padding.right, y);
+                ctx.stroke();
+            }
+
+            // 繪製曲線
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(padding.left, padding.top, chartWidth, chartHeight);
+            ctx.clip();
+
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            for (let i = 0; i < data.length; i++) {
+                let point = data[i];
+                let x = padding.left + ((point[xKey] - startTime) / timeRange) * chartWidth;
+                let y = (padding.top + chartHeight) - ((point[yKey] - minVal) / valRange) * chartHeight;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // 標題
+            ctx.fillStyle = color;
+            ctx.font = "bold 12px Arial";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(title, padding.left, 5);
+            
+            // X 軸時間 (結束點)
+            ctx.fillStyle = "#666";
+            ctx.textAlign = "right";
+            ctx.fillText(endTime.toFixed(1)+"s", canvas.width - padding.right, canvas.height - padding.bottom + 5);
+        }
+
+        function drawSignalChart() {
+            drawChartCommon(signalChart, rawSignalHistory, 't', 'val', '1. PPG 訊號波形 (物理變化)', '#00ffcc', '強度');
+        }
+
+        function drawBPMChart() {
+            // 需要過濾掉太短時間內的劇烈變化
+            drawChartCommon(bpmChart, sessionData, 'time', 'bpm', '2. 心率時序圖 (BPM)', '#ff0055', 'BPM');
+        }
+
+        // --- 產生綜合實驗報告圖片 ---
+        async function getReportBlob() {
+             const w = 400;
+             const h = 600; // 長條圖
+             const cvs = document.createElement('canvas');
+             cvs.width = w;
+             cvs.height = h;
+             const c = cvs.getContext('2d');
+             
+             // 1. 背景
+             c.fillStyle = "#000";
+             c.fillRect(0,0,w,h);
+             
+             // 2. 標題區
+             c.textAlign = "center";
+             c.fillStyle = "#fff";
+             c.font = "16px Arial";
+             c.fillText("臺中二中探究實作課程", w/2, 40);
+             
+             c.font = "bold 24px Arial";
+             c.fillStyle = "#00ffcc";
+             c.fillText("單元：心動時刻", w/2, 75);
+             
+             // 3. 結果區
+             c.fillStyle = "#fff";
+             c.font = "14px Arial";
+             c.fillText("平均心率", w/2, 120);
+             
+             const avgBPM = document.getElementById('final-avg-bpm').textContent;
+             c.font = "bold 60px Arial";
+             c.fillStyle = "#fff";
+             c.fillText(avgBPM, w/2, 180);
+             c.font = "14px Arial";
+             c.fillStyle = "#ff0055";
+             c.fillText("BPM", w/2, 210);
+             
+             // 4. 貼上圖表 1
+             c.drawImage(signalChart, 25, 240, 350, 150);
+             
+             // 5. 貼上圖表 2
+             c.drawImage(bpmChart, 25, 410, 350, 150);
+             
+             // 6. 頁尾
+             c.fillStyle = "#444";
+             c.font = "10px Arial";
+             c.fillText("Generated by PPG Physics App", w/2, 580);
+             
+             return new Promise(resolve => cvs.toBlob(resolve, 'image/png'));
+        }
+
+        async function shareResult() {
+            try {
+                const blob = await getReportBlob();
+                const file = new File([blob], "heart_rate_report.png", { type: "image/png" });
+                const avgText = document.getElementById('final-avg-bpm').textContent;
+
+                if (navigator.share && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: '心動時刻實驗報告',
+                        text: `臺中二中探究實作：我的平均心率為 ${avgText} BPM`,
+                        files: [file]
+                    });
+                } else {
+                    alert("分享功能不支援，將下載圖片。");
+                    downloadChartImage();
+                }
+            } catch (err) {
+                console.error("Share failed", err);
+            }
+        }
+
+        async function downloadChartImage() {
+            const blob = await getReportBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Taichung2_HeartRate_${new Date().getTime()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function copyCSVData() {
+            if (sessionData.length === 0) {
+                alert("沒有足夠的數據");
+                return;
+            }
+
+            let csvContent = "Time(s),BPM\n";
+            sessionData.forEach(row => {
+                csvContent += `${row.time.toFixed(2)},${row.bpm}\n`;
+            });
+
+            navigator.clipboard.writeText(csvContent).then(() => {
+                const btn = document.getElementById('copy-csv-btn');
+                const originalText = btn.textContent;
+                btn.textContent = "已複製！";
+                setTimeout(() => btn.textContent = originalText, 2000);
+            }).catch(err => {
+                console.error('複製失敗: ', err);
+                alert("複製失敗，請嘗試分享圖片報告");
+            });
+        }
+
+    </script>
+</body>
+</html>
