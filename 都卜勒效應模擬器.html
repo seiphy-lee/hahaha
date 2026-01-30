@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>都卜勒效應視聽模擬器</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        canvas {
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 30, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            width: 320px;
+            z-index: 10;
+        }
+
+        h2 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            color: #00ffff;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: #444;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ffff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00ffff;
+        }
+        
+        /* 靜音 Checkbox 樣式 */
+        input[type="checkbox"] {
+            appearance: none;
+            width: 40px;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="checkbox"]::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        input[type="checkbox"]:checked {
+            background: #ff0055;
+        }
+
+        input[type="checkbox"]:checked::after {
+            transform: translateX(20px);
+        }
+
+        .value-display {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        #btn-audio {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(45deg, #ff0055, #ff5500);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #btn-audio:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
+        }
+
+        #status {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            text-align: center;
+            color: #888;
+        }
+
+        /* 頻率顯示儀表板 */
+        #dashboard {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            text-align: center;
+        }
+        .metric {
+            background: rgba(0,0,0,0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            min-width: 120px;
+        }
+        .metric-label { font-size: 0.8rem; color: #aaa; margin-bottom: 4px;}
+        .metric-value { font-size: 1.5rem; font-family: monospace; color: #00ff00; }
+        .sub-value { font-size: 0.8rem; color: #666; font-family: monospace;}
+
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <h2>物理參數控制台</h2>
+        
+        <div class="control-group">
+            <label>救護車時速 <span class="value-display" id="val-speed">80</span> km/h</label>
+            <input type="range" id="slider-speed" min="0" max="150" step="1" value="80">
+        </div>
+
+        <div class="control-group">
+            <label>視覺波紋密度 <span class="value-display" id="val-freq">5</span></label>
+            <input type="range" id="slider-freq" min="2" max="12" step="1" value="5">
+        </div>
+
+        <!-- 新增靜音開關 -->
+        <div class="control-group" style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+            <label for="check-mute">
+                <span>靜音模式 (Mute)</span>
+                <input type="checkbox" id="check-mute">
+            </label>
+        </div>
+
+        <button id="btn-audio">啟動引擎 & 聲音 (Start)</button>
+        <div id="status">點擊按鈕以啟用救護車音效</div>
+    </div>
+
+    <div id="dashboard">
+        <div class="metric">
+            <div class="metric-label">原始警笛頻率</div>
+            <div class="metric-value" id="display-src-freq">-- Hz</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">聽到的頻率 (Observed)</div>
+            <div class="metric-value" id="display-obs-freq">-- Hz</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">音量 (Volume)</div>
+            <div class="metric-value" id="display-vol">-- %</div>
+        </div>
+    </div>
+
+    <canvas id="simulationCanvas"></canvas>
+
+<script>
+/**
+ * 物理模擬核心與視覺繪製
+ * Design by: 物理動畫網頁大師
+ */
+
+const canvas = document.getElementById('simulationCanvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const sliderSpeed = document.getElementById('slider-speed');
+const sliderFreq = document.getElementById('slider-freq');
+const checkMute = document.getElementById('check-mute'); // 靜音開關
+const valSpeed = document.getElementById('val-speed');
+const valFreq = document.getElementById('val-freq');
+const btnAudio = document.getElementById('btn-audio');
+const displaySrcFreq = document.getElementById('display-src-freq');
+const displayObsFreq = document.getElementById('display-obs-freq');
+const displayVol = document.getElementById('display-vol');
+
+// 設定畫布尺寸
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 物理參數狀態
+const state = {
+    waveSpeed: 7,       
+    sourceSpeedRatio: 0, 
+    emissionFreq: 5,     
+    framesPerEmission: 0,
+    frameCount: 0,
+    isPlaying: false,
+    // 新增：用於追蹤都卜勒時間效應的變數
+    sirenPhase: 0, 
+    lastTime: 0
+};
+
+const SIM_SOUND_SPEED_KMH = 187.5; 
+
+// 物件定義
+const observer = {
+    x: 0, y: 0, 
+    color: '#ffffff'
+};
+
+const source = {
+    x: -100,
+    y: 0,
+    color: '#ff0055',
+    reset: function() {
+        this.x = -canvas.width * 0.4;
+        this.y = canvas.height / 2;
+    }
+};
+
+let waves = [];
+
+// Audio Context (Web Audio API)
+let audioCtx;
+let oscillator;
+let gainNode;
+let isAudioActive = false;
+
+// 救護車警笛參數
+const SIREN_LOW_FREQ = 700;  
+const SIREN_HIGH_FREQ = 960; 
+const SIREN_CYCLE = 1.0;     
+
+function initAudio() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+    }
+    
+    oscillator = audioCtx.createOscillator();
+    oscillator.type = 'sawtooth';
+    
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 3000;
+
+    oscillator.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    isAudioActive = true;
+    btnAudio.textContent = "重置模擬 (Reset)";
+    document.getElementById('status').textContent = "聲音已啟用 - 請戴上耳機體驗";
+}
+
+// 更新速度計算邏輯
+function updateSpeedFromSlider() {
+    const kmh = parseInt(sliderSpeed.value);
+    valSpeed.textContent = kmh;
+    state.sourceSpeedRatio = kmh / SIM_SOUND_SPEED_KMH;
+}
+
+// 監聽 UI 變化
+sliderSpeed.addEventListener('input', updateSpeedFromSlider);
+
+sliderFreq.addEventListener('input', (e) => {
+    state.emissionFreq = parseInt(e.target.value);
+    valFreq.textContent = state.emissionFreq;
+    state.framesPerEmission = Math.floor(60 / state.emissionFreq);
+});
+
+btnAudio.addEventListener('click', () => {
+    if (!isAudioActive) {
+        initAudio();
+    }
+    resetSimulation();
+});
+
+function resetSimulation() {
+    source.reset();
+    waves = [];
+    state.isPlaying = true;
+    state.sirenPhase = 0; // 重置相位
+    state.lastTime = performance.now() / 1000; // 初始化時間
+    updateSpeedFromSlider(); 
+    state.framesPerEmission = Math.floor(60 / state.emissionFreq);
+}
+
+// 核心物理計算與更新
+function update() {
+    if (!state.isPlaying) return;
+
+    // 計算時間差 dt，用於累積相位
+    const now = performance.now() / 1000;
+    let dt = now - state.lastTime;
+    state.lastTime = now;
+    if (dt > 0.1) dt = 0.016; // 避免切換分頁時時間暴衝
+
+    observer.x = canvas.width / 2;
+    observer.y = canvas.height / 2 + 100;
+
+    const velocity = state.waveSpeed * state.sourceSpeedRatio;
+    source.x += velocity;
+    source.y = canvas.height / 2;
+
+    if (source.x > canvas.width + 300) {
+        source.x = -300;
+        waves = []; 
+    }
+
+    state.frameCount++;
+    if (state.frameCount >= state.framesPerEmission) {
+        waves.push({
+            x: source.x,
+            y: source.y,
+            r: 0,
+            opacity: 1
+        });
+        state.frameCount = 0;
+    }
+
+    for (let i = waves.length - 1; i >= 0; i--) {
+        waves[i].r += state.waveSpeed; 
+        waves[i].opacity -= 0.005; 
+        if (waves[i].opacity <= 0) {
+            waves.splice(i, 1);
+        }
+    }
+
+    // --- 計算都卜勒效應數值 (音高 Pitch) ---
+    // 這裡維持原本誇張的係數，讓音調變化(De-Do)很明顯，這是為了模擬體驗效果
+    const dist = source.x - observer.x; 
+    const distanceAbs = Math.abs(dist);
+    const vs = state.sourceSpeedRatio; 
+    
+    let volume = Math.max(0, 1 - distanceAbs / 900); 
+    volume = volume * volume; 
+    if (checkMute.checked) volume = 0;
+
+    let observedFreqRatio = 1;
+    if (dist < 0) { // Approaching
+        if (vs >= 1) {
+            observedFreqRatio = 3.0; 
+        } else {
+            observedFreqRatio = 1 / (1 - vs);
+        }
+    } else { // Receding
+        observedFreqRatio = 1 / (1 + vs);
+    }
+
+    // --- 計算都卜勒效應數值 (節奏 Rhythm/Modulation) ---
+    // 修正：針對節奏變化，我們使用一個「修正後的馬赫數」，讓時間壓縮效應比較溫和
+    // 這樣接近真實世界的感覺 (Modulation 變快約 20-30%，而不是變快 300%)
+    const RHYTHM_FACTOR = 0.3; // 係數：將馬赫數打 3 折來計算節奏
+    const vsRhythm = vs * RHYTHM_FACTOR;
+    
+    let rhythmRatio = 1;
+    if (dist < 0) {
+        rhythmRatio = 1 / (1 - vsRhythm);
+    } else {
+        rhythmRatio = 1 / (1 + vsRhythm);
+    }
+
+    // 更新警笛相位：使用溫和版的 rhythmRatio
+    state.sirenPhase += dt * rhythmRatio;
+
+    // --- 音效處理 ---
+    let currentSrcFreq = SIREN_LOW_FREQ; 
+
+    if (isAudioActive && audioCtx) {
+        // 使用累積的 sirenPhase 來決定現在是 High 還是 Low
+        const cyclePosition = state.sirenPhase % SIREN_CYCLE;
+        const targetBaseFreq = (cyclePosition < SIREN_CYCLE / 2) ? SIREN_LOW_FREQ : SIREN_HIGH_FREQ;
+        currentSrcFreq = targetBaseFreq;
+
+        // 音頻依然使用誇張版的 observedFreqRatio，保持戲劇性
+        const finalFreq = targetBaseFreq * observedFreqRatio;
+
+        const time = audioCtx.currentTime;
+        oscillator.frequency.setTargetAtTime(finalFreq, time, 0.02);
+        gainNode.gain.setTargetAtTime(volume * 0.3, time, 0.1);
+    }
+
+    // 更新儀表板 UI
+    const finalObsFreq = currentSrcFreq * observedFreqRatio;
+    
+    displaySrcFreq.innerHTML = currentSrcFreq + " <span class='sub-value'>Hz</span>";
+    displayObsFreq.innerHTML = Math.round(finalObsFreq) + " <span class='sub-value'>Hz</span>";
+    displayVol.textContent = Math.round(volume * 100) + " %";
+
+    const hue = dist < 0 ? 180 : 0; 
+    displayObsFreq.style.color = `hsl(${hue}, 100%, 70%)`;
+}
+
+// 繪圖邏輯
+function draw() {
+    ctx.fillStyle = 'rgba(5, 5, 5, 0.25)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.arc(observer.x, observer.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'white';
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText("觀察者", observer.x, observer.y + 25);
+
+    ctx.lineWidth = 2;
+    waves.forEach(wave => {
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, wave.r, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(0, 255, 255, ${wave.opacity})`;
+        ctx.stroke();
+    });
+
+    // 繪製波源 (救護車)
+    if (state.isPlaying) {
+        ctx.fillStyle = source.color;
+        
+        // 閃爍邏輯也改用溫和版的都卜勒時間 (sirenPhase)
+        const blinkPhase = (state.sirenPhase % SIREN_CYCLE) < (SIREN_CYCLE / 2);
+        ctx.shadowColor = blinkPhase ? '#ff0000' : '#0000ff';
+        ctx.fillStyle = blinkPhase ? '#ff3333' : '#3333ff';
+        
+        const carWidth = 40;
+        const carHeight = 20;
+        
+        ctx.shadowBlur = 20;
+        ctx.fillRect(source.x - carWidth/2, source.y - carHeight/2, carWidth, carHeight);
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(source.x - carWidth, source.y);
+        ctx.lineTo(source.x - carWidth - 40, source.y); 
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    } else {
+        ctx.fillStyle = '#666';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText("點擊左上角按鈕開始模擬", canvas.width/2, canvas.height/2 - 50);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height / 2 + 30);
+    ctx.lineTo(canvas.width, canvas.height / 2 + 30);
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    requestAnimationFrame(loop);
+}
+
+function loop() {
+    update();
+    draw();
+}
+
+updateSpeedFromSlider(); 
+state.isPlaying = false;
+loop();
+
+</script>
+</body>
+</html>
