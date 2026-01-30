@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>物理光學心率偵測儀 (PPG Monitor)</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --primary-color: #ff0055; /* Neon Red */
+            --secondary-color: #00f0ff; /* Cyan */
+            --text-color: #ffffff;
+            --panel-bg: rgba(20, 20, 20, 0.85);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* 畫布容器 */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 60%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-bottom: 2px solid var(--secondary-color);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        canvas {
+            background: #000;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 攝像頭預覽 (隱藏或縮小顯示) */
+        #video-preview {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid var(--primary-color);
+            object-fit: cover;
+            z-index: 10;
+            opacity: 0.8;
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        /* 控制面板區域 */
+        #control-panel {
+            flex: 1;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            background: linear-gradient(180deg, #111 0%, #000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        /* 數值顯示 */
+        .status-display {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        #bpm-value {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
+            font-variant-numeric: tabular-nums;
+        }
+
+        #bpm-label {
+            font-size: 1rem;
+            color: var(--secondary-color);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* 按鈕樣式 */
+        button {
+            background: transparent;
+            color: var(--secondary-color);
+            border: 2px solid var(--secondary-color);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+        }
+
+        /* 覆蓋層 (倒數計時與結果) */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #overlay-text {
+            font-size: 5rem;
+            color: var(--secondary-color);
+            font-weight: bold;
+            text-shadow: 0 0 30px var(--secondary-color);
+        }
+
+        #instruction {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #aaa;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        /* 隱藏的 canvas 用於影像處理 */
+        #processing-canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <canvas id="main-canvas"></canvas>
+        <!-- 這是給使用者確認手指有沒有蓋好的視窗 -->
+        <video id="video-preview" autoplay playsinline muted></video>
+        <!-- 隱藏的處理用 Canvas -->
+        <canvas id="processing-canvas"></canvas>
+    </div>
+
+    <div id="control-panel">
+        <div class="status-display">
+            <div id="bpm-value">--</div>
+            <div id="bpm-label">BPM (即時心率)</div>
+        </div>
+        <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+            請將手指輕蓋於後鏡頭與閃光燈上
+        </div>
+        <button id="action-btn">啟動相機</button>
+    </div>
+
+    <div id="overlay">
+        <div id="overlay-text">3</div>
+        <div id="instruction">準備測量...</div>
+    </div>
+
+    <script>
+        // --- 核心變數設定 ---
+        const video = document.getElementById('video-preview');
+        const processingCanvas = document.getElementById('processing-canvas');
+        const processingCtx = processingCanvas.getContext('2d', { willReadFrequently: true });
+        const mainCanvas = document.getElementById('main-canvas');
+        const ctx = mainCanvas.getContext('2d');
+        const actionBtn = document.getElementById('action-btn');
+        const bpmDisplay = document.getElementById('bpm-value');
+        const overlay = document.getElementById('overlay');
+        const overlayText = document.getElementById('overlay-text');
+        const overlayInstruction = document.getElementById('instruction');
+
+        // 狀態管理
+        let state = 'INIT'; // INIT, IDLE, COUNTDOWN, MEASURING, RESULT
+        let animationId;
+        let track = null; // 視訊軌道，用於控制閃光燈
+        
+        // 訊號處理變數
+        let signalBuffer = []; // 儲存亮度的原始數據
+        const MAX_BUFFER_SIZE = 300; // 畫布上顯示的點數
+        let lastPeakTime = 0;
+        let beats = []; // 紀錄每次心跳的時間戳
+        let startTime = 0;
+        let lastBrightness = 0;
+        const MEASURE_DURATION = 15000; // 測量 15 秒
+
+        // 初始化 Canvas 尺寸
+        function resizeCanvas() {
+            mainCanvas.width = mainCanvas.clientWidth;
+            mainCanvas.height = mainCanvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- 1. 相機與硬體控制 ---
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        facingMode: 'environment', // 後置鏡頭優先
+                        width: { ideal: 320 }, // 不需要高解析度，降低運算負擔
+                        height: { ideal: 240 }
+                    }
+                });
+                
+                video.srcObject = stream;
+                
+                // 取得視訊軌道以便後續控制閃光燈
+                track = stream.getVideoTracks()[0];
+                
+                // 等待影像載入
+                video.onloadedmetadata = () => {
+                    processingCanvas.width = 50; // 取樣只需很小
+                    processingCanvas.height = 50;
+                    state = 'IDLE';
+                    actionBtn.textContent = "開始測量";
+                    actionBtn.classList.add('active');
+                };
+
+            } catch (err) {
+                alert("無法存取相機，請確保允許權限並使用手機瀏覽器 (Safari/Chrome)。錯誤: " + err.name);
+            }
+        }
+
+        async function toggleTorch(enable) {
+            if (!track) return;
+            try {
+                // 檢查是否支援閃光燈控制
+                const capabilities = track.getCapabilities();
+                if (capabilities.torch) {
+                    await track.applyConstraints({
+                        advanced: [{ torch: enable }]
+                    });
+                } else if (enable) {
+                    // 如果不支援閃光燈，提示使用者
+                    console.log("此裝置不支援閃光燈控制 API");
+                }
+            } catch (err) {
+                console.warn("閃光燈控制失敗", err);
+            }
+        }
+
+        // --- 2. 邏輯流程控制 ---
+
+        actionBtn.addEventListener('click', () => {
+            if (state === 'INIT') {
+                initCamera();
+            } else if (state === 'IDLE' || state === 'RESULT') {
+                startCountdown();
+            } else if (state === 'MEASURING') {
+                stopMeasurement(true); // 強制停止
+            }
+        });
+
+        function startCountdown() {
+            state = 'COUNTDOWN';
+            overlay.classList.add('visible');
+            overlayInstruction.innerText = "請保持手指穩定，覆蓋鏡頭與閃光燈";
+            
+            // 開啟閃光燈
+            toggleTorch(true);
+
+            let count = 3;
+            overlayText.innerText = count;
+            
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    overlayText.innerText = count;
+                } else {
+                    clearInterval(timer);
+                    overlay.classList.remove('visible');
+                    startMeasurement();
+                }
+            }, 1000);
+        }
+
+        function startMeasurement() {
+            state = 'MEASURING';
+            actionBtn.textContent = "停止測量";
+            actionBtn.classList.remove('active'); // 變回外框樣式表示「取消」
+            
+            // 重置數據
+            signalBuffer = [];
+            beats = [];
+            startTime = Date.now();
+            lastPeakTime = 0;
+            bpmDisplay.innerText = "--";
+            
+            processFrame();
+        }
+
+        function stopMeasurement(aborted = false) {
+            state = 'RESULT';
+            toggleTorch(false); // 關閉閃光燈
+            cancelAnimationFrame(animationId);
+            
+            actionBtn.textContent = "重新測量";
+            actionBtn.classList.add('active');
+
+            if (!aborted) {
+                // 計算平均心率
+                const avgBpm = calculateAverageBPM();
+                showResult(avgBpm);
+            }
+        }
+
+        function showResult(bpm) {
+            overlay.classList.add('visible');
+            overlayText.innerText = bpm > 0 ? bpm : "--";
+            overlayInstruction.innerHTML = `平均心率 (BPM)<br><span style="font-size:0.8em; color:#fff">圖表顯示於下方背景</span><br><br><small style="color:#666">點擊畫面關閉結果</small>`;
+            
+            // 點擊關閉遮罩
+            const closeHandler = () => {
+                overlay.classList.remove('visible');
+                overlay.removeEventListener('click', closeHandler);
+            };
+            overlay.addEventListener('click', closeHandler);
+        }
+
+        // --- 3. 核心物理運算：影像訊號處理 ---
+
+        function processFrame() {
+            if (state !== 'MEASURING') return;
+
+            // 1. 從影片中心擷取像素
+            processingCtx.drawImage(video, 0, 0, 50, 50);
+            const frameData = processingCtx.getImageData(0, 0, 50, 50);
+            const data = frameData.data;
+
+            // 2. 計算平均紅色數值 (PPG 重點在紅光變化)
+            let totalRed = 0;
+            let count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                totalRed += data[i];
+                count++;
+            }
+            const avgRed = totalRed / count;
+
+            // 3. 反轉訊號邏輯：
+            // 當心臟收縮 -> 血液多 -> 變暗 (Red數值下降) -> 我們希望這是波峰
+            // 所以訊號 = -avgRed (或者取一個最大值減去它)
+            // 為了平滑，我們使用簡單的低通濾波 (Low Pass Filter)
+            const rawSignal = 255 - avgRed; 
+            
+            // 平滑化 (a 為平滑係數，越小越平滑但延遲越高)
+            const alpha = 0.2; 
+            const smoothedSignal = (lastBrightness * (1 - alpha)) + (rawSignal * alpha);
+            lastBrightness = smoothedSignal;
+
+            // 儲存數據供繪圖
+            signalBuffer.push(smoothedSignal);
+            if (signalBuffer.length > mainCanvas.width) {
+                signalBuffer.shift();
+            }
+
+            // 4. 動態偵測波峰 (Peak Detection)
+            detectBeat(smoothedSignal);
+
+            // 5. 繪製圖表
+            drawGraph();
+
+            // 6. 檢查時間是否結束
+            if (Date.now() - startTime > MEASURE_DURATION) {
+                stopMeasurement();
+            } else {
+                animationId = requestAnimationFrame(processFrame);
+            }
+        }
+
+        // 簡單的動態閾值波峰偵測
+        // 物理原理：尋找局部最大值，且該值需大於動態平均，並與上一次心跳有足夠時間間隔
+        let recentMax = 0;
+        let recentMin = 255;
+        let calibrationPhase = true; // 前 2 秒為校正期
+
+        function detectBeat(val) {
+            const now = Date.now();
+            
+            // 更新動態範圍
+            recentMax = Math.max(recentMax, val);
+            recentMin = Math.min(recentMin, val);
+            
+            // 隨著時間慢慢衰減極值，適應訊號強度的變化
+            recentMax -= 0.1; 
+            recentMin += 0.1;
+
+            // 校正期不計算心跳 (等待數值穩定)
+            if (now - startTime < 2000) return; 
+
+            // 閾值設為範圍的 70% 處
+            const threshold = recentMin + (recentMax - recentMin) * 0.7;
+            
+            // 最小心跳間隔 (假設最高心跳 200 BPM -> 300ms)
+            if (val > threshold && (now - lastPeakTime > 300)) {
+                // 找到波峰！
+                lastPeakTime = now;
+                beats.push(now);
+                
+                // 計算瞬時 BPM
+                if (beats.length >= 2) {
+                    const delta = beats[beats.length - 1] - beats[beats.length - 2];
+                    const instantBpm = Math.round(60000 / delta);
+                    // 過濾不合理的數值
+                    if (instantBpm > 40 && instantBpm < 220) {
+                        bpmDisplay.innerText = instantBpm;
+                        triggerBeatVisual(); // 觸發視覺特效
+                    }
+                }
+            }
+        }
+
+        function calculateAverageBPM() {
+            if (beats.length < 2) return 0;
+            // 取最後 10 秒的數據比較準
+            const validBeats = beats.filter(t => t > startTime + 2000);
+            if (validBeats.length < 2) return 0;
+
+            const durationMs = validBeats[validBeats.length - 1] - validBeats[0];
+            const beatCount = validBeats.length - 1;
+            
+            return Math.round((beatCount / durationMs) * 60000);
+        }
+
+        // --- 4. 視覺化繪圖 ---
+
+        let beatVisualIntensity = 0;
+
+        function triggerBeatVisual() {
+            beatVisualIntensity = 1.0;
+        }
+
+        function drawGraph() {
+            // 清除畫布 (保留一點點殘影做動態感)
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.1)'; 
+            // 這裡為了讓圖表清晰，我們不使用太強的殘影，而是用填色覆蓋
+            ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 繪製格線 (Grid)
+            drawGrid();
+
+            if (signalBuffer.length < 2) return;
+
+            // 自動縮放 Y 軸
+            // 找出目前 buffer 中的最大最小值來正規化顯示
+            let min = Infinity, max = -Infinity;
+            for (let v of signalBuffer) {
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+            const range = max - min || 1;
+            const padding = 20;
+            const plotHeight = mainCanvas.height - padding * 2;
+
+            // 開始繪製波形
+            ctx.beginPath();
+            ctx.strokeStyle = '#ff0055'; // Neon Red
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff0055';
+
+            for (let i = 0; i < signalBuffer.length; i++) {
+                const x = (i / signalBuffer.length) * mainCanvas.width;
+                // 正規化 Y 值
+                const normalizedY = (signalBuffer[i] - min) / range;
+                // 翻轉 Y (Canvas 0 在上面)，並加上 padding
+                const y = mainCanvas.height - padding - (normalizedY * plotHeight);
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // 繪製當前掃描點
+            const lastX = mainCanvas.width;
+            const lastY = mainCanvas.height - padding - ((signalBuffer[signalBuffer.length-1] - min) / range * plotHeight);
+            
+            ctx.beginPath();
+            ctx.arc(lastX - 2, lastY, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // 繪製心跳視覺特效 (背景脈衝)
+            if (beatVisualIntensity > 0.01) {
+                ctx.globalCompositeOperation = 'add'; // 疊加亮光模式
+                
+                // 中央大圓
+                const centerX = mainCanvas.width / 2;
+                const centerY = mainCanvas.height / 2;
+                const radius = 100 * (1 - beatVisualIntensity) + 50;
+                
+                const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+                gradient.addColorStop(0, `rgba(255, 0, 85, ${0.5 * beatVisualIntensity})`);
+                gradient.addColorStop(1, `rgba(255, 0, 85, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.globalCompositeOperation = 'source-over'; // 恢復正常模式
+                beatVisualIntensity *= 0.9; // 衰減
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.shadowBlur = 0;
+            
+            const stepX = mainCanvas.width / 10;
+            const stepY = mainCanvas.height / 5;
+
+            ctx.beginPath();
+            // 垂直線
+            for (let x = 0; x <= mainCanvas.width; x += stepX) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, mainCanvas.height);
+            }
+            // 水平線
+            for (let y = 0; y <= mainCanvas.height; y += stepY) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(mainCanvas.width, y);
+            }
+            ctx.stroke();
+        }
+
+    </script>
+</body>
+</html>
