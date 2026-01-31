@@ -257,7 +257,8 @@
         let gameStarted = false;
         let currentPlayer = "";
         
-        // 排行榜資料
+        // 排行榜資料 - 使用 localStorage key
+        const LEADERBOARD_KEY = 'pacman_leaderboard_v1';
         let leaderboard = {
             scores: [
                 {name: "PacMaster", score: 300},
@@ -266,6 +267,16 @@
                 {name: "PacMaster", timeStr: "02:00", timeMs: 120000}
             ]
         };
+
+        // 嘗試從 localStorage 讀取
+        try {
+            const savedData = localStorage.getItem(LEADERBOARD_KEY);
+            if (savedData) {
+                leaderboard = JSON.parse(savedData);
+            }
+        } catch (e) {
+            console.warn("無法讀取存檔", e);
+        }
 
         // 霓虹配色表
         const COLORS = {
@@ -417,6 +428,9 @@
             
             // 2. 更新速通榜
             leaderboard.times.push({ name: currentPlayer, timeStr: timeStr, timeMs: timeMs });
+
+            // ★ 新增：儲存到 localStorage
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
 
             renderLeaderboard();
         }
