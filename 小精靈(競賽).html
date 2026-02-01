@@ -63,7 +63,7 @@
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #aaffaa; font-size: 0.85rem; }
         
         /* 輸入元件樣式 */
-        select, button, textarea {
+        button, textarea {
             width: 100%;
             padding: 10px;
             background: #222;
@@ -214,10 +214,7 @@
         
         <!-- 選角區 -->
         <div style="text-align: left; padding: 0 20px;">
-            <label for="playerSelect">選擇挑戰者:</label>
-            <select id="playerSelect">
-                <option value="" disabled selected>-- 請選擇你的名字 --</option>
-            </select>
+            <input type="text" id="playerInput" placeholder="請輸入您的暱稱 (最多10字)" maxlength="10" style="padding: 10px; width: 100%; border-radius: 5px; border: 1px solid #444; background: #222; color: white;">
         </div>
         
         <!-- 規則說明 -->
@@ -263,18 +260,6 @@
         canvas.height = 600;
         const GRID_SIZE = 30; 
 
-        // 預設名單 (依據提供的圖片更新)
-        let playerList = [
-            "01王子其", "02王秉宇", "03王冠喆", "04王彥凱", "05朱偉成",
-            "06江和謙", "07江閔凱", "08何佳錠", "09呂奕辰", "10周冠丞",
-            "11林冠宇", "12林柏佑", "13侯韞志", "14柯宇澤", "15馬維隆",
-            "16高洧任", "17張宸軒", "18張峻維", "19張耕碩", "20陳宏彥",
-            "21陳亭昀", "22陳律廷", "23陳睿穎", "25楊璨安", "26趙冠珉",
-            "27劉岡曜", "28劉軒佑", "29劉樂濠", "30鄭稚儒", "31謝其龍",
-            "32謝旻倫", "33顏齊佑", "34何芸青", "35宋思嫺", "36李宜瑾",
-            "37柯君霓", "38紀霈穎", "39陳宥君", "40陳唄好", "41雷承恩"
-        ];
-
         // 遊戲狀態控制
         let gameStarted = false;
         let currentPlayer = "";
@@ -319,33 +304,60 @@
     });
 
     // 上傳功能：遊戲結束時呼叫此函式
-    async function updateLeaderboard(isWin, finalScore, timeStr, timeMs) {
-        if (!currentPlayer) return;
+    // --- 修改後的上傳邏輯：只存前 5 名 ---
+        async function updateLeaderboard(isWin, finalScore, timeStr, timeMs) {
+            // 1. 如果沒過關，直接不存
+            if (!isWin) return;
+            
+            // 2. 判斷是否夠格進入前五名
+            // 我們查看目前已載入的 leaderboard.scores (這是從雲端即時抓下來的)
+            let isTop5 = false;
 
-        try {
-            await addDoc(collection(db, SCORES_COLLECTION), {
-                name: currentPlayer,
-                score: finalScore,
-                timeStr: timeStr,
-                timeMs: timeMs,
-                isWin: isWin,
-                timestamp: Date.now()
-            });
-            console.log("分數上傳成功！");
-        } catch (e) {
-            console.error("上傳失敗: ", e);
-            alert("喔喔，分數上傳失敗了。請確認網路連線。");
+            // 情況 A: 目前排行榜還不到 5 人 -> 直接進榜
+            if (leaderboard.scores.length < 5) {
+                isTop5 = true;
+            } 
+            // 情況 B: 排行榜滿了，但我的分數比第 5 名還高
+            else {
+                // 陣列是從 0 開始，所以第 5 名是 index 4
+                const fifthPlaceScore = leaderboard.scores[4].score;
+                if (finalScore > fifthPlaceScore) {
+                    isTop5 = true;
+                }
+            }
+
+            // 3. 只有夠格才上傳
+            if (isTop5) {
+                try {
+                    await addDoc(collection(db, SCORES_COLLECTION), {
+                        name: currentPlayer,
+                        score: finalScore,
+                        timeStr: timeStr,
+                        timeMs: timeMs,
+                        isWin: isWin,
+                        timestamp: Date.now()
+                    });
+                    console.log(`恭喜 ${currentPlayer}！您的 ${finalScore} 分已擠進前五名並上傳！`);
+                    alert(`太強了！您以 ${finalScore} 分擠進排行榜前五名！`);
+                } catch (e) {
+                    console.error("上傳失敗: ", e);
+                }
+            } else {
+                console.log("可惜，分數未達前五名，不予上傳。");
+                // 這裡可以選擇是否要告訴玩家
+                // alert(`恭喜過關！可惜 ${finalScore} 分未能擠進前五名，請再接再厲！`); 
+            }
         }
-    }
     // --- 雲端排行榜邏輯結束 ---
 
         // 開始遊戲邏輯
         startBtn.addEventListener('click', () => {
-            if (!playerSelect.value) {
-                alert("請先選擇您的名字！");
+            const name = document.getElementById('playerInput').value.trim(); // 取得輸入的名字並去掉空白
+            if (!name) {
+                alert("請先輸入您的名字！");
                 return;
             }
-            currentPlayer = playerSelect.value;
+            currentPlayer = name;
             resetGame();
             
             document.getElementById('start-screen').classList.add('hidden');
@@ -770,3 +782,4 @@
 </body>
 
 </html>
+
