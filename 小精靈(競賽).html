@@ -353,7 +353,7 @@
         // 開始遊戲邏輯
         startBtn.addEventListener('click', () => {
             const name = document.getElementById('playerInput').value.trim(); // 取得輸入的名字並去掉空白
-            if (!name) {
+            if (name='') {
                 alert("請先輸入您的名字！");
                 return;
             }
@@ -782,4 +782,5 @@
 </body>
 
 </html>
+
 
