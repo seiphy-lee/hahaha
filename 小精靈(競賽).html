@@ -264,17 +264,6 @@
         let gameStarted = false;
         let currentPlayer = "";
         
-        // 排行榜資料 - 使用 localStorage key
-        const LEADERBOARD_KEY = 'pacman_leaderboard_v1';
-        let leaderboard = {
-            scores: [
-                {name: "PacMaster", score: 300},
-            ],
-            times: [
-                {name: "PacMaster", timeStr: "02:00", timeMs: 120000}
-            ]
-        };
-
         // --- 雲端排行榜邏輯開始 ---
     
     // 變數：存放排行榜資料
@@ -782,6 +771,7 @@
 </body>
 
 </html>
+
 
 
 
