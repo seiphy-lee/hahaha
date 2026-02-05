@@ -17,6 +17,10 @@
         .btn-lock { border-color: #5e2a75; color: #5e2a75; background-color: #fce4ec; }
         .btn-lock:hover { background-color: #5e2a75; color: #fff; }
 
+        /* AI 工具特殊樣式 (綠色) */
+        .btn-ai { border-color: #27ae60; color: #27ae60; background-color: #e8f8f5; }
+        .btn-ai:hover { background-color: #27ae60; color: #fff; }
+
         .back-btn { margin-top: 30px; color: #666; text-decoration: none; font-weight: bold; }
         .back-btn:hover { color: #8e44ad; }
     </style>
@@ -26,7 +30,7 @@
             // 1. 彈出視窗詢問密碼
             var password = prompt("請輸入老師專用密碼：");
 
-            // 2. 檢查密碼 (這裡預設是 1234，你可以自己改成別的)
+            // 2. 檢查密碼 (這裡預設是 1021)
             if (password === "1021") {
                 // 密碼正確 -> 跳轉到目標檔案
                 window.location.href = "上課觀測記錄.html"; 
@@ -42,6 +46,9 @@
     <h1>🧰 教學小工具</h1>
 
     <div class="menu-container">
+        <!-- 新增的 AI 功能放在最上面或順序中，這裡我把它放在最顯眼的第一個位置 -->
+        <a href="植物辨識.html" class="btn btn-ai">✨ 植物辨識 (AI Scanner)</a>
+
         <a href="座位抽籤.html" class="btn">1. 座位抽籤系統</a>
         <a href="輪盤座位抽籤.html" class="btn">2. 輪盤座位抽籤</a>
         <a href="縮短網址.html" class="btn">3. 縮短網址</a>
@@ -50,7 +57,9 @@
         <a href="小精靈(競賽).html" class="btn">6. 小精靈(競賽)</a>
         <a href="心率測量.html" class="btn">7. 心率測量</a>
         <a href="知識王.html" class="btn">8. 知識王</a>
-        <a href="#" onclick="checkPassword()" class="btn btn-lock">🔒 7. 上課觀測記錄 (老師專用)</a>
+        
+        <!-- 修正編號為 9，並保持鎖定功能 -->
+        <a href="#" onclick="checkPassword()" class="btn btn-lock">🔒 9. 上課觀測記錄 (老師專用)</a>
     </div>
 
     <a href="index.html" class="back-btn">⬅ 回到主選單</a>
