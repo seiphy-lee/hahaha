@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：黑體輻射與普朗克曲線</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050508; /* 深色背景 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #eee;
+        }
+
+        /* 控制面板懸浮樣式 - 輕量化調整 */
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px; /* 縮小內距 */
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 220px; /* 寬度由 300px 縮小至 220px */
+            z-index: 10;
+            font-size: 0.85rem; /* 字體稍小 */
+        }
+
+        h1 {
+            font-size: 1.1rem; /* 標題縮小 */
+            margin: 0 0 12px 0;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            color: #aaa;
+        }
+
+        span.value {
+            color: #fff;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: #333;
+            height: 5px; /* 變細 */
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; /* 拉桿頭變小 */
+            height: 14px;
+            background: #00ffff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00ffff;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* 畫布全螢幕 */
+        canvas {
+            display: block;
+        }
+        
+        .legend {
+            font-size: 0.75rem; /* 說明文字變小 */
+            color: #888;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        .color-preview {
+            width: 100%;
+            height: 15px; /* 變細 */
+            margin-top: 5px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            transition: background-color 0.1s;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <h1>✨ 黑體輻射模擬器</h1>
+        
+        <div class="control-group">
+            <label>
+                溫度 (Temperature)
+                <span class="value" id="tempVal">300 K</span>
+            </label>
+            <!-- 修正：設定範圍從 300K (室溫) 開始，預設值也設為 300 -->
+            <input type="range" id="tempSlider" min="300" max="12000" step="50" value="300">
+            <div id="colorPreview" class="color-preview"></div>
+        </div>
+
+        <div class="control-group">
+            <label>
+                垂直縮放 (Y-Scale)
+                <span class="value" id="scaleVal">Auto</span>
+            </label>
+            <input type="range" id="scaleSlider" min="1" max="100" step="1" value="50">
+        </div>
+
+        <div class="legend">
+            💡 <b>觀察重點：</b><br>
+            1. 低溫(300K)時幾乎無可見光。<br>
+            2. 約800K開始出現暗紅光。<br>
+            3. 溫度越高，顏色越往藍白移動。
+        </div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+<script>
+    /**
+     * 物理常數與計算邏輯
+     * 為了視覺化效果，我們會對常數進行歸一化處理，而非使用真實物理數值(10^-34等)
+     */
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI 元素
+    const tempSlider = document.getElementById('tempSlider');
+    const scaleSlider = document.getElementById('scaleSlider');
+    const tempVal = document.getElementById('tempVal');
+    const scaleVal = document.getElementById('scaleVal');
+    const colorPreview = document.getElementById('colorPreview');
+
+    // 狀態變數
+    let temperature = 300; // 修正：初始溫度設為 300K
+    let manualScale = 50;
+    let particles = []; // 用於模擬輻射出的光子
+    
+    // 物理常數 (模擬用)
+    // 普朗克定律: I(λ, T) = (2hc^2 / λ^5) * (1 / (e^(hc/λkT) - 1))
+    // 簡化模型: f(x) = 1 / (x^5 * (exp(B/xT) - 1))
+    const B = 2.898e6; // 維恩位移常數相關係數 (nm * K) 近似值用於對齊波長
+    
+    // 畫布設定
+    let width, height;
+    
+    // 初始化
+    function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        tempSlider.addEventListener('input', updateParams);
+        scaleSlider.addEventListener('input', updateParams);
+        
+        // 預先產生一些粒子 (低溫時無粒子)
+        updateParams(); // 先更新參數確認數量
+        for(let i=0; i<50; i++) {
+            if (temperature > 800) particles.push(createParticle());
+        }
+        
+        loop();
+    }
+
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+    }
+
+    function updateParams() {
+        temperature = parseInt(tempSlider.value);
+        manualScale = parseInt(scaleSlider.value);
+        
+        tempVal.textContent = `${temperature} K`;
+        scaleVal.textContent = manualScale + '%';
+        
+        // 更新預覽條顏色
+        const color = kelvinToRGB(temperature);
+        colorPreview.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    }
+
+    function createParticle() {
+        // 粒子從右側球體發出
+        // 位置調整：球體現在位於 0.85 寬度處
+        const centerX = width * 0.85;
+        const centerY = height * 0.5;
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 60; // 球體半徑
+        
+        return {
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius,
+            vx: Math.cos(angle) * (Math.random() * 2 + 1),
+            vy: Math.sin(angle) * (Math.random() * 2 + 1),
+            life: 1.0,
+            decay: Math.random() * 0.02 + 0.005,
+            size: Math.random() * 2 + 1
+        };
+    }
+
+    /**
+     * 核心動畫迴圈
+     */
+    function loop() {
+        // 1. 拖影效果：使用半透明黑色清除畫布
+        ctx.fillStyle = 'rgba(5, 5, 8, 0.2)'; 
+        ctx.fillRect(0, 0, width, height);
+
+        // 2. 繪製座標系與圖表 (左半邊 -> 改為中間)
+        drawGraph();
+
+        // 3. 繪製發光黑體球 (右半邊 -> 改為更右邊)
+        drawBlackbodySphere();
+
+        requestAnimationFrame(loop);
+    }
+
+    /**
+     * 繪製普朗克曲線與光譜
+     */
+    function drawGraph() {
+        // 佈局調整：
+        // left: width * 0.25 (從畫面的 25% 處開始，避開左上角的控制面板，並讓圖表更置中)
+        // top: height * 0.15 (因為控制面板變小了，我們可以讓圖表稍微往上移，不需要壓那麼低)
+        const margin = { 
+            top: height * 0.15, 
+            bottom: height * 0.15, 
+            left: width * 0.25, 
+            right: 0 
+        };
+        const graphWidth = width * 0.45; // 圖表寬度佔 45%
+        const graphHeight = height - margin.top - margin.bottom;
+
+        // 繪製座標軸
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, margin.top);
+        ctx.lineTo(margin.left, height - margin.bottom); // Y軸
+        ctx.lineTo(margin.left + graphWidth, height - margin.bottom); // X軸
+        ctx.stroke();
+
+        // 標籤
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px Arial';
+        ctx.fillText("輻射強度 (Intensity)", margin.left - 40, margin.top - 20);
+        ctx.fillText("波長 (nm)", margin.left + graphWidth - 40, height - margin.bottom + 40);
+        ctx.fillText("0", margin.left - 20, height - margin.bottom);
+        ctx.fillText("3000 nm", margin.left + graphWidth, height - margin.bottom + 20);
+
+        // 繪製可見光光譜背景 (380nm - 750nm)
+        const visibleStart = mapX(380, margin.left, graphWidth);
+        const visibleEnd = mapX(750, margin.left, graphWidth);
+        
+        // 創建彩虹漸層
+        const gradient = ctx.createLinearGradient(visibleStart, 0, visibleEnd, 0);
+        gradient.addColorStop(0, "rgba(148, 0, 211, 0.3)"); // 紫
+        gradient.addColorStop(0.2, "rgba(75, 0, 130, 0.3)"); // 靛
+        gradient.addColorStop(0.4, "rgba(0, 0, 255, 0.3)");   // 藍
+        gradient.addColorStop(0.6, "rgba(0, 255, 0, 0.3)");   // 綠
+        gradient.addColorStop(0.8, "rgba(255, 127, 0, 0.3)"); // 橘
+        gradient.addColorStop(1, "rgba(255, 0, 0, 0.3)");     // 紅
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(visibleStart, margin.top, visibleEnd - visibleStart, graphHeight);
+        
+        // 標示光譜區域文字
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.textAlign = "center";
+        ctx.fillText("UV", visibleStart - 20, margin.top + 20);
+        ctx.fillText("可見光", (visibleStart + visibleEnd)/2, margin.top + 20);
+        ctx.fillText("紅外線 (IR)", visibleEnd + 40, margin.top + 20);
+        ctx.textAlign = "left";
+
+        // ----------------------------------------------------
+        // 修正重點 2：使用 clip() 來處理超出邊界的部分
+        // ----------------------------------------------------
+        ctx.save();
+        ctx.beginPath();
+        // 定義裁切區域
+        ctx.rect(margin.left, 0, graphWidth, height - margin.bottom); 
+        ctx.clip();
+
+        // 繪製普朗克曲線
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#00ffff'; // 曲線顏色
+        
+        // 動態縮放 Y 軸
+        const maxTempForScale = 12000;
+        const scaleFactor = (Math.pow(temperature, 5) / (Math.exp(B/(500*temperature))-1)) / 
+                            (Math.pow(maxTempForScale, 5)) * (150 - manualScale) * 500000; 
+        
+        // 簡單化：直接計算峰值並正規化
+        const lambdaMax = 3000; // nm
+        
+        let started = false;
+        for (let lambda = 100; lambda <= lambdaMax; lambda += 10) {
+            const C2 = 1.439e7;
+            const intensityRaw = 1 / (Math.pow(lambda, 5) * (Math.exp(C2 / (lambda * temperature)) - 1));
+            
+            // 縮放 Y
+            const baselineTemp = 6000; 
+            const baselinePeak = 1 / (Math.pow(500, 5) * (Math.exp(C2 / (500 * baselineTemp)) - 1));
+            
+            let plotY = intensityRaw / baselinePeak * graphHeight * (manualScale / 50) * 0.5;
+
+            // 移除 plotY 限制，讓線條自然延伸
+            
+            const x = mapX(lambda, margin.left, graphWidth);
+            const y = (height - margin.bottom) - plotY;
+
+            if (!started) {
+                ctx.moveTo(x, y);
+                started = true;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+        
+        ctx.restore(); // 取消裁切
+
+        // 標示峰值 (維恩位移定律)
+        const peakLambda = 2.898e6 / temperature;
+        if (peakLambda < 3000) {
+            const peakX = mapX(peakLambda, margin.left, graphWidth);
+            const intensityPeak = 1 / (Math.pow(peakLambda, 5) * (Math.exp(1.439e7 / (peakLambda * temperature)) - 1));
+            const baselinePeak = 1 / (Math.pow(500, 5) * (Math.exp(1.439e7 / (500 * 6000)) - 1));
+            let peakY = intensityPeak / baselinePeak * graphHeight * (manualScale / 50) * 0.5;
+            const drawPeakY = (height - margin.bottom) - peakY;
+
+            // 只有當 peak 點在可視範圍內才繪製
+            if (drawPeakY > margin.top) {
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(peakX, drawPeakY, 5, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillText(`λ max: ${Math.round(peakLambda)} nm`, peakX + 10, drawPeakY - 10);
+            }
+        }
+    }
+
+    // 輔助函式：將波長映射到 X 座標
+    function mapX(nm, offset, width) {
+        return offset + (nm / 3000) * width;
+    }
+
+    /**
+     * 繪製發光球體
+     */
+    function drawBlackbodySphere() {
+        // 位置調整：球體向右移動至 0.85 寬度處
+        const centerX = width * 0.85;
+        const centerY = height * 0.5;
+        const radius = 80;
+
+        const color = kelvinToRGB(temperature);
+        const rgbString = `rgb(${color.r},${color.g},${color.b})`;
+
+        // 1. 處理粒子特效 (模擬輻射熱浪)
+        // 溫度越高，粒子越多、越快。低溫時(如300K)粒子數為0
+        const particleCount = Math.floor(Math.max(0, temperature - 500) / 400);
+        if (particles.length < particleCount) {
+            particles.push(createParticle());
+        } else if (particles.length > particleCount) {
+             particles.splice(0, particles.length - particleCount);
+        }
+
+        particles.forEach((p, index) => {
+            p.x += p.vx * (temperature/3000); // 溫度高跑得快
+            p.y += p.vy * (temperature/3000);
+            p.life -= p.decay;
+            
+            if (p.life <= 0) {
+                particles.splice(index, 1);
+                particles.push(createParticle());
+            } else {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${p.life * 0.5})`;
+                ctx.fill();
+            }
+        });
+
+        // 2. 繪製光暈 (Glow)
+        // 低溫時不繪製光暈
+        if (temperature > 800) {
+            const glowRadius = radius + (temperature / 100); 
+            const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.8, centerX, centerY, glowRadius);
+            gradient.addColorStop(0, rgbString);
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            
+            ctx.globalCompositeOperation = 'screen'; // 讓光看起來更亮
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // 3. 繪製本體
+        // 先畫一個深灰色的底，確保就算在全黑時也能稍微感知到球體存在(或全黑融入背景)
+        // 用戶希望「從黑色開始」，所以300K時應幾乎看不見或全黑
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        
+        // ----------------------------------------------------
+        // 修正重點 1：自發光效果
+        // ----------------------------------------------------
+        const sphereGrad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        
+        // 確保顏色字串在全黑時依然運作
+        sphereGrad.addColorStop(0, rgbString); // 中心最亮
+        sphereGrad.addColorStop(0.7, rgbString); 
+        sphereGrad.addColorStop(1, 'rgba(0,0,0,0.8)'); // 邊緣變暗
+        
+        ctx.fillStyle = sphereGrad;
+        ctx.fill();
+        
+        // 顯示文字
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.font = '16px Arial';
+        ctx.fillText("Blackbody", centerX, centerY + radius + 30);
+    }
+
+    /**
+     * 色溫算法：將 Kelvin 轉換為 RGB 近似值
+     * 這是 Tanner Helland 的算法簡化版，常用於天文與物理模擬
+     */
+    function kelvinToRGB(temp) {
+        let r, g, b;
+        // 這裡我們需要保留原始溫度值做判斷，先複製一份
+        let originalTemp = temp;
+        temp = temp / 100;
+
+        // 紅色分量
+        if (temp <= 66) {
+            r = 255;
+        } else {
+            r = temp - 60;
+            r = 329.698727446 * Math.pow(r, -0.1332047592);
+            if (r < 0) r = 0;
+            if (r > 255) r = 255;
+        }
+
+        // 綠色分量
+        if (temp <= 66) {
+            g = temp;
+            g = 99.4708025861 * Math.log(g) - 161.1195681661;
+            if (g < 0) g = 0;
+            if (g > 255) g = 255;
+        } else {
+            g = temp - 60;
+            g = 288.1221695283 * Math.pow(g, -0.0755148492);
+            if (g < 0) g = 0;
+            if (g > 255) g = 255;
+        }
+
+        // 藍色分量
+        if (temp >= 66) {
+            b = 255;
+        } else {
+            if (temp <= 19) {
+                b = 0;
+            } else {
+                b = temp - 10;
+                b = 138.5177312231 * Math.log(b) - 305.0447927307;
+                if (b < 0) b = 0;
+                if (b > 255) b = 255;
+            }
+        }
+        
+        // 修正 1：低溫時亮度衰減 (Stefan-Boltzmann 模擬 + Draper Point)
+        // 800K 以下幾乎無可見光 (模擬黑色)
+        let brightness = 1;
+        if (originalTemp < 800) {
+            brightness = 0; // 黑色
+        } else if (originalTemp < 2000) {
+            // 800K 到 2000K 之間線性淡入
+            brightness = (originalTemp - 800) / 1200;
+        }
+
+        // 修正 2：高溫時增強藍色效果 (Visual Enhancement)
+        if (originalTemp > 6000) {
+            let saturationFactor = 1 - ((originalTemp - 6000) / 12000) * 0.4;
+            r *= saturationFactor;
+            g *= saturationFactor;
+        }
+        
+        return {
+            r: Math.floor(r * brightness),
+            g: Math.floor(g * brightness),
+            b: Math.floor(b * brightness)
+        };
+    }
+
+    // 啟動
+    init();
+
+</script>
+</body>
+</html>
