@@ -1,28 +1,107 @@
-<!DOCTYPE html>
+
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>教學小工具</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f3e5f5; display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
-        h1 { color: #8e44ad; margin-bottom: 30px; text-align: center; }
-        .menu-container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; }
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background-color: #f3e5f5; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 50px 20px; 
+            margin: 0;
+        }
+        h1 { 
+            color: #8e44ad; 
+            margin-bottom: 30px; 
+            text-align: center; 
+            font-size: 2.5rem;
+        }
+
+        /* 修改重點：改用 Grid 佈局，設定每列 4 個 */
+        .menu-container { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 核心語法：重複4次，各佔1等份 */
+            gap: 20px; 
+            width: 100%; 
+            max-width: 1200px; /* 寬度加大，不然擠不下4張 */
+        }
         
         /* 一般按鈕樣式 */
-        .btn { background-color: #fff; color: #8e44ad; padding: 20px; text-decoration: none; border-radius: 12px; text-align: center; font-size: 1.2em; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #8e44ad; transition: transform 0.2s; cursor: pointer; }
-        .btn:hover { transform: translateY(-3px); background-color: #8e44ad; color: #fff; }
+        .btn { 
+            background-color: #fff; 
+            color: #8e44ad; 
+            padding: 30px 20px; /* 增加一點內距讓卡片好看些 */
+            text-decoration: none; 
+            border-radius: 12px; 
+            text-align: center; 
+            font-size: 1.2em; 
+            font-weight: bold; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            border: 2px solid #8e44ad; 
+            transition: transform 0.2s; 
+            cursor: pointer; 
+            
+            /* 讓文字垂直置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px; /* 設定最小高度，確保排版整齊 */
+        }
+        .btn:hover { 
+            transform: translateY(-3px); 
+            background-color: #8e44ad; 
+            color: #fff; 
+        }
         
         /* 加鎖按鈕的特殊樣式 (深紫色) */
-        .btn-lock { border-color: #5e2a75; color: #5e2a75; background-color: #fce4ec; }
-        .btn-lock:hover { background-color: #5e2a75; color: #fff; }
+        .btn-lock { 
+            border-color: #5e2a75; 
+            color: #5e2a75; 
+            background-color: #fce4ec; 
+        }
+        .btn-lock:hover { 
+            background-color: #5e2a75; 
+            color: #fff; 
+        }
 
-        /* AI 工具特殊樣式 (綠色) */
-        .btn-ai { border-color: #27ae60; color: #27ae60; background-color: #e8f8f5; }
-        .btn-ai:hover { background-color: #27ae60; color: #fff; }
+        /* AI 工具特殊樣式 (綠色) - 保留您的樣式定義，雖然目前沒用到 */
+        .btn-ai { 
+            border-color: #27ae60; 
+            color: #27ae60; 
+            background-color: #e8f8f5; 
+        }
+        .btn-ai:hover { 
+            background-color: #27ae60; 
+            color: #fff; 
+        }
 
-        .back-btn { margin-top: 30px; color: #666; text-decoration: none; font-weight: bold; }
-        .back-btn:hover { color: #8e44ad; }
+        .back-btn { 
+            margin-top: 40px; 
+            color: #666; 
+            text-decoration: none; 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            padding: 10px 20px;
+        }
+        .back-btn:hover { 
+            color: #8e44ad; 
+        }
+
+        /* RWD 響應式：手機和平板自動調整 */
+        @media (max-width: 992px) {
+            .menu-container {
+                grid-template-columns: repeat(2, 1fr); /* 平板變 2 欄 */
+            }
+        }
+        @media (max-width: 576px) {
+            .menu-container {
+                grid-template-columns: 1fr; /* 手機變 1 欄 */
+            }
+        }
     </style>
 
     <script>
@@ -49,8 +128,8 @@
         
         <a href="座位抽籤.html" class="btn">1. 座位抽籤系統</a>
         <a href="輪盤座位抽籤.html" class="btn">2. 輪盤座位抽籤</a>
-        <a href="抽籤回答系統(座位模式).html" class="btn">3. 抽籤回答系統(座位模式)</a>
-        <a href="抽籤回答系統(輪盤模式).html" class="btn">4. 抽籤回答系統(輪盤模式)</a>
+        <a href="抽籤回答系統(座位模式).html" class="btn">3. 抽籤回答系統<br>(座位模式)</a>
+        <a href="抽籤回答系統(輪盤模式).html" class="btn">4. 抽籤回答系統<br>(輪盤模式)</a>
         <a href="縮短網址.html" class="btn">5. 縮短網址</a>
         <a href="倒數計時.html" class="btn">6. 倒數計時</a>
         <a href="小精靈(手機板).html" class="btn">7. 小精靈(手機板)</a>
@@ -58,7 +137,7 @@
         <a href="心率測量.html" class="btn">9. 心率測量</a>
         
         <!-- 修正編號為 9，並保持鎖定功能 -->
-        <a href="#" onclick="checkPassword()" class="btn btn-lock">🔒 10. 上課觀測記錄 (老師專用)</a>
+        <a href="#" onclick="checkPassword()" class="btn btn-lock">🔒 10. 上課觀測記錄<br>(老師專用)</a>
     </div>
 
     <a href="index.html" class="back-btn">⬅ 回到主選單</a>
