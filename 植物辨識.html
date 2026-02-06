@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BIO-SCANNER Pro | 智植辨識</title>
+    <title>BIO-SCANNER Pro | 智植辨識 (多模態韌性版)</title>
     
     <!-- 引入外部函式庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -34,9 +34,9 @@
         // ==========================================
         
         // 1. 請在此填入你的 Google API Key (必填！)
-        const apiKey = "AIzaSyCTeBIdhexV9z1jUqLwoCUAUpzJRLqM5wI"; 
+        const apiKey = "AIzaSyD6-EzUozf4f4kn3FpnJIVWU5r2GLrNPNA"; 
 
-        // 2. Firebase Config (選填，沒填不影響辨識)
+        // 2. Firebase Config (選填)
         const firebaseConfig = {
             apiKey: "您的_FIREBASE_API_KEY",
             // ... 其他設定
@@ -54,9 +54,6 @@
             }
         } catch (e) { console.warn("Firebase 未啟用，僅使用辨識功能"); }
 
-        // 🔥 修改點：改用最穩定的 1.5-flash 模型，解決 2.5-preview 不穩定的問題
-        const modelName = "gemini-1.5-flash";
-
         const App = () => {
             const [user, setUser] = React.useState(null);
             const [image, setImage] = React.useState(null);
@@ -65,6 +62,7 @@
             const [results, setResults] = React.useState(null);
             const [history, setHistory] = React.useState([]);
             const [error, setError] = React.useState(null);
+            const [currentModel, setCurrentModel] = React.useState(""); // 顯示當前使用的模型
             const [isCameraActive, setIsCameraActive] = React.useState(false);
             const videoRef = React.useRef(null);
             const canvasRef = React.useRef(null);
@@ -135,58 +133,86 @@
                 v.srcObject.getTracks().forEach(t=>t.stop());
             };
 
-            const reset = () => { setImage(null); setBase64(null); setResults(null); setError(null); setIsCameraActive(false); };
+            const reset = () => { setImage(null); setBase64(null); setResults(null); setError(null); setIsCameraActive(false); setCurrentModel(""); };
 
-            // 🔥 核心辨識功能 (包含詳細錯誤回報)
+            // 🔥 核心辨識功能 (多模型自動切換版)
             const identify = async () => {
                 if (!base64) return;
-                // 檢查是否填寫 Key
                 if (!apiKey || apiKey.includes("請在此填入")) {
-                    setError("⚠️ 請先在程式碼第 45 行填入 Google API Key 才能運作喔！");
+                    setError("⚠️ 請先在程式碼第 36 行填入 Google API Key 才能運作喔！");
                     return;
                 }
 
                 setLoading(true);
                 setError(null);
-                
+                setCurrentModel("初始化...");
+
+                // 候選模型清單：優先嘗試最穩定的，失敗則嘗試備用
+                const models = [
+                    "gemini-1.5-flash-002", // 最新穩定版
+                    "gemini-1.5-flash",     // 通用 Flash
+                    "gemini-1.5-flash-001", // 舊版 Flash
+                    "gemini-1.5-pro"        // 高階 Pro 版 (當 Flash 都掛掉時的王牌)
+                ];
+
                 const prompt = `分析這張生物影像。請找出前三名最可能的物種。回傳 JSON: { "candidates": [ { "name": "中文名", "aliases": ["別名"], "scientificName": "學名", "probability": "90%", "desc": "描述", "physicsFact": "物理特性", "care": "照顧建議" } ] }`;
+                
+                let success = false;
+                let lastErrorMsg = "";
 
-                try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64 } }] }],
-                            generationConfig: { responseMimeType: "application/json" }
-                        })
-                    });
-                    
-                    const data = await res.json();
-                    
-                    // 錯誤處理：如果 Google 回傳錯誤，顯示出來
-                    if (!res.ok) {
-                        console.error("API Error:", data);
-                        throw new Error(data.error?.message || "連線失敗，請檢查 Key 或網路");
-                    }
-                    
-                    if (!data.candidates || !data.candidates[0].content) {
-                        throw new Error("AI 無法辨識圖片，可能是圖片不清晰或含有敏感內容");
-                    }
+                // 迴圈嘗試每一個模型
+                for (const modelName of models) {
+                    try {
+                        setCurrentModel(`正在嘗試模型: ${modelName}...`);
+                        console.log(`Trying model: ${modelName}`);
 
-                    const jsonStr = data.candidates[0].content.parts[0].text;
-                    const parsed = JSON.parse(jsonStr);
-                    setResults(parsed.candidates);
-
-                    if (user && db) {
-                        await addDoc(collection(db, 'users', user.uid, 'scan_history'), {
-                            name: parsed.candidates[0].name, scientificName: parsed.candidates[0].scientificName, timestamp: Date.now()
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64 } }] }],
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
                         });
+
+                        const data = await res.json();
+
+                        // 如果這個模型報錯 (例如 404 Not Found)，就拋出錯誤讓迴圈繼續跑下一個
+                        if (!res.ok) {
+                            throw new Error(data.error?.message || `Model ${modelName} failed`);
+                        }
+
+                        if (!data.candidates || !data.candidates[0].content) {
+                            throw new Error("AI 無法辨識圖片");
+                        }
+
+                        // 成功解析！
+                        const jsonStr = data.candidates[0].content.parts[0].text;
+                        const parsed = JSON.parse(jsonStr);
+                        setResults(parsed.candidates);
+                        setCurrentModel(`✅ 使用模型: ${modelName} (成功)`);
+
+                        if (user && db) {
+                            await addDoc(collection(db, 'users', user.uid, 'scan_history'), {
+                                name: parsed.candidates[0].name, scientificName: parsed.candidates[0].scientificName, timestamp: Date.now()
+                            });
+                        }
+                        
+                        success = true;
+                        break; // 成功了就跳出迴圈，不用試後面的了
+
+                    } catch (e) {
+                        console.warn(`Model ${modelName} failed:`, e);
+                        lastErrorMsg = e.message;
+                        // 失敗了，迴圈會自動跑下一個模型...
                     }
-                } catch (e) {
-                    setError("⛔ 辨識失敗：" + e.message);
-                } finally {
-                    setLoading(false);
                 }
+
+                if (!success) {
+                    setError(`⛔ 所有模型皆嘗試失敗。最後錯誤：${lastErrorMsg} (請檢查 API Key 是否正確複製)`);
+                }
+                
+                setLoading(false);
             };
 
             return (
@@ -196,7 +222,7 @@
                     <header className="relative z-10 p-4 md:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
                         <div>
                             <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">BIO-SCANNER</h1>
-                            <p className="text-xs text-slate-500 tracking-widest">v3.0 STABLE</p>
+                            <p className="text-xs text-slate-500 tracking-widest">v4.0 AUTO-SWITCH</p>
                         </div>
                         <div className="flex gap-2">
                              <a href="tools.html" className="px-3 py-1 bg-slate-800 rounded-full text-xs font-bold hover:bg-slate-700 transition">← 回列表</a>
@@ -228,6 +254,7 @@
                                     <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
                                         <div className="w-full h-1 bg-emerald-500 absolute top-0 animate-scan"></div>
                                         <span className="text-emerald-400 font-mono animate-pulse">ANALYZING...</span>
+                                        <span className="text-xs text-slate-500 mt-2 font-mono">{currentModel}</span>
                                     </div>
                                 )}
                             </div>
@@ -247,7 +274,10 @@
                         <div className="space-y-6">
                             {results ? (
                                 <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
-                                    <h3 className="text-xs font-bold text-slate-500 tracking-widest uppercase">辨識結果</h3>
+                                    <h3 className="text-xs font-bold text-slate-500 tracking-widest uppercase flex justify-between">
+                                        <span>辨識結果</span>
+                                        <span className="text-[10px] text-emerald-600/50 normal-case border border-emerald-900 px-2 rounded">{currentModel}</span>
+                                    </h3>
                                     {results.map((res, idx) => (
                                         <div key={idx} className={`p-5 rounded-3xl border ${idx===0 ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-900/30 border-slate-800'}`}>
                                             <div className="flex justify-between items-start">
@@ -296,4 +326,3 @@
     </script>
 </body>
 </html>
-
