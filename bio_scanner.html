@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BIO-SCANNER Pro | 智植辨識 (v6.0 最終版)</title>
+    
+    <!-- 引入外部函式庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { background-color: #000; overflow-x: hidden; font-family: "Microsoft JhengHei", sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+        .animate-scan { animation: scan 2.5s ease-in-out infinite; }
+        * { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, onSnapshot, query, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase Config (選填)
+        const firebaseConfig = {
+            apiKey: "您的_FIREBASE_API_KEY", 
+            // 如果您沒有 Firebase，這段不填沒關係，只會影響歷史紀錄功能
+        };
+
+        // 初始化 Firebase (容錯處理)
+        let app, auth, db;
+        try {
+            if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("您的_FIREBASE")) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            }
+        } catch (e) { console.warn("Firebase 未啟用"); }
+
+        const App = () => {
+            // 從 LocalStorage 讀取金鑰
+            const [apiKey, setApiKey] = React.useState(localStorage.getItem('my_gemini_key') || '');
+            const [inputKey, setInputKey] = React.useState('');
+            
+            const [user, setUser] = React.useState(null);
+            const [image, setImage] = React.useState(null);
+            const [base64, setBase64] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
+            const [results, setResults] = React.useState(null);
+            const [history, setHistory] = React.useState([]);
+            const [error, setError] = React.useState(null);
+            const [currentModel, setCurrentModel] = React.useState("");
+            const [isCameraActive, setIsCameraActive] = React.useState(false);
+            const videoRef = React.useRef(null);
+            const canvasRef = React.useRef(null);
+
+            // 背景特效
+            React.useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                let animationId;
+                const particles = Array.from({ length: 30 }, () => ({
+                    x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+                    vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, size: Math.random() * 2
+                }));
+                const animate = () => {
+                    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.3)';
+                    particles.forEach(p => {
+                        p.x += p.vx; p.y += p.vy;
+                        if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0;
+                        if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0;
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+                    });
+                    animationId = requestAnimationFrame(animate);
+                };
+                animate();
+                return () => cancelAnimationFrame(animationId);
+            }, []);
+
+            // Auth
+            React.useEffect(() => {
+                if (!auth) return;
+                const unsub = onAuthStateChanged(auth, u => {
+                    setUser(u);
+                    if (u) {
+                        const q = query(collection(db, 'users', u.uid, 'scan_history'), limit(20));
+                        onSnapshot(q, snap => {
+                            const d = snap.docs.map(i => ({id: i.id, ...i.data()})).sort((a,b)=>b.timestamp-a.timestamp);
+                            setHistory(d);
+                        });
+                    } else signInAnonymously(auth).catch(e=>console.error(e));
+                });
+                return () => unsub();
+            }, []);
+
+            const saveKey = () => {
+                const k = inputKey.trim();
+                if (k.length > 20 && k.startsWith("AIza")) {
+                    localStorage.setItem('my_gemini_key', k);
+                    setApiKey(k);
+                    alert("金鑰已保存！請試著進行辨識。");
+                } else {
+                    alert("這看起來不像有效的 Google API Key (應以 AIza 開頭)。請檢查是否複製完整。");
+                }
+            };
+
+            const clearKey = () => {
+                if(confirm("確定要清除金鑰並重新輸入嗎？")) {
+                    localStorage.removeItem('my_gemini_key');
+                    setApiKey('');
+                    setInputKey('');
+                    setResults(null);
+                    setImage(null);
+                }
+            };
+
+            const handleFile = (e) => {
+                const f = e.target.files[0]; if(!f)return;
+                const r = new FileReader();
+                r.onloadend = () => { setBase64(r.result.split(',')[1]); setImage(r.result); setResults(null); setError(null); };
+                r.readAsDataURL(f);
+            };
+
+            const startCamera = async () => {
+                try {
+                    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    if(videoRef.current) { videoRef.current.srcObject = s; setIsCameraActive(true); setError(null); }
+                } catch(e) { setError("無法開啟相機 (請確認 HTTPS 或權限)"); }
+            };
+
+            const takePhoto = () => {
+                const v = videoRef.current;
+                const c = document.createElement('canvas');
+                c.width = v.videoWidth; c.height = v.videoHeight;
+                c.getContext('2d').drawImage(v,0,0);
+                const d = c.toDataURL('image/png');
+                setBase64(d.split(',')[1]); setImage(d); setIsCameraActive(false);
+                v.srcObject.getTracks().forEach(t=>t.stop());
+            };
+
+            const reset = () => { setImage(null); setBase64(null); setResults(null); setError(null); setIsCameraActive(false); setCurrentModel(""); };
+
+            const identify = async () => {
+                if (!base64) return;
+                setLoading(true);
+                setError(null);
+                setCurrentModel("初始化...");
+
+                // 使用最穩定的模型列表
+                const models = ["gemini-1.5-flash", "gemini-1.5-flash-002", "gemini-1.5-pro"];
+                const prompt = `分析這張生物影像。請找出前三名最可能的物種。回傳 JSON: { "candidates": [ { "name": "中文名", "aliases": ["別名"], "scientificName": "學名", "probability": "90%", "desc": "描述", "physicsFact": "物理特性", "care": "照顧建議" } ] }`;
+                
+                let success = false;
+                let lastErrorMsg = "";
+
+                for (const modelName of models) {
+                    try {
+                        setCurrentModel(`連線中: ${modelName}...`);
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: "image/png", data: base64 } }] }],
+                                generationConfig: { responseMimeType: "application/json" }
+                            })
+                        });
+                        const data = await res.json();
+                        
+                        if (!res.ok) {
+                            // 詳細錯誤診斷
+                            const msg = data.error?.message || "未知錯誤";
+                            if (msg.includes("API key not valid") || msg.includes("key expired") || msg.includes("API_KEY_INVALID")) {
+                                throw new Error("金鑰無效 (Key Invalid)。請清除並輸入全新的金鑰。");
+                            }
+                            throw new Error(msg);
+                        }
+                        
+                        if (!data.candidates) throw new Error("無辨識結果");
+
+                        const jsonStr = data.candidates[0].content.parts[0].text;
+                        const parsed = JSON.parse(jsonStr);
+                        setResults(parsed.candidates);
+                        setCurrentModel(`✅ 成功 (${modelName})`);
+
+                        if (user && db) {
+                            await addDoc(collection(db, 'users', user.uid, 'scan_history'), {
+                                name: parsed.candidates[0].name, scientificName: parsed.candidates[0].scientificName, timestamp: Date.now()
+                            });
+                        }
+                        success = true;
+                        break;
+                    } catch (e) {
+                        console.warn(e);
+                        lastErrorMsg = e.message;
+                    }
+                }
+
+                if (!success) {
+                    setError(`⛔ 失敗：${lastErrorMsg}`);
+                    if (lastErrorMsg.includes("金鑰無效")) {
+                        if(confirm("您的金鑰似乎已失效（可能因曾上傳至 GitHub 而被封鎖）。\n\n請問要現在更換一把「全新」的金鑰嗎？")) clearKey();
+                    }
+                }
+                setLoading(false);
+            };
+
+            // 如果沒有 Key，顯示輸入畫面
+            if (!apiKey) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-black text-white p-4 relative overflow-hidden">
+                        <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-40 pointer-events-none" />
+                        <div className="bg-slate-900 p-8 rounded-3xl border border-emerald-500/30 max-w-md w-full relative z-10 shadow-2xl text-center animate-[fadeIn_0.5s_ease-out]">
+                            <div className="text-6xl mb-4">🔑</div>
+                            <h2 className="text-2xl font-bold text-emerald-400 mb-2">系統啟動中</h2>
+                            <p className="text-slate-400 text-sm mb-6 text-left leading-relaxed">
+                                為了確保您的金鑰安全，請在此輸入您的 Google Gemini API Key。<br/><br/>
+                                <span className="text-red-400 font-bold">⚠️ 重要提醒：</span><br/>
+                                請務必使用一把<span className="text-white font-bold underline">全新的、從未上傳到 GitHub</span> 的金鑰，否則會無法連線。
+                            </p>
+                            <input 
+                                type="text" 
+                                value={inputKey}
+                                onChange={(e) => setInputKey(e.target.value)}
+                                placeholder="貼上 AIza 開頭的新金鑰..."
+                                className="w-full bg-black/50 border border-slate-700 rounded-xl p-3 text-white mb-4 focus:border-emerald-500 focus:outline-none font-mono text-sm"
+                            />
+                            <button 
+                                onClick={saveKey}
+                                className="w-full bg-gradient-to-r from-emerald-600 to-cyan-600 py-3 rounded-xl font-bold hover:brightness-110 transition"
+                            >
+                                確認啟動
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen text-white relative flex flex-col font-sans">
+                    <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-40 pointer-events-none" />
+                    
+                    <header className="relative z-10 p-4 md:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+                        <div>
+                            <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">BIO-SCANNER</h1>
+                            <p className="text-xs text-slate-500 tracking-widest">v6.0 FINAL</p>
+                        </div>
+                        <div className="flex gap-2">
+                             <a href="tools.html" className="px-3 py-1 bg-slate-800 rounded-full text-xs font-bold hover:bg-slate-700 transition">← 回列表</a>
+                             <button onClick={clearKey} className="px-3 py-1 bg-slate-800/50 text-slate-400 rounded-full text-xs hover:bg-red-900/50 hover:text-red-400 transition flex items-center gap-1" title="更換金鑰">
+                                <span>🔑</span> 更換金鑰
+                             </button>
+                        </div>
+                    </header>
+
+                    <main className="relative z-10 flex-1 max-w-6xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pb-20 custom-scrollbar">
+                        <div className="space-y-4">
+                            <div className="aspect-square relative rounded-3xl border-2 border-slate-800 bg-slate-900/50 overflow-hidden shadow-2xl flex flex-col items-center justify-center">
+                                {isCameraActive ? (
+                                    <div className="w-full h-full relative">
+                                        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                                        <button onClick={takePhoto} className="absolute bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 bg-white rounded-full border-4 border-slate-300 shadow-lg"></button>
+                                    </div>
+                                ) : image ? (
+                                    <img src={image} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="text-center space-y-4 p-6">
+                                        <div className="text-6xl opacity-20">🧬</div>
+                                        <p className="text-slate-500 text-sm">請上傳或拍攝生物影像</p>
+                                        <div className="flex gap-2 justify-center">
+                                            <label className="bg-emerald-600 px-6 py-2 rounded-xl font-bold cursor-pointer hover:bg-emerald-500 transition">上傳<input type="file" className="hidden" onChange={handleFile} accept="image/*" /></label>
+                                            <button onClick={startCamera} className="bg-slate-700 px-6 py-2 rounded-xl font-bold hover:bg-slate-600 transition">相機</button>
+                                        </div>
+                                    </div>
+                                )}
+                                {loading && (
+                                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
+                                        <div className="w-full h-1 bg-emerald-500 absolute top-0 animate-scan"></div>
+                                        <span className="text-emerald-400 font-mono animate-pulse">ANALYZING...</span>
+                                        <span className="text-xs text-slate-500 mt-2 font-mono">{currentModel}</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {image && !loading && (
+                                <button onClick={identify} className="w-full py-4 bg-gradient-to-r from-emerald-600 to-cyan-600 rounded-xl font-black text-lg shadow-lg hover:brightness-110 transition transform active:scale-95">START IDENTIFICATION</button>
+                            )}
+                            
+                            {error && <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-300 rounded-xl text-sm break-words">{error}</div>}
+                        </div>
+
+                        <div className="space-y-6">
+                            {results ? (
+                                <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
+                                    <h3 className="text-xs font-bold text-slate-500 tracking-widest uppercase flex justify-between">
+                                        <span>辨識結果</span>
+                                        <span className="text-[10px] text-emerald-600/50 normal-case border border-emerald-900 px-2 rounded">{currentModel}</span>
+                                    </h3>
+                                    {results.map((res, idx) => (
+                                        <div key={idx} className={`p-5 rounded-3xl border ${idx===0 ? 'bg-emerald-900/10 border-emerald-500/50' : 'bg-slate-900/30 border-slate-800'}`}>
+                                            <div className="flex justify-between items-start">
+                                                <div><h2 className="text-xl font-bold">{res.name}</h2><p className="text-slate-400 italic text-sm">{res.scientificName}</p></div>
+                                                <div className="text-right"><span className="text-xl font-black text-emerald-400 font-mono">{res.probability}</span></div>
+                                            </div>
+                                            <div className="mt-2 flex gap-2 flex-wrap">
+                                                {res.aliases?.map(a => <span key={a} className="text-[10px] px-2 py-1 bg-white/5 rounded text-slate-400">#{a}</span>)}
+                                            </div>
+                                            {idx === 0 && (
+                                                <div className="mt-4 space-y-3 text-sm text-slate-300">
+                                                    <p>{res.desc}</p>
+                                                    <div className="p-3 bg-cyan-500/10 border-l-2 border-cyan-500 text-cyan-200 text-xs">
+                                                        <strong className="block mb-1 text-cyan-400">⚡ 物理特性：</strong>{res.physicsFact}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="h-full min-h-[150px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center text-slate-600">等待分析結果...</div>
+                            )}
+
+                            {history.length > 0 && (
+                                <div className="pt-6 border-t border-slate-800">
+                                    <h3 className="text-xs font-bold text-slate-500 tracking-widest uppercase mb-3">歷史紀錄</h3>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                        {history.map(h => (
+                                            <div key={h.id} className="flex-shrink-0 w-28 p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs">
+                                                <div className="font-bold truncate">{h.name}</div>
+                                                <div className="text-slate-500 scale-90 origin-left">{new Date(h.timestamp).toLocaleDateString()}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
