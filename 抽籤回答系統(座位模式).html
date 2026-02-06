@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>座位抽籤系統 | Seating Lottery</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-color: #1e293b;
+            --accent-color: #06b6d4; /* Cyan */
+            --highlight-color: #f472b6; /* Pink */
+            --danger-color: #ef4444;
+            --success-color: #10b981; /* Emerald Green */
+            --text-color: #e2e8f0;
+            --grid-gap: 10px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.3s;
+        }
+
+        /* 標題與控制區 */
+        header {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-color);
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: white; /* 改為白色 */
+            text-shadow: 0 0 5px var(--accent-color);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button {
+            background: linear-gradient(45deg, var(--accent-color), #3b82f6);
+            border: none;
+            padding: 8px 16px;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            box-shadow: 0 0 5px rgba(6, 182, 212, 0.5);
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        button.danger {
+            background: linear-gradient(45deg, #ef4444, #b91c1c);
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+        
+        button.danger:hover {
+            box-shadow: 0 0 10px var(--danger-color);
+        }
+
+        /* 綠色開始按鈕 */
+        #start-btn {
+            background: linear-gradient(45deg, #10b981, #059669);
+            box-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+        }
+        #start-btn:hover {
+            box-shadow: 0 0 15px var(--success-color);
+        }
+        
+        button.toggle-mode {
+            background: linear-gradient(45deg, #64748b, #475569);
+            box-shadow: none;
+        }
+
+        /* 排除模式啟動時的按鈕樣式 */
+        body.exclude-mode button.toggle-mode {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            box-shadow: 0 0 10px #f59e0b;
+            color: #fff;
+            animation: pulse-orange 2s infinite;
+        }
+
+        button:disabled {
+            background: #475569 !important; /* 強制覆蓋綠色 */
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none !important;
+        }
+
+        input[type="number"] {
+            background: var(--bg-color);
+            border: 1px solid var(--accent-color);
+            color: white;
+            padding: 5px;
+            width: 50px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        /* 主舞台：座位區 */
+        #classroom-container {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* 排除模式下，整個容器邊框變色提示 */
+        body.exclude-mode #classroom-container {
+            border: 4px dashed #f59e0b;
+        }
+
+        #seat-grid {
+            display: grid;
+            gap: var(--grid-gap);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55); /* 增加翻轉動畫 */
+        }
+
+        /* 視角翻轉樣式 */
+        #seat-grid.flipped {
+            transform: rotate(180deg);
+        }
+        /* 翻轉後，內部的文字要把角度轉回來，否則會倒立 */
+        #seat-grid.flipped .seat {
+            transform: rotate(-180deg);
+        }
+
+        .seat {
+            background: var(--panel-color);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 80px;
+            min-height: 60px;
+            user-select: none;
+        }
+
+        .seat input {
+            width: 90%;
+            background: transparent;
+            border: none;
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+            outline: none;
+            pointer-events: auto; /* 預設可點選 */
+        }
+
+        /* 排除模式下，Input 不可點選，讓點擊事件穿透到 div */
+        body.exclude-mode .seat {
+            cursor: no-drop;
+        }
+        body.exclude-mode .seat:hover {
+            border-color: #f59e0b;
+        }
+        body.exclude-mode .seat input {
+            pointer-events: none;
+        }
+
+        .seat input::placeholder {
+            color: #475569;
+            font-size: 0.8rem;
+        }
+
+        /* 狀態樣式 - 一般模式 */
+        .seat.active {
+            background: var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+            transform: scale(1.1);
+            z-index: 2;
+            border-color: white;
+        }
+        
+        .seat.active input {
+            color: #000;
+            font-weight: bold;
+        }
+
+        /* 狀態樣式 - 翻轉模式修正 */
+        /* 必須確保 scale 時保留 rotate(-180deg)，否則字會倒過來 */
+        #seat-grid.flipped .seat.active {
+            transform: rotate(-180deg) scale(1.1);
+        }
+
+        /* 中獎樣式 - 一般模式 */
+        .seat.winning {
+            background: #ef4444 !important; /* 改為紅色 */
+            box-shadow: 0 0 30px #ef4444, 0 0 60px #ef4444;
+            animation: pulse 0.5s infinite alternate;
+            z-index: 5;
+        }
+
+        /* 中獎樣式 - 翻轉模式修正 */
+        /* 使用專用的動畫，確保旋轉角度不被動畫覆蓋 */
+        #seat-grid.flipped .seat.winning {
+            animation: pulse-flipped 0.5s infinite alternate;
+        }
+
+        /* 已排除的座位樣式 */
+        .seat.removed {
+            opacity: 0.4;
+            background: #020617;
+            border: 2px dashed #475569;
+            box-shadow: inset 0 0 10px #000;
+        }
+        .seat.removed input {
+            text-decoration: line-through;
+            color: #64748b;
+        }
+
+        .seat.empty {
+            visibility: hidden; /* 隱藏但佔位 */
+        }
+
+        /* 彈出視窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--panel-color);
+            padding: 30px;
+            border-radius: 16px;
+            border: 2px solid var(--highlight-color);
+            text-align: center;
+            box-shadow: 0 0 50px rgba(244, 114, 182, 0.3);
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-overlay.show .modal {
+            transform: scale(1);
+        }
+
+        .winner-name {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--highlight-color);
+            margin: 20px 0;
+            text-shadow: 0 0 10px var(--highlight-color);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        /* 匯入面板 */
+        #import-panel {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            background: var(--panel-color);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 50;
+            width: 320px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            padding: 10px;
+            margin-bottom: 10px;
+            resize: none;
+            box-sizing: border-box;
+        }
+        
+        .file-input-wrapper {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px dashed #475569;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        /* 動畫定義 */
+        /* 一般模式下的心跳動畫 */
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        /* 翻轉模式下的心跳動畫 (必須包含 rotate-180deg) */
+        @keyframes pulse-flipped {
+            from { transform: rotate(-180deg) scale(1); }
+            to { transform: rotate(-180deg) scale(1.05); }
+        }
+        
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 5px #f59e0b; }
+            50% { box-shadow: 0 0 15px #f59e0b; }
+            100% { box-shadow: 0 0 5px #f59e0b; }
+        }
+
+        /* 物理粒子背景 Canvas */
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景特效 -->
+    <canvas id="bg-canvas"></canvas>
+
+    <header>
+        <h1>⚛️ 抽籤回答系統(座位模式)</h1>
+        <div class="controls">
+            <label>行: <input type="number" id="rows-input" value="5" min="1" max="10"></label>
+            <label>列: <input type="number" id="cols-input" value="6" min="1" max="10"></label>
+            <button onclick="resizeGrid()">重設</button>
+            <button onclick="toggleView()">🔄 切換視角</button>
+            <button class="toggle-mode" id="mode-btn" onclick="toggleExcludeMode()">🚫 設定排除</button>
+            <button onclick="toggleImportPanel()">📂 匯入名單</button>
+            <button id="start-btn" onclick="startLottery()">🚀 開始抽籤</button>
+        </div>
+    </header>
+
+    <!-- 匯入工具 -->
+    <div id="import-panel">
+        <h3>批次匯入名單</h3>
+        <div class="file-input-wrapper">
+            <label for="csv-file" style="cursor: pointer; display: block;">
+                📂 點擊上傳 CSV/Excel/Txt 檔
+            </label>
+            <input type="file" id="csv-file" accept=".csv, .txt" style="display: none;" onchange="handleFileUpload(this)">
+        </div>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">將自動偵測 Excel 的行列數並調整座位表</p>
+        <textarea id="name-list" placeholder="直接貼上 Excel 區塊..."></textarea>
+        <div style="display:flex; justify-content:space-between;">
+            <button onclick="toggleImportPanel()" class="danger" style="font-size:0.8rem">關閉</button>
+            <button onclick="processImport()" style="font-size:0.8rem">確認並重塑座位</button>
+        </div>
+    </div>
+
+    <!-- 座位區 -->
+    <div id="classroom-container">
+        <div id="seat-grid">
+            <!-- Grid generated by JS -->
+        </div>
+    </div>
+
+    <!-- 中獎視窗 -->
+    <div class="modal-overlay" id="result-modal">
+        <div class="modal">
+            <h2>🎉 本日最幸運</h2>
+            <div class="winner-name" id="winner-display">???</div>
+            <div class="modal-buttons">
+                <button onclick="handleDecision('keep')">保留並繼續</button>
+                <button onclick="handleDecision('remove')" class="danger">從名單移除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 變數與狀態 ---
+        let rows = 5;
+        let cols = 6;
+        let seats = []; // 儲存 DOM 元素與狀態
+        let isRunning = false;
+        let isExcludeMode = false;
+        let currentWinnerIndex = -1;
+        
+        // 音效系統 (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            resizeGrid();
+            initBackgroundParticle();
+        });
+
+        // --- 視角切換 ---
+        function toggleView() {
+            const grid = document.getElementById('seat-grid');
+            grid.classList.toggle('flipped');
+        }
+
+        // --- 網格系統 ---
+        function resizeGrid() {
+            rows = parseInt(document.getElementById('rows-input').value);
+            cols = parseInt(document.getElementById('cols-input').value);
+            
+            const grid = document.getElementById('seat-grid');
+            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            grid.innerHTML = '';
+            seats = [];
+            
+            // 移除 flipped class，確保重設時回到預設視角，避免混亂
+            grid.classList.remove('flipped');
+
+            for (let i = 0; i < rows * cols; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'seat';
+                cell.dataset.index = i;
+                
+                // 座位點擊事件（處理排除邏輯）
+                cell.addEventListener('click', (e) => {
+                    if (isExcludeMode) {
+                        e.preventDefault();
+                        const seatObj = seats[i];
+                        seatObj.removed = !seatObj.removed;
+                        
+                        if (seatObj.removed) {
+                            cell.classList.add('removed');
+                        } else {
+                            cell.classList.remove('removed');
+                        }
+                        playSound('tick', 50); 
+                    }
+                });
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.placeholder = `${i + 1}`;
+                
+                cell.appendChild(input);
+                grid.appendChild(cell);
+                seats.push({ element: cell, input: input, removed: false });
+            }
+        }
+
+        // --- 排除模式切換 ---
+        function toggleExcludeMode() {
+            isExcludeMode = !isExcludeMode;
+            const btn = document.getElementById('mode-btn');
+            
+            if (isExcludeMode) {
+                document.body.classList.add('exclude-mode');
+                btn.innerHTML = "✅ 完成設定";
+            } else {
+                document.body.classList.remove('exclude-mode');
+                btn.innerHTML = "🚫 設定排除";
+            }
+        }
+
+        // --- 匯入功能 ---
+        function toggleImportPanel() {
+            const panel = document.getElementById('import-panel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function handleFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                document.getElementById('name-list').value = content;
+            };
+            reader.readAsText(file);
+        }
+
+        function processImport() {
+            const text = document.getElementById('name-list').value;
+            if (!text.trim()) return;
+
+            // 1. 解析原始結構
+            let rawMatrix = [];
+            if (text.indexOf('\t') !== -1) {
+                // Excel 複製模式 (Tab 分隔)
+                rawMatrix = text.split(/\r?\n/).map(line => line.split('\t'));
+            } else if (text.indexOf(',') !== -1) {
+                // CSV 模式
+                rawMatrix = text.split(/\r?\n/).map(line => line.split(','));
+            } else {
+                // 純文字清單
+                rawMatrix = text.split(/\r?\n/).map(line => [line]);
+            }
+
+            // 2. 智慧裁切 (Smart Trim) - 計算有效資料的邊界
+            let maxRowIndex = -1;
+            let maxColIndex = -1;
+
+            // 尋找包含資料的最大行列數
+            for(let r = 0; r < rawMatrix.length; r++) {
+                for(let c = 0; c < rawMatrix[r].length; c++) {
+                    if(rawMatrix[r][c] && rawMatrix[r][c].trim() !== '') {
+                        if(r > maxRowIndex) maxRowIndex = r;
+                        if(c > maxColIndex) maxColIndex = c;
+                    }
+                }
+            }
+
+            // 如果全是空的，就防呆一下
+            if (maxRowIndex === -1) {
+                alert("未偵測到有效資料，請確認內容。");
+                return;
+            }
+
+            // 3. 設定新的網格大小 (加 1 是因為索引從 0 開始)
+            let newRows = maxRowIndex + 1;
+            let newCols = maxColIndex + 1;
+
+            document.getElementById('rows-input').value = newRows;
+            document.getElementById('cols-input').value = newCols;
+            
+            // 重建網格
+            resizeGrid();
+
+            // 4. 填入資料 (只填入有效範圍內)
+            for(let r = 0; r < newRows; r++) {
+                for(let c = 0; c < newCols; c++) {
+                    // 防呆：確保 rawMatrix 有這一列，且這一列有這一格
+                    if (rawMatrix[r] && rawMatrix[r][c]) {
+                        const val = rawMatrix[r][c].trim();
+                        const seatIndex = r * newCols + c;
+                        
+                        if(seatIndex < seats.length) {
+                            seats[seatIndex].input.value = val;
+                            // 如果是空的，清空 placeholder 以免視覺混亂 (Optional)
+                            if(val === "") {
+                                seats[seatIndex].input.placeholder = "";
+                            }
+                        }
+                    }
+                }
+            }
+
+            toggleImportPanel();
+            playSound('confirm');
+        }
+
+        // --- 核心抽籤邏輯 (物理模擬) ---
+        function startLottery() {
+            if (isExcludeMode) toggleExcludeMode();
+            if (isRunning) return;
+
+            // 1. 過濾有效座位
+            const validIndices = seats
+                .map((s, i) => ({ ...s, index: i }))
+                .filter(s => !s.removed && s.input.value.trim() !== '')
+                .map(s => s.index);
+
+            if (validIndices.length === 0) {
+                alert("沒有可抽籤的學生！請確認是否已輸入姓名。");
+                return;
+            }
+
+            isRunning = true;
+            document.getElementById('start-btn').disabled = true;
+            
+            // --- 時間控制物理模型 ---
+            const duration = 5000; // 固定 5 秒
+            const startTime = Date.now();
+            let currentHighlight = -1;
+            
+            // 預先決定贏家 (量子塌縮點) - 改為 let，允許在最後一刻變更
+            let winnerTargetIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+
+            const animate = () => {
+                const now = Date.now();
+                const elapsed = now - startTime;
+                
+                // 檢查是否時間到
+                if (elapsed >= duration) {
+                    // 清除最後一個跑動的亮點
+                    if (currentHighlight !== -1) {
+                        seats[currentHighlight].element.classList.remove('active');
+                    }
+                    finish(winnerTargetIndex);
+                    return;
+                }
+
+                // 清除上一個亮點
+                if (currentHighlight !== -1) {
+                    seats[currentHighlight].element.classList.remove('active');
+                }
+
+                // 計算當前進度 (0.0 ~ 1.0)
+                const progress = elapsed / duration;
+                
+                // 物理曲線：速度從 50ms (快) 變慢到約 500ms (慢)
+                let speed = 50 + 450 * Math.pow(progress, 2.5);
+                let isDramaticMoment = false;
+                
+                // --- 修正邏輯：偵測是否為倒數第二步 (戲劇性時刻) ---
+                if (elapsed + speed >= duration) {
+                    // 讓這一位停留時間變為 2 倍
+                    speed = speed * 2;
+                    isDramaticMoment = true;
+                }
+
+                // 隨機選下一個 (不包含自己)
+                let nextIndex;
+                do {
+                    nextIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+                } while (nextIndex === currentHighlight && validIndices.length > 1);
+                
+                // 關鍵修改：如果是戲劇性時刻（跑馬燈停很久那位），有 50% 機率直接變成贏家
+                if (isDramaticMoment) {
+                    if (Math.random() < 0.5) {
+                        winnerTargetIndex = nextIndex;
+                    }
+                    // 如果沒中 50%，winnerTargetIndex 保持不變，動畫結束後會跳到原訂贏家
+                }
+                
+                currentHighlight = nextIndex;
+                seats[currentHighlight].element.classList.add('active');
+                
+                // 播放音效 (傳入速度以調整音調)
+                playSound('tick', speed);
+
+                setTimeout(animate, speed);
+            };
+
+            animate();
+        }
+
+        function finish(winnerIndex) {
+            currentWinnerIndex = winnerIndex;
+            const winnerSeat = seats[winnerIndex];
+            
+            winnerSeat.element.classList.add('active');
+            winnerSeat.element.classList.add('winning');
+            
+            playSound('win');
+
+            setTimeout(() => {
+                const name = winnerSeat.input.value;
+                document.getElementById('winner-display').textContent = name;
+                document.getElementById('result-modal').classList.add('show');
+                isRunning = false;
+                document.getElementById('start-btn').disabled = false;
+            }, 500);
+        }
+
+        function handleDecision(type) {
+            document.getElementById('result-modal').classList.remove('show');
+            const seat = seats[currentWinnerIndex];
+
+            seat.element.classList.remove('winning');
+            seat.element.classList.remove('active');
+
+            if (type === 'remove') {
+                seat.removed = true;
+                seat.element.classList.add('removed');
+            }
+
+            currentWinnerIndex = -1;
+        }
+
+        // --- 音效合成器 ---
+        function playSound(type, speedMs = 100) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'tick') {
+                const freq = 800 - (speedMs); 
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(Math.max(200, freq), now);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                oscillator.start(now);
+                oscillator.stop(now + 0.1);
+            } else if (type === 'win') {
+                createChord([523.25, 659.25, 783.99], 'triangle'); 
+            } else if (type === 'confirm') {
+                createChord([440, 880], 'sine', 0.1);
+            }
+        }
+
+        function createChord(freqs, type, duration = 1.5) {
+            const now = audioCtx.currentTime;
+            freqs.forEach(f => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = f;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                osc.start(now);
+                osc.stop(now + duration);
+            });
+        }
+
+        // --- 背景特效 ---
+        function initBackgroundParticle() {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let particles = [];
+            const particleCount = 50;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            class Particle {
+                constructor() {
+                    this.reset();
+                }
+                reset() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.vx = (Math.random() - 0.5) * 2;
+                    this.vy = (Math.random() - 0.5) * 2;
+                    this.size = Math.random() * 2;
+                    this.alpha = Math.random() * 0.5;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+                }
+                draw() {
+                    ctx.fillStyle = `rgba(6, 182, 212, ${this.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            for(let i=0; i<particleCount; i++) particles.push(new Particle());
+
+            function animateBg() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, index) => {
+                    p.update();
+                    p.draw();
+                    for(let j=index+1; j<particles.length; j++){
+                        const dx = p.x - particles[j].x;
+                        const dy = p.y - particles[j].y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if(dist < 100) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(6, 182, 212, ${0.1 * (1 - dist/100)})`;
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+                requestAnimationFrame(animateBg);
+            }
+            animateBg();
+        }
+    </script>
+</body>
+</html>
