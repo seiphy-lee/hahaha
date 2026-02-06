@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時空量子倒數計時器</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05070a; /* 深空黑 */
+            font-family: 'Share Tech Mono', monospace;
+            color: #fff;
+        }
+
+        /* 畫布全螢幕 */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI 控制面板 - 回歸正中央 */
+        #ui-layer {
+            position: absolute;
+            top: 50%; /* 修改: 回到 50% */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+            pointer-events: none; 
+        }
+
+        /* 輸入框容器 */
+        #controls {
+            pointer-events: auto;
+            background: rgba(10, 20, 30, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+            transition: opacity 0.3s;
+        }
+
+        /* 執行中的按鈕容器 - 垂直置中，水平靠右 */
+        #active-controls {
+            position: absolute;
+            top: 50%; /* 修改: 回到 50% */
+            /* 圓半徑現在是 42vmin，按鈕保持在右側 */
+            left: calc(50% + 55vmin); 
+            transform: translate(0, -50%);
+            z-index: 20;
+            display: none; /* 預設隱藏 */
+            pointer-events: auto;
+            display: flex; 
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* 底部中原標準時間 - 移到左邊並放大 */
+        #std-time-container {
+            position: absolute;
+            top: 50%;          /* 垂直置中 */
+            left: 40px;        /* 左側間距 */
+            bottom: auto;      /* 清除底部定位 */
+            transform: translateY(-50%); /* 修正垂直置中偏移 */
+            width: auto;
+            text-align: left;  /* 文字靠左 */
+            z-index: 10;
+            pointer-events: none;
+            white-space: nowrap; /* 不換行 */
+        }
+
+        #std-time {
+            font-size: 4.5rem; /* 放大 1.5 倍 (原 3rem) */
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+            letter-spacing: 3px;
+            font-weight: bold;
+        }
+
+        #std-label {
+            font-size: 2.7rem; /* 放大 1.5 倍 (原 1.8rem) */
+            color: #00f0ff;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+        }
+
+        /* 手機版適配 */
+        @media (max-aspect-ratio: 1/1) {
+            /* 按鈕放到底部 */
+            #active-controls {
+                top: 80%; 
+                left: 50%;
+                transform: translate(-50%, 0);
+                flex-direction: row; 
+            }
+
+            /* 時間放回底部 (手機左邊放不下) */
+            #std-time-container {
+                top: auto;
+                bottom: 30px;
+                left: 0;
+                width: 100%;
+                text-align: center;
+                transform: none;
+            }
+            /* 手機版字體稍微縮小回正常，避免爆版 */
+            #std-time { font-size: 3rem; }
+            #std-label { font-size: 1.5rem; }
+        }
+
+        .input-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .time-input {
+            width: 70px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #00f0ff;
+            color: #00f0ff;
+            font-size: 1.5rem;
+            text-align: center;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Share Tech Mono', monospace;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .time-input:focus {
+            box-shadow: 0 0 15px #00f0ff;
+            border-color: #fff;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .btn {
+            background: transparent;
+            color: #00f0ff;
+            border: 2px solid #00f0ff;
+            padding: 10px 30px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            text-transform: uppercase;
+            transition: 0.3s;
+            margin: 0 10px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 20px #00f0ff;
+        }
+
+        .btn-pause {
+            color: #ffcc00;
+            border-color: #ffcc00;
+            background: rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+            padding: 15px 30px;
+        }
+
+        .btn-pause:hover {
+            background: #ffcc00;
+            color: #000;
+            box-shadow: 0 0 20px #ffcc00;
+        }
+
+        .btn-stop {
+            color: #ff0055;
+            border-color: #ff0055;
+            background: rgba(0, 0, 0, 0.5); 
+            font-weight: bold;
+            font-size: 1.5rem; 
+            padding: 15px 30px;
+        }
+
+        .btn-stop:hover {
+            background: #ff0055;
+            color: #fff;
+            box-shadow: 0 0 20px #ff0055;
+        }
+
+        /* 全螢幕按鈕 - 右上角 */
+        #fs-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1rem;
+            transition: 0.3s;
+            pointer-events: auto;
+        }
+
+        #fs-btn:hover {
+            border-color: #00f0ff;
+            color: #00f0ff;
+            background: rgba(0, 240, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <!-- 全螢幕開關 -->
+    <button id="fs-btn">⛶ 全螢幕</button>
+
+    <!-- 初始設定面板 -->
+    <div id="ui-layer">
+        <div id="controls">
+            <div style="margin-bottom: 15px; color: #00f0ff; font-size: 1.2rem;">設定倒數時間</div>
+            <div class="input-group">
+                <div>
+                    <label>時 (HRS)</label>
+                    <input type="number" id="h-in" class="time-input" min="0" max="99" value="0">
+                </div>
+                <div>
+                    <label>分 (MIN)</label>
+                    <input type="number" id="m-in" class="time-input" min="0" max="59" value="0">
+                </div>
+                <div>
+                    <label>秒 (SEC)</label>
+                    <input type="number" id="s-in" class="time-input" min="0" max="59" value="10">
+                </div>
+            </div>
+            <button class="btn" id="start-btn">啟動 (START)</button>
+        </div>
+    </div>
+    
+    <!-- 執行中按鈕群組 -->
+    <div id="active-controls" style="display: none;">
+         <button class="btn btn-pause" id="pause-btn">暫停 (PAUSE)</button>
+         <button class="btn btn-stop" id="stop-btn">終止 (ABORT)</button>
+    </div>
+
+    <!-- 中原標準時間 -->
+    <div id="std-time-container">
+        <div id="std-label">中原標準時間</div>
+        <div id="std-time">Loading...</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const fsBtn = document.getElementById('fs-btn');
+        
+        // 狀態變數
+        let animationId;
+        let particles = [];
+        let width, height;
+        let centerX, centerY;
+        let minDim; // 最小邊長，用於響應式計算
+        
+        // 計時器邏輯變數
+        let totalTimeMs = 0;
+        let endTime = 0;
+        let remainingTimeMs = 0;
+        let isRunning = false;
+        let isPaused = false; 
+        let isAlarmPlaying = false;
+        
+        // UI 元素
+        const controlsDiv = document.getElementById('controls');
+        const activeControlsDiv = document.getElementById('active-controls');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const pauseBtn = document.getElementById('pause-btn'); 
+        const stdTimeDisplay = document.getElementById('std-time');
+        
+        // 音效 Context
+        let audioCtx;
+        let oscillator;
+        let gainNode;
+
+        // 初始化畫布尺寸
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            minDim = Math.min(width, height);
+            centerX = width / 2;
+            // 修改: 圓心改回正中央 (50%)
+            centerY = height * 0.5; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 全螢幕切換
+        fsBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+                fsBtn.textContent = "⛶ 退出全螢幕";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    fsBtn.textContent = "⛶ 全螢幕";
+                }
+            }
+        });
+
+        // 監聽全螢幕變化
+        document.addEventListener('fullscreenchange', () => {
+             if (!document.fullscreenElement) {
+                fsBtn.textContent = "⛶ 全螢幕";
+             } else {
+                fsBtn.textContent = "⛶ 退出全螢幕";
+             }
+        });
+
+        // --- 粒子系統 (背景特效) ---
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 1; 
+                this.vy = (Math.random() - 0.5) * 1; 
+                this.radius = Math.random() * 2 + 0.5;
+                this.color = Math.random() > 0.8 ? '#ff0055' : '#00f0ff'; 
+                this.alpha = Math.random() * 0.5 + 0.1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        for (let i = 0; i < 100; i++) {
+            particles.push(new Particle());
+        }
+
+        // --- 核心繪圖函數 ---
+        
+        function formatTime(ms) {
+            if (ms < 0) ms = 0;
+            const totalSec = Math.ceil(ms / 1000);
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function drawTimerRing(percent) {
+            // 半徑 42%
+            const radius = minDim * 0.42; 
+            const startAngle = -Math.PI / 2; 
+            const endAngle = startAngle + (Math.PI * 2 * percent);
+            
+            let color = '#00f0ff'; 
+            let glow = 20;
+            
+            if (isPaused) {
+                color = '#ffcc00';
+                glow = 15;
+            } 
+            else if (percent < 0.1 || remainingTimeMs < 10000) {
+                const flicker = Math.sin(Date.now() / 100) * 0.5 + 0.5;
+                color = `rgba(255, 0, 85, ${0.8 + flicker * 0.2})`;
+                glow = 30 + flicker * 20;
+            }
+
+            // 1. 底軌
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 15;
+            ctx.stroke();
+
+            // 2. 進度條
+            if (percent > 0) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 15;
+                ctx.lineCap = 'round';
+                ctx.shadowBlur = glow;
+                ctx.shadowColor = color;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // 3. 光點
+                const headX = centerX + radius * Math.cos(endAngle);
+                const headY = centerY + radius * Math.sin(endAngle);
+                ctx.beginPath();
+                ctx.arc(headX, headY, 12, 0, Math.PI * 2);
+                ctx.fillStyle = isPaused ? '#ffcc00' : '#fff'; 
+                ctx.shadowBlur = 40;
+                ctx.shadowColor = color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // 4. 中央文字 - 動態字體大小
+            // 字體大小設定為螢幕短邊的 18%
+            const fontSize = minDim * 0.18; 
+            
+            ctx.fillStyle = color;
+            ctx.font = `bold ${fontSize}px "Share Tech Mono"`; 
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+            
+            let displayMs = isRunning ? remainingTimeMs : getInputMs();
+            if (!isRunning && remainingTimeMs === 0 && totalTimeMs > 0) displayMs = 0; 
+            
+            ctx.fillText(formatTime(displayMs), centerX, centerY);
+            
+            // 毫秒顯示 / 暫停文字
+            const msFontSize = fontSize * 0.4; 
+            const msOffset = fontSize * 0.75;  
+            
+            if (isPaused) {
+                ctx.font = `${msFontSize * 0.8}px "Share Tech Mono"`;
+                ctx.fillText("PAUSED", centerX, centerY + msOffset);
+            } else if (isRunning && displayMs > 0) {
+                 const msPart = Math.floor((displayMs % 1000) / 10);
+                 ctx.font = `${msFontSize}px "Share Tech Mono"`; 
+                 ctx.fillText(`.${msPart.toString().padStart(2, '0')}`, centerX, centerY + msOffset); 
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        // --- 主動畫循環 ---
+        function animate() {
+            ctx.fillStyle = 'rgba(5, 7, 10, 0.25)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            let percent = 1;
+            
+            if (isRunning) {
+                if (!isPaused) {
+                    const now = Date.now();
+                    remainingTimeMs = endTime - now;
+                }
+                
+                if (remainingTimeMs <= 0) {
+                    remainingTimeMs = 0;
+                    percent = 0;
+                    timerFinished();
+                } else {
+                    percent = remainingTimeMs / totalTimeMs;
+                }
+            } else if (remainingTimeMs === 0 && totalTimeMs > 0) {
+                percent = 0;
+            } else {
+                percent = 1;
+            }
+
+            drawTimerRing(percent);
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- 邏輯函數 ---
+
+        function getInputMs() {
+            const h = parseInt(document.getElementById('h-in').value) || 0;
+            const m = parseInt(document.getElementById('m-in').value) || 0;
+            const s = parseInt(document.getElementById('s-in').value) || 0;
+            return (h * 3600 + m * 60 + s) * 1000;
+        }
+
+        function startTimer() {
+            const ms = getInputMs();
+            if (ms <= 0) return;
+
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            totalTimeMs = ms;
+            endTime = Date.now() + ms;
+            isRunning = true;
+            isPaused = false;
+            isAlarmPlaying = false;
+            
+            pauseBtn.textContent = "暫停 (PAUSE)";
+
+            controlsDiv.style.display = 'none';
+            activeControlsDiv.style.display = 'flex'; 
+        }
+
+        function togglePause() {
+            if (!isRunning) return;
+
+            if (isPaused) {
+                endTime = Date.now() + remainingTimeMs;
+                isPaused = false;
+                pauseBtn.textContent = "暫停 (PAUSE)";
+            } else {
+                isPaused = true;
+                pauseBtn.textContent = "繼續 (RESUME)";
+                if (isAlarmPlaying) stopAlarm();
+            }
+        }
+
+        function stopTimer() {
+            isRunning = false;
+            isPaused = false;
+            remainingTimeMs = 0; 
+            stopAlarm();
+            
+            controlsDiv.style.display = 'block';
+            activeControlsDiv.style.display = 'none';
+        }
+
+        function timerFinished() {
+            isRunning = false;
+            if (!isAlarmPlaying) {
+                playAlarm();
+            }
+        }
+
+        function playAlarm() {
+            if (!audioCtx) return;
+            isAlarmPlaying = true;
+            
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); 
+            oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+            oscillator.frequency.linearRampToValueAtTime(440, audioCtx.currentTime + 1.0);
+
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            
+            const pulse = setInterval(() => {
+                if(!isAlarmPlaying) {
+                    clearInterval(pulse);
+                    return;
+                }
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const now = audioCtx.currentTime;
+                oscillator.frequency.setValueAtTime(880, now);
+                oscillator.frequency.exponentialRampToValueAtTime(440, now + 0.4);
+            }, 1000);
+        }
+
+        function stopAlarm() {
+            if (oscillator) {
+                try {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                } catch(e) {}
+                oscillator = null;
+            }
+            isAlarmPlaying = false;
+        }
+
+        function updateStandardTime() {
+            const now = new Date();
+            const timeString = new Intl.DateTimeFormat('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Taipei'
+            }).format(now);
+            
+            stdTimeDisplay.textContent = timeString;
+        }
+
+        startBtn.addEventListener('click', startTimer);
+        stopBtn.addEventListener('click', stopTimer);
+        pauseBtn.addEventListener('click', togglePause);
+
+        setInterval(updateStandardTime, 1000); 
+        updateStandardTime(); 
+        animate(); 
+
+    </script>
+</body>
+</html>
