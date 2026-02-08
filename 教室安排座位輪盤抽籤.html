@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室安排座位輪盤抽籤(阿發老師設計)</title>
+    <!-- Tailwind CSS for Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- xlsx-js-style for Styled Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #1e293b; /* Slate 800 */
+            color: #f1f5f9;
+        }
+
+        .seat {
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        /* 空座位 (未占用) */
+        .seat-empty {
+            background-color: #334155;
+            border: 2px dashed #94a3b8;
+            color: #94a3b8;
+        }
+        
+        /* 已占用座位 */
+        .seat-occupied {
+            background-color: #3b82f6; /* Blue 500 */
+            border: 2px solid #60a5fa;
+            color: white;
+            transform: scale(1.02);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* 排除的座位 (走道/柱子) */
+        .seat-excluded {
+            background-color: #0f172a;
+            border: none;
+            opacity: 0.3;
+            pointer-events: auto;
+        }
+        .seat-excluded::after {
+            content: "X";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: #ef4444;
+        }
+
+        /* 當前目標座位 (高亮) */
+        .seat-target {
+            background-color: #f59e0b; /* Amber 500 */
+            border: 2px solid #fcd34d;
+            animation: pulse 1s infinite;
+        }
+
+        /* 學生姓名特別樣式 */
+        .seat-name {
+            font-size: 1.25rem;
+            line-height: 1.2;
+            word-break: break-all;
+            text-align: center;
+            padding: 0 2px;
+        }
+
+        /* 中獎彈出特效 */
+        .winner-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #dc2626; /* Red 600 */
+            padding: 20px 40px;
+            border-radius: 1rem;
+            font-size: 2.5rem;
+            font-weight: bold;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            border: 5px solid #fbbf24; /* Amber 400 */
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            white-space: nowrap;
+        }
+        
+        .winner-popup.active {
+            transform: translate(-50%, -50%) scale(1.2);
+            opacity: 1;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* 輪盤畫布 */
+        canvas {
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.5));
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- 頂部導航 -->
+    <header class="bg-slate-900 p-4 shadow-md z-10 flex justify-between items-center">
+        <!-- 修改標題：字體放大 (text-4xl)，顏色白色，阿發老師字樣黃色 -->
+        <h1 class="text-4xl font-bold text-white flex items-center">
+            <i class="fa-solid fa-atom mr-2"></i>
+            教室安排座位輪盤抽籤
+            <span class="text-yellow-400 text-3xl ml-2 font-bold">(阿發老師設計)</span>
+        </h1>
+        <div class="space-x-2">
+            <button onclick="exportExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition">
+                <i class="fa-solid fa-file-excel mr-2"></i>匯出 Excel
+            </button>
+            <button onclick="resetAll()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow transition">
+                <i class="fa-solid fa-rotate-right mr-2"></i>重置系統
+            </button>
+        </div>
+    </header>
+
+    <main class="flex flex-1 overflow-hidden">
+        
+        <!-- 左側控制面板與輪盤 (寬度加大至 600px) -->
+        <aside class="w-[600px] min-w-[600px] p-4 flex flex-col bg-slate-800 border-r border-slate-700 overflow-y-auto transition-all duration-300">
+            
+            <!-- 1. 抽籤控制區 -->
+            <div id="lotteryPanel" class="mb-6 flex-1 flex flex-col items-center justify-start opacity-50 pointer-events-none transition-opacity duration-300">
+                
+                <!-- 模式選擇 -->
+                <div class="flex bg-slate-900 rounded-lg p-1 mb-2 w-full shrink-0">
+                    <button id="modeStudentBtn" onclick="setMode('student')" class="flex-1 py-1 rounded text-sm bg-blue-600 text-white transition">學生選位</button>
+                    <button id="modeSeatBtn" onclick="setMode('seat')" class="flex-1 py-1 rounded text-sm text-slate-400 hover:text-white transition">座位選人</button>
+                </div>
+
+                <!-- 狀態顯示 -->
+                <div class="text-center mb-2 shrink-0">
+                    <div id="statusText" class="text-xl font-bold text-yellow-300 mb-1">準備就緒</div>
+                    <div id="subStatusText" class="text-sm text-slate-400">點擊輪盤開始</div>
+                </div>
+
+                <!-- 新增：即時打亂順序工具列 -->
+                <div class="flex w-full gap-2 mb-2 px-4">
+                    <button onclick="shuffleRemainingStudents()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-1 px-2 rounded text-xs transition shadow border border-indigo-400">
+                        <i class="fa-solid fa-shuffle mr-1"></i>打亂剩餘學生
+                    </button>
+                    <button onclick="shuffleRemainingSeats()" class="flex-1 bg-pink-600 hover:bg-pink-500 text-white py-1 px-2 rounded text-xs transition shadow border border-pink-400">
+                        <i class="fa-solid fa-shuffle mr-1"></i>打亂剩餘座位
+                    </button>
+                </div>
+
+                <!-- 輪盤與等待名單區 (Flex Row) -->
+                <div class="flex flex-row items-center justify-center gap-4 mb-4 shrink-0 w-full px-2">
+                    
+                    <!-- 輪盤 -->
+                    <div class="relative group cursor-pointer" onclick="spinWheel()">
+                        <!-- Canvas -->
+                        <canvas id="wheelCanvas" width="450" height="450" style="width: 380px; height: 380px;"></canvas>
+                        
+                        <!-- 指針 -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                            <i class="fa-solid fa-caret-down text-5xl text-red-500 absolute -top-[200px] left-1/2 -translate-x-1/2 drop-shadow-lg"></i>
+                        </div>
+                        
+                        <!-- 中心點 -->
+                        <div class="absolute top-1/2 left-1/2 w-10 h-10 bg-slate-200 rounded-full transform -translate-x-1/2 -translate-y-1/2 shadow-inner border-4 border-slate-400 flex items-center justify-center">
+                            <div class="w-3 h-3 bg-slate-900 rounded-full"></div>
+                        </div>
+
+                        <!-- 中獎彈出特效層 -->
+                        <div id="winnerPopup" class="winner-popup">
+                            中獎者
+                        </div>
+                    </div>
+
+                    <!-- 新增：等待名單 (Queue List) -->
+                    <div id="queueListContainer" class="flex flex-col gap-2 w-48 shrink-0 self-stretch justify-center">
+                         <!-- JS 動態生成內容 -->
+                         <div class="text-slate-400 text-sm text-center">準備中...</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 w-full px-4">
+                    <!-- 修改按鈕文字：啟動實驗 (SPIN) -> 轉動輪盤 -->
+                    <button id="spinBtn" onclick="spinWheel()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-3 rounded-lg shadow-lg transform active:scale-95 transition text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-400">
+                        轉動輪盤
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                        <div class="flex items-center bg-slate-900 p-2 rounded">
+                            <input type="checkbox" id="skipAnim" class="mr-2 w-4 h-4 accent-blue-500">
+                            <label for="skipAnim" class="cursor-pointer">跳過動畫 (極速)</label>
+                        </div>
+                        <div class="flex items-center bg-slate-900 p-2 rounded">
+                            <input type="checkbox" id="autoPlay" class="mr-2 w-4 h-4 accent-green-500">
+                            <label for="autoPlay" class="cursor-pointer">自動連續抽籤</label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 2. 設定區塊 -->
+            <div id="setupPanel" class="p-4 bg-slate-700 rounded-lg shadow shrink-0">
+                <h3 class="text-lg font-bold mb-3 text-yellow-400 border-b border-slate-600 pb-2">輸入學生名單，與座位直行、橫列數量</h3>
+                
+                <div class="grid grid-cols-2 gap-4 mb-2">
+                    <div>
+                        <label class="block text-sm text-slate-300">列數 (Rows)</label>
+                        <input type="number" id="rowsInput" value="6" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-300">行數 (Cols)</label>
+                        <input type="number" id="colsInput" value="8" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
+                    </div>
+                </div>
+
+                <!-- 即時統計顯示 -->
+                <div class="bg-slate-800 p-2 rounded mb-3 border border-slate-600 text-xs">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-slate-400">參與抽籤學生數：</span>
+                        <span id="statStudentCount" class="font-bold text-white text-sm">0</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-slate-400">可抽籤座位數：</span>
+                        <span id="statSeatCount" class="font-bold text-white text-sm">0</span>
+                    </div>
+                    <!-- 警告訊息區 -->
+                    <div id="countWarning" class="text-red-400 font-bold mt-2 text-center hidden border-t border-slate-600 pt-1">
+                        ⚠️ 學生人數不等於座位數
+                    </div>
+                </div>
+
+                <div class="mb-1">
+                    <label class="block text-sm text-slate-300 mb-1">學生名單 (每行一個)</label>
+                    
+                    <!-- 功能按鈕區 -->
+                    <div class="flex gap-2 mb-2">
+                        <input type="file" id="csvInput" accept=".csv, .txt" class="hidden" onchange="importCSV(this)">
+                        <!-- 修改按鈕：匯入名單CSV/TXT，底色改為綠色 (bg-green-600) -->
+                        <button onclick="document.getElementById('csvInput').click()" class="flex-1 bg-green-600 hover:bg-green-500 text-white py-1 px-2 rounded text-xs transition border border-green-500">
+                            <i class="fa-solid fa-file-import mr-1"></i>匯入名單CSV/TXT
+                        </button>
+                        <!-- 改名為 打亂名單輸入 -->
+                        <button onclick="shuffleList()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-1 px-2 rounded text-xs transition border border-purple-500">
+                            <i class="fa-solid fa-shuffle mr-1"></i>打亂名單輸入
+                        </button>
+                    </div>
+
+                    <textarea id="studentList" class="w-full h-32 bg-slate-900 border border-slate-600 rounded p-2 text-xs font-mono" placeholder="貼上學生姓名..."></textarea>
+                </div>
+
+                <button onclick="initGrid()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold transition">
+                    初始化教室場域
+                </button>
+            </div>
+
+        </aside>
+
+        <!-- 右側教室視圖 -->
+        <main class="flex-1 p-6 bg-slate-900 overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-sm text-slate-400"><i class="fa-solid fa-chalkboard-user mr-1"></i>講台方向 (Front)</div>
+                <!-- 修改提示文字：顏色黃色，字體加粗，並更換內容 -->
+                <div class="text-sm text-yellow-400 font-bold"><i class="fa-solid fa-lightbulb mr-1"></i>提示：點擊座位可設為空座位(不加入抽籤)</div>
+            </div>
+            
+            <!-- 講台 -->
+            <div class="h-8 bg-amber-500 w-1/2 mx-auto rounded-b-lg mb-6 shadow-lg flex items-center justify-center text-xs text-slate-900 font-bold border-b-4 border-amber-700">
+                講台 (Teacher's Podium)
+            </div>
+
+            <!-- 座位網格 -->
+            <div class="flex-1 overflow-auto flex justify-center">
+                <div id="classroomGrid" class="grid gap-3 transition-all duration-500">
+                    <!-- 座位由 JS 動態生成 -->
+                    <div class="text-slate-500 mt-10 text-xl">請在左側設定並初始化教室...</div>
+                </div>
+            </div>
+        </main>
+    </main>
+
+<script>
+    // --- 音效控制器 (Web Audio API) ---
+    // 為了避免瀏覽器政策阻擋，我們在第一次點擊按鈕時恢復 AudioContext
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // 1. 轉動時的答答聲 (短促的高音)
+    function playTickSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        osc.type = 'triangle'; // 三角波比較清脆
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime); // 頻率
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.08); // 快速下降
+        
+        gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime); // 音量
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08); // 快速衰減
+        
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // 2. 中獎時的音效 (C大調琶音)
+    function playWinSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        // C5, E5, G5, C6
+        const notes = [523.25, 659.25, 783.99, 1046.50]; 
+        const now = audioCtx.currentTime;
+        
+        notes.forEach((freq, i) => {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine'; // 正弦波比較圓潤
+            osc.frequency.value = freq;
+            
+            gainNode.gain.setValueAtTime(0, now + i * 0.1);
+            gainNode.gain.linearRampToValueAtTime(0.2, now + i * 0.1 + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.5);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start(now + i * 0.1);
+            osc.stop(now + i * 0.1 + 0.5);
+        });
+    }
+
+    // --- 物理常數與全域變數 ---
+    let students = [];
+    let seats = [];
+    let remainingStudents = [];
+    let remainingSeats = []; // 儲存座位 index
+    
+    let rows = 6;
+    let cols = 8;
+    
+    let currentMode = 'student';
+    let isSpinning = false;
+    let autoPlayTimer = null;
+    let isCountMatched = true;
+
+    // 輪盤參數
+    let wheelAngle = 0;
+    let wheelVelocity = 0;
+    let wheelFriction = 0.985;
+    let animationId = null;
+    let wheelSegments = [];
+    let wheelColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'];
+    let lastSoundIndex = -1; // 用來記錄上次播放音效的區塊
+
+    // --- 1. 初始化與設定 ---
+
+    window.onload = function() {
+        const demoNames = [];
+        for(let i=1; i<=48; i++) {
+            demoNames.push(`${i}號同學`);
+        }
+        document.getElementById('studentList').value = demoNames.join('\n');
+    };
+
+    // 匯入 CSV/TXT 功能
+    function importCSV(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/);
+            const names = [];
+            
+            lines.forEach(line => {
+                let cleanLine = line.trim();
+                if (cleanLine) {
+                    if (cleanLine.includes(',')) {
+                        const parts = cleanLine.split(',');
+                        parts.forEach(p => {
+                            const n = p.trim().replace(/^"|"$/g, '');
+                            if(n) names.push(n);
+                        });
+                    } else {
+                        names.push(cleanLine);
+                    }
+                }
+            });
+
+            document.getElementById('studentList').value = names.join('\n');
+            input.value = ''; 
+        };
+        reader.readAsText(file);
+    }
+
+    // 打亂名單順序 (Setup Panel)
+    function shuffleList() {
+        const textarea = document.getElementById('studentList');
+        let lines = textarea.value.split('\n').map(s => s.trim()).filter(s => s !== "");
+        
+        if (lines.length === 0) {
+            alert("名單為空，無法打亂");
+            return;
+        }
+        
+        shuffleArray(lines);
+        textarea.value = lines.join('\n');
+    }
+
+    // 陣列洗牌函式 (Fisher-Yates)
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // 新增：打亂剩餘學生 (Runtime)
+    function shuffleRemainingStudents() {
+        if (remainingStudents.length === 0) return;
+        shuffleArray(remainingStudents);
+        prepareRound(false); // 更新 UI，不重置順序
+    }
+
+    // 新增：打亂剩餘座位 (Runtime)
+    function shuffleRemainingSeats() {
+        if (remainingSeats.length === 0) return;
+        shuffleArray(remainingSeats);
+        prepareRound(false); // 更新 UI，不重置順序
+    }
+
+    function initGrid() {
+        const rInput = parseInt(document.getElementById('rowsInput').value);
+        const cInput = parseInt(document.getElementById('colsInput').value);
+        const rawText = document.getElementById('studentList').value.trim();
+
+        if (rInput < 1 || cInput < 1) {
+            alert("行與列必須大於 0");
+            return;
+        }
+        if (!rawText) {
+            alert("請輸入學生名單");
+            return;
+        }
+
+        rows = rInput;
+        cols = cInput;
+        students = rawText.split('\n').map(s => s.trim()).filter(s => s !== "");
+
+        seats = [];
+        remainingStudents = [...students];
+        
+        const grid = document.getElementById('classroomGrid');
+        grid.innerHTML = '';
+        grid.style.gridTemplateColumns = `repeat(${cols}, minmax(80px, 120px))`;
+        
+        let seatIndex = 0;
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const seatId = `seat-${r}-${c}`;
+                const currentIdx = seatIndex;
+
+                seats.push({
+                    index: currentIdx,
+                    r: r,
+                    c: c,
+                    id: seatId,
+                    excluded: false,
+                    occupant: null
+                });
+                
+                const el = document.createElement('div');
+                el.id = seatId;
+                el.className = 'seat seat-empty h-20 rounded-md flex flex-col items-center justify-center text-xs shadow-sm font-bold select-none';
+                el.onclick = () => toggleSeatExclusion(currentIdx);
+                // 顯示編號：行-列 (c+1)-(r+1)
+                el.innerHTML = `<span class="text-[10px] opacity-50 absolute top-1 left-1">${c+1}-${r+1}</span><span class="seat-name"></span>`;
+                
+                grid.appendChild(el);
+                seatIndex++;
+            }
+        }
+
+        document.getElementById('setupPanel').classList.add('opacity-50', 'pointer-events-none');
+        document.getElementById('lotteryPanel').classList.remove('opacity-50', 'pointer-events-none');
+        
+        // 初始化時，強制重置座位順序為預設排序
+        prepareRound(true);
+    }
+
+    function toggleSeatExclusion(index) {
+        if (seats[index].occupant) return;
+        
+        seats[index].excluded = !seats[index].excluded;
+        const el = document.getElementById(seats[index].id);
+        
+        if (seats[index].excluded) {
+            el.classList.remove('seat-empty');
+            el.classList.add('seat-excluded');
+            // 如果排除，從剩餘座位中移除
+            const idx = remainingSeats.indexOf(index);
+            if (idx > -1) remainingSeats.splice(idx, 1);
+        } else {
+            el.classList.add('seat-empty');
+            el.classList.remove('seat-excluded');
+            // 如果加回，放回剩餘座位 (放回最後或依照某種順序，這裡簡單 push)
+            if (!remainingSeats.includes(index)) {
+                remainingSeats.push(index);
+                // 如果希望保持某種順序，這裡可以 sort，但使用者可能已經打亂了
+                // 為了簡單起見，加在最後，或者可以選擇重置
+            }
+        }
+        
+        prepareRound(false); 
+    }
+
+    // --- 2. 模式與狀態管理 ---
+
+    function setMode(mode) {
+        if (isSpinning) return;
+        currentMode = mode;
+        
+        const sBtn = document.getElementById('modeStudentBtn');
+        const tBtn = document.getElementById('modeSeatBtn');
+        
+        if (mode === 'student') {
+            sBtn.className = "flex-1 py-1 rounded text-sm bg-blue-600 text-white transition shadow";
+            tBtn.className = "flex-1 py-1 rounded text-sm text-slate-400 hover:text-white transition";
+        } else {
+            tBtn.className = "flex-1 py-1 rounded text-sm bg-blue-600 text-white transition shadow";
+            sBtn.className = "flex-1 py-1 rounded text-sm text-slate-400 hover:text-white transition";
+        }
+
+        // 切換模式時，通常希望重置順序為該模式的邏輯順序，
+        // 但如果使用者已經打亂了，可能不想重置。
+        // 這裡設定為切換模式會重置為預設順序 (Sort)，以避免混亂。
+        prepareRound(true);
+    }
+
+    // 新增：更新排隊名單顯示
+    function updateQueueDisplay() {
+        const queueContainer = document.getElementById('queueListContainer');
+        queueContainer.innerHTML = '';
+
+        // 標題
+        const title = document.createElement('div');
+        title.className = 'text-slate-400 text-sm font-bold mb-1 border-b border-slate-600 pb-1 text-center';
+        title.innerText = (currentMode === 'student') ? "接下來的學生" : "接下來的座位";
+        queueContainer.appendChild(title);
+
+        // 顯示 3 筆 (Current + Next 2)
+        const count = 3;
+        for(let i=0; i<count; i++) {
+            let text = "";
+            let isCurrent = (i === 0);
+
+            if (currentMode === 'student') {
+                // 學生選位：佇列是學生
+                if (i < remainingStudents.length) {
+                    text = remainingStudents[i];
+                } else {
+                    text = "--";
+                }
+            } else {
+                // 座位選人：佇列是座位
+                if (i < remainingSeats.length) {
+                    const s = seats[remainingSeats[i]];
+                    text = `${s.c+1}-${s.r+1}`;
+                } else {
+                    text = "--";
+                }
+            }
+
+            const item = document.createElement('div');
+            // 樣式區分：Current 特別顯眼
+            if (isCurrent) {
+                item.className = "bg-blue-600 text-white p-2 rounded shadow-lg transform scale-105 font-bold text-center border-2 border-yellow-400 relative overflow-hidden";
+                item.innerHTML = `<div class="absolute top-0 left-0 w-full text-[9px] bg-yellow-500 text-slate-900 leading-none py-0.5 font-bold tracking-wider uppercase">Current</div><div class="mt-2 text-xl">${text}</div>`;
+            } else {
+                item.className = "bg-slate-700 text-slate-300 p-2 rounded text-center opacity-80 scale-95 border border-slate-600";
+                item.innerHTML = `<div class="text-sm">${text}</div>`;
+            }
+            
+            queueContainer.appendChild(item);
+        }
+    }
+
+    // 修改：prepareRound 增加 forceReset 參數
+    function prepareRound(forceReset = false) {
+        
+        if (forceReset) {
+            // 1. 取得所有可用的座位候選人
+            let candidates = seats.filter(s => !s.excluded && !s.occupant);
+
+            // 2. 根據模式進行預設排序
+            if (currentMode === 'seat') {
+                // 座位選人模式：優先完成直行 (Column-Major Order)
+                // 先比行(c)，再比列(r)
+                candidates.sort((a, b) => {
+                    if (a.c !== b.c) return a.c - b.c;
+                    return a.r - b.r;
+                });
+            } else {
+                // 學生選位模式：預設順序 (Row-Major Order)
+                // 先比列(r)，再比行(c)
+                candidates.sort((a, b) => {
+                    if (a.r !== b.r) return a.r - b.r;
+                    return a.c - b.c;
+                });
+            }
+            // 重置 remainingSeats
+            remainingSeats = candidates.map(s => s.index);
+        }
+        // 如果不是 forceReset，我們就保留 remainingSeats 目前的順序 (可能是打亂過的)
+
+        const studentCount = remainingStudents.length;
+        const seatCount = remainingSeats.length;
+
+        document.getElementById('statStudentCount').innerText = studentCount;
+        document.getElementById('statSeatCount').innerText = seatCount;
+
+        const warningEl = document.getElementById('countWarning');
+        const spinBtn = document.getElementById('spinBtn');
+        const statusEl = document.getElementById('statusText');
+        const subStatusEl = document.getElementById('subStatusText');
+
+        // 更新名單顯示
+        updateQueueDisplay();
+
+        if (studentCount !== seatCount && studentCount > 0 && seatCount > 0) {
+            isCountMatched = false;
+            warningEl.classList.remove('hidden');
+            
+            if (studentCount > seatCount) {
+                warningEl.innerText = `⚠️ 學生人數(${studentCount}) 大於 座位數(${seatCount})`;
+            } else {
+                warningEl.innerText = `⚠️ 學生人數(${studentCount}) 小於 座位數(${seatCount})`;
+            }
+
+            spinBtn.disabled = true;
+            statusEl.innerText = "數量不符";
+            statusEl.className = "text-xl font-bold text-red-400 mb-1";
+            subStatusEl.innerText = "請調整座位排除或學生名單";
+            
+            wheelSegments = ["STOP"];
+            drawWheel();
+            return;
+        } else {
+            isCountMatched = true;
+            warningEl.classList.add('hidden');
+            spinBtn.disabled = false;
+            statusEl.className = "text-xl font-bold text-yellow-300 mb-1";
+        }
+
+        if (remainingStudents.length === 0 || remainingSeats.length === 0) {
+            document.getElementById('statusText').innerText = "分配完成！";
+            document.getElementById('subStatusText').innerText = "請匯出表格或重置";
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            wheelSegments = ["END"];
+            drawWheel();
+            return;
+        }
+        
+        seats.forEach(s => {
+            const el = document.getElementById(s.id);
+            el.classList.remove('seat-target');
+        });
+
+        if (currentMode === 'student') {
+            const nextStudent = remainingStudents[0]; 
+            statusEl.innerHTML = `當前學生：<span class="text-cyan-400">${nextStudent}</span>`;
+            subStatusEl.innerText = "正在抽選幸運座位...";
+            wheelSegments = remainingSeats.map(idx => {
+                const s = seats[idx];
+                return `${s.c+1}-${s.r+1}`;
+            });
+
+        } else {
+            // Mode B: 座位選人
+            const nextSeatIndex = remainingSeats[0]; // 取佇列第一個
+            const s = seats[nextSeatIndex];
+            const el = document.getElementById(s.id);
+            el.classList.add('seat-target');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            statusEl.innerHTML = `當前座位：<span class="text-amber-400">${s.c+1}-${s.r+1}</span>`; 
+            subStatusEl.innerText = "正在抽選入座學生...";
+            wheelSegments = [...remainingStudents];
+        }
+
+        drawWheel();
+
+        if (wheelSegments.length === 1 && isCountMatched) {
+            // 如果剩一個，直接觸發彈出，然後結束
+            setTimeout(() => {
+                triggerPopupAndFinish(wheelSegments[0], 0);
+            }, 300);
+        }
+    }
+
+    // --- 3. 輪盤物理動畫 (Canvas) ---
+
+    function drawWheel() {
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2 - 10;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const len = wheelSegments.length;
+        const arc = (2 * Math.PI) / len;
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(wheelAngle); 
+
+        for (let i = 0; i < len; i++) {
+            const angle = i * arc;
+            ctx.beginPath();
+            ctx.fillStyle = (wheelSegments[0] === "STOP") ? "#334155" : wheelColors[i % wheelColors.length];
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, radius, angle, angle + arc);
+            ctx.lineTo(0, 0);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.save();
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.font = len > 20 ? "14px Arial" : "bold 20px Arial";
+            ctx.fillText(wheelSegments[i], radius - 20, 6);
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
+    function spinWheel() {
+        if (isSpinning) return;
+        if (!isCountMatched) {
+            alert("學生數與座位數不符，無法開始抽籤！");
+            return;
+        }
+        if (wheelSegments[0] === "END" || wheelSegments[0] === "STOP") return;
+
+        // 重要：在使用者點擊時恢復 AudioContext，確保聲音可以播放
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const skipAnim = document.getElementById('skipAnim').checked;
+        if (skipAnim) {
+            instantWin();
+            return;
+        }
+
+        isSpinning = true;
+        wheelVelocity = 0.5 + Math.random() * 0.5; 
+        requestAnimationFrame(animateWheel);
+    }
+
+    function instantWin() {
+        const winnerIndex = Math.floor(Math.random() * wheelSegments.length);
+        triggerPopupAndFinish(wheelSegments[winnerIndex], winnerIndex, true);
+    }
+
+    function animateWheel() {
+        wheelVelocity *= wheelFriction; 
+        wheelAngle += wheelVelocity;
+
+        if (wheelAngle >= 2 * Math.PI) {
+            wheelAngle -= 2 * Math.PI;
+        }
+
+        drawWheel();
+
+        // 偵測是否跨越分隔線以播放音效
+        if (isSpinning && wheelSegments.length > 0) {
+            // 計算目前指針下方的區塊 index
+            // 指針在上方 (270deg / 1.5PI)
+            const currentRotation = wheelAngle % (2 * Math.PI);
+            const segmentArc = (2 * Math.PI) / wheelSegments.length;
+            let pointerAngle = (3 * Math.PI / 2) - currentRotation;
+            if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+            const currentSoundIndex = Math.floor(pointerAngle / segmentArc);
+
+            // 如果 index 改變了，播放聲音
+            if (currentSoundIndex !== lastSoundIndex) {
+                playTickSound();
+                lastSoundIndex = currentSoundIndex;
+            }
+        }
+
+        if (wheelVelocity < 0.002) {
+            isSpinning = false; 
+            determineWinner();
+        } else {
+            requestAnimationFrame(animateWheel);
+        }
+    }
+
+    function determineWinner() {
+        const currentRotation = wheelAngle % (2 * Math.PI);
+        const segmentArc = (2 * Math.PI) / wheelSegments.length;
+        
+        let pointerAngle = (3 * Math.PI / 2) - currentRotation;
+        if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+        
+        const winningIndex = Math.floor(pointerAngle / segmentArc);
+        const result = wheelSegments[winningIndex];
+
+        triggerPopupAndFinish(result, winningIndex, false);
+    }
+
+    function triggerPopupAndFinish(resultValue, resultIndex, isInstant) {
+        // 播放中獎音效
+        playWinSound();
+
+        const popup = document.getElementById('winnerPopup');
+        popup.innerText = resultValue;
+        popup.classList.add('active');
+
+        setTimeout(() => {
+            popup.classList.remove('active');
+            handleResult(resultValue, resultIndex);
+            if(!isInstant) isSpinning = false;
+        }, 500);
+    }
+
+    // --- 4. 結果處理 ---
+
+    function handleResult(resultValue, resultIndexInWheel) {
+        if (currentMode === 'student') {
+            // 模式 A: 學生選位
+            const student = remainingStudents[0];
+            // 輪盤上的選項是 remainingSeats 的內容，順序與 remainingSeats 一致
+            // 所以 resultIndexInWheel 就對應 remainingSeats 的 index
+            const seatIdx = remainingSeats[resultIndexInWheel];
+            
+            // 更新狀態
+            seats[seatIdx].occupant = student;
+            
+            // 移除已使用的學生與座位
+            remainingStudents.shift(); 
+            remainingSeats.splice(resultIndexInWheel, 1);
+
+            const el = document.getElementById(seats[seatIdx].id);
+            el.classList.remove('seat-empty');
+            el.classList.add('seat-occupied');
+            el.querySelector('.seat-name').innerText = student;
+
+        } else {
+            // 模式 B: 座位選人
+            const seatIdx = remainingSeats[0]; // 目標座位是 remainingSeats 的第一個
+            const studentName = resultValue;
+            
+            seats[seatIdx].occupant = studentName;
+            
+            // 移除已使用的座位
+            remainingSeats.shift();
+            // 移除已使用的學生
+            const sIdx = remainingStudents.indexOf(studentName);
+            if (sIdx > -1) remainingStudents.splice(sIdx, 1);
+
+            const el = document.getElementById(seats[seatIdx].id);
+            el.classList.remove('seat-empty', 'seat-target');
+            el.classList.add('seat-occupied');
+            el.querySelector('.seat-name').innerText = studentName;
+        }
+
+        prepareRound(false); // 不重置順序，僅更新 UI
+
+        const isAuto = document.getElementById('autoPlay').checked;
+        const isSkip = document.getElementById('skipAnim').checked;
+
+        if (isAuto && isCountMatched && remainingStudents.length > 0 && remainingSeats.length > 0) {
+            const delay = isSkip ? 200 : 1000; 
+            autoPlayTimer = setTimeout(spinWheel, delay);
+        }
+    }
+
+    // --- 5. 匯出 Excel (使用 xlsx-js-style) ---
+
+    function exportExcel() {
+        if (seats.length === 0) {
+            alert("請先初始化並進行抽籤");
+            return;
+        }
+
+        const borderStyle = { style: "thin", color: { rgb: "000000" } };
+        const baseStyle = {
+            border: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            font: { name: "微軟正黑體", sz: 12 }
+        };
+        const podiumStyle = {
+            border: { top: borderStyle, bottom: borderStyle, left: borderStyle, right: borderStyle },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true },
+            font: { name: "微軟正黑體", sz: 16, bold: true }
+        };
+
+        const wb = XLSX.utils.book_new();
+
+        // 後視角 (Back View)
+        const wsBackData = [];
+        const wsBackCols = [];
+        const wsBackRows = [];
+        const wsBackMerges = [];
+
+        for (let c = 0; c < cols; c++) {
+            wsBackCols.push({ wch: 9 });
+            wsBackCols.push({ wch: 2 });
+        }
+
+        // 講台列
+        const rowPodium = [];
+        for(let k=0; k < cols*2; k++) {
+            if (k >= 4 && k <= 8) {
+                rowPodium.push({ v: (k===4 ? "講桌" : ""), s: podiumStyle });
+            } else {
+                rowPodium.push(null);
+            }
+        }
+        wsBackData.push(rowPodium);
+        wsBackRows.push({ hpt: 40 });
+        wsBackMerges.push({ s: { r: 0, c: 4 }, e: { r: 0, c: 8 } }); 
+
+        wsBackData.push([]);
+        wsBackRows.push({ hpt: 15 });
+
+        for (let r = 0; r < rows; r++) {
+            const rowSeat = [];
+            for (let c = 0; c < cols; c++) {
+                const s = seats.find(x => x.r === r && x.c === c);
+                let cellVal = "";
+                let cellStyle = null;
+
+                if (s.excluded) {
+                    cellVal = "X";
+                } else {
+                    cellVal = s.occupant || "(空)";
+                    cellStyle = baseStyle;
+                }
+                
+                rowSeat.push({ v: cellVal, s: cellStyle });
+                rowSeat.push({ v: "", s: null });
+            }
+            wsBackData.push(rowSeat);
+            wsBackRows.push({ hpt: 40 });
+            wsBackData.push([]);
+            wsBackRows.push({ hpt: 15 });
+        }
+
+        const wsBack = XLSX.utils.aoa_to_sheet(wsBackData);
+        wsBack['!cols'] = wsBackCols;
+        wsBack['!rows'] = wsBackRows;
+        wsBack['!merges'] = wsBackMerges;
+        XLSX.utils.book_append_sheet(wb, wsBack, "後視角");
+
+        // 前視角 (Front View)
+        const wsFrontData = [];
+        const wsFrontCols = [];
+        const wsFrontRows = [];
+        const wsFrontMerges = [];
+
+        for (let c = 0; c < cols; c++) {
+            wsFrontCols.push({ wch: 9 });
+            wsFrontCols.push({ wch: 2 });
+        }
+
+        for (let r = rows - 1; r >= 0; r--) {
+            const rowSeat = [];
+            for (let c = cols - 1; c >= 0; c--) {
+                const s = seats.find(x => x.r === r && x.c === c);
+                let cellVal = "";
+                let cellStyle = null;
+
+                if (s.excluded) {
+                    cellVal = "X";
+                } else {
+                    cellVal = s.occupant || "(空)";
+                    cellStyle = baseStyle;
+                }
+                
+                rowSeat.push({ v: cellVal, s: cellStyle });
+                rowSeat.push({ v: "", s: null });
+            }
+            wsFrontData.push(rowSeat);
+            wsFrontRows.push({ hpt: 40 });
+            wsFrontData.push([]);
+            wsFrontRows.push({ hpt: 15 });
+        }
+
+        const podiumRowIndex = wsFrontData.length;
+        const rowFrontPodium = [];
+        for(let k=0; k < cols*2; k++) {
+             if (k >= 4 && k <= 8) {
+                rowFrontPodium.push({ v: (k===4 ? "講桌" : ""), s: podiumStyle });
+            } else {
+                rowFrontPodium.push(null);
+            }
+        }
+        
+        wsFrontData.push(rowFrontPodium);
+        wsFrontRows.push({ hpt: 40 });
+        wsFrontMerges.push({ s: { r: podiumRowIndex, c: 4 }, e: { r: podiumRowIndex, c: 8 } });
+
+        const wsFront = XLSX.utils.aoa_to_sheet(wsFrontData);
+        wsFront['!cols'] = wsFrontCols;
+        wsFront['!rows'] = wsFrontRows;
+        wsFront['!merges'] = wsFrontMerges;
+        XLSX.utils.book_append_sheet(wb, wsFront, "前視角");
+
+        XLSX.writeFile(wb, "教室座位表.xlsx");
+    }
+
+    function resetAll() {
+        if(confirm("確定要重置所有設定嗎？")) {
+            location.reload();
+        }
+    }
+
+</script>
