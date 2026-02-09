@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>座位抽籤系統 | Seating Lottery</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-color: #1e293b;
+            --accent-color: #06b6d4; /* Cyan */
+            --highlight-color: #f472b6; /* Pink */
+            --danger-color: #ef4444;
+            --success-color: #10b981; /* Emerald Green */
+            --purple-color: #8b5cf6; /* Violet */
+            --orange-color: #f59e0b; /* Amber */
+            --blue-color: #3b82f6; /* Blue */
+            --text-color: #e2e8f0;
+            --grid-gap: 10px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.3s;
+        }
+
+        /* 標題與控制區 */
+        header {
+            background: rgba(30, 41, 59, 0.9);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-color);
+            z-index: 10;
+            height: auto;
+            min-height: 80px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 3rem;
+            color: white; 
+            text-shadow: 0 0 5px var(--accent-color);
+            line-height: 1.2;
+        }
+
+        /* 右側控制區塊佈局 */
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .hint-text {
+            color: #facc15; /* 黃色文字 */
+            font-size: 0.9rem;
+            text-align: left;
+            margin-top: 5px;
+            max-width: 600px;
+            line-height: 1.4;
+        }
+
+        button {
+            background: linear-gradient(45deg, var(--accent-color), #3b82f6);
+            border: none;
+            padding: 8px 16px;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            box-shadow: 0 0 5px rgba(6, 182, 212, 0.5);
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        button.danger {
+            background: linear-gradient(45deg, #ef4444, #b91c1c);
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+        button.danger:hover {
+            box-shadow: 0 0 10px var(--danger-color);
+        }
+
+        /* 重設按鈕 (紅色) */
+        #reset-btn {
+            background: linear-gradient(45deg, #ef4444, #b91c1c);
+            box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+        #reset-btn:hover {
+            box-shadow: 0 0 10px var(--danger-color);
+        }
+
+        /* 綠色開始按鈕 */
+        #start-btn {
+            background: linear-gradient(45deg, #10b981, #059669);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+            width: 220px;
+            height: 120px;
+            font-size: 1.25rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        #start-btn:hover {
+            box-shadow: 0 0 25px var(--success-color);
+            transform: scale(1.05);
+        }
+        
+        /* 紫色排除按鈕 */
+        button.toggle-mode {
+            background: linear-gradient(45deg, var(--purple-color), #6d28d9);
+            box-shadow: 0 0 5px rgba(139, 92, 246, 0.5);
+        }
+        button.toggle-mode:hover {
+            box-shadow: 0 0 10px var(--purple-color);
+        }
+        body.exclude-mode button.toggle-mode {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+            box-shadow: 0 0 10px #f59e0b;
+            color: #fff;
+            animation: pulse-orange 2s infinite;
+        }
+
+        /* 黃橙色切換視角按鈕 */
+        #view-btn {
+            background: linear-gradient(45deg, var(--orange-color), #d97706);
+            box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+        }
+        #view-btn:hover {
+            box-shadow: 0 0 10px var(--orange-color);
+        }
+
+        /* 藍色雲端按鈕 */
+        #cloud-btn {
+            background: linear-gradient(45deg, var(--blue-color), #2563eb);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+        }
+        #cloud-btn:hover {
+            box-shadow: 0 0 10px var(--blue-color);
+        }
+
+        button:disabled {
+            background: #475569 !important;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none !important;
+        }
+
+        input[type="number"] {
+            background: var(--bg-color);
+            border: 1px solid var(--accent-color);
+            color: white;
+            padding: 5px;
+            width: 50px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        /* 主畫面佈局容器 */
+        #main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* 左側座位區 */
+        #classroom-container {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* 右側按鈕區 */
+        #sidebar-container {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.5);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            z-index: 5;
+        }
+
+        /* 排除模式提示 */
+        body.exclude-mode #classroom-container {
+            border: 4px dashed #f59e0b;
+        }
+
+        #seat-grid {
+            display: grid;
+            gap: var(--grid-gap);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            max-width: 95%;
+            max-height: 95%;
+        }
+
+        #seat-grid.flipped {
+            transform: rotate(180deg);
+        }
+        #seat-grid.flipped .seat {
+            transform: rotate(-180deg);
+        }
+
+        .seat {
+            background: var(--panel-color);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 80px;
+            min-height: 60px;
+            user-select: none;
+            overflow: hidden; 
+            padding: 5px;
+        }
+
+        .seat .seat-content {
+            width: 100%;
+            max-height: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            text-align: center;
+            font-size: 2rem;
+            outline: none;
+            pointer-events: auto;
+            line-height: 1.1;
+            font-family: inherit;
+            word-break: break-all;
+            white-space: pre-wrap;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .seat .seat-content[data-placeholder]:empty:before {
+            content: attr(data-placeholder);
+            color: #475569;
+            font-size: 1rem;
+        }
+
+        body.exclude-mode .seat {
+            cursor: no-drop;
+        }
+        body.exclude-mode .seat:hover {
+            border-color: #f59e0b;
+        }
+        body.exclude-mode .seat .seat-content {
+            pointer-events: none;
+        }
+
+        .seat.active {
+            background: var(--accent-color);
+            box-shadow: 0 0 20px var(--accent-color);
+            transform: scale(1.1);
+            z-index: 2;
+            border-color: white;
+        }
+        
+        .seat.active .seat-content {
+            color: #000;
+            font-weight: bold;
+        }
+
+        #seat-grid.flipped .seat.active {
+            transform: rotate(-180deg) scale(1.1);
+        }
+
+        .seat.winning {
+            background: #ef4444 !important;
+            box-shadow: 0 0 30px #ef4444, 0 0 60px #ef4444;
+            animation: pulse 0.5s infinite alternate;
+            z-index: 5;
+        }
+
+        #seat-grid.flipped .seat.winning {
+            animation: pulse-flipped 0.5s infinite alternate;
+        }
+
+        .seat.removed {
+            opacity: 0.4;
+            background: #020617;
+            border: 2px dashed #475569;
+            box-shadow: inset 0 0 10px #000;
+        }
+        .seat.removed .seat-content {
+            text-decoration: line-through;
+            color: #64748b;
+        }
+
+        .seat.empty {
+            visibility: hidden; /* 隱藏但佔位 */
+        }
+
+        /* 彈出視窗 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--panel-color);
+            padding: 30px;
+            border-radius: 16px;
+            border: 2px solid var(--highlight-color);
+            text-align: center;
+            box-shadow: 0 0 50px rgba(244, 114, 182, 0.3);
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-overlay.show .modal {
+            transform: scale(1);
+        }
+
+        .winner-name {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--highlight-color);
+            margin: 20px 0;
+            text-shadow: 0 0 10px var(--highlight-color);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        /* 面板共用樣式 */
+        .control-panel {
+            position: absolute;
+            top: 85px;
+            right: 20px;
+            background: var(--panel-color);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 50;
+            width: 320px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #475569;
+            padding: 10px;
+            margin-bottom: 10px;
+            resize: none;
+            box-sizing: border-box;
+        }
+        
+        .file-input-wrapper {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px dashed #475569;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .file-input-wrapper label {
+            background-color: var(--success-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: block;
+            transition: background 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+        .file-input-wrapper label:hover {
+            background-color: #059669;
+        }
+
+        /* 雲端輸入框 */
+        .cloud-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.2rem;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid var(--accent-color);
+            background: #0f172a;
+            color: white;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+
+        /* 動畫定義 */
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        @keyframes pulse-flipped {
+            from { transform: rotate(-180deg) scale(1); }
+            to { transform: rotate(-180deg) scale(1.05); }
+        }
+        
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 5px #f59e0b; }
+            50% { box-shadow: 0 0 15px #f59e0b; }
+            100% { box-shadow: 0 0 5px #f59e0b; }
+        }
+
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景特效 -->
+    <canvas id="bg-canvas"></canvas>
+
+    <header>
+        <h1>⚛️ 抽籤回答系統(座位模式)---阿發老師設計</h1>
+        <div class="header-right">
+            <div class="controls">
+                <label>行: <input type="number" id="rows-input" value="5" min="1" max="10"></label>
+                <label>列: <input type="number" id="cols-input" value="6" min="1" max="10"></label>
+                <button id="cloud-btn" onclick="toggleCloudPanel()">☁️ 雲端存取</button>
+                <button onclick="toggleImportPanel()">📂 匯入名單</button>
+                <button class="toggle-mode" id="mode-btn" onclick="toggleExcludeMode()">🚫 設定排除名單</button>
+                <button id="view-btn" onclick="toggleView()">🔄 切換視角</button>
+                <button id="reset-btn" onclick="resizeGrid()">重設</button>
+            </div>
+            <div class="hint-text">
+                提示：<br>
+                1. 點擊匯入名單，可以從CVS檔直接匯入座位表。<br>
+                2. 切換視角可以將座位切換成「老師視角」或「學生視角」。<br>
+                3. 點擊「設定排除名單」，可將不參與抽籤的學生排除。
+            </div>
+        </div>
+    </header>
+
+    <div id="main-layout">
+        <div id="classroom-container">
+            <div id="seat-grid">
+                <!-- Grid generated by JS -->
+            </div>
+        </div>
+
+        <div id="sidebar-container">
+            <button id="start-btn" onclick="startLottery()">🚀 開始抽籤</button>
+        </div>
+    </div>
+
+    <!-- 匯入工具 -->
+    <div id="import-panel" class="control-panel">
+        <h3>批次匯入名單</h3>
+        <div class="file-input-wrapper">
+            <label for="csv-file">
+                📂 點擊上傳CSV檔
+            </label>
+            <input type="file" id="csv-file" accept=".csv, .txt" style="display: none;" onchange="handleFileUpload(this)">
+        </div>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">將自動偵測 Excel 的行列數並調整座位表</p>
+        <textarea id="name-list" placeholder="直接貼上 Excel 區塊..."></textarea>
+        <div style="display:flex; justify-content:space-between;">
+            <button onclick="toggleImportPanel()" class="danger" style="font-size:0.8rem">關閉</button>
+            <button onclick="processImport()" style="font-size:0.8rem">確認並重塑座位</button>
+        </div>
+    </div>
+
+    <!-- 雲端存取工具 -->
+    <div id="cloud-panel" class="control-panel">
+        <h3>☁️ 雲端座位表存取</h3>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">輸入教室代碼（數字密碼）以儲存或讀取設定。</p>
+        <input type="text" id="cloud-code" class="cloud-input" placeholder="請輸入教室代碼 (例如: 8888)">
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button id="btn-save-cloud" onclick="saveToCloud()">⬆️ 上傳 (儲存至此代碼)</button>
+            <button id="btn-load-cloud" onclick="loadFromCloud()">⬇️ 下載 (從此代碼讀取)</button>
+            <button onclick="toggleCloudPanel()" class="danger" style="margin-top:5px;">關閉</button>
+        </div>
+        <p id="cloud-status" style="font-size: 0.8rem; color: #facc15; text-align: center; margin-top:10px; min-height: 1.2em;"></p>
+    </div>
+
+    <!-- 中獎視窗 -->
+    <div class="modal-overlay" id="result-modal">
+        <div class="modal">
+            <h2>🎉 本日最幸運</h2>
+            <div class="winner-name" id="winner-display">???</div>
+            <div class="modal-buttons">
+                <button onclick="handleDecision('keep')">保留並繼續</button>
+                <button onclick="handleDecision('remove')" class="danger">從名單移除</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Firebase Integration ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // *** 設定區域 - 請將下方 {} 替換為您的 Firebase Config ***
+        const firebaseConfig = {
+          apiKey: "AIzaSyAY0leEwzJ5n085J9AqCt6vN7XEv-jqpXI",
+          authDomain: "hahaha-c46df.firebaseapp.com",
+          projectId: "hahaha-c46df",
+          storageBucket: "hahaha-c46df.firebasestorage.app",
+          messagingSenderId: "366156547809",
+          appId: "1:366156547809:web:60f43df1d76d70080559a0",
+          measurementId: "G-CP8Q172WD3"
+        };
+
+        let app, auth, db, appId, user;
+
+        try {
+            if (firebaseConfig && firebaseConfig.apiKey) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                signInAnonymously(auth).then((userCredential) => {
+                    user = userCredential.user;
+                    console.log("Firebase Connected as", user.uid);
+                    showStatus("雲端連線成功！");
+                }).catch((error) => {
+                    console.error("Auth Error", error);
+                    showStatus("雲端連線失敗 (Auth)");
+                });
+            } else {
+                console.warn("No Firebase config found. Cloud features disabled.");
+                showStatus("請先設定 Firebase Config");
+            }
+        } catch (e) {
+            console.error("Firebase Init Error", e);
+        }
+
+        window.saveToCloud = async function() {
+            if (!db || !user) { alert("尚未連線到雲端資料庫，請檢查設定。"); return; }
+            
+            const code = document.getElementById('cloud-code').value.trim();
+            if (!code) { alert("請輸入教室代碼！"); return; }
+
+            const rows = parseInt(document.getElementById('rows-input').value);
+            const cols = parseInt(document.getElementById('cols-input').value);
+            const seatData = window.seats.map(s => ({
+                val: s.input.innerText,
+                rm: s.removed
+            }));
+
+            showStatus("上傳中...");
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'classrooms', code), {
+                    rows: rows,
+                    cols: cols,
+                    seats: seatData,
+                    updatedAt: new Date().toISOString()
+                });
+                showStatus("✅ 上傳成功！");
+                alert(`儲存成功！\n下次輸入代碼「${code}」即可叫回此座位表。`);
+            } catch (e) {
+                console.error(e);
+                showStatus("❌ 上傳失敗");
+                alert("上傳失敗，請稍後再試。");
+            }
+        };
+
+        window.loadFromCloud = async function() {
+            if (!db || !user) { alert("尚未連線到雲端資料庫。"); return; }
+
+            const code = document.getElementById('cloud-code').value.trim();
+            if (!code) { alert("請輸入教室代碼！"); return; }
+
+            showStatus("讀取中...");
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'classrooms', code);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    document.getElementById('rows-input').value = data.rows;
+                    document.getElementById('cols-input').value = data.cols;
+                    window.resizeGrid();
+
+                    if (data.seats && Array.isArray(data.seats)) {
+                        data.seats.forEach((sData, idx) => {
+                            if (window.seats[idx]) {
+                                window.seats[idx].input.innerText = sData.val || "";
+                                if (sData.rm) {
+                                    window.seats[idx].removed = true;
+                                    window.seats[idx].element.classList.add('removed');
+                                }
+                            }
+                        });
+                    }
+                    showStatus("✅ 下載成功！");
+                    window.toggleCloudPanel();
+                    window.playSound('confirm');
+                } else {
+                    showStatus("⚠️ 找不到此代碼資料");
+                    alert("找不到此代碼的資料，請確認代碼是否正確。");
+                }
+            } catch (e) {
+                console.error(e);
+                showStatus("❌ 讀取失敗");
+            }
+        };
+
+        function showStatus(msg) {
+            const el = document.getElementById('cloud-status');
+            if(el) el.textContent = msg;
+        }
+    </script>
+
+    <script>
+        // --- 變數與狀態 ---
+        let rows = 5;
+        let cols = 6;
+        window.seats = []; 
+        let isRunning = false;
+        let isExcludeMode = false;
+        let currentWinnerIndex = -1;
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            resizeGrid();
+            initBackgroundParticle();
+        });
+
+        // --- 面板控制 ---
+        function toggleCloudPanel() {
+            document.getElementById('import-panel').style.display = 'none';
+            const panel = document.getElementById('cloud-panel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function toggleImportPanel() {
+            document.getElementById('cloud-panel').style.display = 'none';
+            const panel = document.getElementById('import-panel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        window.toggleCloudPanel = toggleCloudPanel;
+        window.toggleImportPanel = toggleImportPanel;
+
+        // --- 視角切換 ---
+        function toggleView() {
+            const grid = document.getElementById('seat-grid');
+            grid.classList.toggle('flipped');
+        }
+        window.toggleView = toggleView;
+
+        // --- 網格系統 ---
+        function resizeGrid() {
+            rows = parseInt(document.getElementById('rows-input').value);
+            cols = parseInt(document.getElementById('cols-input').value);
+            
+            const grid = document.getElementById('seat-grid');
+            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            grid.innerHTML = '';
+            window.seats = []; 
+            
+            grid.classList.remove('flipped');
+
+            for (let i = 0; i < rows * cols; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'seat';
+                cell.dataset.index = i;
+                
+                cell.addEventListener('click', (e) => {
+                    if (isExcludeMode) {
+                        e.preventDefault();
+                        const seatObj = window.seats[i];
+                        seatObj.removed = !seatObj.removed;
+                        
+                        if (seatObj.removed) {
+                            cell.classList.add('removed');
+                        } else {
+                            cell.classList.remove('removed');
+                        }
+                        playSound('tick', 50); 
+                    }
+                });
+
+                const input = document.createElement('div');
+                input.className = 'seat-content';
+                input.contentEditable = true;
+                input.setAttribute('data-placeholder', `${i + 1}`);
+                
+                input.addEventListener('input', function() {});
+
+                cell.appendChild(input);
+                grid.appendChild(cell);
+                window.seats.push({ element: cell, input: input, removed: false });
+            }
+        }
+        window.resizeGrid = resizeGrid;
+
+        // --- 排除模式切換 ---
+        function toggleExcludeMode() {
+            isExcludeMode = !isExcludeMode;
+            const btn = document.getElementById('mode-btn');
+            
+            if (isExcludeMode) {
+                document.body.classList.add('exclude-mode');
+                btn.innerHTML = "✅ 完成設定";
+            } else {
+                document.body.classList.remove('exclude-mode');
+                btn.innerHTML = "🚫 設定排除名單";
+            }
+        }
+        window.toggleExcludeMode = toggleExcludeMode;
+
+        // --- 匯入功能 ---
+        function handleFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                document.getElementById('name-list').value = content;
+            };
+            reader.readAsText(file);
+        }
+        window.handleFileUpload = handleFileUpload;
+
+        function processImport() {
+            const text = document.getElementById('name-list').value;
+            if (!text.trim()) return;
+
+            let rawMatrix = [];
+            if (text.indexOf('\t') !== -1) {
+                rawMatrix = text.split(/\r?\n/).map(line => line.split('\t'));
+            } else if (text.indexOf(',') !== -1) {
+                rawMatrix = text.split(/\r?\n/).map(line => line.split(','));
+            } else {
+                rawMatrix = text.split(/\r?\n/).map(line => [line]);
+            }
+
+            let minRowIndex = Infinity;
+            let maxRowIndex = -1;
+            let minColIndex = Infinity;
+            let maxColIndex = -1;
+
+            for(let r = 0; r < rawMatrix.length; r++) {
+                for(let c = 0; c < rawMatrix[r].length; c++) {
+                    if(rawMatrix[r][c] && rawMatrix[r][c].trim() !== '') {
+                        if(r < minRowIndex) minRowIndex = r;
+                        if(r > maxRowIndex) maxRowIndex = r;
+                        if(c < minColIndex) minColIndex = c;
+                        if(c > maxColIndex) maxColIndex = c;
+                    }
+                }
+            }
+
+            if (maxRowIndex === -1) {
+                alert("未偵測到有效資料，請確認內容。");
+                return;
+            }
+
+            let newRows = maxRowIndex - minRowIndex + 1;
+            let newCols = maxColIndex - minColIndex + 1;
+
+            document.getElementById('rows-input').value = newRows;
+            document.getElementById('cols-input').value = newCols;
+            
+            resizeGrid();
+
+            for(let r = 0; r < newRows; r++) {
+                for(let c = 0; c < newCols; c++) {
+                    let originalRow = r + minRowIndex;
+                    let originalCol = c + minColIndex;
+
+                    if (rawMatrix[originalRow] && rawMatrix[originalRow][originalCol]) {
+                        const val = rawMatrix[originalRow][originalCol].trim();
+                        const seatIndex = r * newCols + c;
+                        
+                        if(seatIndex < window.seats.length) {
+                            window.seats[seatIndex].input.innerText = val;
+                        }
+                    }
+                }
+            }
+
+            toggleImportPanel();
+            playSound('confirm');
+        }
+        window.processImport = processImport;
+
+        // --- 核心抽籤邏輯 ---
+        function startLottery() {
+            if (isExcludeMode) toggleExcludeMode();
+            if (isRunning) return;
+
+            const validIndices = window.seats
+                .map((s, i) => ({ ...s, index: i }))
+                .filter(s => !s.removed && s.input.innerText.trim() !== '')
+                .map(s => s.index);
+
+            if (validIndices.length === 0) {
+                alert("沒有可抽籤的學生！請確認是否已輸入姓名。");
+                return;
+            }
+
+            isRunning = true;
+            document.getElementById('start-btn').disabled = true;
+            
+            const duration = 5000;
+            const startTime = Date.now();
+            let currentHighlight = -1;
+            
+            let winnerTargetIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+
+            const animate = () => {
+                const now = Date.now();
+                const elapsed = now - startTime;
+                
+                if (elapsed >= duration) {
+                    if (currentHighlight !== -1) {
+                        window.seats[currentHighlight].element.classList.remove('active');
+                    }
+                    finish(winnerTargetIndex);
+                    return;
+                }
+
+                if (currentHighlight !== -1) {
+                    window.seats[currentHighlight].element.classList.remove('active');
+                }
+
+                const progress = elapsed / duration;
+                
+                let speed = 50 + 450 * Math.pow(progress, 2.5);
+                let isDramaticMoment = false;
+                
+                if (elapsed + speed >= duration) {
+                    speed = speed * 2;
+                    isDramaticMoment = true;
+                }
+
+                let nextIndex;
+                do {
+                    nextIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+                } while (nextIndex === currentHighlight && validIndices.length > 1);
+                
+                if (isDramaticMoment) {
+                    if (Math.random() < 0.5) {
+                        winnerTargetIndex = nextIndex;
+                    }
+                }
+                
+                currentHighlight = nextIndex;
+                window.seats[currentHighlight].element.classList.add('active');
+                
+                playSound('tick', speed);
+
+                setTimeout(animate, speed);
+            };
+
+            animate();
+        }
+        window.startLottery = startLottery;
+
+        function finish(winnerIndex) {
+            currentWinnerIndex = winnerIndex;
+            const winnerSeat = window.seats[winnerIndex];
+            
+            winnerSeat.element.classList.add('active');
+            winnerSeat.element.classList.add('winning');
+            
+            playSound('win');
+
+            setTimeout(() => {
+                const name = winnerSeat.input.innerText;
+                document.getElementById('winner-display').textContent = name;
+                document.getElementById('result-modal').classList.add('show');
+                isRunning = false;
+                document.getElementById('start-btn').disabled = false;
+            }, 500);
+        }
+
+        function handleDecision(type) {
+            document.getElementById('result-modal').classList.remove('show');
+            const seat = window.seats[currentWinnerIndex];
+
+            seat.element.classList.remove('winning');
+            seat.element.classList.remove('active');
+
+            if (type === 'remove') {
+                seat.removed = true;
+                seat.element.classList.add('removed');
+            }
+
+            currentWinnerIndex = -1;
+        }
+        window.handleDecision = handleDecision;
+
+        // --- 音效合成器 ---
+        function playSound(type, speedMs = 100) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'tick') {
+                const freq = 800 - (speedMs); 
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(Math.max(200, freq), now);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                oscillator.start(now);
+                oscillator.stop(now + 0.1);
+            } else if (type === 'win') {
+                createChord([523.25, 659.25, 783.99], 'triangle'); 
+            } else if (type === 'confirm') {
+                createChord([440, 880], 'sine', 0.1);
+            }
+        }
+        window.playSound = playSound;
+
+        function createChord(freqs, type, duration = 1.5) {
+            const now = audioCtx.currentTime;
+            freqs.forEach(f => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = f;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                osc.start(now);
+                osc.stop(now + duration);
+            });
+        }
+
+        // --- 背景特效 ---
+        function initBackgroundParticle() {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let particles = [];
+            const particleCount = 50;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            class Particle {
+                constructor() {
+                    this.reset();
+                }
+                reset() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.vx = (Math.random() - 0.5) * 2;
+                    this.vy = (Math.random() - 0.5) * 2;
+                    this.size = Math.random() * 2;
+                    this.alpha = Math.random() * 0.5;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+                }
+                draw() {
+                    ctx.fillStyle = `rgba(6, 182, 212, ${this.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            for(let i=0; i<particleCount; i++) particles.push(new Particle());
+
+            function animateBg() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, index) => {
+                    p.update();
+                    p.draw();
+                    for(let j=index+1; j<particles.length; j++){
+                        const dx = p.x - particles[j].x;
+                        const dy = p.y - particles[j].y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if(dist < 100) {
+                            ctx.beginPath();
+                            ctx.strokeStyle = `rgba(6, 182, 212, ${0.1 * (1 - dist/100)})`;
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+                requestAnimationFrame(animateBg);
+            }
+            animateBg();
+        }
+    </script>
+</body>
+</html>
