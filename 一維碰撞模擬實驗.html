@@ -12,6 +12,7 @@
             --text-color: #f8fafc;
             --accent-color: #10b981;
             --danger-color: #ef4444;
+            --slider-color: #f59e0b; /* 定義黃橙色變數 */
         }
 
         body {
@@ -99,7 +100,13 @@
             font-weight: bold;
         }
 
-        input[type=range] { width: 100%; cursor: pointer; margin-top: 5px; }
+        /* 修改滑桿樣式：設定 accent-color 為黃橙色 */
+        input[type=range] { 
+            width: 100%; 
+            cursor: pointer; 
+            margin-top: 5px;
+            accent-color: var(--slider-color);
+        }
 
         /* 開關樣式 */
         .toggle-switch {
