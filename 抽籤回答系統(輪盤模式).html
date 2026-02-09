@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>抽籤回答系統 - 物理老師的藝術作</title>
+    <title>抽籤回答系統(輪盤模式) - 阿發老師設計</title>
     <style>
         :root {
             --bg-color: #0a0a0c;
             --panel-bg: rgba(20, 20, 25, 0.85);
             --neon-blue: #00f2ff;
             --neon-pink: #ff00ea;
+            --neon-green: #28a745;
+            --neon-red: #ff4b2b;
+            --neon-yellow: #facc15;
+            --neon-purple: #8b5cf6;
             --text-color: #e0e0e0;
         }
 
@@ -27,7 +31,7 @@
 
         canvas {
             display: block;
-            cursor: pointer; /* 提示可以點擊 */
+            cursor: pointer;
         }
 
         /* 介面樣式 */
@@ -35,7 +39,7 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            width: 320px;
+            width: 340px;
             max-height: 90vh;
             background: var(--panel-bg);
             backdrop-filter: blur(10px);
@@ -45,9 +49,10 @@
             border: 1px solid rgba(255,255,255,0.1);
             overflow-y: auto;
             z-index: 100;
+            transition: opacity 0.3s;
         }
 
-        h2 { margin-top: 0; color: var(--neon-blue); font-size: 1.2rem; }
+        h2 { margin-top: 0; color: var(--neon-blue); font-size: 1.1rem; line-height: 1.4; }
         
         textarea {
             width: 100%;
@@ -85,13 +90,27 @@
             box-shadow: 0 0 15px var(--neon-blue);
         }
 
-        button.secondary {
-            background: #444;
+        button.secondary { background: #444; }
+
+        button.danger {
+            background: linear-gradient(45deg, #ff4b2b, #c82333);
+        }
+        button.danger:hover {
+            box-shadow: 0 0 15px var(--neon-red);
         }
 
         button.shuffle {
             background: linear-gradient(45deg, #ffcc00, #ff9900);
             color: #000;
+        }
+
+        /* 雲端按鈕樣式 */
+        button.cloud {
+            background: linear-gradient(45deg, var(--neon-purple), #6d28d9);
+            color: white;
+        }
+        button.cloud:hover {
+            box-shadow: 0 0 15px var(--neon-purple);
         }
 
         .winner-overlay {
@@ -121,289 +140,476 @@
         }
 
         .winner-title { color: var(--neon-pink); font-size: 1.5rem; margin-bottom: 10px; }
-        .winner-name { font-size: 3rem; font-weight: bold; color: #fff; margin-bottom: 20px; }
+        .winner-name { font-size: 3.5rem; font-weight: bold; color: #fff; margin-bottom: 25px; }
 
         input[type="file"] { display: none; }
+        
         .file-label {
             display: inline-block;
-            padding: 8px;
-            background: #333;
-            border-radius: 5px;
-            font-size: 12px;
+            padding: 10px;
+            background: linear-gradient(45deg, #28a745, #1e7e34);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
             text-align: center;
             cursor: pointer;
+            color: white;
+            transition: 0.3s;
+        }
+        .file-label:hover {
+            box-shadow: 0 0 15px var(--neon-green);
+            transform: scale(1.02);
+        }
+
+        /* 雲端面板樣式 (沿用原面板風格) */
+        #cloud-panel {
+            display: none;
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        .cloud-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1.1rem;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid var(--neon-purple);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        .cloud-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--neon-purple);
         }
     </style>
 </head>
 <body>
 
-    <div class="ui-overlay">
-        <h2>🌀 抽籤回答系統(輪盤模式)</h2>
+    <!-- 主控制面板 -->
+    <div id="main-panel" class="ui-overlay">
+        <h2>🌀 抽籤回答系統(輪盤模式)<br>---阿發老師設計</h2>
         <p style="font-size: 0.8rem; opacity: 0.7;">輸入名單（每行一個，或逗點隔開）</p>
         <textarea id="nameInput">愛因斯坦, 牛頓, 居禮夫人, 費曼, 霍金, 薛丁格, 普朗克, 特斯拉</textarea>
         
         <div class="controls">
+            <button onclick="toggleCloudPanel()" class="cloud">☁️ 雲端存取 (存/取名單)</button>
             <div style="display: flex; gap: 5px;">
                 <button onclick="updateWheel()" style="flex:1;">更新名單</button>
                 <button onclick="shuffleNames()" class="shuffle" style="flex:1;">🔀 打散名單</button>
             </div>
-            <div style="display: flex; gap: 5px;">
-                <label class="file-label" style="flex:1;">
-                    CSV 匯入 <input type="file" id="csvFile" accept=".csv" onchange="handleCSV(this)">
-                </label>
-            </div>
-            <button id="spinBtn" style="font-size: 1.2rem; height: 60px;">⚡ 旋轉輪盤</button>
+            <label class="file-label">
+                📥 匯入名單(CSV檔) <input type="file" id="csvFile" accept=".csv" onchange="handleCSV(this)">
+            </label>
+            <button id="spinBtn" style="font-size: 1.1rem; height: 60px;">⚡ 旋轉輪盤(開始抽籤)</button>
             <p style="font-size: 0.8rem; margin: 0;">阻力係數：<span id="fricVal">0.985</span></p>
             <input type="range" id="frictionSlider" min="950" max="995" value="985">
         </div>
     </div>
 
-    <!-- 獲獎彈窗 -->
+    <!-- 雲端控制面板 -->
+    <div id="cloud-panel" class="ui-overlay">
+        <h2 style="color: var(--neon-purple);">☁️ 雲端名單存取</h2>
+        <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">輸入「數字代碼」即可在不同裝置間同步名單。</p>
+        
+        <input type="text" id="cloud-code" class="cloud-input" placeholder="請輸入教室代碼 (例如: 8888)">
+        
+        <div class="controls">
+            <button onclick="saveToCloud()" style="background: linear-gradient(45deg, var(--neon-purple), #6d28d9);">⬆️ 上傳名單 (儲存)</button>
+            <button onclick="loadFromCloud()" style="background: linear-gradient(45deg, var(--neon-blue), #0066ff);">⬇️ 下載名單 (讀取)</button>
+            <button onclick="toggleCloudPanel()" class="danger">關閉視窗</button>
+        </div>
+        <p id="cloud-status" style="font-size: 0.8rem; color: var(--neon-yellow); text-align: center; margin-top:10px; min-height: 1.2em;"></p>
+    </div>
+
+    <!-- 中獎畫面 -->
     <div id="winnerOverlay" class="winner-overlay">
         <div class="winner-card">
             <div class="winner-title">🏆 本日最幸運 🏆</div>
             <div id="winnerName" class="winner-name">---</div>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button onclick="closeWinner(false)">留在名單</button>
-                <button onclick="closeWinner(true)" class="secondary">移除並繼續</button>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button onclick="closeWinner(false)" style="min-width: 120px;">留在名單</button>
+                <button onclick="closeWinner(true)" class="danger" style="min-width: 120px;">移除並繼續</button>
             </div>
         </div>
     </div>
 
     <canvas id="canvas"></canvas>
 
-<script>
-    /** * 音效系統 - 使用 Web Audio API 生成物理音效
-     */
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playTick(freq = 400, type = 'sine', volume = 0.1, duration = 0.05) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
-    }
+    <!-- Firebase 模組 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    /**
-     * 物理引擎參數
-     */
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const spinBtn = document.getElementById('spinBtn');
-    const nameInput = document.getElementById('nameInput');
-    const winnerOverlay = document.getElementById('winnerOverlay');
-    const winnerNameSpan = document.getElementById('winnerName');
-    const frictionSlider = document.getElementById('frictionSlider');
-
-    let names = [];
-    let angle = 0;
-    let angularVel = 0;
-    let isSpinning = false;
-    let friction = 0.985;
-    let lastTickIndex = -1;
-    let currentRadius = 0;
-    let currentCenterX = 0;
-    let currentCenterY = 0;
-
-    // 初始化畫布尺寸
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    // 更新名單與顏色
-    let colors = [];
-    function updateWheel() {
-        const raw = nameInput.value;
-        names = raw.split(/[\n,]+/).map(n => n.trim()).filter(n => n !== "");
-        colors = names.map((_, i) => `hsl(${(i * 360 / names.length)}, 70%, 60%)`);
-    }
-    updateWheel();
-
-    // 打散名單
-    function shuffleNames() {
-        if (isSpinning) return;
-        for (let i = names.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [names[i], names[j]] = [names[j], names[i]];
-        }
-        nameInput.value = names.join(', ');
-        updateWheel();
-        playTick(500, 'sine', 0.1, 0.2);
-    }
-
-    // CSV 處理
-    function handleCSV(input) {
-        const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            nameInput.value = e.target.result;
-            updateWheel();
+        // *** 您提供的專屬設定 ***
+        const firebaseConfig = {
+          apiKey: "AIzaSyAY0leEwzJ5n085J9AqCt6vN7XEv-jqpXI",
+          authDomain: "hahaha-c46df.firebaseapp.com",
+          projectId: "hahaha-c46df",
+          storageBucket: "hahaha-c46df.firebasestorage.app",
+          messagingSenderId: "366156547809",
+          appId: "1:366156547809:web:60f43df1d76d70080559a0",
+          measurementId: "G-CP8Q172WD3"
         };
-        reader.readAsText(file);
-    }
 
-    // 啟動旋轉函數
-    function startSpin() {
-        if (isSpinning || names.length === 0) return;
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        // 給予初始衝量 (隨機性)
-        angularVel = 0.3 + Math.random() * 0.4;
-        isSpinning = true;
-        playTick(600, 'square', 0.15, 0.1); // 開始音效
-    }
+        let db, user;
 
-    // 點擊事件
-    spinBtn.addEventListener('click', startSpin);
-    
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        // 計算滑鼠到輪盤中心的距離
-        const dx = mouseX - currentCenterX;
-        const dy = mouseY - currentCenterY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        // 如果點擊範圍在輪盤內，則旋轉
-        if (dist < currentRadius) {
-            startSpin();
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            db = getFirestore(app);
+
+            signInAnonymously(auth).then((userCredential) => {
+                user = userCredential.user;
+                showStatus("雲端連線成功！");
+            }).catch((error) => {
+                console.error("Auth Error", error);
+                showStatus("連線失敗，請檢查網路");
+            });
+        } catch (e) {
+            console.error("Firebase Init Error", e);
         }
-    });
 
-    function closeWinner(remove) {
-        if (remove) {
-            const currentWinner = winnerNameSpan.innerText;
-            names = names.filter(n => n !== currentWinner);
-            nameInput.value = names.join(', ');
-            updateWheel();
+        function showStatus(msg) {
+            const el = document.getElementById('cloud-status');
+            if(el) el.textContent = msg;
         }
-        winnerOverlay.style.display = 'none';
-        isSpinning = false;
-    }
 
-    // 核心動畫迴圈
-    function animate() {
-        // 背景微弱殘影 (物理軌跡感)
-        ctx.fillStyle = 'rgba(10, 10, 12, 0.3)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // 上傳功能
+        window.saveToCloud = async function() {
+            if (!db || !user) { alert("尚未連線到雲端資料庫。"); return; }
+            
+            const code = document.getElementById('cloud-code').value.trim();
+            if (!code) { alert("請輸入教室代碼！"); return; }
 
-        // 輪盤中心向右偏移 (由 0.5 改為 0.6)
-        const centerX = canvas.width * 0.6;
-        const centerY = canvas.height / 2;
-        const radius = Math.min(canvas.width, canvas.height) * 0.4;
-        
-        // 儲存目前座標供點擊判定使用
-        currentCenterX = centerX;
-        currentCenterY = centerY;
-        currentRadius = radius;
+            const names = document.getElementById('nameInput').value;
 
-        // 讀取摩擦力
-        friction = frictionSlider.value / 1000;
-        document.getElementById('fricVal').innerText = friction.toFixed(3);
-
-        // 更新物理狀態
-        if (isSpinning) {
-            angle += angularVel;
-            angularVel *= friction; // 模擬空氣與機械摩擦
-
-            // 音效邏輯：當指針跨過扇區邊界時播放
-            const segmentAngle = (Math.PI * 2) / names.length;
-            const currentTickIndex = Math.floor(((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2) / segmentAngle);
-            if (currentTickIndex !== lastTickIndex && angularVel > 0.005) {
-                playTick(300 + angularVel * 200, 'sine', 0.05 + angularVel * 0.1);
-                lastTickIndex = currentTickIndex;
+            showStatus("上傳中...");
+            try {
+                // 儲存到 'wheel_names' 集合
+                await setDoc(doc(db, 'wheel_names', code), {
+                    names: names,
+                    updatedAt: new Date().toISOString()
+                });
+                showStatus("✅ 上傳成功！");
+                alert(`名單已儲存！\n代碼：「${code}」`);
+            } catch (e) {
+                console.error(e);
+                showStatus("❌ 上傳失敗");
+                alert("上傳失敗，請確認 Firebase Rules 是否已開啟。");
             }
+        };
 
-            // 停止判定
-            if (angularVel < 0.001) {
-                angularVel = 0;
-                // 指針固定在正上方 (1.5 PI)
-                const pointerPos = (1.5 * Math.PI); 
-                const finalIdx = Math.floor(( (pointerPos - angle) % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2) / segmentAngle);
-                
-                setTimeout(() => {
-                    if (names[finalIdx]) {
-                        winnerNameSpan.innerText = names[finalIdx];
-                        winnerOverlay.style.display = 'flex';
-                        playTick(800, 'triangle', 0.2, 0.5); // 結束成功音效
-                        playTick(1200, 'sine', 0.1, 0.6);
-                    } else {
-                        isSpinning = false;
-                    }
-                }, 500);
-                isSpinning = false;
+        // 下載功能
+        window.loadFromCloud = async function() {
+            if (!db || !user) { alert("尚未連線到雲端資料庫。"); return; }
+
+            const code = document.getElementById('cloud-code').value.trim();
+            if (!code) { alert("請輸入教室代碼！"); return; }
+
+            showStatus("讀取中...");
+            try {
+                const docSnap = await getDoc(doc(db, 'wheel_names', code));
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('nameInput').value = data.names;
+                    
+                    // 呼叫原本的更新函式
+                    window.updateWheel();
+                    
+                    showStatus("✅ 下載成功！");
+                    window.toggleCloudPanel(); // 關閉面板
+                    alert("名單已更新！");
+                } else {
+                    showStatus("⚠️ 找不到此代碼資料");
+                    alert("找不到此代碼的資料。");
+                }
+            } catch (e) {
+                console.error(e);
+                showStatus("❌ 讀取失敗");
             }
+        };
+    </script>
+
+    <!-- 原始輪盤程式邏輯 -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTick(freq = 400, type = 'sine', volume = 0.1, duration = 0.05) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
         }
 
-        // 繪製輪盤
-        if (names.length > 0) {
-            const sliceAngle = (Math.PI * 2) / names.length;
-            names.forEach((name, i) => {
-                const startA = angle + i * sliceAngle;
-                const endA = startA + sliceAngle;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const nameInput = document.getElementById('nameInput');
+        const winnerOverlay = document.getElementById('winnerOverlay');
+        const winnerNameSpan = document.getElementById('winnerName');
+        const frictionSlider = document.getElementById('frictionSlider');
 
-                // 扇形主體
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, startA, endA);
-                ctx.fillStyle = colors[i];
-                ctx.fill();
-                
-                // 霓虹邊緣
-                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+        let names = [];
+        let angle = 0;
+        let angularVel = 0;
+        let isSpinning = false;
+        let friction = 0.985;
+        let lastTickIndex = -1;
+        let currentRadius = 0;
+        let currentCenterX = 0;
+        let currentCenterY = 0;
 
-                // 繪製文字
-                ctx.save();
-                ctx.translate(centerX, centerY);
-                ctx.rotate(startA + sliceAngle / 2);
-                ctx.textAlign = "right";
-                ctx.fillStyle = "#fff";
-                ctx.font = `bold ${Math.max(12, radius/12)}px Arial`;
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = colors[i];
-                ctx.fillText(name, radius - 20, 10);
-                ctx.restore();
+        // 面板切換邏輯
+        function toggleCloudPanel() {
+            const mainPanel = document.getElementById('main-panel');
+            const cloudPanel = document.getElementById('cloud-panel');
+            
+            if (cloudPanel.style.display === 'block') {
+                cloudPanel.style.display = 'none';
+                mainPanel.style.display = 'block';
+            } else {
+                cloudPanel.style.display = 'block';
+                mainPanel.style.display = 'none';
+            }
+        }
+        window.toggleCloudPanel = toggleCloudPanel;
+
+        // 眩光顏色組
+        let glareColors = [
+            { c1: '#00f2ff', c2: '#ff00ea' }, // 藍粉
+            { c1: '#39ff14', c2: '#00f2ff' }, // 綠藍
+            { c1: '#ff00ea', c2: '#ffcc00' }, // 粉黃
+            { c1: '#ff0000', c2: '#ff9900' }  // 紅橙
+        ];
+        let activeGlareColors = glareColors[0];
+
+        // 眩光粒子
+        let glares = [];
+        for(let i=0; i<15; i++) {
+            glares.push({ 
+                angle: (Math.PI * 2 / 15) * i, 
+                size: 0.4 + Math.random() * 0.8,
+                speedFactor: 0.3 + Math.random() * 0.7
             });
         }
 
-        // 繪製靜止指針 (上方，跟隨輪盤中心移動)
-        ctx.fillStyle = varColor('--neon-pink');
-        ctx.beginPath();
-        ctx.moveTo(centerX - 15, centerY - radius - 20);
-        ctx.lineTo(centerX + 15, centerY - radius - 20);
-        ctx.lineTo(centerX, centerY - radius + 10);
-        ctx.fill();
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = varColor('--neon-pink');
-        ctx.stroke();
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-        // 繪製中心軸
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        let colors = [];
+        function updateWheel() {
+            const raw = nameInput.value;
+            names = raw.split(/[\n,]+/).map(n => n.trim()).filter(n => n !== "");
+            colors = names.map((_, i) => `hsl(${(i * 360 / names.length)}, 70%, 60%)`);
+        }
+        window.updateWheel = updateWheel; // 暴露給 window
+        updateWheel();
 
-        requestAnimationFrame(animate);
-    }
+        function shuffleNames() {
+            if (isSpinning) return;
+            for (let i = names.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [names[i], names[j]] = [names[j], names[i]];
+            }
+            nameInput.value = names.join(', ');
+            updateWheel();
+            playTick(500, 'sine', 0.1, 0.2);
+        }
+        window.shuffleNames = shuffleNames; // 暴露給 window
 
-    function varColor(name) {
-        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    }
+        function handleCSV(input) {
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                nameInput.value = e.target.result;
+                updateWheel();
+            };
+            reader.readAsText(file);
+        }
+        window.handleCSV = handleCSV; // 暴露給 window
 
-    animate();
-</script>
+        function startSpin() {
+            if (isSpinning || names.length === 0) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // 每次旋轉隨機更換眩光顏色
+            activeGlareColors = glareColors[Math.floor(Math.random() * glareColors.length)];
+            
+            angularVel = 0.35 + Math.random() * 0.45;
+            isSpinning = true;
+            playTick(600, 'square', 0.15, 0.1);
+        }
+
+        spinBtn.addEventListener('click', startSpin);
+        canvas.addEventListener('mousedown', (e) => {
+            const dx = e.clientX - currentCenterX;
+            const dy = e.clientY - currentCenterY;
+            if (Math.sqrt(dx*dx + dy*dy) < currentRadius) startSpin();
+        });
+
+        function closeWinner(remove) {
+            if (remove) {
+                const currentWinner = winnerNameSpan.innerText;
+                names = names.filter(n => n !== currentWinner);
+                nameInput.value = names.join(', ');
+                updateWheel();
+            }
+            winnerOverlay.style.display = 'none';
+            isSpinning = false;
+        }
+        window.closeWinner = closeWinner; // 暴露給 window
+
+        function drawGlare(cx, cy, radius, intensity) {
+            if (intensity <= 0) return;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.globalCompositeOperation = 'lighter';
+            
+            glares.forEach((g) => {
+                const beamAngle = g.angle + (angle * g.speedFactor); 
+                const gradient = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 2.2);
+                const alpha = intensity * 0.5 * g.size;
+                
+                gradient.addColorStop(0, hexToRgba(activeGlareColors.c1, alpha));
+                gradient.addColorStop(0.5, hexToRgba(activeGlareColors.c2, alpha * 0.4));
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius * 2.5, beamAngle - 0.12, beamAngle + 0.12);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+            ctx.restore();
+        }
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const centerX = canvas.width * 0.6;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.38;
+            currentCenterX = centerX;
+            currentCenterY = centerY;
+            currentRadius = radius;
+
+            friction = frictionSlider.value / 1000;
+            document.getElementById('fricVal').innerText = friction.toFixed(3);
+
+            if (isSpinning) {
+                angle += angularVel;
+                angularVel *= friction;
+
+                const segmentAngle = (Math.PI * 2) / names.length;
+                const currentTickIndex = Math.floor(((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2) / segmentAngle);
+                if (currentTickIndex !== lastTickIndex && angularVel > 0.005) {
+                    playTick(300 + angularVel * 200, 'sine', 0.05 + angularVel * 0.1);
+                    lastTickIndex = currentTickIndex;
+                }
+
+                if (angularVel < 0.001) {
+                    angularVel = 0;
+                    const pointerPos = (1.5 * Math.PI); 
+                    const finalIdx = Math.floor(( (pointerPos - angle) % (Math.PI * 2) + (Math.PI * 2)) % (Math.PI * 2) / segmentAngle);
+                    
+                    setTimeout(() => {
+                        if (names[finalIdx]) {
+                            winnerNameSpan.innerText = names[finalIdx];
+                            winnerOverlay.style.display = 'flex';
+                            playTick(800, 'triangle', 0.2, 0.5);
+                        } else { isSpinning = false; }
+                    }, 500);
+                    isSpinning = false;
+                }
+            }
+
+            drawGlare(centerX, centerY, radius, angularVel * 6);
+
+            if (names.length > 0) {
+                const sliceAngle = (Math.PI * 2) / names.length;
+                names.forEach((name, i) => {
+                    const startA = angle + i * sliceAngle;
+                    const endA = startA + sliceAngle;
+
+                    // 繪製扇區
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.arc(centerX, centerY, radius, startA, endA);
+                    ctx.fillStyle = colors[i];
+                    ctx.fill();
+                    
+                    // --- 繪製可辨識的細白線邊界 ---
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.lineTo(centerX + Math.cos(startA) * radius, centerY + Math.sin(startA) * radius);
+                    ctx.strokeStyle = '#FFFFFF'; // 使用純白色
+                    ctx.lineWidth = 1;         // 保持細線
+                    ctx.stroke();
+
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(startA + sliceAngle / 2);
+                    ctx.textAlign = "right";
+                    ctx.fillStyle = "#fff";
+                    ctx.font = `bold ${Math.max(12, radius/12)}px Arial`;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = colors[i];
+                    ctx.fillText(name, radius - 25, 10);
+                    ctx.restore();
+                });
+                
+                // 補上最後一條邊界線
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle + names.length * sliceAngle) * radius, centerY + Math.sin(angle + names.length * sliceAngle) * radius);
+                ctx.stroke();
+            }
+
+            // 指針
+            ctx.fillStyle = varColor('--neon-pink');
+            ctx.beginPath();
+            ctx.moveTo(centerX - 18, centerY - radius - 25);
+            ctx.lineTo(centerX + 18, centerY - radius - 25);
+            ctx.lineTo(centerX, centerY - radius + 15);
+            ctx.fill();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = varColor('--neon-pink');
+
+            // 中心點
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 12, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(animate);
+        }
+
+        function varColor(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+        animate();
+    </script>
 </body>
 </html>
