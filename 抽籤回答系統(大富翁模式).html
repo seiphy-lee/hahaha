@@ -186,6 +186,67 @@
 <body>
     <div id="root"></div>
 
+    <!-- Firebase Integration Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // *** 您提供的專屬設定 ***
+        const firebaseConfig = {
+          apiKey: "AIzaSyAY0leEwzJ5n085J9AqCt6vN7XEv-jqpXI",
+          authDomain: "hahaha-c46df.firebaseapp.com",
+          projectId: "hahaha-c46df",
+          storageBucket: "hahaha-c46df.firebasestorage.app",
+          messagingSenderId: "366156547809",
+          appId: "1:366156547809:web:60f43df1d76d70080559a0",
+          measurementId: "G-CP8Q172WD3"
+        };
+
+        let db, user;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            db = getFirestore(app);
+
+            signInAnonymously(auth).then((userCredential) => {
+                user = userCredential.user;
+                console.log("Firebase Connected");
+            }).catch((error) => {
+                console.error("Auth Error", error);
+            });
+        } catch (e) {
+            console.error("Firebase Init Error", e);
+        }
+
+        // Expose helper functions to React via window
+        window.cloudAPI = {
+            save: async (code, data) => {
+                if (!db || !user) throw new Error("尚未連線到雲端");
+                if (!code) throw new Error("無效代碼");
+                
+                // Store in 'monopoly_settings' collection
+                await setDoc(doc(db, 'monopoly_settings', code), {
+                    ...data,
+                    updatedAt: new Date().toISOString()
+                });
+                return true;
+            },
+            load: async (code) => {
+                if (!db || !user) throw new Error("尚未連線到雲端");
+                if (!code) throw new Error("無效代碼");
+
+                const docSnap = await getDoc(doc(db, 'monopoly_settings', code));
+                if (docSnap.exists()) {
+                    return docSnap.data();
+                } else {
+                    throw new Error("找不到此代碼的資料");
+                }
+            }
+        };
+    </script>
+
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
@@ -282,8 +343,12 @@
             const [inputNames, setInputNames] = useState("01愛因斯坦\n02牛頓\n03波耳\n04海森堡\n05薛丁格\n06費曼\n07居里夫人\n08馬克斯威爾\n09法拉第\n10伽利略\n11特斯拉\n12普朗克\n13赫茲\n14焦耳\n15歐姆");
             const [numDice, setNumDice] = useState(2);
             
+            // Cloud State
+            const [showCloudModal, setShowCloudModal] = useState(false);
+            const [cloudCode, setCloudCode] = useState("");
+            const [cloudStatus, setCloudStatus] = useState("");
+
             // Game State
-            // namesList now stores objects: { name: string, removed: boolean }
             const [namesList, setNamesList] = useState([]);
             const [boardConfig, setBoardConfig] = useState({ w: 10, h: 8, coords: [] });
             const [currentPos, setCurrentPos] = useState(0);
@@ -297,7 +362,7 @@
             
             useEffect(() => {
                 if(window.lucide) window.lucide.createIcons();
-            }, [view, lastRoll]);
+            }, [view, lastRoll, showCloudModal]);
 
             // Find next valid index (skipping removed ones)
             const getNextValidPos = (startPos, direction = 1) => {
@@ -350,6 +415,42 @@
                     setInputNames(event.target.result);
                 };
                 reader.readAsText(file);
+            };
+
+            // Cloud Functions
+            const handleCloudSave = async () => {
+                if (!cloudCode.trim()) { setCloudStatus("請輸入代碼"); return; }
+                setCloudStatus("上傳中...");
+                try {
+                    const dataToSave = { inputNames, totalCells, numDice };
+                    await window.cloudAPI.save(cloudCode.trim(), dataToSave);
+                    setCloudStatus("✅ 上傳成功！");
+                    alert(`儲存成功！\n下次輸入代碼「${cloudCode}」即可叫回設定。`);
+                } catch (e) {
+                    console.error(e);
+                    setCloudStatus("❌ 失敗: " + e.message);
+                }
+            };
+
+            const handleCloudLoad = async () => {
+                if (!cloudCode.trim()) { setCloudStatus("請輸入代碼"); return; }
+                setCloudStatus("讀取中...");
+                try {
+                    const data = await window.cloudAPI.load(cloudCode.trim());
+                    if (data) {
+                        if (data.inputNames) setInputNames(data.inputNames);
+                        if (data.totalCells) setTotalCells(parseInt(data.totalCells));
+                        if (data.numDice) setNumDice(parseInt(data.numDice));
+                        setCloudStatus("✅ 載入成功！");
+                        setTimeout(() => {
+                            setShowCloudModal(false);
+                            setCloudStatus("");
+                        }, 1000);
+                    }
+                } catch (e) {
+                    console.error(e);
+                    setCloudStatus("❌ 失敗: " + e.message);
+                }
             };
 
             // Common Logic for Ending a Move
@@ -526,7 +627,15 @@
             if (view === 'setup') {
                 return (
                     <div className="setup-container">
-                        <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-4xl fade-in border border-gray-100">
+                        <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-4xl fade-in border border-gray-100 relative">
+                            {/* Cloud Button (Absolute top right) */}
+                            <button 
+                                onClick={() => setShowCloudModal(true)}
+                                className="absolute top-6 right-6 bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 py-2 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition flex items-center gap-2 font-bold text-sm"
+                            >
+                                <i data-lucide="cloud" className="w-4 h-4"></i> 雲端存取
+                            </button>
+
                             <div className="text-center mb-6">
                                 <h1 className="text-3xl font-bold text-blue-600 flex items-center justify-center gap-3 mb-2 whitespace-nowrap">
                                     <i data-lucide="atom" className="w-10 h-10"></i>
@@ -587,6 +696,41 @@
                                 </div>
                             </div>
                         </div>
+
+                        {/* Cloud Modal */}
+                        {showCloudModal && (
+                            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center popup-overlay">
+                                <div className="bg-white p-8 rounded-2xl shadow-2xl w-[400px] popup-content text-center">
+                                    <h2 className="text-2xl font-bold text-purple-600 mb-4 flex items-center justify-center gap-2">
+                                        <i data-lucide="cloud" className="w-6 h-6"></i> 雲端設定存取
+                                    </h2>
+                                    <p className="text-gray-500 text-sm mb-4">輸入教室代碼（數字）以儲存或讀取設定。</p>
+                                    
+                                    <input 
+                                        type="text" 
+                                        placeholder="請輸入代碼 (例如: 8888)"
+                                        value={cloudCode}
+                                        onChange={(e) => setCloudCode(e.target.value)}
+                                        className="w-full border-2 border-purple-200 rounded-lg p-3 text-center text-xl tracking-widest mb-6 focus:border-purple-500 focus:outline-none"
+                                    />
+
+                                    <div className="flex flex-col gap-3">
+                                        <button onClick={handleCloudSave} className="w-full py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition">
+                                            ⬆️ 上傳設定 (儲存)
+                                        </button>
+                                        <button onClick={handleCloudLoad} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition">
+                                            ⬇️ 下載設定 (讀取)
+                                        </button>
+                                        <button onClick={() => setShowCloudModal(false)} className="w-full py-2 text-gray-500 hover:text-gray-700 mt-2">
+                                            取消
+                                        </button>
+                                    </div>
+                                    <div className="mt-4 min-h-[1.5em] text-sm font-bold text-amber-500">
+                                        {cloudStatus}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             }
