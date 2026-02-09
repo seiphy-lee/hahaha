@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斜拋砲彈爆炸的軌跡模擬---阿發老師設計</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { background-color: #f0f9ff; border: 1px solid #bae6fd; cursor: crosshair; }
+        .slider-container { display: flex; align-items: center; margin-bottom: 0.5rem; }
+        .slider-label { width: 140px; font-size: 0.9rem; color: #374151; font-weight: 600; white-space: nowrap; }
+        .slider-value { width: 50px; text-align: right; margin-left: 10px; font-family: monospace; color: #2563eb; }
+        input[type=range] { flex-grow: 1; accent-color: #2563eb; }
+        .legend-dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10">
+        <div>
+            <h1 class="text-3xl font-bold">💥 斜拋砲彈爆炸的軌跡模擬---阿發老師設計</h1>
+        </div>
+        <div class="flex gap-2">
+            <!-- New Pause Button -->
+            <button id="pauseBtn" class="bg-orange-500 hover:bg-orange-400 text-white px-4 py-2 rounded shadow transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>暫停</button>
+            <button id="resetBtn" class="bg-blue-500 hover:bg-blue-400 text-white px-4 py-2 rounded shadow transition">重置</button>
+            <button id="startBtn" class="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-6 py-2 rounded shadow transition">發射砲彈</button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Controls Sidebar -->
+        <aside class="w-80 bg-white p-5 shadow-lg overflow-y-auto flex flex-col gap-6 z-0">
+            
+            <!-- Section 1: Original Projectile -->
+            <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h3 class="font-bold text-gray-700 mb-3 border-b pb-2">🚀 原始砲彈設定 (系統)</h3>
+                
+                <div class="slider-container">
+                    <span class="slider-label">發射初速 (v₀)</span>
+                    <input type="range" id="v0" min="10" max="100" value="50" step="1">
+                    <span id="v0-val" class="slider-value">50</span> m/s
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label">發射仰角 (θ₀)</span>
+                    <input type="range" id="theta0" min="30" max="85" value="60" step="1">
+                    <span id="theta0-val" class="slider-value">60</span> °
+                </div>
+                
+                <div class="slider-container">
+                    <span class="slider-label">質量比例 (m₁/M)</span>
+                    <input type="range" id="massRatio" min="0.1" max="0.9" value="0.5" step="0.1">
+                    <span id="massRatio-val" class="slider-value">0.5</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">*設定碎片1佔總質量的比例</p>
+            </div>
+
+            <!-- Section 2: Fragment 1 -->
+            <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 class="font-bold text-green-700 mb-3 border-b border-green-200 pb-2">💥 碎片 1 設定 (爆炸後)</h3>
+                <p class="text-xs text-green-600 mb-2">設定爆炸瞬間，碎片1相對於地面的速度與角度。</p>
+
+                <div class="slider-container">
+                    <span class="slider-label text-green-800">碎片1 速率 (v₁)</span>
+                    <input type="range" id="v1" min="0" max="150" value="40" step="1" class="accent-green-500">
+                    <span id="v1-val" class="slider-value text-green-600">40</span> m/s
+                </div>
+
+                <div class="slider-container">
+                    <span class="slider-label text-green-800">碎片1 仰角 (θ₁)</span>
+                    <input type="range" id="theta1" min="0" max="360" value="45" step="1" class="accent-green-500">
+                    <span id="theta1-val" class="slider-value text-green-600">45</span> °
+                </div>
+            </div>
+
+            <!-- Section 3: View Settings (New) -->
+            <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h3 class="font-bold text-purple-700 mb-3 border-b border-purple-200 pb-2">🔍 畫面設定</h3>
+                <div class="slider-container">
+                    <span class="slider-label text-purple-800">縮放比例 (px/m)</span>
+                    <input type="range" id="scaleSlider" min="0.1" max="20" value="5" step="0.1" class="accent-purple-500">
+                    <span id="scale-val" class="slider-value text-purple-600">5.0</span>
+                </div>
+                <p class="text-xs text-purple-600 mt-1">若碎片飛出畫面，請將數值調小以縮小視野。</p>
+            </div>
+
+            <!-- Legend & Info -->
+            <div class="text-sm space-y-2 bg-gray-50 p-3 rounded">
+                <div class="flex items-center">
+                    <span class="legend-dot bg-gray-400"></span> 原始軌跡 (爆炸前)
+                </div>
+                <div class="flex items-center font-bold text-red-600">
+                    <span class="legend-dot border-2 border-red-500 bg-transparent" style="border-style:dashed;"></span> 系統質心 (CM) - <span id="cm-status" class="text-black font-normal">計算中</span>
+                </div>
+                <div class="flex items-center text-green-700">
+                    <span class="legend-dot bg-green-500"></span> 碎片 1 (m₁) - <span id="p1-status" class="text-black">等待發射</span>
+                </div>
+                <div class="flex items-center text-blue-700">
+                    <span class="legend-dot bg-blue-600"></span> 碎片 2 (m₂) - <span id="p2-status" class="text-black">由動量守恆推算</span>
+                </div>
+                <div class="flex items-center text-purple-600 text-xs">
+                    <span class="legend-dot border border-purple-500" style="height:0px; width:15px; border-style:dashed;"></span> 系統連線 (三點共線)
+                </div>
+            </div>
+
+            <div class="mt-auto text-xs text-gray-400">
+                重力加速度 g = 9.8 m/s²<br>
+                1 模擬單位 = 1 公尺
+            </div>
+        </aside>
+
+        <!-- Canvas Container -->
+        <main class="flex-1 relative bg-gray-100 flex justify-center items-center overflow-hidden p-4">
+            <canvas id="simCanvas" class="shadow-xl rounded-lg bg-white w-full h-full"></canvas>
+            
+            <!-- Real-time Data Overlay -->
+            <div class="absolute top-6 left-6 bg-white/90 p-3 rounded shadow backdrop-blur-sm pointer-events-none border border-blue-100">
+                <p class="font-mono text-sm">時間 (t): <span id="timeDisplay" class="font-bold text-blue-600">0.00</span> s</p>
+                <p class="font-mono text-sm text-gray-600 mt-1">狀態: <span id="stateDisplay">準備發射</span></p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Constants
+        const g = 9.8; // m/s^2
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const inputs = {
+            v0: document.getElementById('v0'),
+            theta0: document.getElementById('theta0'),
+            massRatio: document.getElementById('massRatio'),
+            v1: document.getElementById('v1'),
+            theta1: document.getElementById('theta1'),
+        };
+        
+        // Scale controls
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleValueDisplay = document.getElementById('scale-val');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        const displays = {
+            v0: document.getElementById('v0-val'),
+            theta0: document.getElementById('theta0-val'),
+            massRatio: document.getElementById('massRatio-val'),
+            v1: document.getElementById('v1-val'),
+            theta1: document.getElementById('theta1-val'),
+            time: document.getElementById('timeDisplay'),
+            state: document.getElementById('stateDisplay'),
+            cm: document.getElementById('cm-status'),
+            p1: document.getElementById('p1-status'),
+            p2: document.getElementById('p2-status'),
+        };
+
+        // State variables
+        let animationId;
+        let time = 0;
+        let isRunning = false;
+        let isPaused = false; // New Pause State
+        let hasExploded = false;
+        let scale = 5; // pixels per meter
+        let origin = { x: 50, y: 0 }; // Canvas coordinates
+        
+        // Simulation Parameters (Cached on start)
+        let simParams = {};
+
+        // Physics Objects
+        let projectile = null;
+        let fragment1 = null;
+        let fragment2 = null;
+        let centerOfMass = null;
+        let explosionParticles = []; // For explosion animation
+        
+        // Trail arrays
+        let trails = {
+            projectile: [],
+            frag1: [],
+            frag2: [],
+            cm: []
+        };
+
+        // Initialize Canvas Size
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth - 32; // padding
+            canvas.height = canvas.parentElement.clientHeight - 32;
+            origin.y = canvas.height - 50; // Ground level
+            drawScene(); // Redraw static scene
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Input Event Listeners for Physics Parameters
+        Object.keys(inputs).forEach(key => {
+            inputs[key].addEventListener('input', (e) => {
+                displays[key].innerText = e.target.value;
+                // If physics params change, reset simulation
+                if (!isRunning) resetSimulation();
+            });
+        });
+
+        // View Scale Slider Listener (Independent of physics reset)
+        scaleSlider.addEventListener('input', (e) => {
+            scale = parseFloat(e.target.value);
+            scaleValueDisplay.innerText = scale.toFixed(1);
+            // If stopped or paused, redraw immediately. If running, animate loop will handle it.
+            if (!isRunning || isPaused) drawScene();
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (isRunning && !isPaused) return; // Ignore if running and not paused
+            if (isPaused) {
+                // If paused, just resume
+                isPaused = false;
+                pauseBtn.innerText = "暫停";
+                lastTime = performance.now(); // Reset lastTime to avoid huge jump
+                animationId = requestAnimationFrame(animate);
+                return;
+            }
+            resetSimulation();
+            startSimulation();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            stopSimulation();
+            resetSimulation();
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (!isRunning) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBtn.innerText = "繼續";
+            } else {
+                pauseBtn.innerText = "暫停";
+                lastTime = performance.now(); // Reset timer to prevent jump
+                animationId = requestAnimationFrame(animate);
+            }
+        });
+
+        // ---------------------------------------------------------
+        // Physics Logic
+        // ---------------------------------------------------------
+
+        function degToRad(deg) { return deg * Math.PI / 180; }
+
+        class Particle {
+            constructor(x, y, vx, vy, color, radius, mass) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.radius = radius;
+                this.mass = mass;
+                this.landed = false;
+                this.landX = 0;
+            }
+
+            update(dt) {
+                if (this.landed) return;
+
+                // Position update
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                
+                // Velocity update (Gravity)
+                this.vy -= g * dt;
+
+                // Ground collision detection
+                if (this.y < 0) {
+                    this.y = 0;
+                    this.landed = true;
+                    this.landX = this.x;
+                }
+            }
+        }
+
+        // Simple Explosion Particle Class
+        class ExplosionParticle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 20 + 10;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1.0;
+                this.decay = Math.random() * 0.05 + 0.02;
+            }
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.alpha -= this.decay;
+            }
+        }
+
+        function calculateExplosion(proj) {
+            // Use cached params to ensure consistency
+            const m_ratio = simParams.mRatio; 
+            const v1_mag = simParams.v1;
+            const theta1 = simParams.theta1;
+            
+            const M = 1.0; 
+            const m1 = M * m_ratio;
+            const m2 = M * (1 - m_ratio);
+
+            const v_top_x = proj.vx; 
+            const v_top_y = 0; 
+
+            const v1x = v1_mag * Math.cos(degToRad(theta1));
+            const v1y = v1_mag * Math.sin(degToRad(theta1));
+
+            // Momentum Conservation
+            const v2x = (M * v_top_x - m1 * v1x) / m2;
+            const v2y = (0 - m1 * v1y) / m2;
+
+            return {
+                v1: { vx: v1x, vy: v1y, m: m1 },
+                v2: { vx: v2x, vy: v2y, m: m2 }
+            };
+        }
+
+        function createExplosionEffect(x, y) {
+            explosionParticles = [];
+            for(let i=0; i<30; i++) {
+                explosionParticles.push(new ExplosionParticle(x, y));
+            }
+        }
+
+        function resetSimulation() {
+            stopSimulation();
+            time = 0;
+            hasExploded = false;
+            isPaused = false;
+            pauseBtn.innerText = "暫停";
+            pauseBtn.disabled = true; // Disable pause when reset
+            
+            displays.time.innerText = "0.00";
+            displays.state.innerText = "準備發射";
+            displays.cm.innerText = "計算中";
+            displays.p1.innerText = "計算中";
+            displays.p2.innerText = "計算中";
+
+            trails = { projectile: [], frag1: [], frag2: [], cm: [] };
+            explosionParticles = [];
+
+            // Read inputs for initial setup
+            const v0 = parseFloat(inputs.v0.value);
+            const theta0 = parseFloat(inputs.theta0.value);
+            const vx0 = v0 * Math.cos(degToRad(theta0));
+            const vy0 = v0 * Math.sin(degToRad(theta0));
+
+            projectile = new Particle(0, 0, vx0, vy0, '#9ca3af', 6, 1.0); 
+            centerOfMass = new Particle(0, 0, vx0, vy0, 'rgba(0,0,0,0)', 4, 1.0); // Invisible initially
+            
+            // Push initial points
+            trails.projectile.push({x:0, y:0});
+            trails.cm.push({x:0, y:0});
+            
+            fragment1 = null;
+            fragment2 = null;
+
+            // Auto-calculate scale based on physics params
+            const maxRange = (v0 * v0 * Math.sin(degToRad(2 * theta0))) / g;
+            const estimatedWidth = maxRange * 1.5; 
+            let calculatedScale = Math.min((canvas.width - 100) / estimatedWidth, 15);
+            if (calculatedScale < 0.1) calculatedScale = 0.1;
+            
+            // Set scale and update slider UI
+            scale = calculatedScale;
+            scaleSlider.value = scale.toFixed(1);
+            scaleValueDisplay.innerText = scale.toFixed(1);
+
+            drawScene();
+        }
+
+        function startSimulation() {
+            isRunning = true;
+            pauseBtn.disabled = false; // Enable pause button
+            lastTime = performance.now();
+            
+            // Cache Simulation Parameters
+            simParams = {
+                v0: parseFloat(inputs.v0.value),
+                theta0: parseFloat(inputs.theta0.value),
+                mRatio: parseFloat(inputs.massRatio.value),
+                v1: parseFloat(inputs.v1.value),
+                theta1: parseFloat(inputs.theta1.value),
+                v0_y: parseFloat(inputs.v0.value) * Math.sin(degToRad(parseFloat(inputs.theta0.value)))
+            };
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function stopSimulation() {
+            isRunning = false;
+            isPaused = false;
+            pauseBtn.disabled = true;
+            cancelAnimationFrame(animationId);
+        }
+
+        let lastTime = 0;
+        
+        function animate() {
+            if (!isRunning) return;
+            
+            // Check Pause state
+            if (isPaused) {
+                // Keep requesting frames to allow UI updates (if we add interactions) 
+                // but don't advance physics time.
+                // We need to update lastTime so when we resume, dt isn't huge.
+                lastTime = performance.now(); 
+                animationId = requestAnimationFrame(animate);
+                return;
+            }
+
+            const now = performance.now();
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            if (dt > 0.05) dt = 0.05;
+            if (dt < 0) dt = 0;
+
+            time += dt;
+            displays.time.innerText = time.toFixed(2);
+
+            const t_peak = simParams.v0_y / g;
+
+            // Update Explosion Particles if active
+            if (explosionParticles.length > 0) {
+                for (let i = explosionParticles.length - 1; i >= 0; i--) {
+                    explosionParticles[i].update(dt);
+                    if (explosionParticles[i].alpha <= 0) {
+                        explosionParticles.splice(i, 1);
+                    }
+                }
+            }
+
+            if (!hasExploded) {
+                if (time >= t_peak) {
+                    hasExploded = true;
+                    displays.state.innerText = "💥 爆炸!";
+                    
+                    const peakX = projectile.vx * t_peak;
+                    const peakY = simParams.v0_y * t_peak - 0.5 * g * t_peak * t_peak;
+                    
+                    projectile.x = peakX;
+                    projectile.y = peakY;
+                    centerOfMass.x = peakX;
+                    centerOfMass.y = peakY;
+
+                    const result = calculateExplosion(projectile);
+                    
+                    // Trigger Explosion Effect
+                    createExplosionEffect(peakX, peakY);
+
+                    // Fragment 1 is now Green (#22c55e)
+                    fragment1 = new Particle(peakX, peakY, result.v1.vx, result.v1.vy, '#22c55e', 5, result.v1.m);
+                    // Fragment 2 Blue
+                    fragment2 = new Particle(peakX, peakY, result.v2.vx, result.v2.vy, '#2563eb', 5, result.v2.m);
+
+                    displays.p2.innerText = `Vx=${result.v2.vx.toFixed(1)}, Vy=${result.v2.vy.toFixed(1)}`;
+                    
+                    trails.projectile.push({x: peakX, y: peakY});
+                    trails.cm.push({x: peakX, y: peakY}); 
+
+                } else {
+                    displays.state.innerText = "上升中";
+                    projectile.update(dt);
+                    centerOfMass.update(dt);
+                    
+                    const lastP = trails.projectile[trails.projectile.length-1];
+                    if (Math.hypot(projectile.x - lastP.x, projectile.y - lastP.y) > 0.2) {
+                        trails.projectile.push({x: projectile.x, y: projectile.y});
+                        trails.cm.push({x: centerOfMass.x, y: centerOfMass.y});
+                    }
+                }
+            } else {
+                fragment1.update(dt);
+                fragment2.update(dt);
+                
+                // 質心位置計算
+                const totalM = fragment1.mass + fragment2.mass;
+                centerOfMass.x = (fragment1.x * fragment1.mass + fragment2.x * fragment2.mass) / totalM;
+                centerOfMass.y = (fragment1.y * fragment1.mass + fragment2.y * fragment2.mass) / totalM;
+
+                // Trail updates
+                const lastF1 = trails.frag1.length > 0 ? trails.frag1[trails.frag1.length-1] : {x: fragment1.x, y: fragment1.y};
+                if (trails.frag1.length === 0 || Math.hypot(fragment1.x - lastF1.x, fragment1.y - lastF1.y) > 0.2) {
+                    if(!fragment1.landed) trails.frag1.push({x: fragment1.x, y: fragment1.y});
+                }
+
+                const lastF2 = trails.frag2.length > 0 ? trails.frag2[trails.frag2.length-1] : {x: fragment2.x, y: fragment2.y};
+                if (trails.frag2.length === 0 || Math.hypot(fragment2.x - lastF2.x, fragment2.y - lastF2.y) > 0.2) {
+                    if(!fragment2.landed) trails.frag2.push({x: fragment2.x, y: fragment2.y});
+                }
+                
+                // CM Trail Update
+                const lastCM = trails.cm[trails.cm.length-1];
+                if (Math.hypot(centerOfMass.x - lastCM.x, centerOfMass.y - lastCM.y) > 0.2) {
+                    trails.cm.push({x: centerOfMass.x, y: centerOfMass.y});
+                }
+
+                // 只有當「兩個碎片都落地」才算結束
+                if (fragment1.landed && fragment2.landed) {
+                    displays.state.innerText = "落地完成";
+                    stopSimulation();
+                    pauseBtn.disabled = true; // Disable pause on finish
+                    displays.cm.innerText = `最終落距: ${centerOfMass.x.toFixed(1)}m`;
+                    displays.p1.innerText = `落距: ${fragment1.landX.toFixed(1)}m`;
+                    displays.p2.innerText = `落距: ${fragment2.landX.toFixed(1)}m`;
+                }
+            }
+
+            drawScene();
+            
+            if(isRunning) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // ---------------------------------------------------------
+        // Drawing Logic
+        // ---------------------------------------------------------
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(origin.x, origin.y);
+            ctx.scale(scale, -scale); 
+            
+            // Ground (Changed to Black)
+            ctx.fillStyle = '#000000'; 
+            ctx.fillRect(-10, -2, canvas.width/scale + 20, 2);
+            
+            // Grid
+            ctx.strokeStyle = '#e5e7eb';
+            ctx.lineWidth = 1 / scale;
+            for(let i=0; i<canvas.width/scale; i+=10) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height/scale);
+                ctx.stroke();
+            }
+
+            function drawTrail(points, color, dashed = false, width = 3) {
+                if (points.length < 2) return;
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = width / scale; 
+                ctx.lineCap = 'round';
+                
+                if (dashed) {
+                    ctx.setLineDash([10/scale, 10/scale]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+                
+                ctx.moveTo(points[0].x, points[0].y);
+                for(let i=1; i<points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]); 
+            }
+
+            // 1. Draw Projectile Trail (Bottom layer)
+            drawTrail(trails.projectile, '#9ca3af', false, 4);
+
+            if (hasExploded) {
+                // Draw connecting line between fragments and CM
+                if (fragment1 && fragment2 && centerOfMass) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#a855f7'; // Purple
+                    ctx.lineWidth = 1.5 / scale;
+                    ctx.setLineDash([5/scale, 5/scale]);
+                    
+                    ctx.moveTo(fragment1.x, fragment1.y);
+                    // Draw to Frag 2 (CM will naturally be on this line)
+                    ctx.lineTo(fragment2.x, fragment2.y);
+                    
+                    ctx.stroke();
+                    ctx.setLineDash([]); // Reset dash
+                }
+
+                // 2. Draw Fragments
+                // Frag 1 Green (#22c55e)
+                drawTrail(trails.frag1, '#22c55e');
+                drawTrail(trails.frag2, '#60a5fa');
+                
+                // Explosion Marker (Only briefly at start of explosion)
+                const peakPt = trails.projectile[trails.projectile.length-1];
+                ctx.fillStyle = "#fbbf24";
+                ctx.beginPath();
+                ctx.arc(peakPt.x, peakPt.y, 10/scale, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // 3. Draw CM Trail (Top layer, Dashed, Red #ef4444)
+            drawTrail(trails.cm, '#ef4444', true, 3);
+
+            function drawBall(p) {
+                if (!p) return;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius / scale * 2, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                // Add border to balls for better visibility
+                ctx.lineWidth = 1/scale;
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.stroke();
+            }
+
+            // 4. Draw Explosion Particles
+            if (explosionParticles.length > 0) {
+                for (let p of explosionParticles) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, (3 / scale), 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 100, 0, ${p.alpha})`;
+                    ctx.fill();
+                }
+            }
+
+            if (!hasExploded) {
+                drawBall(projectile);
+            } else {
+                drawBall(fragment1);
+                drawBall(fragment2);
+                
+                // Draw CM ball
+                if (centerOfMass) {
+                    ctx.beginPath();
+                    ctx.arc(centerOfMass.x, centerOfMass.y, 4 / scale * 2, 0, Math.PI * 2);
+                    // CM Ball slightly reddish grey
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.5)'; 
+                    ctx.fill();
+                    ctx.strokeStyle = '#991b1b';
+                    ctx.setLineDash([2/scale, 2/scale]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+
+            ctx.restore();
+
+            // ----------------------------------------------------------------
+            // Draw Labels (Screen Space - No Scale Transform)
+            // ----------------------------------------------------------------
+            ctx.font = "bold 14px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+
+            // Helper to get screen coords
+            const toScreenX = (val) => origin.x + val * scale;
+            const toScreenY = (val) => origin.y - val * scale;
+
+            if (!hasExploded && projectile) {
+                // Label for Original Projectile
+                ctx.fillStyle = "#4b5563"; // Grey text
+                ctx.fillText("砲彈", toScreenX(projectile.x), toScreenY(projectile.y) - 15);
+            } 
+            else if (hasExploded) {
+                // Label for Fragments
+                if (fragment1) {
+                    ctx.fillStyle = "#15803d"; // Green text
+                    ctx.fillText("碎片1", toScreenX(fragment1.x), toScreenY(fragment1.y) - 15);
+                }
+                if (fragment2) {
+                    ctx.fillStyle = "#1d4ed8"; // Blue text
+                    ctx.fillText("碎片2", toScreenX(fragment2.x), toScreenY(fragment2.y) - 15);
+                }
+
+                // Label for CM
+                ctx.fillStyle = "#b91c1c"; // Dark Red Text
+                ctx.fillText("CM", toScreenX(centerOfMass.x), toScreenY(centerOfMass.y) - 15);
+            }
+        }
+
+        resizeCanvas();
+        resetSimulation();
+
+    </script>
+</body>
+</html>
