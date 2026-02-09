@@ -699,8 +699,14 @@
 
                         {/* Cloud Modal */}
                         {showCloudModal && (
-                            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center popup-overlay">
-                                <div className="bg-white p-8 rounded-2xl shadow-2xl w-[400px] popup-content text-center">
+                            <div 
+                                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center popup-overlay"
+                                onClick={() => setShowCloudModal(false)} // Click background to close
+                            >
+                                <div 
+                                    className="bg-white p-8 rounded-2xl shadow-2xl w-[400px] popup-content text-center"
+                                    onClick={(e) => e.stopPropagation()} // Prevent close when clicking content
+                                >
                                     <h2 className="text-2xl font-bold text-purple-600 mb-4 flex items-center justify-center gap-2">
                                         <i data-lucide="cloud" className="w-6 h-6"></i> 雲端設定存取
                                     </h2>
@@ -879,7 +885,7 @@
                                     </button>
                                     <button 
                                         onClick={handleRemoveUser}
-                                        className="px-8 py-4 bg-gray-500 hover:bg-gray-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2"
+                                        className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2"
                                     >
                                         <i data-lucide="trash-2" className="w-8 h-8"></i>
                                         移除此人
@@ -897,3 +903,4 @@
     </script>
 </body>
 </html>
+
