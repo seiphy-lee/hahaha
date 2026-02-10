@@ -54,7 +54,7 @@
             background-repeat: no-repeat;
             background-color: white; 
         }
-        /* 十字準心 */
+        /* 十字準心 (放大鏡內的) */
         .magnifier::after {
             content: '';
             position: absolute;
@@ -66,6 +66,41 @@
             border: 1px solid rgba(0,0,0,0.5);
             background: rgba(255,0,0,0.3);
         }
+        
+        /* 新增：畫布上的明顯準星 */
+        .crosshair-marker {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+            display: none; /* 初始隱藏 */
+        }
+        .crosshair-marker::before, .crosshair-marker::after {
+            content: '';
+            position: absolute;
+            background-color: #00ff00; /* 亮綠色 */
+            box-shadow: 0 0 2px rgba(0,0,0,0.8); /* 陰影增加對比 */
+        }
+        /* 橫線 */
+        .crosshair-marker::before {
+            top: 11px; left: 0; width: 24px; height: 2px;
+        }
+        /* 直線 */
+        .crosshair-marker::after {
+            top: 0; left: 11px; width: 2px; height: 24px;
+        }
+        /* 圓圈 */
+        .crosshair-circle {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            box-shadow: 0 0 2px rgba(0,0,0,0.8);
+            box-sizing: border-box;
+        }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-6 px-4">
@@ -73,10 +108,7 @@
     <!-- Header -->
     <header class="text-center mb-6 max-w-2xl w-full">
         <h1 class="text-3xl font-bold text-blue-400 mb-2">光學實驗室</h1>
-        <h2 class="text-xl text-gray-300">數位色彩分析儀 (RGB Analyzer)</h2>
-        <p class="text-sm text-gray-400 mt-2">
-            物理原理：模擬 CMOS 感光元件，讀取像素點的紅(R)、綠(G)、藍(B)光強度。
-        </p>
+        <h2 class="text-xl text-gray-300">數位色彩分析儀 (RGB Analyzer)---阿發老師設計</h2>
     </header>
 
     <!-- Main Tool -->
@@ -99,7 +131,12 @@
         <div class="relative w-full flex justify-center mb-6">
             <div id="canvasWrapper" class="canvas-container relative inline-block">
                 <canvas id="mainCanvas" class="max-w-full block"></canvas>
+                <!-- 放大鏡 (跟隨游標) -->
                 <div id="magnifier" class="magnifier"></div>
+                <!-- 固定準星 (顯示當前選取點) -->
+                <div id="crosshairMarker" class="crosshair-marker">
+                    <div class="crosshair-circle"></div>
+                </div>
                 <div id="emptyState" class="absolute inset-0 flex items-center justify-center text-gray-500 bg-gray-900 pointer-events-none">
                     <span>請先上傳圖片以開始分析</span>
                 </div>
@@ -182,6 +219,7 @@
         const emptyState = document.getElementById('emptyState');
         const analysisPanel = document.getElementById('analysisPanel');
         const magnifier = document.getElementById('magnifier');
+        const crosshairMarker = document.getElementById('crosshairMarker');
 
         // Result Elements
         const colorPreview = document.getElementById('colorPreview');
@@ -289,6 +327,11 @@
             const r = pixel[0];
             const g = pixel[1];
             const b = pixel[2];
+            
+            // 更新準星位置 (顯示當前選取的像素位置)
+            crosshairMarker.style.left = x + 'px';
+            crosshairMarker.style.top = y + 'px';
+            crosshairMarker.style.display = 'block';
 
             updateUI(r, g, b);
         }
