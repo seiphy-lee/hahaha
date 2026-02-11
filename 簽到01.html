@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物理實驗室 - 課堂簽到系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 350px;
+            z-index: 10;
+            position: relative;
+        }
+        h2 { color: #333; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; color: #666; font-weight: bold;}
+        
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: #fff;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        #error-msg, #success-msg {
+            display: none;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        #error-msg {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        #success-msg {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* 診斷模式提示 */
+        .debug-banner {
+            background: #ffc107;
+            color: #856404;
+            padding: 5px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffeeba;
+            display: none; /* 預設隱藏 */
+        }
+
+        #anim-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+        .status { margin-top: 10px; font-size: 0.9em; color: #888; }
+        .physics-note { font-size: 0.8em; color: #999; margin-top: 5px; }
+
+        /* ================= 教師後台樣式 ================= */
+        .admin-toggle {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            opacity: 0.3;
+            cursor: pointer;
+            font-size: 24px;
+            z-index: 100;
+        }
+        .admin-toggle:hover { opacity: 1; }
+
+        #admin-panel {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+        .admin-box {
+            background: white;
+            width: 600px;
+            max-width: 90%;
+            height: 80vh;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .admin-content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .code-output {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            height: 150px;
+            overflow-y: auto;
+            user-select: all; /* 方便全選複製 */
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .step-title { font-weight: bold; color: #007bff; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <canvas id="anim-canvas"></canvas>
+
+    <!-- 主簽到區 -->
+    <div class="container" id="main-box">
+        <h2>⚛️ 物理課簽到</h2>
+        
+        <!-- 診斷模式提示條 -->
+        <div id="debug-banner" class="debug-banner">
+            🛠️ 診斷模式開啟中：送出後將開啟新視窗檢測錯誤
+        </div>
+
+        <div id="form-area">
+            <!-- 注意：target 會由 JS 動態決定 -->
+            <form id="attendance-form" onsubmit="submitData();">
+                
+                <div class="input-group">
+                    <label>班級 (Class)</label>
+                    <select id="classSelect" onchange="updateStudentList()" required>
+                        <option value="" disabled selected>請選擇班級</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>姓名 (Student)</label>
+                    <select id="studentSelect" required disabled>
+                        <option value="" disabled selected>請先選擇班級</option>
+                    </select>
+                </div>
+
+                <input type="hidden" id="realClassID">
+                <input type="hidden" id="realSeatNo">
+                <input type="hidden" id="realStudentName">
+
+                <button type="submit" id="submit-btn">確認簽到</button>
+                <div class="status" id="time-status"></div>
+            </form>
+        </div>
+
+        <div id="error-msg">
+            ⚠️ <strong>設備錯誤</strong><br>
+            請使用學校配發的 Chromebook 進行簽到。<br>
+            (偵測到非 ChromeOS 系統)<br>
+            <br>
+            <span style="font-size: 0.9em; color: #555; text-decoration: underline; cursor: pointer;" onclick="openAdmin()">[教師後台設定]</span>
+        </div>
+
+        <div id="success-msg"></div>
+    </div>
+
+    <div class="admin-toggle" onclick="openAdmin()">⚙️</div>
+
+    <div id="admin-panel">
+        <div class="admin-box">
+            <div class="admin-header">
+                <h3>🛠️ 教師設定後台 (名單匯入工具)</h3>
+                <button onclick="closeAdmin()" style="width:auto; margin:0; background:#dc3545;">關閉</button>
+            </div>
+            <div class="admin-content">
+                <div class="step-title">第一步：從 Excel 複製名單</div>
+                <p style="font-size:0.9em; color:#666;">
+                    請在 Excel 整理成三欄：<strong>班級 | 座號 | 姓名</strong> (不需要標題列)。<br>
+                    直接複製並貼在下方框框中：
+                </p>
+                <textarea id="raw-data" placeholder="範例：&#10;201	01	王小明&#10;201	02	李小華&#10;202	01	張三豐"></textarea>
+                
+                <div class="btn-group">
+                    <button onclick="generateCode()">⬇️ 轉換為程式碼</button>
+                </div>
+
+                <div class="step-title">第二步：複製下方代碼</div>
+                <p style="font-size:0.9em; color:#666;">
+                    請全選並複製下方格子內的程式碼，然後回到編輯器，<strong>取代掉原本的 `const CLASS_DATA = ...;` 那一整段</strong>。
+                </p>
+                <div class="code-output" id="output-code">// 程式碼將會顯示在這裡...</div>
+                
+                <div class="btn-group">
+                    <button class="btn-secondary" onclick="copyToClipboard()">📋 複製代碼</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {finishSubmission();}"></iframe>
+
+    <script>
+        // ================= 教師資料設定區 =================
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdZHVgS--0HxTcSjLlcm8LuZ2YkoVH6NYIteWstHuLsh93_Kw/formResponse"; 
+        
+        // Entry IDs
+        const ENTRY_CLASS = "entry.1459774247"; 
+        const ENTRY_SEAT = "entry.1562520522";  
+        const ENTRY_NAME = "entry.2127377395";  
+        
+        const LATE_HOUR = 8;
+        const LATE_MINUTE = 10;
+        
+        const CLASS_DATA = {
+            "207": [
+                "01 米以安", "02 何苙宇", "03 吳柏涵", "04 呂沛鈞", "05 幸曄箴",
+                "06 林云龍", "07 林品陯", "08 侯建均", "09 張君屹", "10 張宸濬",
+                "11 陳弘川", "12 陳偉杰", "13 温濬謙", "14 鄂一柏", "15 廖名舜",
+                "16 廖政鈞", "17 賴家緯", "18 謝伯岳", "19 朱佩岑", "20 余芝宜",
+                "21 林欣瑩", "22 林禹岑", "23 洪鳳妤", "24 張孟媗", "25 彭子琪",
+                "26 黃巧妮", "27 詹侑璇", "28 詹語瑄", "29 蔡宜臻", "30 鄭予晴",
+                "31 鐘羽芊", "32 李紀寬"
+            ],
+            "212": [
+                "01 王子其", "02 王秉字", "03 王冠喆", "04 王彥凱", "05 朱偉成",
+                "06 江和謙", "07 江閔凱", "08 何佳錠", "09 呂奕辰", "10 周冠丞",
+                "11 林冠宇", "12 林柏佑", "13 侯韞志", "14 柯宇澤", "15 馬維隆",
+                "16 高淯任", "17 張宸軒", "18 張峻維", "19 張耕碩", "20 陳宏彥",
+                "21 陳亭昀", "22 陳律廷", "23 陳睿穎", "25 楊璨安", "26 趙冠珉",
+                "27 劉岡曜", "28 劉軒佑", "29 劉樂濠", "30 鄭稚儒", "31 謝其龍",
+                "32 謝旻倫", "33 顏齊佑", "34 何芸青", "35 宋思嫺", "36 李宜瑾",
+                "37 柯君霓", "38 紀霈穎", "39 陳宥君", "40 陳唄妤", "41 雷承恩"
+            ],
+            "217": [
+                "01 王彥勛", "02 巫信佑", "03 林朱駿", "04 林誼華", "05 馬瑞晟",
+                "06 張彥智", "07 張軒祐", "08 梁孟傑", "09 許富荃", "10 陳奕學",
+                "11 陳琪盛", "12 曾稚皓", "13 黃俊哲", "14 黃冠瑜", "15 黃宥蒲",
+                "16 楊宸竣", "17 鄒宇程", "18 劉岳勳", "19 劉品賦", "20 鄭筠曦",
+                "21 盧奕叡", "22 賴品丞", "23 江晨熙", "24 余思嫻", "25 李安潔",
+                "26 李芝妤", "27 林予涵", "28 侯妤沛", "29 洪雅樂", "30 翁若馨",
+                "31 耿韻萁", "32 張羽岑", "33 張馨心", "34 陳可恩", "35 陳麗安",
+                "36 曾孟貞", "37 趙羿晴", "38 蔡沂庭", "39 蔡佳蓁", "40 薛貴婷"
+            ]
+        };
+        // ========================================================
+        
+        // ★★★ 正式上課模式：不跳出視窗，安靜背景執行 ★★★
+        const DEBUG_MODE = false; 
+        
+        var submitted = false;
+
+        window.onload = function() {
+            initClassDropdown();
+            
+            // 根據 DEBUG_MODE 決定是否顯示黃色提示條
+            if (DEBUG_MODE) {
+                document.getElementById('debug-banner').style.display = 'block';
+            }
+
+            const isChromebook = navigator.userAgent.indexOf("CrOS") !== -1;
+            if (!isChromebook && !DEBUG_MODE) {
+                document.getElementById('form-area').style.display = 'none';
+                document.getElementById('error-msg').style.display = 'block';
+            } else {
+                checkDailyStatus();
+                checkTime();
+            }
+        };
+
+        function initClassDropdown() {
+            const classSelect = document.getElementById('classSelect');
+            classSelect.innerHTML = '<option value="" disabled selected>請選擇班級</option>'; 
+            for (let className in CLASS_DATA) {
+                let option = document.createElement("option");
+                option.value = className;
+                option.text = className + " 班";
+                classSelect.appendChild(option);
+            }
+        }
+
+        function updateStudentList() {
+            const classSelect = document.getElementById('classSelect');
+            const studentSelect = document.getElementById('studentSelect');
+            const selectedClass = classSelect.value;
+            studentSelect.innerHTML = '<option value="" disabled selected>請選擇姓名</option>';
+
+            if (selectedClass && CLASS_DATA[selectedClass]) {
+                studentSelect.disabled = false;
+                const students = CLASS_DATA[selectedClass];
+                students.forEach(studentStr => {
+                    let option = document.createElement("option");
+                    option.value = studentStr; 
+                    option.text = studentStr;
+                    studentSelect.appendChild(option);
+                });
+            } else {
+                studentSelect.disabled = true;
+                studentSelect.innerHTML = '<option value="" disabled selected>請先選擇班級</option>';
+            }
+        }
+
+        function checkDailyStatus() {
+            const todayStr = new Date().toDateString(); 
+            const lastSignDate = localStorage.getItem('physics_attendance_date');
+            // DEBUG_MODE 時不鎖定，方便測試
+            if (lastSignDate === todayStr && !DEBUG_MODE) showAlreadySignedUI();
+        }
+
+        function checkTime() {
+            const now = new Date();
+            const statusDiv = document.getElementById('time-status');
+            const target = new Date();
+            target.setHours(LATE_HOUR, LATE_MINUTE, 0);
+
+            if (now > target) {
+                statusDiv.innerHTML = `注意：已超過 ${LATE_HOUR}:${String(LATE_MINUTE).padStart(2,'0')} (遲到)`;
+                statusDiv.style.color = "#d9534f";
+            } else {
+                statusDiv.innerHTML = "目前狀態：準時";
+                statusDiv.style.color = "#28a745";
+            }
+        }
+
+        function submitData() {
+            submitted = true;
+            
+            const form = document.getElementById('attendance-form');
+            form.action = GOOGLE_FORM_URL;
+            form.method = "POST";
+            
+            // ★★★ 關鍵修改：依據模式決定傳送目標 ★★★
+            if (DEBUG_MODE) {
+                form.target = "_blank"; // 診斷模式：開新視窗 (才能看到錯誤訊息)
+            } else {
+                form.target = "hidden_iframe"; // 正常模式：背景執行
+                const btn = document.getElementById('submit-btn');
+                btn.disabled = true;
+                btn.innerText = "資料傳送中...";
+            }
+            
+            const selectedClass = document.getElementById('classSelect').value;
+            const fullStudentStr = document.getElementById('studentSelect').value;
+            
+            let parts = fullStudentStr.split(' ');
+            let seatNo = parts[0];
+            let name = parts.slice(1).join(' ');
+
+            createHiddenInput(form, ENTRY_CLASS, selectedClass);
+            createHiddenInput(form, ENTRY_SEAT, seatNo);
+            createHiddenInput(form, ENTRY_NAME, name);
+            
+            // 如果是 DEBUG_MODE，不需要等 iframe onload，直接顯示模擬成功
+            // 但使用者會在新視窗看到真正的結果
+            if(DEBUG_MODE) {
+                setTimeout(() => {
+                    alert("請檢查剛剛彈出的新視窗。\n\n如果有紅色錯誤，代表 ID 設錯了。\n如果顯示「已收到回覆」，請檢查試算表。");
+                }, 1000);
+            }
+        }
+
+        function createHiddenInput(form, name, value) {
+            // 先清除舊的同名 input (避免重複)
+            const oldInput = form.querySelector(`input[name="${name}"]`);
+            if (oldInput) oldInput.remove();
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        function finishSubmission() {
+            // 只有在非 Debug 模式才執行這裡 (因為 Debug 模式會開新視窗)
+            const todayStr = new Date().toDateString();
+            localStorage.setItem('physics_attendance_date', todayStr);
+            const formArea = document.getElementById('form-area');
+            const successMsg = document.getElementById('success-msg');
+            formArea.style.display = 'none';
+            successMsg.style.display = 'block';
+            successMsg.innerHTML = `<h3>✅ 簽到成功</h3><p>資料已寫入實驗紀錄簿</p><div class="physics-note">能量守恆定律：輸入資料 = 輸出學分</div>`;
+            startPhysicsAnimation();
+        }
+
+        function showAlreadySignedUI() {
+            const formArea = document.getElementById('form-area');
+            const successMsg = document.getElementById('success-msg');
+            formArea.style.display = 'none';
+            successMsg.style.display = 'block';
+            successMsg.innerHTML = `<h3>👌 本日已完成簽到</h3><p>請勿重複操作</p><div class="physics-note">系統狀態：穩態 (Stable State)</div>`;
+            startPhysicsAnimation();
+        }
+
+        function startPhysicsAnimation() {
+            const canvas = document.getElementById('anim-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            let x = canvas.width / 2, y = 50, r = 20, vy = 0, g = 0.98, bounce = -0.75; 
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = "#FF5722"; ctx.fill();
+                ctx.strokeStyle = "#333"; ctx.stroke();
+                ctx.closePath();
+                ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.font = "14px monospace";
+                ctx.fillText(`Vy: ${vy.toFixed(1)}`, x + 25, y);
+                vy += g; y += vy;
+                if (y + r > canvas.height) { y = canvas.height - r; vy *= bounce; if (Math.abs(vy) < 1.5) { vy = 0; g = 0; } }
+                if (g !== 0) requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        window.onresize = function() {
+            const canvas = document.getElementById('anim-canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+
+        // ================= 教師後台邏輯 =================
+        function openAdmin() {
+            const pwd = prompt("請輸入教師密碼 (預設: physics):", "");
+            if (pwd === "physics") {
+                document.getElementById('admin-panel').style.display = 'flex';
+            } else if (pwd !== null) {
+                alert("密碼錯誤");
+            }
+        }
+
+        function closeAdmin() {
+            document.getElementById('admin-panel').style.display = 'none';
+        }
+
+        function generateCode() {
+            const raw = document.getElementById('raw-data').value.trim();
+            if (!raw) { alert("請先貼上資料！"); return; }
+            const lines = raw.split('\n');
+            const dataObj = {};
+            lines.forEach(line => {
+                let parts = line.split(/\t|,/); 
+                parts = parts.map(p => p.trim()).filter(p => p);
+                if (parts.length >= 3) {
+                    const cls = parts[0];
+                    const seat = parts[1];
+                    const name = parts[2];
+                    if (!dataObj[cls]) { dataObj[cls] = []; }
+                    dataObj[cls].push(`${seat} ${name}`);
+                }
+            });
+            const jsonStr = JSON.stringify(dataObj, null, 2);
+            document.getElementById('output-code').innerText = `const CLASS_DATA = ${jsonStr};`;
+        }
+
+        function copyToClipboard() {
+            const code = document.getElementById('output-code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                alert("已複製！請回到 HTML 編輯器，找到原本的 const CLASS_DATA = ... 取代之。");
+            }).catch(err => {
+                alert("複製失敗，請手動選取複製");
+            });
+        }
+    </script>
+</body>
+</html>
