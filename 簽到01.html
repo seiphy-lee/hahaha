@@ -71,7 +71,7 @@
             border: 1px solid #c3e6cb;
         }
         
-        /* 診斷模式提示 */
+        /* 診斷/教師模式提示 */
         .debug-banner {
             background: #ffc107;
             color: #856404;
@@ -80,7 +80,7 @@
             margin-bottom: 10px;
             border-radius: 5px;
             border: 1px solid #ffeeba;
-            display: none; /* 預設隱藏 */
+            display: none; 
         }
 
         #anim-canvas {
@@ -167,6 +167,15 @@
         .btn-secondary { background: #6c757d; }
         .btn-secondary:hover { background: #5a6268; }
         .step-title { font-weight: bold; color: #007bff; margin-top: 10px; }
+        
+        .teacher-link {
+            font-size: 0.9em; 
+            color: #0056b3; 
+            text-decoration: underline; 
+            cursor: pointer; 
+            display: block;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -179,7 +188,7 @@
         
         <!-- 診斷模式提示條 -->
         <div id="debug-banner" class="debug-banner">
-            🛠️ 診斷模式開啟中：送出後將開啟新視窗檢測錯誤
+            👨‍🏫 教師權限已啟用：不限設備簽到
         </div>
 
         <div id="form-area">
@@ -214,7 +223,7 @@
             請使用學校配發的 Chromebook 進行簽到。<br>
             (偵測到非 ChromeOS 系統)<br>
             <br>
-            <span style="font-size: 0.9em; color: #555; text-decoration: underline; cursor: pointer;" onclick="openAdmin()">[教師後台設定]</span>
+            <span class="teacher-link" onclick="teacherLogin()">[我是老師，解除限制]</span>
         </div>
 
         <div id="success-msg"></div>
@@ -264,6 +273,7 @@
         const ENTRY_SEAT = "entry.1562520522";  
         const ENTRY_NAME = "entry.2127377395";  
         
+        // 這裡的時間是預設顯示給學生的，真正的遲到判斷建議在 Google Sheet 處理
         const LATE_HOUR = 8;
         const LATE_MINUTE = 10;
         
@@ -300,28 +310,39 @@
         };
         // ========================================================
         
-        // ★★★ 正式上課模式：不跳出視窗，安靜背景執行 ★★★
-        const DEBUG_MODE = false; 
-        
         var submitted = false;
+        // 檢查是否曾經登入過教師模式
+        var isTeacherMode = localStorage.getItem('physics_teacher_mode') === 'true';
 
         window.onload = function() {
             initClassDropdown();
             
-            // 根據 DEBUG_MODE 決定是否顯示黃色提示條
-            if (DEBUG_MODE) {
-                document.getElementById('debug-banner').style.display = 'block';
-            }
-
             const isChromebook = navigator.userAgent.indexOf("CrOS") !== -1;
-            if (!isChromebook && !DEBUG_MODE) {
-                document.getElementById('form-area').style.display = 'none';
-                document.getElementById('error-msg').style.display = 'block';
-            } else {
+            
+            // 如果是 Chromebook 或者是教師模式，就顯示表單
+            if (isChromebook || isTeacherMode) {
+                if (isTeacherMode) {
+                    document.getElementById('debug-banner').style.display = 'block';
+                }
                 checkDailyStatus();
                 checkTime();
+            } else {
+                // 否則顯示錯誤
+                document.getElementById('form-area').style.display = 'none';
+                document.getElementById('error-msg').style.display = 'block';
             }
         };
+
+        function teacherLogin() {
+            const pwd = prompt("請輸入教師密碼 (預設: physics):");
+            if (pwd === "physics") {
+                localStorage.setItem('physics_teacher_mode', 'true');
+                alert("驗證成功！正在切換為教師模式...");
+                location.reload(); // 重新整理網頁
+            } else {
+                alert("密碼錯誤");
+            }
+        }
 
         function initClassDropdown() {
             const classSelect = document.getElementById('classSelect');
@@ -358,8 +379,9 @@
         function checkDailyStatus() {
             const todayStr = new Date().toDateString(); 
             const lastSignDate = localStorage.getItem('physics_attendance_date');
-            // DEBUG_MODE 時不鎖定，方便測試
-            if (lastSignDate === todayStr && !DEBUG_MODE) showAlreadySignedUI();
+            
+            // 教師模式下不鎖定，方便您重複測試
+            if (lastSignDate === todayStr && !isTeacherMode) showAlreadySignedUI();
         }
 
         function checkTime() {
@@ -379,16 +401,16 @@
 
         function submitData() {
             submitted = true;
-            
             const form = document.getElementById('attendance-form');
             form.action = GOOGLE_FORM_URL;
             form.method = "POST";
             
-            // ★★★ 關鍵修改：依據模式決定傳送目標 ★★★
-            if (DEBUG_MODE) {
-                form.target = "_blank"; // 診斷模式：開新視窗 (才能看到錯誤訊息)
+            // 教師模式：開新視窗方便檢查
+            // 學生模式：背景執行
+            if (isTeacherMode) {
+                form.target = "_blank"; 
             } else {
-                form.target = "hidden_iframe"; // 正常模式：背景執行
+                form.target = "hidden_iframe"; 
                 const btn = document.getElementById('submit-btn');
                 btn.disabled = true;
                 btn.innerText = "資料傳送中...";
@@ -405,17 +427,14 @@
             createHiddenInput(form, ENTRY_SEAT, seatNo);
             createHiddenInput(form, ENTRY_NAME, name);
             
-            // 如果是 DEBUG_MODE，不需要等 iframe onload，直接顯示模擬成功
-            // 但使用者會在新視窗看到真正的結果
-            if(DEBUG_MODE) {
+            if(isTeacherMode) {
                 setTimeout(() => {
-                    alert("請檢查剛剛彈出的新視窗。\n\n如果有紅色錯誤，代表 ID 設錯了。\n如果顯示「已收到回覆」，請檢查試算表。");
+                    alert("測試模式：資料已送出。");
                 }, 1000);
             }
         }
 
         function createHiddenInput(form, name, value) {
-            // 先清除舊的同名 input (避免重複)
             const oldInput = form.querySelector(`input[name="${name}"]`);
             if (oldInput) oldInput.remove();
 
@@ -427,7 +446,6 @@
         }
 
         function finishSubmission() {
-            // 只有在非 Debug 模式才執行這裡 (因為 Debug 模式會開新視窗)
             const todayStr = new Date().toDateString();
             localStorage.setItem('physics_attendance_date', todayStr);
             const formArea = document.getElementById('form-area');
@@ -478,7 +496,7 @@
 
         // ================= 教師後台邏輯 =================
         function openAdmin() {
-            const pwd = prompt("請輸入教師密碼 (預設: physics):", "");
+            const pwd = prompt("請輸入教師密碼 (預設: physics):");
             if (pwd === "physics") {
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pwd !== null) {
