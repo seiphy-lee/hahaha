@@ -121,12 +121,12 @@
 
     <script>
         // ================= 教師設定區 (僅限 207 班) =================
-        // 1. 207班表單的 Action URL
-        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdSkqsQKC6WozWejhg5bH8b-b2p8bFBbezHCL0CRbX2Yk-_5w/formResponse";
+        // 1. 已為您替換為正確的 formResponse 網址！
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdSkqsQKC6WozWejhg5bH8b-b2p8bFBbezHCL0CRbX2Yk-_5w/formResponse"; 
         
-        // 2. 207班表單的 Entry IDs (只需要座號跟姓名)
-        const ENTRY_SEAT = "entry.1279297389";  // 請換成207表單的座號ID
-        const ENTRY_NAME = "entry.897755681";  // 請換成207表單的姓名ID
+        // 2. 207班表單的 Entry IDs (★★★請確認這兩行是您抓到的正確數字★★★)
+        const ENTRY_SEAT = "entry.1279297389";  
+        const ENTRY_NAME = "entry.897755681";  
         
         // 3. 207班專屬名單
         const CLASS_ROSTER = [
@@ -188,7 +188,9 @@
             const form = document.getElementById('attendance-form');
             form.action = GOOGLE_FORM_URL;
             form.method = "POST";
-            form.target = "_blank"; 
+            
+            // ★★★ 關鍵修正：確保資料在背景的隱藏 iframe 傳送，不會彈出新視窗 ★★★
+            form.target = "hidden_iframe"; 
             
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
@@ -255,5 +257,6 @@
     </script>
 </body>
 </html>
+
 
 
