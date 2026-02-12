@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>207班 探究實作課簽到</title>
+    <title>207班 探究與實作課簽到</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -87,6 +87,7 @@
     <canvas id="anim-canvas"></canvas>
 
     <div class="container" id="main-box">
+        <!-- 標題已更新 -->
         <h2>⚛️ 探究與實作課簽到</h2>
         <div class="subtitle">班級：207 班</div>
         
@@ -121,14 +122,13 @@
 
     <script>
         // ================= 教師設定區 (僅限 207 班) =================
-        // 1. 已為您替換為正確的 formResponse 網址！
         const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdSkqsQKC6WozWejhg5bH8b-b2p8bFBbezHCL0CRbX2Yk-_5w/formResponse"; 
         
-        // 2. 207班表單的 Entry IDs (★★★請確認這兩行是您抓到的正確數字★★★)
+        // 207班表單的 Entry IDs
         const ENTRY_SEAT = "entry.1279297389";  
         const ENTRY_NAME = "entry.897755681";  
         
-        // 3. 207班專屬名單
+        // 207班專屬名單
         const CLASS_ROSTER = [
             "01 米以安", "02 何苙宇", "03 吳柏涵", "04 呂沛鈞", "05 幸曄箴", 
             "06 林云龍", "07 林品陯", "08 侯建均", "09 張君屹", "10 張宸濬", 
@@ -157,7 +157,8 @@
         };
 
         function teacherLogin() {
-            if (prompt("請輸入教師密碼 (預設: physics):") === "physics") {
+            // ★ 已移除密碼提示字眼
+            if (prompt("請輸入教師密碼:") === "physics") {
                 localStorage.setItem('physics_teacher_mode', 'true');
                 location.reload();
             } else {
@@ -189,7 +190,6 @@
             form.action = GOOGLE_FORM_URL;
             form.method = "POST";
             
-            // ★★★ 關鍵修正：確保資料在背景的隱藏 iframe 傳送，不會彈出新視窗 ★★★
             form.target = "hidden_iframe"; 
             
             const btn = document.getElementById('submit-btn');
@@ -257,6 +257,7 @@
     </script>
 </body>
 </html>
+
 
 
 
