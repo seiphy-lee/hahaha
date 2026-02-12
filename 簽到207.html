@@ -78,8 +78,21 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; z-index: 5;
         }
-        .physics-note { font-size: 0.85em; color: #888; margin-top: 10px; }
         .teacher-link { font-size: 0.8em; color: #999; text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 15px;}
+
+        /* 新增：狀態顯示區塊樣式 */
+        .status-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        .status-tag {
+            font-weight: bold;
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -87,7 +100,6 @@
     <canvas id="anim-canvas"></canvas>
 
     <div class="container" id="main-box">
-        <!-- 標題已更新 -->
         <h2>⚛️ 探究與實作課簽到</h2>
         <div class="subtitle">班級：207 班</div>
         
@@ -124,9 +136,13 @@
         // ================= 教師設定區 (僅限 207 班) =================
         const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdSkqsQKC6WozWejhg5bH8b-b2p8bFBbezHCL0CRbX2Yk-_5w/formResponse"; 
         
-        // 207班表單的 Entry IDs
+        // Entry IDs
         const ENTRY_SEAT = "entry.1279297389";  
         const ENTRY_NAME = "entry.897755681";  
+
+        // ★★★ 前端遲到判斷設定 (請與後端試算表保持一致，以便給學生即時回饋) ★★★
+        const LIMIT_HOUR = 10;   // 時
+        const LIMIT_MINUTE = 12; // 分
         
         // 207班專屬名單
         const CLASS_ROSTER = [
@@ -157,7 +173,6 @@
         };
 
         function teacherLogin() {
-            // ★ 已移除密碼提示字眼
             if (prompt("請輸入教師密碼:") === "physics") {
                 localStorage.setItem('physics_teacher_mode', 'true');
                 location.reload();
@@ -183,13 +198,12 @@
         }
 
         function submitData(event) {
-            event.preventDefault(); // 阻止預設表單提交
+            event.preventDefault(); 
             submitted = true;
             
             const form = document.getElementById('attendance-form');
             form.action = GOOGLE_FORM_URL;
             form.method = "POST";
-            
             form.target = "hidden_iframe"; 
             
             const btn = document.getElementById('submit-btn');
@@ -204,7 +218,7 @@
             createHiddenInput(form, ENTRY_SEAT, seatNo);
             createHiddenInput(form, ENTRY_NAME, name);
             
-            form.submit(); // 手動送出
+            form.submit(); 
         }
 
         function createHiddenInput(form, name, value) {
@@ -222,7 +236,34 @@
             document.getElementById('form-area').style.display = 'none';
             const successMsg = document.getElementById('success-msg');
             successMsg.style.display = 'block';
-            successMsg.innerHTML = `<h3>✅ 簽到成功</h3><p>207班 資料已寫入</p><div class="physics-note">動能已轉換為位能儲存</div>`;
+            
+            // ★★★ 計算並顯示狀態 (新增部分) ★★★
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const limitMinutes = LIMIT_HOUR * 60 + LIMIT_MINUTE;
+            const absentThreshold = limitMinutes + 25;
+
+            let statusText = "準時";
+            let statusColor = "#28a745"; // Green
+
+            if (currentMinutes > absentThreshold) {
+                statusText = "曠課";
+                statusColor = "#dc3545"; // Red
+            } else if (currentMinutes > limitMinutes) {
+                statusText = "遲到";
+                statusColor = "#fd7e14"; // Orange
+            }
+
+            successMsg.innerHTML = `
+                <h3>✅ 簽到成功</h3>
+                <p>207班 資料已寫入</p>
+                <div class="status-info">
+                    登入時間：${timeString} <span class="status-tag" style="color: ${statusColor}">(${statusText})</span>
+                </div>
+            `;
+            
             startPhysicsAnimation();
         }
 
@@ -230,7 +271,7 @@
             document.getElementById('form-area').style.display = 'none';
             const successMsg = document.getElementById('success-msg');
             successMsg.style.display = 'block';
-            successMsg.innerHTML = `<h3>👌 本日已完成簽到</h3><div class="physics-note">系統處於穩態 (Stable State)</div>`;
+            successMsg.innerHTML = `<h3>👌 本日已完成簽到</h3><div class="status-info">系統處於穩態 (Stable State)</div>`;
             startPhysicsAnimation();
         }
 
