@@ -80,7 +80,7 @@
         }
         .teacher-link { font-size: 0.8em; color: #999; text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 15px;}
 
-        /* 新增：狀態顯示區塊樣式 */
+        /* 狀態顯示區塊樣式 */
         .status-info {
             margin-top: 15px;
             padding: 10px;
@@ -129,23 +129,22 @@
         <div id="success-msg"></div>
     </div>
 
-    <!-- 隱藏的 iframe 用於背景送出 -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {finishSubmission();}"></iframe>
 
     <script>
-        // ================= 教師設定區 (僅限 217 班) =================
-        // ★★★ 請記得更換為 217 班的新表單網址 ★★★
-        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/請填入217班表單ID/formResponse"; 
+        // ================= 教師設定區 (217 班) =================
+        // 已更新為截圖中的 217 表單連結
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScPChi7RxX_gUsvbd8C9P8BRfQiz7tJaeZ20XqrFV14ac26nA/formResponse"; 
         
-        // ★★★ 請填入 217 班表單的 Entry IDs ★★★
-        const ENTRY_SEAT = "entry.請填入座號ID";  
-        const ENTRY_NAME = "entry.請填入姓名ID";  
+        // 沿用相同的 Entry IDs
+        const ENTRY_SEAT = "entry.1279297389";  
+        const ENTRY_NAME = "entry.897755681";  
 
-        // ★★★ 前端遲到判斷設定 (上午 10:12) ★★★
-        const LIMIT_HOUR = 10;   // 時 (10點)
-        const LIMIT_MINUTE = 12; // 分 (12分)
+        // 前端遲到判斷 (上午 10:12)
+        const LIMIT_HOUR = 10;   
+        const LIMIT_MINUTE = 12; 
 
-        // ★★★ 教師測試密碼設定 ★★★
+        // 教師測試密碼
         const TEACHER_PASSWORD = "huleefafa"; 
         
         // 217班專屬名單
@@ -198,7 +197,7 @@
 
         function checkDailyStatus() {
             const todayStr = new Date().toDateString(); 
-            // 注意：這裡使用 217 專屬的 storage key
+            // 217 專屬 key
             const lastSignDate = localStorage.getItem('physics_attendance_217');
             if (lastSignDate === todayStr && !isTeacherMode) showAlreadySignedUI();
         }
@@ -243,7 +242,6 @@
             const successMsg = document.getElementById('success-msg');
             successMsg.style.display = 'block';
             
-            // ★★★ 計算並顯示狀態 ★★★
             const now = new Date();
             const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
             
@@ -252,14 +250,14 @@
             const absentThreshold = limitMinutes + 25;
 
             let statusText = "準時";
-            let statusColor = "#28a745"; // Green
+            let statusColor = "#28a745"; 
 
             if (currentMinutes > absentThreshold) {
                 statusText = "曠課";
-                statusColor = "#dc3545"; // Red
+                statusColor = "#dc3545"; 
             } else if (currentMinutes > limitMinutes) {
                 statusText = "遲到";
-                statusColor = "#fd7e14"; // Orange
+                statusColor = "#fd7e14"; 
             }
 
             successMsg.innerHTML = `
