@@ -141,8 +141,11 @@
         const ENTRY_NAME = "entry.897755681";  
 
         // ★★★ 前端遲到判斷設定 (請與後端試算表保持一致，以便給學生即時回饋) ★★★
-        const LIMIT_HOUR = 10;   // 時
-        const LIMIT_MINUTE = 12; // 分
+        const LIMIT_HOUR = 14;   // 時
+        const LIMIT_MINUTE = 10; // 分
+
+        // ★★★ 教師測試密碼設定 ★★★
+        const TEACHER_PASSWORD = "huleefafa"; // 請在此修改解除限制的密碼
         
         // 207班專屬名單
         const CLASS_ROSTER = [
@@ -173,7 +176,8 @@
         };
 
         function teacherLogin() {
-            if (prompt("請輸入教師密碼:") === "physics") {
+            // 使用設定好的常數進行驗證
+            if (prompt("請輸入教師密碼:") === TEACHER_PASSWORD) {
                 localStorage.setItem('physics_teacher_mode', 'true');
                 location.reload();
             } else {
@@ -237,7 +241,7 @@
             const successMsg = document.getElementById('success-msg');
             successMsg.style.display = 'block';
             
-            // ★★★ 計算並顯示狀態 (新增部分) ★★★
+            // ★★★ 計算並顯示狀態 ★★★
             const now = new Date();
             const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
             
@@ -298,6 +302,7 @@
     </script>
 </body>
 </html>
+
 
 
 
