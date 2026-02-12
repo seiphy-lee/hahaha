@@ -188,7 +188,7 @@
             const form = document.getElementById('attendance-form');
             form.action = GOOGLE_FORM_URL;
             form.method = "POST";
-            form.target = "hidden_iframe"; 
+            form.target = "_blank"; 
             
             const btn = document.getElementById('submit-btn');
             btn.disabled = true;
@@ -255,3 +255,4 @@
     </script>
 </body>
 </html>
+
