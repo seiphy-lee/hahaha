@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>207班 物理課簽到</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 350px;
+            z-index: 10;
+            position: relative;
+        }
+        h2 { color: #0056b3; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        .input-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: bold;}
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        select:focus { outline: none; border-color: #0056b3; }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        #error-msg, #success-msg {
+            display: none;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        #error-msg { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        #success-msg { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+        
+        .debug-banner {
+            background: #ffc107; color: #856404; padding: 8px; font-size: 0.85rem;
+            margin-bottom: 15px; border-radius: 5px; border: 1px solid #ffeeba; display: none; 
+            font-weight: bold;
+        }
+
+        #anim-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+        }
+        .physics-note { font-size: 0.85em; color: #888; margin-top: 10px; }
+        .teacher-link { font-size: 0.8em; color: #999; text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 15px;}
+    </style>
+</head>
+<body>
+
+    <canvas id="anim-canvas"></canvas>
+
+    <div class="container" id="main-box">
+        <h2>⚛️ 物理課簽到</h2>
+        <div class="subtitle">班級：207 班</div>
+        
+        <div id="debug-banner" class="debug-banner">👨‍🏫 教師權限已啟用 (無設備限制)</div>
+
+        <div id="form-area">
+            <form id="attendance-form" onsubmit="submitData(event);">
+                
+                <div class="input-group">
+                    <label>請選擇姓名 (Select Student)</label>
+                    <select id="studentSelect" required>
+                        <option value="" disabled selected>請點擊這裡選擇...</option>
+                        <!-- 名單由 JS 載入 -->
+                    </select>
+                </div>
+
+                <button type="submit" id="submit-btn">確認簽到</button>
+            </form>
+        </div>
+
+        <div id="error-msg">
+            ⚠️ <strong>設備錯誤</strong><br>
+            請使用學校配發的 Chromebook 進行簽到。<br>
+            <span class="teacher-link" onclick="teacherLogin()">[我是老師，解除限制]</span>
+        </div>
+
+        <div id="success-msg"></div>
+    </div>
+
+    <!-- 隱藏的 iframe 用於背景送出 -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {finishSubmission();}"></iframe>
+
+    <script>
+        // ================= 教師設定區 (僅限 207 班) =================
+        // 1. 207班表單的 Action URL
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/您的207表單ID/formResponse"; 
+        
+        // 2. 207班表單的 Entry IDs (只需要座號跟姓名)
+        const ENTRY_SEAT = "entry.1279297389";  // 請換成207表單的座號ID
+        const ENTRY_NAME = "entry.897755681";  // 請換成207表單的姓名ID
+        
+        // 3. 207班專屬名單
+        const CLASS_ROSTER = [
+            "01 米以安", "02 何苙宇", "03 吳柏涵", "04 呂沛鈞", "05 幸曄箴", 
+            "06 林云龍", "07 林品陯", "08 侯建均", "09 張君屹", "10 張宸濬", 
+            "11 陳弘川", "12 陳偉杰", "13 温濬謙", "14 鄂一柏", "15 廖名舜", 
+            "16 廖政鈞", "17 賴家緯", "18 謝伯岳", "19 朱佩岑", "20 余芝宜", 
+            "21 林欣瑩", "22 林禹岑", "23 洪鳳妤", "24 張孟媗", "25 彭子琪", 
+            "26 黃巧妮", "27 詹侑璇", "28 詹語瑄", "29 蔡宜臻", "30 鄭予晴", 
+            "31 鐘羽芊", "32 李紀寬"
+        ];
+        // ==========================================================
+
+        var submitted = false;
+        var isTeacherMode = localStorage.getItem('physics_teacher_mode') === 'true';
+
+        window.onload = function() {
+            initStudentDropdown();
+            
+            const isChromebook = navigator.userAgent.indexOf("CrOS") !== -1;
+            if (isChromebook || isTeacherMode) {
+                if (isTeacherMode) document.getElementById('debug-banner').style.display = 'block';
+                checkDailyStatus();
+            } else {
+                document.getElementById('form-area').style.display = 'none';
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        };
+
+        function teacherLogin() {
+            if (prompt("請輸入教師密碼 (預設: physics):") === "physics") {
+                localStorage.setItem('physics_teacher_mode', 'true');
+                location.reload();
+            } else {
+                alert("密碼錯誤");
+            }
+        }
+
+        function initStudentDropdown() {
+            const select = document.getElementById('studentSelect');
+            CLASS_ROSTER.forEach(studentStr => {
+                let option = document.createElement("option");
+                option.value = studentStr; 
+                option.text = studentStr;
+                select.appendChild(option);
+            });
+        }
+
+        function checkDailyStatus() {
+            const todayStr = new Date().toDateString(); 
+            const lastSignDate = localStorage.getItem('physics_attendance_207');
+            if (lastSignDate === todayStr && !isTeacherMode) showAlreadySignedUI();
+        }
+
+        function submitData(event) {
+            event.preventDefault(); // 阻止預設表單提交
+            submitted = true;
+            
+            const form = document.getElementById('attendance-form');
+            form.action = GOOGLE_FORM_URL;
+            form.method = "POST";
+            form.target = "hidden_iframe"; 
+            
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerText = "資料傳送中...";
+            
+            const fullStudentStr = document.getElementById('studentSelect').value;
+            const parts = fullStudentStr.split(' ');
+            const seatNo = parts[0];
+            const name = parts.slice(1).join(' ');
+
+            createHiddenInput(form, ENTRY_SEAT, seatNo);
+            createHiddenInput(form, ENTRY_NAME, name);
+            
+            form.submit(); // 手動送出
+        }
+
+        function createHiddenInput(form, name, value) {
+            const oldInput = form.querySelector(`input[name="${name}"]`);
+            if (oldInput) oldInput.remove();
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        function finishSubmission() {
+            localStorage.setItem('physics_attendance_207', new Date().toDateString());
+            document.getElementById('form-area').style.display = 'none';
+            const successMsg = document.getElementById('success-msg');
+            successMsg.style.display = 'block';
+            successMsg.innerHTML = `<h3>✅ 簽到成功</h3><p>207班 資料已寫入</p><div class="physics-note">動能已轉換為位能儲存</div>`;
+            startPhysicsAnimation();
+        }
+
+        function showAlreadySignedUI() {
+            document.getElementById('form-area').style.display = 'none';
+            const successMsg = document.getElementById('success-msg');
+            successMsg.style.display = 'block';
+            successMsg.innerHTML = `<h3>👌 本日已完成簽到</h3><div class="physics-note">系統處於穩態 (Stable State)</div>`;
+            startPhysicsAnimation();
+        }
+
+        function startPhysicsAnimation() {
+            const canvas = document.getElementById('anim-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            let x = canvas.width / 2, y = 50, r = 15, vy = 0, g = 0.8, bounce = -0.7; 
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = "#007bff"; ctx.fill();
+                ctx.closePath();
+                vy += g; y += vy;
+                if (y + r > canvas.height) { y = canvas.height - r; vy *= bounce; if (Math.abs(vy) < 1.5) { vy = 0; g = 0; } }
+                if (g !== 0) requestAnimationFrame(draw);
+            }
+            draw();
+        }
+        window.onresize = () => { document.getElementById('anim-canvas').width = window.innerWidth; document.getElementById('anim-canvas').height = window.innerHeight; };
+    </script>
+</body>
+</html>
