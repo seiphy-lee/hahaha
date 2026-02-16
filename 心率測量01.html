@@ -311,7 +311,7 @@
         <div class="header">
             <h1>心動時刻</h1>
             <div class="status-text" id="status-display">等待啟動...</div>
-            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.8</div>
+            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.9</div>
         </div>
 
         <div class="center-display" id="bpm-display-area" style="opacity: 0; transition: opacity 0.5s;">
@@ -361,9 +361,7 @@
         </div>
         
         <div class="export-buttons">
-            <!-- [修正 1] 合併按鈕為儲存圖片 -->
             <button class="action-btn" id="save-img-btn">儲存圖片</button>
-            <!-- [修正 3] 更改為下載 CSV 檔案 -->
             <button class="secondary" id="download-csv-btn">下載數據 (.csv)</button>
         </div>
         
@@ -909,8 +907,8 @@
             }
         }
 
-        // [修正 3] 直接下載 CSV 檔案供試算表使用
-        function downloadCSV() {
+        // [修正 3] 下載 CSV (支援 Chromebook 另存新檔至雲端硬碟)
+        async function downloadCSV() {
             if (sessionData.length === 0) {
                 alert("沒有足夠的數據");
                 return;
@@ -922,11 +920,33 @@
                 csvContent += `${row.time.toFixed(2)},${row.bpm}\n`;
             });
 
-            // 建立 Blob 物件 (這就是一個虛擬檔案)
+            // 嘗試使用 File System Access API (Chromebook/Desktop Chrome)
+            // 這會跳出「另存新檔」視窗，使用者可以直接選擇 Google Drive
+            try {
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: `heart_rate_data_${new Date().getTime()}.csv`,
+                        types: [{
+                            description: 'CSV File',
+                            accept: {'text/csv': ['.csv']},
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(csvContent);
+                    await writable.close();
+                    return; // 成功儲存後結束
+                }
+            } catch (err) {
+                // 如果使用者取消 (AbortError) 則不做任何事
+                if (err.name === 'AbortError') return;
+                // 其他錯誤則繼續執行 fallback
+                console.warn("File System Access API failed, falling back to download link.", err);
+            }
+
+            // Fallback: 傳統下載 (手機/平板/不支援 API 的瀏覽器)
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             
-            // 觸發下載
             const link = document.createElement('a');
             link.href = url;
             link.download = `heart_rate_data_${new Date().getTime()}.csv`;
@@ -938,4 +958,3 @@
     </script>
 </body>
 </html>
-
