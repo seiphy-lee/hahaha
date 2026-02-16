@@ -92,7 +92,8 @@
         /* Center Info (BPM Display) - Absolute Positioning */
         .center-display {
             position: absolute;
-            top: 55%; 
+            /* [修正] 從 55% 下修至 60%，讓數字更遠離紅圈 */
+            top: 60%; 
             left: 50%;
             transform: translate(-50%, 0); 
             text-align: center;
@@ -311,7 +312,7 @@
         <div class="header">
             <h1>心動時刻</h1>
             <div class="status-text" id="status-display">等待啟動...</div>
-            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.9</div>
+            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v3.0</div>
         </div>
 
         <div class="center-display" id="bpm-display-area" style="opacity: 0; transition: opacity 0.5s;">
@@ -718,8 +719,6 @@
             }
         }
 
-        // --- 繪製圖表函數 (共用邏輯) ---
-        // [修正 2] 增加 forceZeroY 參數
         function drawChartCommon(canvas, data, xKey, yKey, title, color, yLabel, forceZeroY = false) {
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -741,15 +740,11 @@
             let minVal, maxVal, valRange;
 
             if (forceZeroY) {
-                // [修正 2] 縱坐標由 0 開始，包含所有高低數據 (不剔除極端值)
                 minVal = 0;
                 let actualMax = Math.max(...vals);
-                // 上方留一點空間 (10%)
                 maxVal = actualMax + (actualMax * 0.1);
-                // 至少要有高度
                 if (maxVal < 10) maxVal = 100;
             } else {
-                // 原有的 Smart Scaling 邏輯 (保留給其他圖表使用)
                 let sortedVals = [...vals].sort((a,b)=>a-b);
                 minVal = sortedVals[Math.floor(vals.length * 0.05)];
                 maxVal = sortedVals[Math.floor(vals.length * 0.95)];
@@ -828,7 +823,6 @@
         }
 
         function drawBPMChart() {
-            // [修正 2] 傳入 true 參數，強制 Y 軸從 0 開始
             drawChartCommon(bpmChart, sessionData, 'time', 'bpm', '心率時序圖 (BPM)', '#ff0055', 'BPM', true);
         }
 
@@ -878,14 +872,12 @@
              return new Promise(resolve => cvs.toBlob(resolve, 'image/png'));
         }
 
-        // [修正 1] 合併為單一儲存功能
         async function handleSaveImage() {
             try {
                 const blob = await getReportBlob();
                 const file = new File([blob], "heart_rate_report.png", { type: "image/png" });
                 const avgText = document.getElementById('final-avg-bpm').textContent;
                 
-                // 嘗試使用手機原生分享 (如果支援)
                 if (navigator.share && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         title: '心動時刻實驗報告',
@@ -893,7 +885,6 @@
                         files: [file]
                     });
                 } else {
-                    // 電腦版或不支援分享時，自動切換為下載
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
@@ -907,21 +898,18 @@
             }
         }
 
-        // [修正 3] 下載 CSV (支援 Chromebook 另存新檔至雲端硬碟)
+        // [修正] 下載 CSV (加入 target="_blank" 嘗試觸發新視窗行為)
         async function downloadCSV() {
             if (sessionData.length === 0) {
                 alert("沒有足夠的數據");
                 return;
             }
 
-            // 建立 CSV 內容
             let csvContent = "Time(s),BPM\n";
             sessionData.forEach(row => {
                 csvContent += `${row.time.toFixed(2)},${row.bpm}\n`;
             });
 
-            // 嘗試使用 File System Access API (Chromebook/Desktop Chrome)
-            // 這會跳出「另存新檔」視窗，使用者可以直接選擇 Google Drive
             try {
                 if (window.showSaveFilePicker) {
                     const handle = await window.showSaveFilePicker({
@@ -934,21 +922,19 @@
                     const writable = await handle.createWritable();
                     await writable.write(csvContent);
                     await writable.close();
-                    return; // 成功儲存後結束
+                    return; 
                 }
             } catch (err) {
-                // 如果使用者取消 (AbortError) 則不做任何事
                 if (err.name === 'AbortError') return;
-                // 其他錯誤則繼續執行 fallback
                 console.warn("File System Access API failed, falling back to download link.", err);
             }
 
-            // Fallback: 傳統下載 (手機/平板/不支援 API 的瀏覽器)
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             
             const link = document.createElement('a');
             link.href = url;
+            link.target = "_blank"; // [修正] 加入 target="_blank"
             link.download = `heart_rate_data_${new Date().getTime()}.csv`;
             document.body.appendChild(link);
             link.click();
