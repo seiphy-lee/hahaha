@@ -59,7 +59,7 @@
             justify-content: space-between;
             padding: 20px;
             box-sizing: border-box;
-            z-index: 20; /* [修正 1] 提高層級，確保數字顯示在紅圈上方 */
+            z-index: 20;
         }
 
         /* Top Bar */
@@ -90,9 +90,16 @@
         }
 
         /* Center Info (BPM Display) */
+        /* [修正] 改為絕對定位，強制放置在螢幕中心偏下，與紅圈(中心偏上)錯開 */
         .center-display {
+            position: absolute;
+            top: 55%; /* 從螢幕高度 55% 處開始顯示 (紅圈底部約在 45% 處) */
+            left: 50%;
+            transform: translate(-50%, 0); /* 水平置中 */
             text-align: center;
             pointer-events: none;
+            width: 100%;
+            z-index: 25;
         }
 
         .bpm-value {
@@ -101,6 +108,7 @@
             color: var(--text-color);
             text-shadow: 0 0 20px var(--accent-color);
             font-variant-numeric: tabular-nums;
+            line-height: 1; /* 緊湊一點，避免佔用太多垂直空間 */
         }
 
         .bpm-label {
@@ -108,6 +116,7 @@
             color: var(--accent-color);
             text-transform: uppercase;
             letter-spacing: 3px;
+            margin-top: 5px;
         }
 
         /* Camera Preview Circle */
@@ -115,7 +124,7 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -150%);
+            transform: translate(-50%, -150%); /* 保持原樣：中心點向上位移 1.5 倍高度 */
             width: 80px;
             height: 80px;
             border-radius: 50%;
@@ -251,7 +260,7 @@
             align-items: center;
             z-index: 90;
             padding: 20px;
-            padding-top: 30px; /* [修正 2] 減少上方間距 (原 60px) */
+            padding-top: 30px;
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch;
         }
@@ -262,7 +271,7 @@
             background: rgba(255,255,255,0.05);
             border-radius: 10px; 
             padding: 5px;
-            margin: 5px 0; /* [修正 2] 減少圖表外距 (原 10px) */
+            margin: 5px 0;
         }
         
         .export-buttons {
@@ -272,8 +281,8 @@
             max-width: 350px;
             justify-content: center;
             flex-wrap: wrap;
-            margin-top: 15px; /* [修正 2] 減少按鈕區上方間距 (原 30px) */
-            margin-bottom: 20px; /* [修正 2] 減少按鈕區下方間距 (原 40px) */
+            margin-top: 15px;
+            margin-bottom: 20px;
         }
 
         .export-buttons button {
@@ -303,7 +312,7 @@
         <div class="header">
             <h1>心動時刻</h1>
             <div class="status-text" id="status-display">等待啟動...</div>
-            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.6</div>
+            <div style="font-size:0.7rem; color:#666; margin-top:5px;">臺中二中探究實作課程 v2.7</div>
         </div>
 
         <div class="center-display" id="bpm-display-area" style="opacity: 0; transition: opacity 0.5s;">
@@ -345,11 +354,10 @@
         
         <div style="font-size: 1rem; color: #aaa;">平均心率</div>
         <div class="bpm-value" id="final-avg-bpm" style="font-size: 4rem;">--</div>
-        <div class="bpm-label" style="font-size: 1rem; margin-bottom: 10px;">BPM</div> <!-- [修正 2] 減少間距 -->
+        <div class="bpm-label" style="font-size: 1rem; margin-bottom: 10px;">BPM</div>
         
         <!-- 只保留圖表 2: BPM 趨勢 (移除原始訊號波形圖) -->
         <div class="chart-box">
-             <!-- [修正 2] 降低圖表高度至 160px (原 200px) 以適應寬螢幕設備 -->
              <canvas id="bpm-chart" width="340" height="160"></canvas>
         </div>
         
@@ -933,4 +941,5 @@
     </script>
 </body>
 </html>
+
 
