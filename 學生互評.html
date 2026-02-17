@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v2.5 (監控修正版)</title>
+    <title>課堂共同評分系統 v2.6 (評分分析版)</title>
     <!-- 引入 Tailwind CSS (美化介面) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -12,22 +12,41 @@
     <!-- 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
+    <!-- 引入 Firebase Compat Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-        .animate-fade-in { animation: fadeIn 0.5s ease-in; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+        #global-error-box { display: none; position: fixed; top: 0; left: 0; width: 100%; padding: 20px; background: #fee2e2; color: #b91c1c; z-index: 9999; border-bottom: 2px solid #ef4444; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+    <div id="global-error-box">
+        <h3 class="font-bold text-lg">⚠️ 發生錯誤</h3>
+        <pre id="global-error-msg" class="mt-2 text-sm whitespace-pre-wrap"></pre>
+        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">重新整理</button>
+    </div>
     <div id="root"></div>
 
-    <!-- 主程式碼 -->
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, query, where, getDocs, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            document.getElementById('global-error-box').style.display = 'block';
+            document.getElementById('global-error-msg').innerText = `錯誤: ${msg}\n位置: ${line}:${col}`;
+            return false;
+        };
+    </script>
 
-        // --- Firebase 設定 ---
+    <script type="text/babel">
+        // --- 1. Firebase Config & Init ---
         const firebaseConfig = {
             apiKey: "AIzaSyCJLf_DTpyH635GHh2bvDV-US1SB3ffxJA",
             authDomain: "seiphy-2d96d.firebaseapp.com",
@@ -37,21 +56,15 @@
             appId: "1:1021000469423:web:56a1a7cdbcfdf21265fd5a",
             measurementId: "G-N5ERFCSDS7"
         };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const SESSION_ID = "class_demo_session_v3"; 
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        const DEFAULT_CRITERIA = [
-            { id: 'c1', name: '內容深度', weight: 30, max: 10 },
-            { id: 'c2', name: '表達技巧', weight: 20, max: 10 },
-            { id: 'c3', name: '投影片設計', weight: 20, max: 10 },
-            { id: 'c4', name: '團隊合作', weight: 15, max: 10 },
-            { id: 'c5', name: '時間控制', weight: 15, max: 10 },
-        ];
-        const SESSION_ID = "class_demo_session_v1";
-
-        // --- Icons ---
+        // --- 2. Icons ---
         const Icons = {
             Award: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>,
             User: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -70,21 +83,21 @@
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
         };
 
+        // --- 3. Main App ---
         function App() {
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [sessionData, setSessionData] = React.useState(null);
-            const [role, setRole] = React.useState(null);
+            const [role, setRole] = React.useState(null); 
             const [errorMsg, setErrorMsg] = React.useState(null);
             
-            // 老師密碼相關狀態
-            const [showTeacherAuth, setShowTeacherAuth] = React.useState(false); 
+            const [showTeacherAuth, setShowTeacherAuth] = React.useState(false);
             const [teacherPwdInput, setTeacherPwdInput] = React.useState('');
-            const [isSettingUpPwd, setIsSettingUpPwd] = React.useState(false); 
+            const [isSettingUpPwd, setIsSettingUpPwd] = React.useState(false);
 
             React.useEffect(() => {
-                const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-                    setUser(currentUser);
+                const unsubscribe = auth.onAuthStateChanged(u => {
+                    setUser(u);
                     setLoading(false);
                 });
                 return () => unsubscribe();
@@ -92,109 +105,75 @@
 
             React.useEffect(() => {
                 if (!user) return;
-                const sessionRef = doc(db, 'sessions', SESSION_ID);
-                const unsubscribe = onSnapshot(sessionRef, (docSnap) => {
-                    if (docSnap.exists()) {
+                const unsub = db.collection('sessions').doc(SESSION_ID).onSnapshot(docSnap => {
+                    if (docSnap.exists) {
                         setSessionData(docSnap.data());
                     } else {
-                        // 初始化資料
                         const initialData = {
-                            status: 'setup', 
-                            currentGroupId: null, 
-                            showResults: false, 
-                            criteria: DEFAULT_CRITERIA, 
+                            status: 'setup',
+                            currentGroupId: null,
+                            showResults: false,
+                            criteria: [
+                                { id: 'c1', name: '內容深度', max: 10 },
+                                { id: 'c2', name: '表達技巧', max: 10 },
+                                { id: 'c3', name: '投影片設計', max: 10 }
+                            ],
                             groups: [],
-                            students: [], 
+                            students: [],
                             studentMappings: {}, 
-                            teacherPassword: null 
+                            teacherPassword: null
                         };
-                        setDoc(doc(db, 'sessions', SESSION_ID), initialData).catch(e => console.error(e));
+                        db.collection('sessions').doc(SESSION_ID).set(initialData);
                     }
-                }, (error) => {
-                    console.error("Session Error", error);
-                    if(error.code === 'permission-denied') {
-                        setErrorMsg("權限錯誤：請確認 Firestore 資料庫規則是否已設為 'Test Mode'。");
-                    }
+                }, err => {
+                    console.error(err);
+                    setErrorMsg("無法讀取資料，請確認資料庫權限 (Test Mode) 或網路連線。");
                 });
-                return () => unsubscribe();
+                return () => unsub();
             }, [user]);
 
             const handleLogin = async () => {
-                setErrorMsg(null);
-                const provider = new GoogleAuthProvider();
                 try {
-                    await signInWithPopup(auth, provider);
-                } catch (error) {
-                    console.error("Login failed", error);
-                    let msg = `登入錯誤 (${error.code})：${error.message}`;
-                    if (error.code === 'auth/unauthorized-domain') {
-                        msg = `網域未授權！\n請複製此網址：${window.location.hostname}\n並將其新增至 Firebase Console -> Authentication -> Settings -> Authorized Domains。`;
-                    }
-                    setErrorMsg(msg);
-                }
-            };
-
-            const handleTeacherClick = () => {
-                if (sessionData && sessionData.teacherPassword) {
-                    setIsSettingUpPwd(false);
-                } else {
-                    setIsSettingUpPwd(true);
-                }
-                setShowTeacherAuth(true);
-                setTeacherPwdInput('');
-                setErrorMsg(null);
-            };
-
-            const handleTeacherAuthSubmit = async () => {
-                if (!teacherPwdInput) return;
-
-                if (isSettingUpPwd) {
-                    const isValid = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{10,}$/.test(teacherPwdInput);
-                    if (!isValid) {
-                        setErrorMsg("密碼格式不符：請輸入至少 10 碼，且包含英文與數字。");
-                        return;
-                    }
-                    try {
-                        await setDoc(doc(db, 'sessions', SESSION_ID), { teacherPassword: teacherPwdInput }, { merge: true });
-                        setRole('teacher');
-                        setShowTeacherAuth(false);
-                    } catch (e) {
-                        setErrorMsg("設定失敗，請檢查網路連線。");
-                    }
-                } else {
-                    if (teacherPwdInput === sessionData.teacherPassword) {
-                        setRole('teacher');
-                        setShowTeacherAuth(false);
+                    setErrorMsg(null);
+                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+                } catch (e) {
+                    if (e.code === 'auth/unauthorized-domain') {
+                        setErrorMsg(`網域未授權！請新增此網址到 Firebase Console: ${window.location.hostname}`);
                     } else {
-                        setErrorMsg("密碼錯誤，請重新輸入。");
+                        setErrorMsg(`登入錯誤: ${e.message}`);
                     }
                 }
             };
 
-            if (loading) return <div className="flex items-center justify-center h-screen">載入中...</div>;
+            const verifyTeacher = async () => {
+                if (!teacherPwdInput) return;
+                if (isSettingUpPwd) {
+                    if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{10,}$/.test(teacherPwdInput)) {
+                        setErrorMsg("密碼需至少10碼且含英數字"); return;
+                    }
+                    await db.collection('sessions').doc(SESSION_ID).set({ teacherPassword: teacherPwdInput }, { merge: true });
+                } else {
+                    if (teacherPwdInput !== sessionData?.teacherPassword) {
+                        setErrorMsg("密碼錯誤"); return;
+                    }
+                }
+                setRole('teacher');
+                setShowTeacherAuth(false);
+            };
+
+            if (loading) return <div className="h-screen flex items-center justify-center">載入中...</div>;
 
             if (!user) {
                 return (
-                    <div className="flex flex-col items-center justify-center h-screen bg-gray-100 p-4">
-                        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
-                            <div className="text-blue-600 mb-4 flex justify-center"><Icons.Award /></div>
-                            <h1 className="text-2xl font-bold text-gray-800 mb-2">課堂共同評分系統</h1>
+                    <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
+                        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+                            <Icons.Award />
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.6</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
-                            
-                            {errorMsg && (
-                                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-left text-sm text-red-700 whitespace-pre-wrap break-all">
-                                    <div className="flex items-center gap-2 font-bold mb-1"><Icons.AlertCircle /> 錯誤</div>
-                                    {errorMsg}
-                                </div>
-                            )}
-
-                            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                            {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
+                            <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
                                 <Icons.User /> Google 登入
                             </button>
-
-                            <div className="mt-8 pt-4 border-t text-xs text-gray-400">
-                                <p>目前網址: {window.location.hostname || '無法偵測'}</p>
-                            </div>
                         </div>
                     </div>
                 );
@@ -202,50 +181,34 @@
 
             if (!role) {
                 return (
-                    <div className="flex flex-col items-center justify-center h-screen bg-gray-50 p-4">
-                        <div className="max-w-md w-full grid gap-4">
-                            <h2 className="text-xl font-bold text-center mb-4">請選擇您的身份</h2>
-                            
-                            <button onClick={() => setRole('student')} className="flex flex-col items-center p-6 bg-white border-2 border-transparent hover:border-blue-500 rounded-xl shadow-sm transition-all">
-                                <div className="text-blue-500 mb-2"><Icons.Users /></div>
-                                <span className="text-lg font-bold">我是學生</span>
-                            </button>
-                            
-                            <button onClick={handleTeacherClick} className="flex flex-col items-center p-6 bg-white border-2 border-transparent hover:border-purple-500 rounded-xl shadow-sm transition-all">
-                                <div className="text-purple-500 mb-2"><Icons.Key /></div>
-                                <span className="text-lg font-bold">我是老師 (需密碼)</span>
-                            </button>
-                        </div>
-                        <button onClick={() => auth.signOut()} className="mt-8 text-gray-500 hover:text-gray-700 underline">登出</button>
+                    <div className="h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-4">
+                        <h2 className="text-xl font-bold mb-4">請選擇您的身份</h2>
+                        <button onClick={() => setRole('student')} className="w-64 p-6 bg-white border-2 border-transparent hover:border-blue-500 rounded-xl shadow transition text-center">
+                            <div className="flex justify-center text-blue-500 mb-2"><Icons.Users /></div>
+                            <span className="font-bold text-lg">我是學生</span>
+                        </button>
+                        <button onClick={() => {
+                            if (!sessionData?.teacherPassword) setIsSettingUpPwd(true);
+                            else setIsSettingUpPwd(false);
+                            setShowTeacherAuth(true);
+                            setTeacherPwdInput('');
+                            setErrorMsg(null);
+                        }} className="w-64 p-6 bg-white border-2 border-transparent hover:border-purple-500 rounded-xl shadow transition text-center">
+                            <div className="flex justify-center text-purple-500 mb-2"><Icons.Key /></div>
+                            <span className="font-bold text-lg">我是老師</span>
+                        </button>
+                        <button onClick={() => auth.signOut()} className="mt-8 text-gray-500 underline">登出</button>
 
                         {showTeacherAuth && (
-                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                                <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-fade-in">
-                                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                                        <Icons.Lock /> 
-                                        {isSettingUpPwd ? "設定管理員密碼" : "輸入管理員密碼"}
-                                    </h3>
-                                    
-                                    {isSettingUpPwd && (
-                                        <div className="mb-4 text-sm text-gray-500 bg-blue-50 p-3 rounded">
-                                            首次使用，請設定一組管理密碼。<br/>
-                                            <span className="font-bold text-blue-700">規則：至少 10 碼，需包含英文與數字。</span>
-                                        </div>
-                                    )}
-
-                                    <input 
-                                        type="password" 
-                                        value={teacherPwdInput}
-                                        onChange={(e) => setTeacherPwdInput(e.target.value)}
-                                        placeholder={isSettingUpPwd ? "設定新密碼" : "請輸入密碼"}
-                                        className="w-full px-4 py-2 border rounded-lg mb-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
-                                    
-                                    {errorMsg && <p className="text-red-500 text-sm mb-3">{errorMsg}</p>}
-
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={() => { setShowTeacherAuth(false); setErrorMsg(null); }} className="flex-1 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
-                                        <button onClick={handleTeacherAuthSubmit} className="flex-1 py-2 text-white bg-purple-600 rounded-lg hover:bg-purple-700 font-bold">確認</button>
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white p-6 rounded-xl w-full max-w-sm animate-fade-in">
+                                    <h3 className="text-xl font-bold mb-4 flex gap-2 items-center"><Icons.Lock /> {isSettingUpPwd ? "設定管理密碼" : "輸入管理密碼"}</h3>
+                                    {isSettingUpPwd && <p className="text-xs text-blue-600 mb-2">首次使用請設定 (至少10碼英數混合)</p>}
+                                    <input type="password" value={teacherPwdInput} onChange={e=>setTeacherPwdInput(e.target.value)} className="w-full border p-2 rounded mb-2" placeholder="密碼" />
+                                    {errorMsg && <p className="text-red-500 text-sm mb-2">{errorMsg}</p>}
+                                    <div className="flex gap-2">
+                                        <button onClick={()=>setShowTeacherAuth(false)} className="flex-1 bg-gray-100 py-2 rounded">取消</button>
+                                        <button onClick={verifyTeacher} className="flex-1 bg-purple-600 text-white py-2 rounded">確認</button>
                                     </div>
                                 </div>
                             </div>
@@ -256,91 +219,77 @@
 
             return (
                 <div className="min-h-screen bg-gray-50 pb-10">
-                    <header className="bg-white shadow-sm px-4 py-3 flex justify-between items-center sticky top-0 z-10">
-                        <div className="flex items-center gap-2 text-blue-600">
-                            <Icons.Award />
-                            <span className="font-bold text-gray-800">課堂評分系統</span>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${role === 'teacher' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                {role === 'teacher' ? '老師模式' : '學生模式'}
-                            </span>
+                    <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-blue-600 font-bold">
+                            <Icons.Award /> 評分系統 v2.6
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
-                            <button onClick={() => signOut(auth)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><Icons.LogOut /></button>
+                            <button onClick={()=>auth.signOut()} className="text-gray-500"><Icons.LogOut /></button>
                         </div>
                     </header>
-                    <main className="max-w-4xl mx-auto p-4">
+                    <main className="max-w-5xl mx-auto p-4">
                         {role === 'teacher' ? <TeacherDashboard session={sessionData} /> : <StudentView session={sessionData} user={user} />}
                     </main>
                 </div>
             );
         }
 
-        // --- Teacher Components ---
+        // --- Teacher Dashboard ---
         function TeacherDashboard({ session }) {
-            const [groups, setGroups] = React.useState([]);
-            const [newGroupName, setNewGroupName] = React.useState('');
-            const [activeTab, setActiveTab] = React.useState('control');
+            const [tab, setTab] = React.useState('control'); 
             const [votes, setVotes] = React.useState([]);
-            const [monitorGroupId, setMonitorGroupId] = React.useState(null);
-            
-            // 批次輸入狀態
             const [batchGroups, setBatchGroups] = React.useState('');
             const [batchStudents, setBatchStudents] = React.useState('');
+            const [newCriName, setNewCriName] = React.useState('');
+            const [newCriMax, setNewCriMax] = React.useState(10);
+            const [monitorGroupId, setMonitorGroupId] = React.useState(null);
 
             React.useEffect(() => {
-                if (session) {
-                    setGroups(session.groups || []);
-                }
-            }, [session]);
-
-            // 監聽所有投票資料 (用於監控)
-            React.useEffect(() => {
-                const q = query(collection(db, 'sessions', SESSION_ID, 'votes'));
-                const unsubscribe = onSnapshot(q, (snapshot) => {
+                const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes').onSnapshot(snap => {
                     const data = [];
-                    snapshot.forEach((doc) => {
-                        data.push({ id: doc.id, ...doc.data() });
-                    });
+                    snap.forEach(d => data.push({id: d.id, ...d.data()}));
                     setVotes(data);
                 });
-                return () => unsubscribe();
+                return () => unsub();
             }, []);
 
-            const addGroup = async () => {
-                if (!newGroupName.trim()) return;
-                const newGroup = { id: `g${Date.now()}`, name: newGroupName };
-                await setDoc(doc(db, 'sessions', SESSION_ID), { groups: [...groups, newGroup] }, { merge: true });
-                setNewGroupName('');
-            };
+            const updateSession = (data) => db.collection('sessions').doc(SESSION_ID).set(data, { merge: true });
 
-            const updateSession = (data) => setDoc(doc(db, 'sessions', SESSION_ID), data, { merge: true });
+            if (!session) return <div className="p-10 text-center text-gray-500">正在讀取資料...</div>;
 
-            // 刪除單筆評分
-            const deleteVote = async (voteId) => {
-                if(!confirm("確定要刪除這筆評分嗎？")) return;
-                await deleteDoc(doc(db, 'sessions', SESSION_ID, 'votes', voteId));
-            };
-
-            // 批次處理函式
             const handleBatchGroups = async () => {
-                const lines = batchGroups.split('\n').map(l => l.trim()).filter(l => l);
-                if (lines.length === 0) return;
-                const newGroups = lines.map(name => ({ id: `g${Date.now()}_${Math.random().toString(36).substr(2,9)}`, name }));
-                const updatedGroups = [...(session.groups || []), ...newGroups];
-                await updateSession({ groups: updatedGroups });
+                const list = batchGroups.split('\n').map(s=>s.trim()).filter(s=>s);
+                const newGroups = list.map(name => ({ id: `g${Date.now()}_${Math.random().toString(36).substr(2,5)}`, name }));
+                await updateSession({ groups: [...(session.groups||[]), ...newGroups] });
                 setBatchGroups('');
-                alert(`已成功新增 ${newGroups.length} 個組別`);
+                alert(`已新增 ${newGroups.length} 個組別`);
             };
 
             const handleBatchStudents = async () => {
-                const lines = batchStudents.split('\n').map(l => l.trim()).filter(l => l);
-                if (lines.length === 0) return;
-                const currentStudents = new Set(session.students || []);
-                lines.forEach(s => currentStudents.add(s));
-                await updateSession({ students: Array.from(currentStudents) });
+                const list = batchStudents.split('\n').map(s=>s.trim()).filter(s=>s);
+                const currentSet = new Set(session.students || []);
+                list.forEach(name => currentSet.add(name));
+                await updateSession({ students: Array.from(currentSet) });
                 setBatchStudents('');
-                alert(`已更新學生名單，目前共 ${currentStudents.size} 位學生`);
+                alert(`名單更新完成，目前共 ${currentSet.size} 人`);
+            };
+
+            const addCriteria = async () => {
+                if(!newCriName) return;
+                const newC = { id: `c_${Date.now()}`, name: newCriName, max: parseInt(newCriMax) };
+                await updateSession({ criteria: [...(session.criteria||[]), newC] });
+                setNewCriName('');
+            };
+
+            const removeCriteria = async (id) => {
+                if(!confirm("確定刪除此評分項目？")) return;
+                await updateSession({ criteria: session.criteria.filter(c => c.id !== id) });
+            };
+
+            const deleteVote = async (voteId) => {
+                if(!confirm("確定刪除此筆評分？")) return;
+                await db.collection('sessions').doc(SESSION_ID).collection('votes').doc(voteId).delete();
             };
 
             const handleRemoveStudent = async (nameToRemove) => {
@@ -359,437 +308,429 @@
                 await updateSession({ groups: [], currentGroupId: null });
             };
 
-            if (!session) return <div>初始化中...</div>;
+            const loggedInCount = Object.keys(session.studentMappings || {}).length;
+            const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId);
+            
+            const getGroupStats = (groupId) => {
+                const groupVotes = votes.filter(v => v.groupId === groupId);
+                let total = 0;
+                groupVotes.forEach(v => {
+                    let vSum = 0;
+                    (session.criteria || []).forEach(c => vSum += (v.scores[c.id] || 0));
+                    total += vSum;
+                });
+                return {
+                    count: groupVotes.length,
+                    avg: groupVotes.length ? (total / groupVotes.length).toFixed(1) : 0
+                };
+            };
+
+            // 監控頁面計算排名用
+            const voteAverages = currentGroupVotes.map(v => {
+                let sum = 0;
+                (session.criteria||[]).forEach(c => sum += (v.scores[c.id]||0));
+                return session.criteria.length ? sum / session.criteria.length : 0;
+            }).sort((a, b) => b - a); // 由高到低排序
+
+            const getAvgStyle = (score) => {
+                if (voteAverages.length === 0) return 'text-gray-800';
+                const rank = voteAverages.indexOf(score); // 0-based index
+                // 前三名紅色
+                if (rank < 3) return 'text-red-600 font-bold';
+                // 後三名綠色 (從後面數)
+                // 處理邊界：如果總人數少於6人，可能會有重疊，這裡優先顯示紅色(高分)
+                const reverseRank = voteAverages.lastIndexOf(score);
+                if (reverseRank >= voteAverages.length - 3) return 'text-green-600 font-bold';
+                return 'text-gray-800';
+            };
 
             return (
                 <div className="space-y-6">
                     <div className="flex bg-white rounded-lg p-1 shadow-sm overflow-x-auto">
-                        {['control', 'setup', 'list', 'monitor', 'results'].map(tab => (
-                            <button key={tab} onClick={() => { setActiveTab(tab); setMonitorGroupId(null); }} 
-                                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md whitespace-nowrap ${activeTab === tab ? 'bg-blue-50 text-blue-700' : 'text-gray-500'}`}>
-                                {tab === 'control' ? '控制台' : tab === 'setup' ? '組別設定' : tab === 'list' ? '名單管理' : tab === 'monitor' ? '監控與修正' : '結果統計'}
+                        {[{id: 'control', label: '控制台'}, {id: 'setup', label: '名單設定'}, {id: 'criteria', label: '評分標準'}, {id: 'monitor', label: '監控與修正'}, {id: 'results', label: '結果統計'}]
+                        .map(t => (
+                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${tab===t.id ? 'bg-blue-50 text-blue-700' : 'text-gray-500'}`}>
+                                {t.label}
                             </button>
                         ))}
                     </div>
 
-                    {/* 1. 控制台 */}
-                    {activeTab === 'control' && (
-                        <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold">報告控制中心</h2>
-                                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                    已登入: {Object.keys(session.studentMappings || {}).length} / {(session.students || []).length}
-                                </span>
-                            </div>
-                            
-                            {groups.length === 0 ? (
-                                <p className="text-gray-500 text-center py-8">尚未設定組別，請先至「組別設定」頁面新增。</p>
-                            ) : (
-                                groups.map(g => (
-                                    <div key={g.id} className={`flex justify-between items-center p-4 rounded-lg border ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}>
-                                        <h3 className="font-bold">{g.name}</h3>
-                                        {session.currentGroupId === g.id ? 
-                                            <button onClick={() => updateSession({ currentGroupId: null })} className="text-red-600 flex gap-2 font-bold bg-white px-3 py-1 rounded border border-red-200 shadow-sm"><Icons.Square /> 結束評分</button> :
-                                            <button onClick={() => updateSession({ currentGroupId: g.id, showResults: false })} disabled={!!session.currentGroupId} className={`flex gap-2 font-bold px-3 py-1 rounded ${session.currentGroupId ? 'text-gray-400 bg-gray-100' : 'text-blue-600 bg-blue-50 hover:bg-blue-100'}`}><Icons.Play /> 開始評分</button>
-                                        }
+                    {tab === 'control' && (
+                        <div className="bg-white rounded-xl shadow p-6 space-y-6">
+                            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg">
+                                <div>
+                                    <p className="text-gray-500 text-xs font-bold uppercase">目前登入學生</p>
+                                    <p className="text-2xl font-bold text-blue-600">{loggedInCount} <span className="text-sm text-gray-400">/ {(session.students||[]).length}</span></p>
+                                </div>
+                                {session.currentGroupId && (
+                                    <div>
+                                        <p className="text-gray-500 text-xs font-bold uppercase text-right">評分進度</p>
+                                        <p className="text-2xl font-bold text-green-600 text-right">{currentGroupVotes.length} <span className="text-sm text-gray-400">人已評</span></p>
                                     </div>
-                                ))
-                            )}
-
-                            <div className="pt-4 border-t mt-4">
-                                <h3 className="text-sm font-bold text-gray-600 mb-2">結果公佈控制</h3>
-                                <button onClick={() => updateSession({ showResults: !session.showResults })} className={`w-full py-3 rounded-lg font-bold transition-all ${session.showResults ? 'bg-amber-100 text-amber-800' : 'bg-gray-800 text-white hover:bg-gray-900'}`}>
-                                    {session.showResults ? '隱藏學生端排行榜' : '公佈排行榜 (讓學生看到)'}
+                                )}
+                            </div>
+                            <h3 className="font-bold text-lg border-b pb-2">報告流程控制</h3>
+                            <div className="space-y-3">
+                                {(session.groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center">尚未設定組別</p>}
+                                {(session.groups||[]).map(g => (
+                                    <div key={g.id} className={`flex justify-between items-center p-4 border rounded-lg ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 ring-1 ring-green-500' : ''}`}>
+                                        <span className="font-bold text-lg">{g.name}</span>
+                                        {session.currentGroupId === g.id ? (
+                                            <button onClick={()=>updateSession({currentGroupId: null})} className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded font-bold hover:bg-red-50">停止評分</button>
+                                        ) : (
+                                            <button onClick={()=>updateSession({currentGroupId: g.id, showResults: false})} disabled={!!session.currentGroupId} className={`px-4 py-2 rounded font-bold ${session.currentGroupId ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>開始評分</button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="pt-4 border-t">
+                                <button onClick={()=>updateSession({showResults: !session.showResults})} className={`w-full py-4 rounded-xl font-bold text-lg ${session.showResults ? 'bg-amber-100 text-amber-800' : 'bg-gray-800 text-white'}`}>
+                                    {session.showResults ? '隱藏排行榜' : '公佈排行榜 (學生可見)'}
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* 2. 組別設定 */}
-                    {activeTab === 'setup' && (
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-xl shadow-sm p-6">
-                                <h2 className="text-xl font-bold mb-4">單筆新增組別</h2>
-                                <div className="flex gap-2 mb-4">
-                                    <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="輸入組別名稱 (例: 第1組-綠能科技)" className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-                                    <button onClick={addGroup} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">新增</button>
+                    {tab === 'setup' && (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-white rounded-xl shadow p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Users/> 學生名單管理</h3>
+                                <p className="text-xs text-gray-500 mb-2">請貼上全班姓名，一行一個名字</p>
+                                <textarea className="w-full h-40 border p-2 rounded text-sm mb-2" placeholder="王小明&#10;李大華..." value={batchStudents} onChange={e=>setBatchStudents(e.target.value)}></textarea>
+                                <div className="flex gap-2">
+                                    <button onClick={handleBatchStudents} className="flex-1 py-2 bg-blue-600 text-white rounded font-bold">更新名單</button>
+                                    <button onClick={handleClearStudents} className="px-4 py-2 bg-red-100 text-red-600 rounded font-bold hover:bg-red-200"><Icons.Trash /></button>
                                 </div>
-                            </div>
-
-                            <div className="bg-white rounded-xl shadow-sm p-6">
-                                <h2 className="text-xl font-bold mb-2">批次新增組別</h2>
-                                <p className="text-sm text-gray-500 mb-2">請在下方貼上組別列表，一行一個組別名稱。</p>
-                                <textarea 
-                                    className="w-full h-32 border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="第一組 - 報告主題A&#10;第二組 - 報告主題B&#10;..."
-                                    value={batchGroups}
-                                    onChange={(e) => setBatchGroups(e.target.value)}
-                                ></textarea>
-                                <div className="flex gap-2 mt-2">
-                                    <button onClick={handleBatchGroups} className="flex-1 bg-gray-800 text-white py-2 rounded-lg hover:bg-black transition-colors">
-                                        確認批次新增
-                                    </button>
-                                    <button onClick={handleClearGroups} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-1 font-bold">
-                                        <Icons.Trash /> 清空所有組別
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-xl shadow-sm p-6">
-                                <h3 className="font-bold mb-3">目前組別列表</h3>
-                                <div className="space-y-2 max-h-60 overflow-y-auto">
-                                    {groups.map((g, i) => (
-                                        <div key={g.id} className="p-3 bg-gray-50 rounded border flex justify-between items-center">
-                                            <span>{i+1}. {g.name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded">已儲存</span>
-                                                <button onClick={async()=>{
-                                                    if(confirm("刪除此組別？")) {
-                                                        await updateSession({ groups: session.groups.filter(x=>x.id!==g.id) });
-                                                    }
-                                                }} className="text-red-400 hover:text-red-600 p-1"><Icons.Trash /></button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* 3. 名單管理 */}
-                    {activeTab === 'list' && (
-                        <div className="space-y-6">
-                            <div className="bg-white rounded-xl shadow-sm p-6">
-                                <h2 className="text-xl font-bold mb-2">批次建立學生名單</h2>
-                                <p className="text-sm text-gray-500 mb-2">請貼上全班學生姓名，一行一個名字。</p>
-                                <textarea 
-                                    className="w-full h-48 border rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                    placeholder="王小明&#10;李大華&#10;陳雅婷&#10;..."
-                                    value={batchStudents}
-                                    onChange={(e) => setBatchStudents(e.target.value)}
-                                ></textarea>
-                                <div className="flex gap-2 mt-2">
-                                    <button onClick={handleBatchStudents} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                                        更新學生名單
-                                    </button>
-                                    <button onClick={handleClearStudents} className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-1 font-bold">
-                                        <Icons.Trash /> 清空名單
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-xl shadow-sm p-6">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h3 className="font-bold">目前學生名單 ({session.students?.length || 0}人)</h3>
-                                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">綠色代表已綁定裝置</span>
-                                </div>
-                                <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto p-1">
-                                    {(session.students || []).map(s => {
-                                        const isBound = Object.values(session.studentMappings || {}).includes(s);
+                                <div className="bg-gray-50 p-3 rounded h-48 overflow-y-auto flex flex-wrap gap-2 mt-4">
+                                    {(session.students||[]).map(s => {
+                                        const isRegistered = Object.values(session.studentMappings||{}).includes(s);
                                         return (
-                                            <span key={s} className={`group text-sm pl-3 pr-2 py-1 rounded-full border flex items-center gap-1 ${isBound ? 'bg-green-100 text-green-800 border-green-200' : 'bg-white text-gray-600 border-gray-200'}`}>
-                                                {s}
-                                                <button onClick={() => handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500 p-0.5 rounded-full hover:bg-gray-100 transition-colors">
-                                                    <Icons.X />
-                                                </button>
+                                            <span key={s} className={`text-xs px-2 py-1 rounded border flex items-center gap-1 ${isRegistered ? 'bg-green-100 text-green-700' : 'bg-white text-gray-600'}`}>
+                                                {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500"><Icons.X /></button>
                                             </span>
                                         );
                                     })}
                                 </div>
                             </div>
+                            <div className="bg-white rounded-xl shadow p-6">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Award/> 分組名單管理</h3>
+                                <p className="text-xs text-gray-500 mb-2">請貼上組別名稱，一行一個</p>
+                                <textarea className="w-full h-40 border p-2 rounded text-sm mb-2" placeholder="第一組...&#10;第二組..." value={batchGroups} onChange={e=>setBatchGroups(e.target.value)}></textarea>
+                                <div className="flex gap-2">
+                                    <button onClick={handleBatchGroups} className="flex-1 py-2 bg-blue-600 text-white rounded font-bold">新增組別</button>
+                                    <button onClick={handleClearGroups} className="px-4 py-2 bg-red-100 text-red-600 rounded font-bold hover:bg-red-200"><Icons.Trash /></button>
+                                </div>
+                                <div className="bg-gray-50 p-3 rounded h-48 overflow-y-auto space-y-2 mt-4">
+                                    {(session.groups||[]).map((g,i) => (
+                                        <div key={g.id} className="text-sm bg-white p-2 rounded border flex justify-between">
+                                            <span>{i+1}. {g.name}</span>
+                                            <button onClick={async()=>{ if(confirm("刪除?")) await updateSession({ groups: session.groups.filter(x=>x.id!==g.id) }); }} className="text-red-400"><Icons.Trash /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     )}
 
-                    {/* 4. 監控與修正 (本次新增功能) */}
-                    {activeTab === 'monitor' && (
+                    {tab === 'criteria' && (
+                        <div className="bg-white rounded-xl shadow p-6">
+                            <h3 className="font-bold text-lg mb-6">評分標準設定</h3>
+                            <div className="flex gap-4 mb-6 items-end bg-blue-50 p-4 rounded-lg">
+                                <div className="flex-1">
+                                    <label className="text-xs font-bold text-gray-500">項目名稱</label>
+                                    <input type="text" value={newCriName} onChange={e=>setNewCriName(e.target.value)} className="w-full border p-2 rounded" />
+                                </div>
+                                <div className="w-24">
+                                    <label className="text-xs font-bold text-gray-500">最高分</label>
+                                    <input type="number" value={newCriMax} onChange={e=>setNewCriMax(e.target.value)} className="w-full border p-2 rounded" />
+                                </div>
+                                <button onClick={addCriteria} className="bg-blue-600 text-white px-6 py-2 rounded font-bold h-10">新增</button>
+                            </div>
+                            <div className="space-y-2">
+                                {(session.criteria||[]).map(c => (
+                                    <div key={c.id} className="flex justify-between items-center p-4 border rounded-lg bg-white">
+                                        <div className="flex items-center gap-4">
+                                            <span className="font-bold text-lg text-gray-700">{c.name}</span>
+                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">0 ~ {c.max} 分</span>
+                                        </div>
+                                        <button onClick={()=>removeCriteria(c.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Icons.Trash2/></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'monitor' && (
                         <div className="space-y-6">
                             {!monitorGroupId ? (
                                 <>
-                                    {/* 全班即時狀況 */}
-                                    <div className="bg-white rounded-xl shadow-sm p-6">
-                                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                                            <Icons.Users /> 全班狀態監控
-                                        </h2>
-                                        <div className="overflow-x-auto max-h-96">
-                                            <table className="w-full text-sm text-left">
-                                                <thead className="bg-gray-50 text-gray-600 uppercase sticky top-0">
-                                                    <tr>
-                                                        <th className="p-3">姓名</th>
-                                                        <th className="p-3">登入狀態</th>
-                                                        <th className="p-3">目前評分進度</th>
-                                                        <th className="p-3">累計已評組數</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-gray-100">
-                                                    {(session.students || []).map(studentName => {
-                                                        const isBound = Object.values(session.studentMappings || {}).includes(studentName);
-                                                        const currentGroup = session.currentGroupId;
-                                                        const hasVotedCurrent = currentGroup ? votes.some(v => v.groupId === currentGroup && v.userName === studentName) : false;
-                                                        const totalVoted = votes.filter(v => v.userName === studentName).length;
-
-                                                        return (
-                                                            <tr key={studentName} className="hover:bg-gray-50">
-                                                                <td className="p-3 font-medium">{studentName}</td>
-                                                                <td className="p-3">
-                                                                    {isBound ? <span className="text-green-600 bg-green-50 px-2 py-1 rounded text-xs">已登入</span> : <span className="text-gray-400 text-xs">未登入</span>}
-                                                                </td>
-                                                                <td className="p-3">
-                                                                    {!currentGroup ? <span className="text-gray-400">-</span> : 
-                                                                     hasVotedCurrent ? <span className="text-green-600 font-bold">已完成</span> : <span className="text-red-500 animate-pulse">未評分</span>}
-                                                                </td>
-                                                                <td className="p-3 text-gray-500">{totalVoted} 組</td>
-                                                            </tr>
-                                                        )
-                                                    })}
-                                                    {(session.students||[]).length === 0 && <tr><td colSpan="4" className="p-4 text-center text-gray-400">尚未建立名單</td></tr>}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    {/* 評分檢核區 */}
-                                    <div className="bg-white rounded-xl shadow-sm p-6">
-                                        <h2 className="text-xl font-bold mb-4">各組評分檢核 (點選進入)</h2>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                            {groups.map(g => {
-                                                const groupVoteCount = votes.filter(v => v.groupId === g.id).length;
-                                                return (
-                                                    <button key={g.id} onClick={() => setMonitorGroupId(g.id)} className="p-4 border rounded-xl hover:bg-gray-50 hover:border-blue-500 transition text-left">
-                                                        <div className="font-bold text-lg mb-1">{g.name}</div>
-                                                        <div className="text-sm text-gray-500">收到 {groupVoteCount} 筆評分</div>
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                /* 單一組別詳細資料 (可排序、刪除) */
-                                <div className="bg-white rounded-xl shadow-sm p-6">
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <button onClick={() => setMonitorGroupId(null)} className="text-gray-500 hover:bg-gray-100 p-2 rounded flex items-center gap-1">
-                                            <Icons.ArrowLeft /> 返回
-                                        </button>
-                                        <h2 className="text-xl font-bold">
-                                            {groups.find(g => g.id === monitorGroupId)?.name} - 評分明細
-                                        </h2>
-                                    </div>
-                                    
-                                    <div className="overflow-x-auto">
+                                <div className="bg-white rounded-xl shadow p-6">
+                                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Users/> 全班狀態監控</h3>
+                                    <div className="overflow-x-auto max-h-96">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50 text-gray-600 uppercase">
+                                            <thead className="bg-gray-50 text-gray-600 uppercase sticky top-0">
                                                 <tr>
-                                                    <th className="p-3">評分學生</th>
-                                                    <th className="p-3 text-right">給出的總分</th>
-                                                    {session.criteria.map(c => (
-                                                        <th key={c.id} className="p-3 text-right hidden md:table-cell">{c.name}</th>
-                                                    ))}
+                                                    <th className="p-3">姓名</th>
+                                                    <th className="p-3">登入狀態</th>
+                                                    <th className="p-3">目前評分進度</th>
+                                                    <th className="p-3 text-right">本組給分平均</th>
                                                     <th className="p-3 text-center">操作</th>
+                                                    <th className="p-3 text-gray-400">累計已評</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
-                                                {votes
-                                                    .filter(v => v.groupId === monitorGroupId)
-                                                    .map(v => {
-                                                        const total = session.criteria.reduce((sum, c) => sum + (v.scores[c.id] || 0), 0);
-                                                        return { ...v, total };
-                                                    })
-                                                    .sort((a, b) => b.total - a.total) // 由高到低排序
-                                                    .map(v => (
-                                                        <tr key={v.id} className="hover:bg-gray-50">
-                                                            <td className="p-3 font-bold">{v.userName}</td>
-                                                            <td className="p-3 text-right font-bold text-blue-600">{v.total}</td>
-                                                            {session.criteria.map(c => (
-                                                                <td key={c.id} className="p-3 text-right text-gray-500 hidden md:table-cell">{v.scores[c.id]}</td>
-                                                            ))}
-                                                            <td className="p-3 text-center">
-                                                                <button onClick={() => deleteVote(v.id)} className="text-red-500 hover:bg-red-50 p-2 rounded" title="刪除此評分">
-                                                                    <Icons.Trash />
-                                                                </button>
+                                                {(session.students||[]).map(studentName => {
+                                                    const isBound = Object.values(session.studentMappings||{}).includes(studentName);
+                                                    const currentGroup = session.currentGroupId;
+                                                    const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName) : null;
+                                                    const totalVoted = votes.filter(v => v.userName === studentName).length;
+                                                    
+                                                    let avgDisplay = "-";
+                                                    let avgClass = "text-gray-400";
+                                                    if (currentVote) {
+                                                        let sum = 0;
+                                                        (session.criteria||[]).forEach(c => sum += (currentVote.scores[c.id]||0));
+                                                        const avg = session.criteria.length ? sum / session.criteria.length : 0;
+                                                        avgDisplay = avg.toFixed(1);
+                                                        avgClass = getAvgStyle(avg);
+                                                    }
+
+                                                    return (
+                                                        <tr key={studentName} className="hover:bg-gray-50">
+                                                            <td className="p-3 font-medium">{studentName}</td>
+                                                            <td className="p-3">{isBound ? <span className="text-green-600 bg-green-50 px-2 py-1 rounded text-xs">已登入</span> : <span className="text-gray-400 text-xs">未登入</span>}</td>
+                                                            <td className="p-3">
+                                                                {!currentGroup ? <span className="text-gray-400">-</span> : 
+                                                                 currentVote ? <span className="text-green-600 font-bold">已完成</span> : <span className="text-red-500 animate-pulse">未評分</span>}
                                                             </td>
+                                                            <td className={`p-3 text-right font-mono ${avgClass}`}>{avgDisplay}</td>
+                                                            <td className="p-3 text-center">
+                                                                {currentVote && (
+                                                                    <button onClick={()=>deleteVote(currentVote.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100" title="刪除此評分"><Icons.Trash2/></button>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3 text-gray-400">{totalVoted} 組</td>
                                                         </tr>
-                                                    ))
-                                                }
-                                                {votes.filter(v => v.groupId === monitorGroupId).length === 0 && (
-                                                    <tr><td colSpan={session.criteria.length + 3} className="p-8 text-center text-gray-400">尚無評分紀錄</td></tr>
-                                                )}
+                                                    )
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+                                <div className="bg-white rounded-xl shadow p-6">
+                                    <h3 className="font-bold text-lg mb-4">各組評分檢核 (點選查看詳細)</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        {(session.groups||[]).map(g => {
+                                            const count = votes.filter(v => v.groupId === g.id).length;
+                                            return <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border rounded-xl hover:border-blue-500 text-left"><div className="font-bold">{g.name}</div><div className="text-sm text-gray-500">收到 {count} 筆評分</div></button>
+                                        })}
+                                    </div>
+                                </div>
+                                </>
+                            ) : (
+                                <GroupDetailView groupId={monitorGroupId} session={session} votes={votes} onBack={()=>setMonitorGroupId(null)} onDelete={deleteVote} />
                             )}
                         </div>
                     )}
 
-                    {activeTab === 'results' && <ResultsBoard session={session} groups={groups} criteria={DEFAULT_CRITERIA} isAdmin={true} />}
+                    {tab === 'results' && <ResultsBoard session={session} groups={groups} criteria={DEFAULT_CRITERIA} isAdmin={true} />}
                 </div>
             );
         }
 
-        // --- Student Components ---
+        function GroupDetailView({ groupId, session, votes, onBack, onDelete }) {
+            const group = session.groups.find(g => g.id === groupId);
+            const groupVotes = votes
+                .filter(v => v.groupId === groupId)
+                .map(v => {
+                    let total = 0;
+                    (session.criteria||[]).forEach(c => total += (v.scores[c.id] || 0));
+                    return { ...v, totalScore: total };
+                })
+                .sort((a, b) => b.totalScore - a.totalScore);
+
+            return (
+                <div className="bg-white rounded-xl shadow p-6">
+                    <div className="flex items-center gap-4 mb-6 border-b pb-4">
+                        <button onClick={onBack} className="text-gray-500 hover:text-gray-800">← 返回</button>
+                        <h2 className="text-xl font-bold">{group?.name} - 詳細評分紀錄</h2>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-500 uppercase">
+                                <tr>
+                                    <th className="p-3">學生姓名</th>
+                                    <th className="p-3 text-right">給出的總分</th>
+                                    {(session.criteria||[]).map(c => <th key={c.id} className="p-3 text-right hidden md:table-cell">{c.name}</th>)}
+                                    <th className="p-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {groupVotes.map(v => (
+                                    <tr key={v.id} className="border-b hover:bg-gray-50">
+                                        <td className="p-3 font-bold">{v.userName || "未知"}</td>
+                                        <td className="p-3 text-right font-bold text-blue-600">{v.totalScore}</td>
+                                        {(session.criteria||[]).map(c => <td key={c.id} className="p-3 text-right text-gray-500 hidden md:table-cell">{v.scores[c.id]}</td>)}
+                                        <td className="p-3 text-center">
+                                            <button onClick={()=>onDelete(v.id)} className="text-red-500 hover:bg-red-100 p-2 rounded"><Icons.Trash2/></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {groupVotes.length === 0 && <tr><td colSpan="10" className="p-8 text-center text-gray-400">目前尚無評分</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
         function StudentView({ session, user }) {
+            const [selectedName, setSelectedName] = React.useState('');
             const [hasVoted, setHasVoted] = React.useState(false);
             const [scores, setScores] = React.useState({});
             const [submitting, setSubmitting] = React.useState(false);
-            const [selectedName, setSelectedName] = React.useState(''); // 學生選的名字
 
-            // 檢查該 user.uid 是否已經有綁定的名字
-            const registeredName = session.studentMappings?.[user.uid];
+            const registeredName = session?.studentMappings?.[user.uid];
 
             React.useEffect(() => {
                 if (registeredName && session?.currentGroupId) {
-                    const q = query(collection(db, 'sessions', SESSION_ID, 'votes'), where('groupId', '==', session.currentGroupId), where('userId', '==', user.uid));
-                    getDocs(q).then(snap => setHasVoted(!snap.empty));
+                    const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes')
+                        .where('groupId', '==', session.currentGroupId)
+                        .where('userId', '==', user.uid)
+                        .onSnapshot(snap => setHasVoted(!snap.empty));
+                    return () => unsub();
                 } else {
                     setHasVoted(false);
                     setScores({});
                 }
-            }, [session, user, registeredName]);
+            }, [session?.currentGroupId, user.uid, registeredName]);
 
-            const handleNameRegister = async () => {
+            if (!session) return <div className="h-screen flex items-center justify-center text-gray-500">連結教室中...</div>;
+
+            const handleRegister = async () => {
                 if (!selectedName) return;
-                // 再次檢查名字是否被搶走
-                const currentMappings = session.studentMappings || {};
-                if (Object.values(currentMappings).includes(selectedName)) {
-                    alert("這個名字已經被其他裝置綁定了！請重新整理頁面。");
-                    return;
-                }
-                
-                // 寫入資料庫綁定
-                const updateKey = `studentMappings.${user.uid}`;
-                await updateDoc(doc(db, 'sessions', SESSION_ID), {
-                    [updateKey]: selectedName
-                });
+                const isTaken = Object.values(session.studentMappings || {}).includes(selectedName);
+                if (isTaken) { alert("此姓名已被其他裝置綁定！"); return; }
+                const update = {};
+                update[`studentMappings.${user.uid}`] = selectedName;
+                await db.collection('sessions').doc(SESSION_ID).update(update);
             };
 
             const submitVote = async () => {
-                if (session.criteria.some(c => scores[c.id] === undefined)) {
-                    alert("請填寫所有項目！"); return;
-                }
+                if (session.criteria.some(c => scores[c.id] === undefined)) { alert("請完成所有評分項目！"); return; }
                 setSubmitting(true);
                 try {
-                    await setDoc(doc(collection(db, 'sessions', SESSION_ID, 'votes')), {
-                        userId: user.uid, 
-                        userName: registeredName, // 這裡改用綁定的真實姓名
-                        groupId: session.currentGroupId, 
-                        scores, 
-                        timestamp: serverTimestamp()
+                    await db.collection('sessions').doc(SESSION_ID).collection('votes').add({
+                        userId: user.uid, userName: registeredName, groupId: session.currentGroupId, scores, timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     setHasVoted(true);
                 } catch(e) { alert("送出失敗"); } finally { setSubmitting(false); }
             };
 
-            // 1. 如果還沒綁定名字，顯示選單
             if (!registeredName) {
-                // 找出還沒被綁定的名字
-                const takenNames = Object.values(session.studentMappings || {});
-                const availableNames = (session.students || []).filter(name => !takenNames.includes(name));
-
+                const availableStudents = (session.students || []).filter(name => !Object.values(session.studentMappings || {}).includes(name));
                 return (
-                    <div className="max-w-md mx-auto bg-white rounded-xl shadow p-8 mt-10">
-                        <h2 className="text-xl font-bold mb-4 text-center">歡迎！請確認您的身分</h2>
-                        <p className="text-gray-500 text-sm mb-6 text-center">請從下方選單選擇您的姓名以進入評分系統。</p>
-                        
-                        {(session.students || []).length === 0 ? (
-                            <div className="text-center text-red-500 bg-red-50 p-4 rounded">
-                                老師尚未建立學生名單，請稍候。
-                            </div>
+                    <div className="max-w-md mx-auto bg-white rounded-xl shadow p-8 text-center mt-10">
+                        <Icons.User />
+                        <h2 className="text-xl font-bold mt-4 mb-2">歡迎，請確認您的身分</h2>
+                        {(session.students||[]).length === 0 ? (
+                            <div className="text-red-500 bg-red-50 p-4 rounded text-sm">老師尚未建立學生名單，請通知老師。</div>
                         ) : (
                             <div className="space-y-4">
-                                <select 
-                                    className="w-full p-3 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                    value={selectedName}
-                                    onChange={(e) => setSelectedName(e.target.value)}
-                                >
+                                <select className="w-full p-3 border rounded-lg bg-gray-50" value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
                                     <option value="">-- 請選擇您的姓名 --</option>
-                                    {availableNames.map(name => (
-                                        <option key={name} value={name}>{name}</option>
-                                    ))}
+                                    {availableStudents.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <button 
-                                    onClick={handleNameRegister}
-                                    disabled={!selectedName}
-                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold disabled:bg-gray-300 transition-colors"
-                                >
-                                    確認身分並進入
-                                </button>
+                                <button onClick={handleRegister} disabled={!selectedName} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold disabled:bg-gray-300">確認綁定</button>
                             </div>
                         )}
                     </div>
                 );
             }
 
-            // 2. 已綁定，正常顯示評分介面
-            if (session?.showResults) return <ResultsBoard session={session} groups={session.groups} criteria={session.criteria} isAdmin={false} />;
-            if (!session?.currentGroupId) return (
+            if (session.showResults) return <ResultsBoard session={session} groups={session.groups} criteria={session.criteria} isAdmin={false} />;
+
+            if (!session.currentGroupId) return (
                 <div className="text-center py-20 bg-white rounded-xl shadow">
-                    <div className="mb-4 text-blue-600 font-bold">嗨，{registeredName}</div>
+                    <div className="text-blue-600 font-bold mb-2 text-lg">嗨，{registeredName}</div>
                     <div className="text-gray-300 flex justify-center mb-4"><Icons.Lock /></div>
                     <h2 className="font-bold text-xl">等待評分開始...</h2>
-                    <p className="text-gray-500 mt-2">老師尚未開始任何組別的評分</p>
                 </div>
             );
-            if (hasVoted) return <div className="text-center py-20 bg-green-50 rounded-xl shadow"><div className="text-green-600 flex justify-center mb-4"><Icons.CheckCircle /></div><h2 className="font-bold text-xl text-green-800">評分已送出！</h2><p className="text-green-600 mt-2">請稍候下一組報告</p></div>;
 
+            if (hasVoted) return (
+                <div className="text-center py-20 bg-green-50 rounded-xl shadow">
+                    <div className="text-green-600 flex justify-center mb-4"><Icons.CheckCircle /></div>
+                    <h2 className="font-bold text-xl text-green-800">評分已送出！</h2>
+                    <p className="text-green-600 mt-2">休息一下，等待下一組。</p>
+                </div>
+            );
+
+            const currentGroup = session.groups.find(g => g.id === session.currentGroupId);
             return (
-                <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
-                    <div className="bg-blue-600 -mx-6 -mt-6 p-4 mb-6 text-white">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs opacity-80">正在評分</span>
-                            <span className="text-xs bg-blue-500 px-2 py-0.5 rounded text-blue-100">{registeredName}</span>
-                        </div>
-                        <h2 className="text-2xl font-bold">{session.groups.find(g => g.id === session.currentGroupId)?.name}</h2>
+                <div className="bg-white rounded-xl shadow-lg p-6 space-y-8 animate-fade-in">
+                    <div className="border-b pb-4">
+                        <div className="text-gray-500 text-xs font-bold mb-1">評分者：{registeredName}</div>
+                        <h2 className="text-2xl font-bold text-blue-800">正在評分：{currentGroup?.name}</h2>
                     </div>
                     {session.criteria.map(c => (
-                        <div key={c.id}>
-                            <div className="flex justify-between mb-2"><label className="font-bold text-gray-700">{c.name}</label><span className="text-xs text-gray-500 font-mono">權重: {c.weight}%</span></div>
+                        <div key={c.id} className="space-y-2">
+                            <div className="flex justify-between">
+                                <label className="font-bold text-lg text-gray-700">{c.name}</label>
+                                <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">最高 {c.max} 分</span>
+                            </div>
                             <div className="flex items-center gap-4">
-                                <input type="range" min="1" max={c.max} value={scores[c.id]||0} onChange={e => setScores({...scores, [c.id]: parseInt(e.target.value)})} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-                                <div className="w-10 h-10 flex items-center justify-center bg-blue-50 text-blue-700 font-bold rounded">{scores[c.id]||0}</div>
+                                <input type="range" min="0" max={c.max} step="1" value={scores[c.id] || 0} onChange={e => setScores({...scores, [c.id]: parseInt(e.target.value)})} className="w-full h-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                                <div className="w-12 h-12 flex items-center justify-center bg-blue-50 text-blue-700 font-bold text-xl rounded-lg border border-blue-100 shadow-sm">{scores[c.id] || 0}</div>
                             </div>
                         </div>
                     ))}
-                    <button onClick={submitVote} disabled={submitting} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow hover:bg-blue-700 transition-all">{submitting ? '處理中...' : '送出評分'}</button>
+                    <button onClick={submitVote} disabled={submitting} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95 disabled:bg-gray-400">
+                        {submitting ? '資料傳送中...' : '確認送出分數'}
+                    </button>
                 </div>
             );
         }
 
-        // --- Shared Results Component ---
         function ResultsBoard({ session, groups, criteria, isAdmin }) {
             const [results, setResults] = React.useState([]);
 
             React.useEffect(() => {
-                getDocs(query(collection(db, 'sessions', SESSION_ID, 'votes'))).then(snap => {
-                    const stats = {};
-                    snap.forEach(d => {
-                        const v = d.data();
-                        if (!stats[v.groupId]) stats[v.groupId] = { sum: 0, count: 0 };
-                        let wSum = 0;
-                        criteria.forEach(c => wSum += (v.scores[c.id]||0) * (c.weight/100));
-                        stats[v.groupId].sum += wSum;
-                        stats[v.groupId].count++;
+                db.collection('sessions').doc(SESSION_ID).collection('votes').get().then(snap => {
+                    const allVotes = [];
+                    snap.forEach(d => allVotes.push(d.data()));
+                    const groupStats = {};
+                    allVotes.forEach(v => {
+                        if (!groupStats[v.groupId]) groupStats[v.groupId] = { total: 0, count: 0 };
+                        let vTotal = 0;
+                        (session.criteria||[]).forEach(c => vTotal += (v.scores[c.id] || 0));
+                        groupStats[v.groupId].total += vTotal;
+                        groupStats[v.groupId].count++;
                     });
-                    setResults(groups.map(g => ({
-                        ...g, avg: stats[g.id]?.count ? (stats[g.id].sum / stats[g.id].count).toFixed(2) : "0.00"
-                    })).sort((a, b) => b.avg - a.avg));
+                    const res = (session.groups||[]).map(g => ({
+                        ...g, avg: groupStats[g.id]?.count ? (groupStats[g.id].total / groupStats[g.id].count).toFixed(2) : "0.00"
+                    })).sort((a, b) => b.avg - a.avg);
+                    setResults(res);
                 });
             }, [session]);
 
             return (
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-gray-800"><Icons.BarChart3 /> 排行榜與成績</h2>
-                    <div className="space-y-2">
+                <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-800"><Icons.BarChart3 /> 最終排行榜</h2>
+                    <div className="space-y-3">
                         {results.map((g, i) => (
-                            <div key={g.id} className={`flex justify-between items-center p-4 rounded-lg ${i === 0 ? 'bg-yellow-50 border border-yellow-200' : 'border-b border-gray-50'}`}>
+                            <div key={g.id} className={`flex justify-between items-center p-4 rounded-xl transition-all ${i === 0 ? 'bg-yellow-50 border-2 border-yellow-300 transform scale-105' : 'border border-gray-100 bg-white'}`}>
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${i===0?'bg-yellow-400':i===1?'bg-gray-400':i===2?'bg-orange-400':'bg-gray-200 text-gray-500'}`}>{i+1}</div>
-                                    <span className="font-bold text-lg">{g.name}</span>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg text-white shadow ${i===0?'bg-yellow-400':i===1?'bg-gray-400':i===2?'bg-orange-400':'bg-gray-200 text-gray-500'}`}>{i+1}</div>
+                                    <span className={`text-lg ${i===0 ? 'font-bold text-gray-900' : 'text-gray-700'}`}>{g.name}</span>
                                 </div>
-                                <span className="text-2xl font-bold text-blue-600">{g.avg}</span>
+                                <div className="text-right">
+                                    <span className="text-3xl font-bold text-blue-600 block">{g.avg}</span>
+                                    <span className="text-xs text-gray-400">平均總分</span>
+                                </div>
                             </div>
                         ))}
                     </div>
-                    {!isAdmin && <div className="mt-4 text-center text-gray-400 text-xs">結果由老師公佈後顯示</div>}
                 </div>
             );
         }
@@ -799,4 +740,3 @@
     </script>
 </body>
 </html>
-
