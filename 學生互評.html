@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v2.0</title>
+    <title>課堂共同評分系統 v2.1</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -63,14 +63,14 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const SESSION_ID = "class_demo_session_v2"; // 升級 Session ID 避免舊資料干擾
+        const SESSION_ID = "class_demo_session_v2"; 
 
         // --- App Component ---
         function App() {
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [sessionData, setSessionData] = React.useState(null);
-            const [role, setRole] = React.useState(null); // 'teacher' | 'student'
+            const [role, setRole] = React.useState(null); 
             const [errorMsg, setErrorMsg] = React.useState(null);
             
             // 老師登入狀態
@@ -103,8 +103,8 @@
                                 { id: 'c3', name: '投影片設計', max: 10 }
                             ],
                             groups: [],
-                            students: [], // 學生名單 ["王小明", "李大華"]
-                            studentMappings: {}, // { "uid123": "王小明" }
+                            students: [],
+                            studentMappings: {}, 
                             teacherPassword: null
                         };
                         setDoc(doc(db, 'sessions', SESSION_ID), initialData);
@@ -151,7 +151,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.0</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.1</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -205,7 +205,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v2
+                            <Icons.Award /> 評分系統 v2.1
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -221,7 +221,7 @@
 
         // --- Teacher Dashboard ---
         function TeacherDashboard({ session }) {
-            const [tab, setTab] = React.useState('control'); // control, setup, data, criteria
+            const [tab, setTab] = React.useState('control'); 
             const [votes, setVotes] = React.useState([]);
             
             // Setup Inputs
@@ -245,6 +245,8 @@
 
             const updateSession = (data) => setDoc(doc(db, 'sessions', SESSION_ID), data, { merge: true });
 
+            if (!session) return <div className="p-10 text-center text-gray-500">初始化系統中...</div>;
+
             // Handlers
             const handleBatchGroups = async () => {
                 const list = batchGroups.split('\n').map(s=>s.trim()).filter(s=>s);
@@ -256,7 +258,6 @@
 
             const handleBatchStudents = async () => {
                 const list = batchStudents.split('\n').map(s=>s.trim()).filter(s=>s);
-                // 使用 Set 去除重複
                 const currentSet = new Set(session.students || []);
                 list.forEach(name => currentSet.add(name));
                 await updateSession({ students: Array.from(currentSet) });
@@ -272,7 +273,7 @@
             };
 
             const removeCriteria = async (id) => {
-                if(!confirm("確定刪除此評分項目？已評分的資料可能會顯示異常。")) return;
+                if(!confirm("確定刪除此評分項目？")) return;
                 await updateSession({ criteria: session.criteria.filter(c => c.id !== id) });
             };
 
@@ -290,9 +291,6 @@
                 const groupVotes = votes.filter(v => v.groupId === groupId);
                 let total = 0;
                 groupVotes.forEach(v => {
-                    // 這裡改用單純加總，因為現在沒有權重設定，或是預設權重。
-                    // 題目要求 "0分到最高分"，比較像直接分數加總。
-                    // 為了相容性，我們計算總分 (Sum of all criteria scores)
                     let vSum = 0;
                     session.criteria.forEach(c => vSum += (v.scores[c.id] || 0));
                     total += vSum;
@@ -371,7 +369,6 @@
                                     <p className="text-xs font-bold text-gray-400 mb-2">目前名單 ({session.students?.length||0}人):</p>
                                     <div className="flex flex-wrap gap-2">
                                         {(session.students||[]).map(s => {
-                                            // 檢查該學生是否已綁定 UID
                                             const isRegistered = Object.values(session.studentMappings||{}).includes(s);
                                             return (
                                                 <span key={s} className={`text-xs px-2 py-1 rounded border ${isRegistered ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-600'}`}>
@@ -529,11 +526,11 @@
             const [scores, setScores] = React.useState({});
             const [submitting, setSubmitting] = React.useState(false);
 
-            // 檢查是否已綁定姓名
-            const registeredName = session.studentMappings?.[user.uid];
+            // 安全讀取資料 (修復白畫面問題的關鍵)
+            const registeredName = session?.studentMappings?.[user.uid];
 
             React.useEffect(() => {
-                if (registeredName && session.currentGroupId) {
+                if (registeredName && session?.currentGroupId) {
                     const q = query(collection(db, 'sessions', SESSION_ID, 'votes'), 
                         where('groupId', '==', session.currentGroupId), 
                         where('userId', '==', user.uid));
@@ -542,11 +539,13 @@
                     setHasVoted(false);
                     setScores({});
                 }
-            }, [session.currentGroupId, user.uid, registeredName]);
+            }, [session?.currentGroupId, user.uid, registeredName]);
+
+            // 等待資料載入中
+            if (!session) return <div className="h-screen flex items-center justify-center text-gray-500">連結教室中...</div>;
 
             const handleRegister = async () => {
                 if (!selectedName) return;
-                // 檢查是否被佔用
                 const isTaken = Object.values(session.studentMappings || {}).includes(selectedName);
                 if (isTaken) {
                     alert("此姓名已被其他裝置綁定！");
@@ -558,7 +557,6 @@
             };
 
             const submitVote = async () => {
-                // Check all fields
                 if (session.criteria.some(c => scores[c.id] === undefined)) {
                     alert("請完成所有評分項目！"); return;
                 }
@@ -566,7 +564,7 @@
                 try {
                     await setDoc(doc(collection(db, 'sessions', SESSION_ID, 'votes')), {
                         userId: user.uid,
-                        studentName: registeredName, // 重要：紀錄學生姓名
+                        studentName: registeredName,
                         groupId: session.currentGroupId,
                         scores: scores,
                         timestamp: serverTimestamp()
@@ -585,7 +583,7 @@
                         <p className="text-gray-500 text-sm mb-6">請從下方名單選擇您的名字以進行綁定。</p>
                         
                         {(session.students||[]).length === 0 ? (
-                            <div className="text-red-500 bg-red-50 p-4 rounded">老師尚未建立學生名單，請稍候。</div>
+                            <div className="text-red-500 bg-red-50 p-4 rounded text-sm">老師尚未建立學生名單，請通知老師。</div>
                         ) : (
                             <div className="space-y-4">
                                 <select className="w-full p-3 border rounded-lg bg-gray-50" value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
@@ -667,8 +665,6 @@
             const [results, setResults] = React.useState([]);
 
             React.useEffect(() => {
-                // 如果是學生端，votes 可能是空的，需要自己 fetch (但為了安全，通常學生端只讀取已經計算好的結果，這裡簡化為即時計算)
-                // 為了效能，這裡直接重用 Firestore query
                 getDocs(query(collection(db, 'sessions', SESSION_ID, 'votes'))).then(snap => {
                     const allVotes = [];
                     snap.forEach(d => allVotes.push(d.data()));
