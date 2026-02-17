@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v2.7 (修正穩定版)</title>
+    <title>課堂共同評分系統 v2.8 (監控分析修復版)</title>
     <!-- 引入 Tailwind CSS (美化介面) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -169,7 +169,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.7</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.8</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -222,7 +222,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v2.7
+                            <Icons.Award /> 評分系統 v2.8
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -238,13 +238,23 @@
 
         // --- Teacher Dashboard ---
         function TeacherDashboard({ session }) {
-            const [activeTab, setActiveTab] = React.useState('control'); // 修正：統一變數名稱
+            const [activeTab, setActiveTab] = React.useState('control'); 
             const [votes, setVotes] = React.useState([]);
+            const [groups, setGroups] = React.useState([]); // 修正：補回 groups 狀態
             const [batchGroups, setBatchGroups] = React.useState('');
             const [batchStudents, setBatchStudents] = React.useState('');
             const [newCriName, setNewCriName] = React.useState('');
             const [newCriMax, setNewCriMax] = React.useState(10);
             const [monitorGroupId, setMonitorGroupId] = React.useState(null);
+            
+            // 補回 newGroupName 狀態
+            const [newGroupName, setNewGroupName] = React.useState('');
+
+            React.useEffect(() => {
+                if (session) {
+                    setGroups(session.groups || []);
+                }
+            }, [session]);
 
             React.useEffect(() => {
                 const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes').onSnapshot(snap => {
@@ -276,14 +286,7 @@
                 alert(`名單更新完成，目前共 ${currentSet.size} 人`);
             };
 
-            const addGroup = async () => {
-                // 單筆新增組別 (假設 newGroupName 是從外部 props 或此處定義，若無定義需補上)
-                // 這裡簡化，直接用 alert prompt 好了，或者修復前面的單筆輸入框
-                // 為了程式碼簡潔，這裡假設 newGroupName 狀態存在
-            };
-            
-            // 補回 newGroupName 狀態和函式
-            const [newGroupName, setNewGroupName] = React.useState('');
+            // 修正：補回 addSingleGroup 函式
             const addSingleGroup = async () => {
                 if (!newGroupName.trim()) return;
                 const newGroup = { id: `g${Date.now()}`, name: newGroupName };
@@ -327,23 +330,30 @@
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
             const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId);
             
-            // 計算本組每個人的平均分，用於排序顏色
-            const currentMonitorVotes = monitorGroupId ? votes.filter(v => v.groupId === monitorGroupId) : [];
-            const voteAverages = currentMonitorVotes.map(v => {
+            // 監控分頁的計算邏輯
+            // 1. 取得全班在「目前組別」的平均分數，並過濾出有效分數
+            const allAverages = (session.students || []).map(studentName => {
+                if (!session.currentGroupId) return null;
+                const vote = votes.find(v => v.groupId === session.currentGroupId && v.userName === studentName);
+                if (!vote) return null;
                 let sum = 0;
-                (session.criteria||[]).forEach(c => sum += (v.scores[c.id]||0));
+                (session.criteria || []).forEach(c => sum += (vote.scores[c.id] || 0));
                 return session.criteria.length ? sum / session.criteria.length : 0;
-            }).sort((a, b) => b - a); // 由高到低
+            }).filter(score => score !== null).sort((a, b) => b - a); // 由高到低排序
 
-            const getAvgStyle = (score) => {
-                if (voteAverages.length === 0) return 'text-gray-800';
-                const rank = voteAverages.indexOf(score); // 0-based index
-                // 前三名紅色
-                if (rank < 3) return 'text-red-600 font-bold';
-                // 後三名綠色
-                const reverseRank = voteAverages.lastIndexOf(score);
-                if (reverseRank >= voteAverages.length - 3 && reverseRank >= 3) return 'text-green-600 font-bold';
-                return 'text-gray-800';
+            // 2. 判斷分數顏色的 helper function
+            const getScoreColor = (score) => {
+                if (allAverages.length === 0) return "text-gray-800";
+                const rank = allAverages.indexOf(score); // 取得排名 (0為最高)
+                
+                // 前三名 (High)
+                if (rank < 3) return "text-red-600 font-bold";
+                
+                // 後三名 (Low) - 從後面數
+                const reverseRank = allAverages.lastIndexOf(score);
+                if (reverseRank >= allAverages.length - 3 && allAverages.length >= 3) return "text-green-600 font-bold";
+                
+                return "text-gray-800";
             };
 
             return (
@@ -373,8 +383,8 @@
                             </div>
                             <h3 className="font-bold text-lg border-b pb-2">報告流程控制</h3>
                             <div className="space-y-3">
-                                {(session.groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center">尚未設定組別</p>}
-                                {(session.groups||[]).map(g => (
+                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center">尚未設定組別</p>}
+                                {(groups||[]).map(g => (
                                     <div key={g.id} className={`flex justify-between items-center p-4 border rounded-lg ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 ring-1 ring-green-500' : ''}`}>
                                         <span className="font-bold text-lg">{g.name}</span>
                                         {session.currentGroupId === g.id ? (
@@ -427,7 +437,7 @@
                                     <button onClick={handleClearGroups} className="px-4 py-2 bg-red-100 text-red-600 rounded font-bold hover:bg-red-200"><Icons.Trash /></button>
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded h-48 overflow-y-auto space-y-2 mt-4">
-                                    {(session.groups||[]).map((g,i) => (
+                                    {(groups||[]).map((g,i) => (
                                         <div key={g.id} className="text-sm bg-white p-2 rounded border flex justify-between">
                                             <span>{i+1}. {g.name}</span>
                                             <button onClick={async()=>{ if(confirm("刪除?")) await updateSession({ groups: session.groups.filter(x=>x.id!==g.id) }); }} className="text-red-400"><Icons.Trash2 /></button>
@@ -479,6 +489,8 @@
                                                     <th className="p-3">姓名</th>
                                                     <th className="p-3">登入狀態</th>
                                                     <th className="p-3">目前評分進度</th>
+                                                    <th className="p-3 text-right">平均分數</th>
+                                                    <th className="p-3 text-center">操作</th>
                                                     <th className="p-3 text-gray-400">累計已評</th>
                                                 </tr>
                                             </thead>
@@ -486,8 +498,20 @@
                                                 {(session.students||[]).map(studentName => {
                                                     const isBound = Object.values(session.studentMappings||{}).includes(studentName);
                                                     const currentGroup = session.currentGroupId;
-                                                    const hasVotedCurrent = currentGroup ? votes.some(v => v.groupId === currentGroup && v.userName === studentName) : false;
+                                                    const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName) : null;
                                                     const totalVoted = votes.filter(v => v.userName === studentName).length;
+                                                    
+                                                    // 計算該學生的平均分
+                                                    let avgDisplay = "-";
+                                                    let avgClass = "text-gray-400";
+                                                    
+                                                    if (currentVote) {
+                                                        let sum = 0;
+                                                        (session.criteria||[]).forEach(c => sum += (currentVote.scores[c.id]||0));
+                                                        const avg = session.criteria.length ? sum / session.criteria.length : 0;
+                                                        avgDisplay = avg.toFixed(1);
+                                                        avgClass = getScoreColor(avg); // 使用計算好的排名顏色
+                                                    }
 
                                                     return (
                                                         <tr key={studentName} className="hover:bg-gray-50">
@@ -495,9 +519,15 @@
                                                             <td className="p-3">{isBound ? <span className="text-green-600 bg-green-50 px-2 py-1 rounded text-xs">已登入</span> : <span className="text-gray-400 text-xs">未登入</span>}</td>
                                                             <td className="p-3">
                                                                 {!currentGroup ? <span className="text-gray-400">-</span> : 
-                                                                 hasVotedCurrent ? <span className="text-green-600 font-bold">已完成</span> : <span className="text-red-500 animate-pulse">未評分</span>}
+                                                                 currentVote ? <span className="text-green-600 font-bold">已完成</span> : <span className="text-red-500 animate-pulse">未評分</span>}
                                                             </td>
-                                                            <td className="p-3 text-gray-500">{totalVoted} 組</td>
+                                                            <td className={`p-3 text-right font-mono ${avgClass}`}>{avgDisplay}</td>
+                                                            <td className="p-3 text-center">
+                                                                {currentVote && (
+                                                                    <button onClick={()=>deleteVote(currentVote.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100" title="刪除此評分"><Icons.Trash2/></button>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-3 text-gray-400">{totalVoted} 組</td>
                                                         </tr>
                                                     )
                                                 })}
@@ -508,7 +538,7 @@
                                 <div className="bg-white rounded-xl shadow p-6">
                                     <h3 className="font-bold text-lg mb-4">各組評分檢核 (點選查看詳細)</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        {(session.groups||[]).map(g => {
+                                        {(groups||[]).map(g => {
                                             const count = votes.filter(v => v.groupId === g.id).length;
                                             return <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border rounded-xl hover:border-blue-500 text-left"><div className="font-bold">{g.name}</div><div className="text-sm text-gray-500">收到 {count} 筆評分</div></button>
                                         })}
@@ -522,7 +552,7 @@
                                             <Icons.ArrowLeft /> 返回
                                         </button>
                                         <h2 className="text-xl font-bold">
-                                            {session.groups.find(g => g.id === monitorGroupId)?.name} - 評分明細
+                                            {groups.find(g => g.id === monitorGroupId)?.name} - 評分明細
                                         </h2>
                                     </div>
                                     
@@ -531,7 +561,7 @@
                                             <thead className="bg-gray-50 text-gray-600 uppercase">
                                                 <tr>
                                                     <th className="p-3">評分學生</th>
-                                                    <th className="p-3 text-right">本組給分平均</th>
+                                                    <th className="p-3 text-right">給出的總分</th>
                                                     {(session.criteria||[]).map(c => (
                                                         <th key={c.id} className="p-3 text-right hidden md:table-cell">{c.name}</th>
                                                     ))}
@@ -539,18 +569,18 @@
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
-                                                {currentMonitorVotes
+                                                {votes
+                                                    .filter(v => v.groupId === monitorGroupId)
                                                     .map(v => {
-                                                        let sum = 0;
-                                                        (session.criteria||[]).forEach(c => sum += (v.scores[c.id]||0));
-                                                        const avg = session.criteria.length ? sum / session.criteria.length : 0;
-                                                        return { ...v, avg };
+                                                        let total = 0;
+                                                        (session.criteria||[]).forEach(c => total += (v.scores[c.id] || 0));
+                                                        return { ...v, total };
                                                     })
-                                                    .sort((a, b) => b.avg - a.avg) // 由高到低排序
+                                                    .sort((a, b) => b.total - a.total)
                                                     .map(v => (
                                                         <tr key={v.id} className="hover:bg-gray-50">
                                                             <td className="p-3 font-bold">{v.userName}</td>
-                                                            <td className={`p-3 text-right font-mono ${getAvgStyle(v.avg)}`}>{v.avg.toFixed(1)}</td>
+                                                            <td className="p-3 text-right font-bold text-blue-600">{v.total}</td>
                                                             {(session.criteria||[]).map(c => (
                                                                 <td key={c.id} className="p-3 text-right text-gray-500 hidden md:table-cell">{v.scores[c.id]}</td>
                                                             ))}
@@ -562,7 +592,7 @@
                                                         </tr>
                                                     ))
                                                 }
-                                                {currentMonitorVotes.length === 0 && (
+                                                {votes.filter(v => v.groupId === monitorGroupId).length === 0 && (
                                                     <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400">尚無評分紀錄</td></tr>
                                                 )}
                                             </tbody>
@@ -628,7 +658,9 @@
                         <Icons.User />
                         <h2 className="text-xl font-bold mt-4 mb-2">歡迎，請確認您的身分</h2>
                         {(session.students||[]).length === 0 ? (
-                            <div className="text-red-500 bg-red-50 p-4 rounded text-sm">老師尚未建立學生名單，請通知老師。</div>
+                            <div className="text-center text-red-500 bg-red-50 p-4 rounded">
+                                老師尚未建立學生名單，請通知老師。
+                            </div>
                         ) : (
                             <div className="space-y-4">
                                 <select className="w-full p-3 border rounded-lg bg-gray-50" value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
@@ -642,7 +674,7 @@
                 );
             }
 
-            if (session.showResults) return <ResultsBoard session={session} votes={[]} criteria={session.criteria} isAdmin={false} />;
+            if (session.showResults) return <ResultsBoard session={session} groups={session.groups} criteria={session.criteria} isAdmin={false} />;
 
             if (!session.currentGroupId) return (
                 <div className="text-center py-20 bg-white rounded-xl shadow">
@@ -679,7 +711,7 @@
                             </div>
                         </div>
                     ))}
-                    <button onClick={submitVote} disabled={submitting} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95 disabled:bg-gray-400">
+                    <button onClick={submitVote} disabled={submitting} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95 disabled:bg-gray-400">
                         {submitting ? '資料傳送中...' : '確認送出分數'}
                     </button>
                 </div>
@@ -701,12 +733,12 @@
                         groupStats[v.groupId].total += vTotal;
                         groupStats[v.groupId].count++;
                     });
-                    const res = (session.groups||[]).map(g => ({
+                    const res = (groups||[]).map(g => ({
                         ...g, avg: groupStats[g.id]?.count ? (groupStats[g.id].total / groupStats[g.id].count).toFixed(2) : "0.00"
                     })).sort((a, b) => b.avg - a.avg);
                     setResults(res);
                 });
-            }, [session]);
+            }, [session, groups]); // 加入 groups 相依性
 
             return (
                 <div className="bg-white p-6 rounded-xl shadow border border-gray-100">
