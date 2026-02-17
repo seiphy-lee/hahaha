@@ -3,50 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v2.2 (穩定版)</title>
+    <title>課堂共同評分系統 v3.0 (相容穩定版)</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React 和 ReactDOM (UMD) -->
+    <!-- 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
+    <!-- 引入 Firebase Compat Scripts (關鍵修改：改用傳統載入方式) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* 錯誤控制台樣式 */
         #global-error-box { display: none; position: fixed; top: 0; left: 0; width: 100%; padding: 20px; background: #fee2e2; color: #b91c1c; z-index: 9999; border-bottom: 2px solid #ef4444; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
-    <!-- 全域錯誤顯示區 (當白畫面時會顯示錯誤) -->
     <div id="global-error-box">
-        <h3 class="font-bold text-lg">⚠️ 發生系統錯誤</h3>
+        <h3 class="font-bold text-lg">⚠️ 發生錯誤</h3>
         <pre id="global-error-msg" class="mt-2 text-sm whitespace-pre-wrap"></pre>
-        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">重新整理頁面</button>
+        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">重新整理</button>
     </div>
-
-    <!-- React 根目錄 -->
     <div id="root"></div>
 
-    <!-- 錯誤攔截腳本 -->
     <script>
-        window.onerror = function(message, source, lineno, colno, error) {
+        window.onerror = function(msg, url, line, col, error) {
             document.getElementById('global-error-box').style.display = 'block';
-            document.getElementById('global-error-msg').innerText = 
-                `錯誤訊息: ${message}\n位置: 第 ${lineno} 行\n請截圖此畫面給開發者。`;
+            document.getElementById('global-error-msg').innerText = `錯誤: ${msg}\n位置: ${line}:${col}`;
             return false;
         };
     </script>
 
-    <script type="text/babel" data-type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, query, where, getDocs, serverTimestamp, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        
-        // --- 1. Firebase Config ---
+    <script type="text/babel">
+        // --- 1. Firebase Config & Init (使用全域 firebase 物件) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCJLf_DTpyH635GHh2bvDV-US1SB3ffxJA",
             authDomain: "seiphy-2d96d.firebaseapp.com",
@@ -57,10 +52,13 @@
             measurementId: "G-N5ERFCSDS7"
         };
         
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const SESSION_ID = "class_demo_session_v2";
+        // 初始化檢查，避免重複初始化
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const SESSION_ID = "class_demo_session_v3"; // 更新版本號以重置資料結構
 
         // --- 2. Icons ---
         const Icons = {
@@ -75,7 +73,9 @@
             LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
             AlertCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
             Key: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
-            Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         };
 
         // --- 3. Main App ---
@@ -91,7 +91,7 @@
             const [isSettingUpPwd, setIsSettingUpPwd] = React.useState(false);
 
             React.useEffect(() => {
-                const unsubscribe = onAuthStateChanged(auth, u => {
+                const unsubscribe = auth.onAuthStateChanged(u => {
                     setUser(u);
                     setLoading(false);
                 });
@@ -100,8 +100,8 @@
 
             React.useEffect(() => {
                 if (!user) return;
-                const unsub = onSnapshot(doc(db, 'sessions', SESSION_ID), (docSnap) => {
-                    if (docSnap.exists()) {
+                const unsub = db.collection('sessions').doc(SESSION_ID).onSnapshot(docSnap => {
+                    if (docSnap.exists) {
                         setSessionData(docSnap.data());
                     } else {
                         // 初始化資料
@@ -119,11 +119,11 @@
                             studentMappings: {}, 
                             teacherPassword: null
                         };
-                        setDoc(doc(db, 'sessions', SESSION_ID), initialData);
+                        db.collection('sessions').doc(SESSION_ID).set(initialData);
                     }
                 }, err => {
                     console.error(err);
-                    setErrorMsg("無法讀取資料，請確認資料庫權限或網路連線。");
+                    setErrorMsg("無法讀取資料，請確認資料庫權限 (Test Mode) 或網路連線。");
                 });
                 return () => unsub();
             }, [user]);
@@ -131,10 +131,10 @@
             const handleLogin = async () => {
                 try {
                     setErrorMsg(null);
-                    await signInWithPopup(auth, new GoogleAuthProvider());
+                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
                 } catch (e) {
                     if (e.code === 'auth/unauthorized-domain') {
-                        setErrorMsg(`網域未授權！請新增此網址到 Firebase: ${window.location.hostname}`);
+                        setErrorMsg(`網域未授權！請新增此網址到 Firebase Console: ${window.location.hostname}`);
                     } else {
                         setErrorMsg(`登入錯誤: ${e.message}`);
                     }
@@ -147,7 +147,7 @@
                     if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{10,}$/.test(teacherPwdInput)) {
                         setErrorMsg("密碼需至少10碼且含英數字"); return;
                     }
-                    await setDoc(doc(db, 'sessions', SESSION_ID), { teacherPassword: teacherPwdInput }, { merge: true });
+                    await db.collection('sessions').doc(SESSION_ID).set({ teacherPassword: teacherPwdInput }, { merge: true });
                 } else {
                     if (teacherPwdInput !== sessionData?.teacherPassword) {
                         setErrorMsg("密碼錯誤"); return;
@@ -164,9 +164,9 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.2</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.0</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
-                            {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left">{errorMsg}</div>}
+                            {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
                                 <Icons.User /> Google 登入
                             </button>
@@ -217,11 +217,11 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v2.2
+                            <Icons.Award /> 評分系統 v3.0
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
-                            <button onClick={()=>signOut(auth)} className="text-gray-500"><Icons.LogOut /></button>
+                            <button onClick={()=>auth.signOut()} className="text-gray-500"><Icons.LogOut /></button>
                         </div>
                     </header>
                     <main className="max-w-5xl mx-auto p-4">
@@ -241,8 +241,7 @@
             const [newCriMax, setNewCriMax] = React.useState(10);
 
             React.useEffect(() => {
-                const q = query(collection(db, 'sessions', SESSION_ID, 'votes'));
-                const unsub = onSnapshot(q, snap => {
+                const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes').onSnapshot(snap => {
                     const data = [];
                     snap.forEach(d => data.push({id: d.id, ...d.data()}));
                     setVotes(data);
@@ -250,7 +249,7 @@
                 return () => unsub();
             }, []);
 
-            const updateSession = (data) => setDoc(doc(db, 'sessions', SESSION_ID), data, { merge: true });
+            const updateSession = (data) => db.collection('sessions').doc(SESSION_ID).set(data, { merge: true });
 
             if (!session) return <div className="p-10 text-center text-gray-500">正在讀取資料...</div>;
 
@@ -285,7 +284,7 @@
 
             const deleteVote = async (voteId) => {
                 if(!confirm("確定刪除此筆評分？")) return;
-                await deleteDoc(doc(db, 'sessions', SESSION_ID, 'votes', voteId));
+                await db.collection('sessions').doc(SESSION_ID).collection('votes').doc(voteId).delete();
             };
 
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
@@ -502,10 +501,11 @@
 
             React.useEffect(() => {
                 if (registeredName && session?.currentGroupId) {
-                    const q = query(collection(db, 'sessions', SESSION_ID, 'votes'), 
-                        where('groupId', '==', session.currentGroupId), 
-                        where('userId', '==', user.uid));
-                    getDocs(q).then(snap => setHasVoted(!snap.empty));
+                    const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes')
+                        .where('groupId', '==', session.currentGroupId)
+                        .where('userId', '==', user.uid)
+                        .onSnapshot(snap => setHasVoted(!snap.empty));
+                    return () => unsub();
                 } else {
                     setHasVoted(false);
                     setScores({});
@@ -520,15 +520,15 @@
                 if (isTaken) { alert("此姓名已被其他裝置綁定！"); return; }
                 const update = {};
                 update[`studentMappings.${user.uid}`] = selectedName;
-                await updateDoc(doc(db, 'sessions', SESSION_ID), update);
+                await db.collection('sessions').doc(SESSION_ID).update(update);
             };
 
             const submitVote = async () => {
                 if (session.criteria.some(c => scores[c.id] === undefined)) { alert("請完成所有評分項目！"); return; }
                 setSubmitting(true);
                 try {
-                    await setDoc(doc(collection(db, 'sessions', SESSION_ID, 'votes')), {
-                        userId: user.uid, studentName: registeredName, groupId: session.currentGroupId, scores, timestamp: serverTimestamp()
+                    await db.collection('sessions').doc(SESSION_ID).collection('votes').add({
+                        userId: user.uid, studentName: registeredName, groupId: session.currentGroupId, scores, timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     setHasVoted(true);
                 } catch(e) { alert("送出失敗"); } finally { setSubmitting(false); }
@@ -603,7 +603,7 @@
             const [results, setResults] = React.useState([]);
 
             React.useEffect(() => {
-                getDocs(query(collection(db, 'sessions', SESSION_ID, 'votes'))).then(snap => {
+                db.collection('sessions').doc(SESSION_ID).collection('votes').get().then(snap => {
                     const allVotes = [];
                     snap.forEach(d => allVotes.push(d.data()));
                     const groupStats = {};
