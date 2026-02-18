@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v2.9 (完全修復版)</title>
+    <title>課堂共同評分系統 v3.0 (總分監控版)</title>
     <!-- 引入 Tailwind CSS (美化介面) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -64,7 +64,7 @@
         const auth = firebase.auth();
         const SESSION_ID = "class_demo_session_v3"; 
 
-        // --- 修正點：補回 DEFAULT_CRITERIA ---
+        // --- DEFAULT_CRITERIA (修復之前遺失的問題) ---
         const DEFAULT_CRITERIA = [
             { id: 'c1', name: '內容深度', max: 10 },
             { id: 'c2', name: '表達技巧', max: 10 },
@@ -174,7 +174,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v2.9</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.0</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -227,7 +227,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v2.9
+                            <Icons.Award /> 評分系統 v3.0
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -332,23 +332,27 @@
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
             const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId);
             
-            const allAverages = (session.students || []).map(studentName => {
+            // 計算本組每個人的總分（Total Score），用於監控分頁的排序
+            // 改為計算總分而不是平均分
+            const allTotals = (session.students || []).map(studentName => {
                 if (!session.currentGroupId) return null;
                 const vote = votes.find(v => v.groupId === session.currentGroupId && v.userName === studentName);
                 if (!vote) return null;
                 let sum = 0;
                 (session.criteria || []).forEach(c => sum += (vote.scores[c.id] || 0));
-                return session.criteria.length ? sum / session.criteria.length : 0;
-            }).filter(score => score !== null).sort((a, b) => b - a); 
+                return sum;
+            }).filter(score => score !== null).sort((a, b) => b - a); // 由高到低
 
             const getScoreColor = (score) => {
-                if (allAverages.length === 0) return "text-gray-800";
-                const rank = allAverages.indexOf(score); 
+                if (allTotals.length === 0) return "text-gray-800";
+                const rank = allTotals.indexOf(score); // 0-based index
                 
+                // 前三名 (High)
                 if (rank < 3) return "text-red-600 font-bold";
                 
-                const reverseRank = allAverages.lastIndexOf(score);
-                if (reverseRank >= allAverages.length - 3 && allAverages.length >= 3) return "text-green-600 font-bold";
+                // 後三名 (Low)
+                const reverseRank = allTotals.lastIndexOf(score);
+                if (reverseRank >= allTotals.length - 3 && allTotals.length >= 3) return "text-green-600 font-bold";
                 
                 return "text-gray-800";
             };
@@ -486,7 +490,7 @@
                                                     <th className="p-3">姓名</th>
                                                     <th className="p-3">登入狀態</th>
                                                     <th className="p-3">目前評分進度</th>
-                                                    <th className="p-3 text-right">平均分數</th>
+                                                    <th className="p-3 text-right">評分(總分)</th>
                                                     <th className="p-3 text-center">操作</th>
                                                     <th className="p-3 text-gray-400">累計已評</th>
                                                 </tr>
@@ -498,16 +502,15 @@
                                                     const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName) : null;
                                                     const totalVoted = votes.filter(v => v.userName === studentName).length;
                                                     
-                                                    // 計算該學生的平均分
-                                                    let avgDisplay = "-";
-                                                    let avgClass = "text-gray-400";
+                                                    // 計算該學生的總分
+                                                    let totalDisplay = "-";
+                                                    let totalClass = "text-gray-400";
                                                     
                                                     if (currentVote) {
                                                         let sum = 0;
                                                         (session.criteria||[]).forEach(c => sum += (currentVote.scores[c.id]||0));
-                                                        const avg = session.criteria.length ? sum / session.criteria.length : 0;
-                                                        avgDisplay = avg.toFixed(1);
-                                                        avgClass = getScoreColor(avg); // 使用計算好的排名顏色
+                                                        totalDisplay = sum;
+                                                        totalClass = getScoreColor(sum); // 使用計算好的排名顏色
                                                     }
 
                                                     return (
@@ -518,7 +521,7 @@
                                                                 {!currentGroup ? <span className="text-gray-400">-</span> : 
                                                                  currentVote ? <span className="text-green-600 font-bold">已完成</span> : <span className="text-red-500 animate-pulse">未評分</span>}
                                                             </td>
-                                                            <td className={`p-3 text-right font-mono ${avgClass}`}>{avgDisplay}</td>
+                                                            <td className={`p-3 text-right font-mono ${totalClass}`}>{totalDisplay}</td>
                                                             <td className="p-3 text-center">
                                                                 {currentVote && (
                                                                     <button onClick={()=>deleteVote(currentVote.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100" title="刪除此評分"><Icons.Trash2/></button>
@@ -600,7 +603,7 @@
                         </div>
                     )}
 
-                    {/* 修正點：使用 session.criteria 而非 DEFAULT_CRITERIA */}
+                    {/* 修正點：使用 session.criteria 而非 DEFAULT_CRITERIA (雖然現在定義了，但用 session 的更一致) */}
                     {activeTab === 'results' && <ResultsBoard session={session} groups={groups} criteria={session.criteria || DEFAULT_CRITERIA} isAdmin={true} />}
                 </div>
             );
