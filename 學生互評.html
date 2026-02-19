@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v3.3 (Excel 完整樣式版)</title>
-    <!-- 引入 Tailwind CSS (美化介面) -->
+    <title>課堂共同評分系統 v3.4 (完整報表版)</title>
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -178,7 +178,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.3</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.4</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -231,7 +231,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v3.3
+                            <Icons.Award /> 評分系統 v3.4
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -312,9 +312,10 @@
                 await updateSession({ criteria: session.criteria.filter(c => c.id !== id) });
             };
 
+            // 修改：軟刪除 (標記 isDeleted)
             const deleteVote = async (voteId) => {
-                if(!confirm("確定刪除此筆評分？")) return;
-                await db.collection('sessions').doc(SESSION_ID).collection('votes').doc(voteId).delete();
+                if(!confirm("確定要將此評分標記為不採計嗎？(不會物理刪除，Excel 仍可匯出)")) return;
+                await db.collection('sessions').doc(SESSION_ID).collection('votes').doc(voteId).update({ isDeleted: true });
             };
 
             const handleRemoveStudent = async (nameToRemove) => {
@@ -334,11 +335,12 @@
             };
 
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
-            const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId);
+            const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId && !v.isDeleted); // 過濾掉已刪除的
             
             const allTotals = (session.students || []).map(studentName => {
                 if (!session.currentGroupId) return null;
-                const vote = votes.find(v => v.groupId === session.currentGroupId && v.userName === studentName);
+                // 過濾掉被標記刪除的
+                const vote = votes.find(v => v.groupId === session.currentGroupId && v.userName === studentName && !v.isDeleted);
                 if (!vote) return null;
                 let sum = 0;
                 (session.criteria || []).forEach(c => sum += (vote.scores[c.id] || 0));
@@ -496,8 +498,9 @@
                                                 {(session.students||[]).map(studentName => {
                                                     const isBound = Object.values(session.studentMappings||{}).includes(studentName);
                                                     const currentGroup = session.currentGroupId;
-                                                    const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName) : null;
-                                                    const totalVoted = votes.filter(v => v.userName === studentName).length;
+                                                    // 在監控列表也排除被軟刪除的資料
+                                                    const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName && !v.isDeleted) : null;
+                                                    const totalVoted = votes.filter(v => v.userName === studentName && !v.isDeleted).length;
                                                     
                                                     let totalDisplay = "-";
                                                     let totalClass = "text-gray-400";
@@ -520,7 +523,7 @@
                                                             <td className={`p-3 text-right font-mono ${totalClass}`}>{totalDisplay}</td>
                                                             <td className="p-3 text-center">
                                                                 {currentVote && (
-                                                                    <button onClick={()=>deleteVote(currentVote.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100" title="刪除此評分"><Icons.Trash2/></button>
+                                                                    <button onClick={()=>deleteVote(currentVote.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded hover:bg-red-100" title="標記為不採計"><Icons.Trash2/></button>
                                                                 )}
                                                             </td>
                                                             <td className="p-3 text-gray-400">{totalVoted} 組</td>
@@ -535,8 +538,9 @@
                                     <h3 className="font-bold text-lg mb-4">各組評分檢核 (點選查看詳細)</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                         {(groups||[]).map(g => {
-                                            const count = votes.filter(v => v.groupId === g.id).length;
-                                            return <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border rounded-xl hover:border-blue-500 text-left"><div className="font-bold">{g.name}</div><div className="text-sm text-gray-500">收到 {count} 筆評分</div></button>
+                                            // 只計算未刪除的
+                                            const count = votes.filter(v => v.groupId === g.id && !v.isDeleted).length;
+                                            return <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border rounded-xl hover:border-blue-500 text-left"><div className="font-bold">{g.name}</div><div className="text-sm text-gray-500">有效評分: {count} 筆</div></button>
                                         })}
                                     </div>
                                 </div>
@@ -566,7 +570,7 @@
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {votes
-                                                    .filter(v => v.groupId === monitorGroupId)
+                                                    .filter(v => v.groupId === monitorGroupId && !v.isDeleted) // 只顯示未刪除的
                                                     .map(v => {
                                                         let total = 0;
                                                         (session.criteria||[]).forEach(c => total += (v.scores[c.id] || 0));
@@ -581,15 +585,15 @@
                                                                 <td key={c.id} className="p-3 text-right text-gray-500 hidden md:table-cell">{v.scores[c.id]}</td>
                                                             ))}
                                                             <td className="p-3 text-center">
-                                                                <button onClick={() => deleteVote(v.id)} className="text-red-500 hover:bg-red-50 p-2 rounded" title="刪除此評分">
+                                                                <button onClick={() => deleteVote(v.id)} className="text-red-500 hover:bg-red-50 p-2 rounded" title="標記為不採計">
                                                                     <Icons.Trash2 />
                                                                 </button>
                                                             </td>
                                                         </tr>
                                                     ))
                                                 }
-                                                {votes.filter(v => v.groupId === monitorGroupId).length === 0 && (
-                                                    <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400">尚無評分紀錄</td></tr>
+                                                {votes.filter(v => v.groupId === monitorGroupId && !v.isDeleted).length === 0 && (
+                                                    <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400">尚無有效評分紀錄</td></tr>
                                                 )}
                                             </tbody>
                                         </table>
@@ -618,7 +622,11 @@
                     const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes')
                         .where('groupId', '==', session.currentGroupId)
                         .where('userId', '==', user.uid)
-                        .onSnapshot(snap => setHasVoted(!snap.empty));
+                        .onSnapshot(snap => {
+                            // 檢查是否存在「未被刪除」的投票
+                            const validVote = snap.docs.find(d => !d.data().isDeleted);
+                            setHasVoted(!!validVote);
+                        });
                     return () => unsub();
                 } else {
                     setHasVoted(false);
@@ -642,7 +650,7 @@
                 setSubmitting(true);
                 try {
                     await db.collection('sessions').doc(SESSION_ID).collection('votes').add({
-                        userId: user.uid, userName: registeredName, groupId: session.currentGroupId, scores, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                        userId: user.uid, userName: registeredName, groupId: session.currentGroupId, scores, timestamp: firebase.firestore.FieldValue.serverTimestamp(), isDeleted: false
                     });
                     setHasVoted(true);
                 } catch(e) { alert("送出失敗"); } finally { setSubmitting(false); }
@@ -727,6 +735,9 @@
 
                     const groupStats = {};
                     votesData.forEach(v => {
+                        // 這裡只計算有效票 (isDeleted: false)
+                        if (v.isDeleted) return;
+
                         if (!groupStats[v.groupId]) groupStats[v.groupId] = { total: 0, count: 0 };
                         let vTotal = 0;
                         (criteria||[]).forEach(c => vTotal += (v.scores[c.id] || 0));
@@ -740,14 +751,73 @@
                 });
             }, [session, groups, criteria]);
 
-            // 匯出 Excel 功能 (使用 xlsx-js-style)
+            // 匯出 Excel 功能 (xlsx-js-style)
             const handleExportExcel = () => {
                 const wb = XLSX.utils.book_new();
 
+                // 邊框樣式
+                const borderStyle = {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                };
+
+                // --- 1. 建立「最終排行榜」Sheet ---
+                const rankingHeaders = ["名次", "組名稱", "平均總分"];
+                const rankingData = results.map((r, i) => [i + 1, r.name, r.avg]);
+                
+                // 加上標題列 (需手動處理合併)
+                const rankWsData = [
+                    ["最終排行榜", "", ""], // Row 0 (A1)
+                    rankingHeaders,         // Row 1
+                    ...rankingData          // Row 2...
+                ];
+                
+                const rankWs = XLSX.utils.aoa_to_sheet(rankWsData);
+
+                // 設定合併儲存格 A1:C1
+                rankWs['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+
+                // 設定欄寬
+                rankWs['!cols'] = [
+                    { wch: 12 }, // A 名次
+                    { wch: 30 }, // B 組名
+                    { wch: 15 }  // C 平均
+                ];
+
+                // 設定列高
+                rankWs['!rows'] = [
+                    { hpt: 30 }, // Row 0 標題
+                    { hpt: 18 }, // Row 1 headers
+                    ...rankingData.map(() => ({ hpt: 18 }))
+                ];
+
+                // 套用樣式
+                const rankRange = XLSX.utils.decode_range(rankWs['!ref']);
+                for (let R = rankRange.s.r; R <= rankRange.e.r; ++R) {
+                    for (let C = rankRange.s.c; C <= rankRange.e.c; ++C) {
+                        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (!rankWs[cell_address]) continue;
+                        if (!rankWs[cell_address].s) rankWs[cell_address].s = {};
+                        
+                        rankWs[cell_address].s.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                        rankWs[cell_address].s.border = borderStyle;
+
+                        // 大標題樣式
+                        if (R === 0) {
+                            rankWs[cell_address].s.font = { bold: true, sz: 14 };
+                        }
+                    }
+                }
+                XLSX.utils.book_append_sheet(wb, rankWs, "最終排行榜");
+
+
+                // --- 2. 建立各組 Sheet ---
                 groups.forEach(group => {
                     const groupVotes = allVotes.filter(v => v.groupId === group.id);
                     
-                    const headers = ["評分學生", ...criteria.map(c => c.name), "總分"];
+                    const headers = ["評分學生", ...criteria.map(c => c.name), "總分", "備註"];
                     
                     const dataRows = groupVotes.map(v => {
                         const row = [v.userName];
@@ -758,20 +828,31 @@
                             total += score;
                         });
                         row.push(total);
+                        // 如果被刪除，加入備註
+                        row.push(v.isDeleted ? "不採計" : "");
                         return row;
                     });
 
-                    // 計算該組平均 (所有人的總分平均)
-                    let groupTotalSum = 0;
-                    dataRows.forEach(row => {
-                        groupTotalSum += row[row.length - 1]; // 最後一欄是總分
+                    // 計算該組平均 (排除被刪除的)
+                    let validTotalSum = 0;
+                    let validCount = 0;
+                    
+                    // 注意：dataRows 和 groupVotes 索引是對應的
+                    dataRows.forEach((row, index) => {
+                        if (!groupVotes[index].isDeleted) {
+                            validTotalSum += row[row.length - 2]; // 倒數第二欄是總分
+                            validCount++;
+                        }
                     });
-                    const groupAvg = dataRows.length > 0 ? (groupTotalSum / dataRows.length).toFixed(1) : "0.0";
+                    
+                    const groupAvg = validCount > 0 ? (validTotalSum / validCount).toFixed(1) : "0.0";
 
                     // 製作總表 (最後一列放平均)
                     const summaryRow = new Array(headers.length).fill("");
-                    summaryRow[headers.length - 2] = "平均"; // 修改文字
-                    summaryRow[headers.length - 1] = groupAvg;
+                    // 總分欄位索引 = headers.length - 2
+                    // 左邊一格 = headers.length - 3
+                    summaryRow[headers.length - 3] = "平均"; 
+                    summaryRow[headers.length - 2] = groupAvg;
 
                     const allData = [headers, ...dataRows, summaryRow];
                     
@@ -786,14 +867,6 @@
 
                     const range = XLSX.utils.decode_range(ws['!ref']);
                     
-                    // 邊框樣式
-                    const borderStyle = {
-                        top: { style: "thin", color: { rgb: "000000" } },
-                        bottom: { style: "thin", color: { rgb: "000000" } },
-                        left: { style: "thin", color: { rgb: "000000" } },
-                        right: { style: "thin", color: { rgb: "000000" } }
-                    };
-
                     for (let R = range.s.r; R <= range.e.r; ++R) {
                         for (let C = range.s.c; C <= range.e.c; ++C) {
                             const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
@@ -805,19 +878,26 @@
                             ws[cell_address].s.alignment = { horizontal: "center", vertical: "center", wrapText: true };
                             ws[cell_address].s.border = borderStyle;
 
-                            // 總分欄 (最後一欄) -> 藍色字體 (排除最後一列的平均)
-                            if (R > 0 && R < range.e.r && C === range.e.c) {
+                            // 備註欄 (最後一欄) -> 紅色字體
+                            if (C === range.e.c) {
+                                if (ws[cell_address].v === "不採計") {
+                                    ws[cell_address].s.font = { color: { rgb: "FF0000" } };
+                                }
+                            }
+
+                            // 總分欄 (倒數第二欄) -> 藍色字體 (排除最後一列的平均)
+                            if (R > 0 && R < range.e.r && C === range.e.c - 1) {
                                 ws[cell_address].s.font = { color: { rgb: "0000FF" } };
                             }
 
                             // 平均列 (最後一列)
                             if (R === range.e.r) {
-                                // "平均" 標籤 (紅字粗體)
-                                if (C === range.e.c - 1) {
+                                // "平均" 標籤 (紅字粗體) - 位置在總分左邊
+                                if (C === range.e.c - 2) {
                                     ws[cell_address].s.font = { color: { rgb: "FF0000" }, bold: true };
                                 }
-                                // 平均數值 (紅字)
-                                if (C === range.e.c) {
+                                // 平均數值 (紅字) - 位置在總分欄
+                                if (C === range.e.c - 1) {
                                     ws[cell_address].s.font = { color: { rgb: "FF0000" } };
                                 }
                             }
