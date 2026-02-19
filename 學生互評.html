@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v3.4 (完整報表版)</title>
+    <title>課堂共同評分系統 v3.5 (阿發老師設計版)</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -178,7 +178,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.4</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.5</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -230,8 +230,8 @@
             return (
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v3.4
+                        <div className="flex items-center gap-2 text-blue-600 font-bold text-3xl">
+                            <Icons.Award /> 學生共同評分系統---阿發老師設計
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -332,6 +332,28 @@
             const handleClearGroups = async () => {
                 if(!confirm("警告：確定要清空所有組別嗎？相關的評分紀錄可能會失去關聯。")) return;
                 await updateSession({ groups: [], currentGroupId: null });
+            };
+
+            // 新增：重置所有評分
+            const handleResetVotes = async () => {
+                if (!confirm("警告：這將清除所有學生的評分紀錄，且無法復原！確定要重置嗎？")) return;
+                
+                try {
+                    const votesRef = db.collection('sessions').doc(SESSION_ID).collection('votes');
+                    const snapshot = await votesRef.get();
+                    
+                    // Firestore batch 最多 500 筆，若數量大需分批，這裡簡化處理
+                    const batch = db.batch();
+                    snapshot.docs.forEach((doc) => {
+                        batch.delete(doc.ref);
+                    });
+                    
+                    await batch.commit();
+                    alert("所有評分紀錄已清除。");
+                } catch (e) {
+                    console.error(e);
+                    alert("重置失敗，請稍後再試。");
+                }
             };
 
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
@@ -450,7 +472,12 @@
 
                     {activeTab === 'criteria' && (
                         <div className="bg-white rounded-xl shadow p-6">
-                            <h3 className="font-bold text-lg mb-6">評分標準設定</h3>
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="font-bold text-lg">評分標準設定</h3>
+                                <button onClick={handleResetVotes} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow transition-colors">
+                                    重置評分
+                                </button>
+                            </div>
                             <div className="flex gap-4 mb-6 items-end bg-blue-50 p-4 rounded-lg">
                                 <div className="flex-1">
                                     <label className="text-xs font-bold text-gray-500">項目名稱</label>
@@ -622,11 +649,7 @@
                     const unsub = db.collection('sessions').doc(SESSION_ID).collection('votes')
                         .where('groupId', '==', session.currentGroupId)
                         .where('userId', '==', user.uid)
-                        .onSnapshot(snap => {
-                            // 檢查是否存在「未被刪除」的投票
-                            const validVote = snap.docs.find(d => !d.data().isDeleted);
-                            setHasVoted(!!validVote);
-                        });
+                        .onSnapshot(snap => setHasVoted(!snap.empty));
                     return () => unsub();
                 } else {
                     setHasVoted(false);
