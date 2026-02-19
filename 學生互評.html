@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v3.1 (Excel 匯出版)</title>
+    <title>課堂共同評分系統 v3.2 (Excel 美化版)</title>
     <!-- 引入 Tailwind CSS (美化介面) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -11,8 +11,9 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <!-- 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- 引入 SheetJS (用於 Excel 匯出) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- 引入 xlsx-js-style (支援樣式匯出) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     
     <!-- 引入 Firebase Compat Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -177,7 +178,7 @@
                     <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
                         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
                             <Icons.Award />
-                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.1</h1>
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v3.2</h1>
                             <p className="text-gray-500 mb-6">請使用學校 Google 帳號登入</p>
                             {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
                             <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
@@ -230,7 +231,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-blue-600 font-bold">
-                            <Icons.Award /> 評分系統 v3.1
+                            <Icons.Award /> 評分系統 v3.2
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
@@ -716,13 +717,13 @@
 
         function ResultsBoard({ session, groups, criteria, isAdmin }) {
             const [results, setResults] = React.useState([]);
-            const [allVotes, setAllVotes] = React.useState([]); // 新增：儲存原始投票資料供匯出
+            const [allVotes, setAllVotes] = React.useState([]);
 
             React.useEffect(() => {
                 db.collection('sessions').doc(SESSION_ID).collection('votes').get().then(snap => {
                     const votesData = [];
                     snap.forEach(d => votesData.push(d.data()));
-                    setAllVotes(votesData); // 儲存原始資料
+                    setAllVotes(votesData);
 
                     const groupStats = {};
                     votesData.forEach(v => {
@@ -739,18 +740,16 @@
                 });
             }, [session, groups, criteria]);
 
-            // 匯出 Excel 功能
+            // 匯出 Excel 功能 (使用 xlsx-js-style)
             const handleExportExcel = () => {
                 const wb = XLSX.utils.book_new();
 
                 groups.forEach(group => {
                     const groupVotes = allVotes.filter(v => v.groupId === group.id);
                     
-                    // 準備標題列
                     const headers = ["評分學生", ...criteria.map(c => c.name), "總分"];
                     
-                    // 準備資料列
-                    const data = groupVotes.map(v => {
+                    const dataRows = groupVotes.map(v => {
                         const row = [v.userName];
                         let total = 0;
                         criteria.forEach(c => {
@@ -762,11 +761,53 @@
                         return row;
                     });
 
-                    // 建立工作表
-                    const wsData = [headers, ...data];
-                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    // 計算該組平均 (所有人的總分平均)
+                    let groupTotalSum = 0;
+                    dataRows.forEach(row => {
+                        groupTotalSum += row[row.length - 1]; // 最後一欄是總分
+                    });
+                    const groupAvg = dataRows.length > 0 ? (groupTotalSum / dataRows.length).toFixed(1) : "0.0";
+
+                    // 製作總表 (最後一列放平均)
+                    // 空白列到倒數第二欄前
+                    const summaryRow = new Array(headers.length).fill("");
+                    summaryRow[headers.length - 2] = `${group.name} 平均`;
+                    summaryRow[headers.length - 1] = groupAvg;
+
+                    const allData = [headers, ...dataRows, summaryRow];
                     
-                    // 處理工作表名稱 (Excel 限制 31 字元，且不能包含特殊符號)
+                    const ws = XLSX.utils.aoa_to_sheet(allData);
+
+                    // --- 套用樣式 ---
+                    // 1. 欄寬: 12
+                    ws['!cols'] = headers.map(() => ({ wch: 12 }));
+
+                    // 2. 列高: 18 (換算 pt 約 18)
+                    ws['!rows'] = allData.map(() => ({ hpt: 18 }));
+
+                    // 遍歷所有儲存格套用樣式
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    for (let R = range.s.r; R <= range.e.r; ++R) {
+                        for (let C = range.s.c; C <= range.e.c; ++C) {
+                            const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                            if (!ws[cell_address]) continue;
+
+                            // 基礎樣式：置中
+                            if (!ws[cell_address].s) ws[cell_address].s = {};
+                            ws[cell_address].s.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+
+                            // 第一列 (標題)
+                            if (R === 0) {
+                                ws[cell_address].s.alignment.wrapText = true;
+                            }
+
+                            // 總分欄 (最後一欄) -> 藍色字體
+                            if (C === range.e.c && R > 0) {
+                                ws[cell_address].s.font = { color: { rgb: "0000FF" } };
+                            }
+                        }
+                    }
+
                     let sheetName = group.name.replace(/[\\/?*\[\]]/g, ""); 
                     if(sheetName.length > 30) sheetName = sheetName.substring(0,30);
                     if(!sheetName) sheetName = `Group ${group.id}`;
@@ -815,4 +856,3 @@
     </script>
 </body>
 </html>
-
