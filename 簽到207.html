@@ -273,20 +273,22 @@
             successMsg.style.display = 'block';
             
             const now = new Date();
-            const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
+            // ★ 新增：顯示包含秒數的時間，讓判定無爭議 ★
+            const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
             
-            // 使用從資料庫抓回來的時間計算
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const limitMinutes = limitHour * 60 + limitMinute;
-            const absentThreshold = limitMinutes + 25;
+            // ★★★ 修正點：將比對邏輯改為「秒數」，與後端試算表完全同步 ★★★
+            const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+            const limitSeconds = limitHour * 3600 + limitMinute * 60;
+            const absentThresholdSeconds = limitSeconds + (25 * 60);
 
             let statusText = "準時";
             let statusColor = "#28a745"; 
 
-            if (currentMinutes > absentThreshold) {
+            // 精確的秒數比對
+            if (currentSeconds > absentThresholdSeconds) {
                 statusText = "曠課";
                 statusColor = "#dc3545"; 
-            } else if (currentMinutes > limitMinutes) {
+            } else if (currentSeconds > limitSeconds) {
                 statusText = "遲到";
                 statusColor = "#fd7e14"; 
             }
@@ -334,3 +336,4 @@
     </script>
 </body>
 </html>
+
