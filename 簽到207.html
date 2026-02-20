@@ -80,7 +80,7 @@
         }
         .teacher-link { font-size: 0.8em; color: #999; text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 15px;}
 
-        /* 新增：狀態顯示區塊樣式 */
+        /* 狀態顯示區塊樣式 */
         .status-info {
             margin-top: 15px;
             padding: 10px;
@@ -110,13 +110,12 @@
                 
                 <div class="input-group">
                     <label>請選擇姓名 (Select Student)</label>
-                    <select id="studentSelect" required>
-                        <option value="" disabled selected>請點擊這裡選擇...</option>
-                        <!-- 名單由 JS 載入 -->
+                    <select id="studentSelect" required disabled>
+                        <option value="" disabled selected>🔄 正在向資料庫載入名單...</option>
                     </select>
                 </div>
 
-                <button type="submit" id="submit-btn">確認簽到</button>
+                <button type="submit" id="submit-btn" disabled>請稍候...</button>
             </form>
         </div>
 
@@ -133,41 +132,30 @@
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {finishSubmission();}"></iframe>
 
     <script>
-        // ================= 教師設定區 (僅限 207 班) =================
+        // ================= 設定區 =================
         const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdSkqsQKC6WozWejhg5bH8b-b2p8bFBbezHCL0CRbX2Yk-_5w/formResponse"; 
-        
-        // Entry IDs
         const ENTRY_SEAT = "entry.1279297389";  
         const ENTRY_NAME = "entry.897755681";  
+        const TEACHER_PASSWORD = "huleefafa"; 
 
-        // ★★★ 前端遲到判斷設定 (請與後端試算表保持一致，以便給學生即時回饋) ★★★
-        const LIMIT_HOUR = 14;   // 時
-        const LIMIT_MINUTE = 10; // 分
+        // ★★★ 請貼上您剛剛部署產生的「網頁應用程式網址 (Web app URL)」 ★★★
+        const API_URL = "請將您的_API_網址貼在這裡"; 
 
-        // ★★★ 教師測試密碼設定 ★★★
-        const TEACHER_PASSWORD = "huleefafa"; // 請在此修改解除限制的密碼
-        
-        // 207班專屬名單
-        const CLASS_ROSTER = [
-            "01 米以安", "02 何苙宇", "03 吳柏涵", "04 呂沛鈞", "05 幸曄箴", 
-            "06 林云龍", "07 林品陯", "08 侯建均", "09 張君屹", "10 張宸濬", 
-            "11 陳弘川", "12 陳偉杰", "13 温濬謙", "14 鄂一柏", "15 廖名舜", 
-            "16 廖政鈞", "17 賴家緯", "18 謝伯岳", "19 朱佩岑", "20 余芝宜", 
-            "21 林欣瑩", "22 林禹岑", "23 洪鳳妤", "24 張孟媗", "25 彭子琪", 
-            "26 黃巧妮", "27 詹侑璇", "28 詹語瑄", "29 蔡宜臻", "30 鄭予晴", 
-            "31 鐘羽芊", "32 李紀寬"
-        ];
-        // ==========================================================
+        // 全域變數 (用來存從資料庫抓回來的時間)
+        let limitHour = 0;
+        let limitMinute = 0;
+        // ==========================================
 
         var submitted = false;
         var isTeacherMode = localStorage.getItem('physics_teacher_mode') === 'true';
 
         window.onload = function() {
-            initStudentDropdown();
-            
             const isChromebook = navigator.userAgent.indexOf("CrOS") !== -1;
             if (isChromebook || isTeacherMode) {
                 if (isTeacherMode) document.getElementById('debug-banner').style.display = 'block';
+                
+                // 第一件事：去資料庫抓名單和時間！
+                fetchDataFromDatabase();
                 checkDailyStatus();
             } else {
                 document.getElementById('form-area').style.display = 'none';
@@ -175,24 +163,55 @@
             }
         };
 
+        // ★ 新增：透過 API 從試算表抓取資料 ★
+        function fetchDataFromDatabase() {
+            if(API_URL.includes("請將您的")) {
+                alert("老師，您忘記把 API_URL 貼上囉！");
+                return;
+            }
+
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === "success") {
+                        // 1. 設定遲到時間
+                        const timeParts = data.limitTime.split(":");
+                        if(timeParts.length === 2) {
+                            limitHour = parseInt(timeParts[0]);
+                            limitMinute = parseInt(timeParts[1]);
+                        }
+                        
+                        // 2. 把抓到的名單塞進下拉選單
+                        const select = document.getElementById('studentSelect');
+                        select.innerHTML = '<option value="" disabled selected>請點擊這裡選擇...</option>';
+                        
+                        data.roster.forEach(studentStr => {
+                            let option = document.createElement("option");
+                            option.value = studentStr; 
+                            option.text = studentStr;
+                            select.appendChild(option);
+                        });
+
+                        // 3. 解除按鈕封印
+                        select.disabled = false;
+                        const btn = document.getElementById('submit-btn');
+                        btn.disabled = false;
+                        btn.innerText = "確認簽到";
+                    }
+                })
+                .catch(error => {
+                    console.error("抓取名單失敗:", error);
+                    alert("網路連線異常，無法載入名單。");
+                });
+        }
+
         function teacherLogin() {
-            // 使用設定好的常數進行驗證
             if (prompt("請輸入教師密碼:") === TEACHER_PASSWORD) {
                 localStorage.setItem('physics_teacher_mode', 'true');
                 location.reload();
             } else {
                 alert("密碼錯誤");
             }
-        }
-
-        function initStudentDropdown() {
-            const select = document.getElementById('studentSelect');
-            CLASS_ROSTER.forEach(studentStr => {
-                let option = document.createElement("option");
-                option.value = studentStr; 
-                option.text = studentStr;
-                select.appendChild(option);
-            });
         }
 
         function checkDailyStatus() {
@@ -241,23 +260,23 @@
             const successMsg = document.getElementById('success-msg');
             successMsg.style.display = 'block';
             
-            // ★★★ 計算並顯示狀態 ★★★
             const now = new Date();
             const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' });
             
+            // 使用從資料庫抓回來的 limitHour 和 limitMinute
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const limitMinutes = LIMIT_HOUR * 60 + LIMIT_MINUTE;
+            const limitMinutes = limitHour * 60 + limitMinute;
             const absentThreshold = limitMinutes + 25;
 
             let statusText = "準時";
-            let statusColor = "#28a745"; // Green
+            let statusColor = "#28a745"; 
 
             if (currentMinutes > absentThreshold) {
                 statusText = "曠課";
-                statusColor = "#dc3545"; // Red
+                statusColor = "#dc3545"; 
             } else if (currentMinutes > limitMinutes) {
                 statusText = "遲到";
-                statusColor = "#fd7e14"; // Orange
+                statusColor = "#fd7e14"; 
             }
 
             successMsg.innerHTML = `
@@ -302,9 +321,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
