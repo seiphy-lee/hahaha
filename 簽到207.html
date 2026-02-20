@@ -247,12 +247,9 @@
             btn.innerText = "資料傳送中...";
             
             const fullStudentStr = document.getElementById('studentSelect').value;
-            const parts = fullStudentStr.split(' ');
-            const seatNo = parts[0];
-            const name = parts.slice(1).join(' ');
 
-            createHiddenInput(form, ENTRY_SEAT, seatNo);
-            createHiddenInput(form, ENTRY_NAME, name);
+            // ★ 核心改變：不用再切開了！直接把整串字送給單一個 ENTRY_STUDENT ★
+            createHiddenInput(form, ENTRY_STUDENT, fullStudentStr);
             
             form.submit(); 
         }
@@ -337,11 +334,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
