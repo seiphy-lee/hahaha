@@ -137,7 +137,7 @@
         const GOOGLE_FORM_URL = "填入您的_formResponse_網址"; 
         const ENTRY_SEAT = "填入您的_座號ID";  
         const ENTRY_NAME = "填入您的_姓名ID";  
-        const API_URL = "填入您剛剛部署的_API網址"; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbwYBGz18kccflyrzYebJRrnetJ1JoLM9agpOzSkefmhBSv50Uye-ceHiCjOF9JdpJP3/exec"; 
         const TEACHER_PASSWORD = "huleefafa"; 
         // ====================================================================
 
@@ -165,7 +165,7 @@
 
         // 核心：透過 API 從試算表抓取「名單」、「設定」、「時間」
         function fetchDataFromDatabase() {
-            if(API_URL.includes("https://script.google.com/macros/s/AKfycbwYBGz18kccflyrzYebJRrnetJ1JoLM9agpOzSkefmhBSv50Uye-ceHiCjOF9JdpJP3/exec")) {
+            if(API_URL.includes("填入您剛剛部署的")) {
                 document.getElementById('display-course').innerText = "⚠️ 系統設定未完成";
                 document.getElementById('display-class').innerText = "請老師填入 API_URL";
                 return;
@@ -338,5 +338,6 @@
     </script>
 </body>
 </html>
+
 
 
