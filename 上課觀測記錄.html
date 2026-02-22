@@ -12,6 +12,7 @@
             --primary-color: #1a73e8; /* 物理藍 */
             --text-color: #333;
             --c-custom: #d63384; /* 自訂 - 桃紅 */
+            --zoom: 1; /* 新增：畫面縮放比例總開關 */
         }
 
         body {
@@ -176,8 +177,8 @@
 
         #seating-grid {
             display: grid;
-            gap: 15px;
-            padding: 20px;
+            gap: calc(15px * var(--zoom));
+            padding: calc(20px * var(--zoom));
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -190,8 +191,8 @@
         }
 
         .seat {
-            width: 100px;
-            height: 90px;
+            width: calc(100px * var(--zoom));
+            height: calc(90px * var(--zoom));
             border: 2px solid #ccc;
             border-radius: 8px;
             display: flex;
@@ -230,7 +231,7 @@
             border: none;
             border-bottom: 1px solid #bbb;
             text-align: center;
-            font-size: 1rem;
+            font-size: calc(1rem * var(--zoom));
             background: #e9ecef;
             color: #333;
             font-weight: bold;
@@ -245,7 +246,7 @@
 
         .seat::after {
             content: "點擊記錄";
-            font-size: 0.75rem;
+            font-size: calc(0.75rem * var(--zoom));
             color: #aaa;
             margin-top: auto;
             margin-bottom: 5px;
@@ -259,9 +260,9 @@
             background: #333;
             color: white;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: calc(24px * var(--zoom));
+            height: calc(24px * var(--zoom));
+            font-size: calc(12px * var(--zoom));
             display: flex;
             justify-content: center;
             align-items: center;
@@ -382,14 +383,15 @@
         .podium-marker {
             width: 100%;
             text-align: center;
-            margin-top: 15px;
+            margin-top: calc(15px * var(--zoom));
             background: #e9ecef;
-            padding: 8px;
+            padding: calc(8px * var(--zoom));
             border-radius: 4px;
             color: #495057;
             font-weight: bold;
             letter-spacing: 2px;
             border: 2px solid #ced4da;
+            font-size: calc(1rem * var(--zoom));
         }
         
         /* Modal 樣式 */
@@ -436,6 +438,11 @@
             <span class="config-label">直(排):</span>
             <input type="number" id="cols" value="6" min="1" max="15">
             <button class="btn-primary" onclick="manualGenerate()" title="清空並生成新的座位表">生成空座位</button>
+            
+            <!-- 【新增】畫面縮放拉桿 -->
+            <div style="border-left: 1px solid #ccc; height: 20px; margin: 0 5px;"></div>
+            <span class="config-label">🔍 縮放:</span>
+            <input type="range" id="zoom-slider" min="0.6" max="1.5" step="0.05" value="1" oninput="document.documentElement.style.setProperty('--zoom', this.value)" style="width: 80px;" title="調整座位表大小">
         </div>
 
         <!-- 這裡就是新加入的「動態班級顯示區」 -->
