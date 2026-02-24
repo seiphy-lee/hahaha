@@ -1,345 +1,219 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲端號碼同步機</title>
-    <!-- 引入 Paho MQTT 函式庫 (用於即時通訊) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        :root {
-            --bg-color: #121212;
-            --text-color: #e0e0e0;
-            --accent-color: #00ff9d; /* 霓虹綠 */
-            --alert-color: #ff3c00;
-        }
+      body { 
+        font-family: "Microsoft JhengHei", sans-serif; 
+        background-color: #f4f7f6; 
+        margin: 0; padding: 10px; 
+      }
 
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
+      .container { 
+        width: 100%; max-width: 800px; margin: 0 auto;
+        background: white; padding: 15px; border-radius: 12px; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        display: flex; flex-direction: column; height: 95vh; 
+        box-sizing: border-box;
+      }
 
-        /* ----- 顯示區域 ----- */
-        #display-area {
-            text-align: center;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
+      /* 標題放大 2 倍 */
+      h2 { text-align: center; margin: 15px 0; color: #333; font-size: 48px; }
 
-        .status-text {
-            font-size: 2rem;
-            color: #888;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-        }
+      .controls { display: flex; gap: 10px; margin-bottom: 15px; }
+      
+      /* 選單放大 2 倍 */
+      select { 
+        width: 50%; padding: 10px; font-size: 40px; 
+        height: 70px; 
+        border-radius: 8px; border: 2px solid #ccc; background: white;
+      }
 
-        .number-display {
-            font-size: 15vw; /* 響應式字體大小 */
-            font-weight: bold;
-            color: var(--accent-color);
-            line-height: 1;
-            text-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
-            font-variant-numeric: tabular-nums; /* 避免數字跳動時寬度改變 */
-        }
+      #studentGrid {
+        flex-grow: 1; 
+        display: grid;
+        grid-template-rows: repeat(10, 1fr); 
+        /* 固定寬度，支援左右滑動 */
+        grid-template-columns: repeat(5, 150px);
+        grid-auto-flow: column; 
+        gap: 8px; 
+        overflow-y: auto; 
+        overflow-x: auto; 
+        padding: 5px;
+      }
 
-        .connection-status {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 0.8rem;
-            color: #555;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .dot {
-            width: 8px;
-            height: 8px;
-            background-color: #555;
-            border-radius: 50%;
-        }
-        .dot.online { background-color: var(--accent-color); box-shadow: 0 0 5px var(--accent-color); }
-        .dot.error { background-color: var(--alert-color); }
+      /* 學生按鈕文字放大 2 倍，且不換行 */
+      .student-btn {
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center;
+        font-size: 32px; font-weight: bold; color: #333;
+        cursor: pointer;
+        user-select: none; 
+        transition: 0.2s;
+        padding: 5px;
+        line-height: 1.1; 
+        white-space: nowrap; 
+      }
 
-        /* ----- 控制面板 (預設隱藏) ----- */
-        #controls {
-            display: none; /* 預設隱藏，透過網址參數開啟 */
-            margin-top: 40px;
-            gap: 15px;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 90%;
-            max-width: 400px;
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
+      .student-btn.selected {
+        background-color: #4CAF50;
+        color: white;
+        border-color: #2E7D32;
+        transform: scale(0.98);
+      }
 
-        button {
-            border: none;
-            padding: 15px 25px;
-            font-size: 1.2rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: bold;
-            flex: 1;
-            min-width: 80px;
-        }
-
-        button:active { transform: scale(0.95); }
-
-        .btn-next { background-color: var(--accent-color); color: #000; }
-        .btn-prev { background-color: #333; color: white; }
-        .btn-reset { background-color: #333; color: var(--alert-color); }
-        .btn-share { background-color: #007bff; color: white; width: 100%; margin-top: 10px;}
-
-        /* ----- 設定與說明 ----- */
-        #setup-info {
-            position: absolute;
-            bottom: 20px;
-            font-size: 0.9rem;
-            color: #666;
-            text-align: center;
-            width: 80%;
-        }
-
-        a { color: var(--accent-color); text-decoration: none; border-bottom: 1px dashed; }
-
-        /* 動畫效果 */
-        .pop-anim {
-            animation: pop 0.3s;
-        }
-        @keyframes pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
+      .footer { margin-top: 15px; }
+      
+      /* 送出按鈕文字放大 2 倍 */
+      button#submitBtn { 
+        width: 100%; padding: 20px; 
+        background-color: #2196F3; color: white; border: none; 
+        font-size: 48px; font-weight: bold; border-radius: 12px; 
+      }
+      button#submitBtn:active { background-color: #1976D2; }
+      
+      /* 狀態文字放大 */
+      #status { text-align: center; margin-top: 10px; font-weight: bold; height: 30px; font-size: 24px; color: #666;}
     </style>
-</head>
-<body>
+  </head>
+  <body>
+    <div class="container">
+      <h2>🎓 點名系統</h2>
+      
+      <div class="controls">
+        <select id="className" onchange="loadStudents()">
+          <option>班級載入中...</option>
+        </select>
+        
+        <!-- 【修改重點 1】把寫死的選項刪除，改成「載入中」的提示 -->
+        <select id="behavior">
+           <option>行為載入中...</option>
+        </select>
+      </div>
 
-    <div class="connection-status">
-        <div id="status-dot" class="dot"></div>
-        <span id="status-text">連線中...</span>
-    </div>
+      <div id="studentGrid">載入名單中...</div>
 
-    <div id="display-area">
-        <div class="status-text">目前號碼</div>
-        <div class="number-display" id="main-number">---</div>
-    </div>
-
-    <!-- 控制面板 -->
-    <div id="controls">
-        <button class="btn-prev" onclick="updateNumber(-1)">-1</button>
-        <button class="btn-next" onclick="updateNumber(1)">下一位</button>
-        <button class="btn-reset" onclick="resetNumber()">重置</button>
-        <button class="btn-share" onclick="copyControlLink()">📋 複製控制台連結</button>
-    </div>
-
-    <div id="setup-info">
-        <span id="channel-info">正在分配頻道...</span><br>
-        <small>使用公開 MQTT 測試通道，請勿傳輸敏感資料</small>
+      <div class="footer">
+        <button id="submitBtn" onclick="submitBatch()">送出記錄 (0)</button>
+        <div id="status"></div>
+      </div>
     </div>
 
     <script>
-        // --- 系統變數 ---
-        let currentNumber = 0;
-        let channelID = "default";
+      window.onload = function() {
+        // --- 載入班級清單 ---
+        google.script.run.withSuccessHandler(function(classes) {
+          var select = document.getElementById("className");
+          select.innerHTML = "";
+          
+          if(classes.length === 0 || classes[0].toString().includes("請先")) {
+             select.innerHTML = "<option>請檢查'名單'分頁</option>";
+             return;
+          }
+
+          classes.forEach(function(c) {
+            var option = document.createElement("option");
+            option.text = c;
+            option.value = c;
+            select.add(option);
+          });
+          
+          loadStudents();
+        }).getAllClasses();
+
+        // --- 【修改重點 2】新增：網頁載入時，呼叫後端取得行為清單 ---
+        google.script.run.withSuccessHandler(function(behaviorsList) {
+          // 這個 behaviorSelect 就是我們畫面上的下拉選單
+          var behaviorSelect = document.getElementById("behavior");
+          
+          // 先把原本寫著「行為載入中...」的選項清空
+          behaviorSelect.innerHTML = ""; 
+          
+          // 把後端傳過來的陣列，一個一個變成 <option> 塞進選單裡
+          behaviorsList.forEach(function(b) {
+            var option = document.createElement("option");
+            option.text = b.name;   // 顯示在畫面的文字 (例如: 👍 認真實作)
+            option.value = b.value; // 真正紀錄到試算表的文字 (例如: 認真實作)
+            behaviorSelect.add(option);
+          });
+        }).getBehaviors();
+        // -------------------------------------------------------------
+      };
+
+      // (其餘 loadStudents, toggleSelection, updateSubmitBtn, submitBatch 皆保持原樣不變)
+      function loadStudents() {
+        var className = document.getElementById("className").value;
+        var grid = document.getElementById("studentGrid");
+        grid.innerHTML = "載入中...";
         
-        // --- MQTT 設定 (使用公開 Broker) ---
-        // 備用 Broker: 'broker.hivemq.com' 或 'test.mosquitto.org'
-        const mqttHost = "broker.hivemq.com"; 
-        const mqttPort = 8000; // WebSocket Port
-        const mqttPath = "/mqtt";
-        let client = null;
-        let isConnected = false;
+        google.script.run.withSuccessHandler(function(students) {
+          grid.innerHTML = ""; 
+          
+          if (students.length === 0) {
+             grid.innerHTML = "無學生名單";
+             return;
+          }
 
-        // 產生或讀取頻道 ID (確保不同使用者不會互相干擾)
-        function initChannel() {
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            // 1. 檢查網址是否有指定頻道
-            if(urlParams.has('ch')) {
-                channelID = urlParams.get('ch');
-            } else {
-                // 2. 如果沒有，隨機產生一個 6 位數 ID
-                channelID = Math.floor(Math.random() * 900000 + 100000).toString();
-                // 更新網址但不重整
-                const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?ch=' + channelID;
-                window.history.pushState({path:newUrl},'',newUrl);
-            }
+          students.forEach(function(student) {
+            var btn = document.createElement("div");
+            btn.className = "student-btn";
+            btn.innerText = student;
+            btn.onclick = function() { toggleSelection(this); };
+            grid.appendChild(btn);
+          });
+          
+          updateSubmitBtn(); 
+        }).getStudentList(className);
+      }
 
-            // 顯示頻道資訊
-            document.getElementById('channel-info').innerHTML = `頻道 ID: <b>${channelID}</b>`;
-            
-            // 檢查是否為管理員模式
-            if(urlParams.has('admin')) {
-                document.getElementById('controls').style.display = 'flex';
-                document.title = "🎮 號碼控制器";
-            } else {
-                // 訪客模式，增加一個隱藏的切換功能
-                document.getElementById('setup-info').innerHTML += ` | <a href="?ch=${channelID}&admin=true">切換為控制台</a>`;
-            }
+      function toggleSelection(btn) {
+        btn.classList.toggle("selected");
+        updateSubmitBtn();
+      }
+
+      function updateSubmitBtn() {
+        var count = document.querySelectorAll(".student-btn.selected").length;
+        document.getElementById("submitBtn").innerText = "送出記錄 (" + count + ")";
+      }
+
+      function submitBatch() {
+        var className = document.getElementById('className').value;
+        var action = document.getElementById('behavior').value;
+        var statusDiv = document.getElementById('status');
+        
+        var selectedBtns = document.querySelectorAll(".student-btn.selected");
+        var students = [];
+        selectedBtns.forEach(function(btn) {
+          students.push(btn.innerText);
+        });
+
+        if (students.length === 0) {
+          statusDiv.innerText = "尚未選取任何學生！";
+          statusDiv.style.color = "red";
+          return;
         }
 
-        // --- MQTT 連線邏輯 ---
-        function connectMQTT() {
-            // 建立獨一無二的 Client ID
-            const clientId = "web_client_" + Math.random().toString(16).substr(2, 8);
+        statusDiv.innerText = "處理中...";
+        statusDiv.style.color = "blue";
+        document.getElementById("submitBtn").disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(msg) {
+            statusDiv.innerText = msg;
+            statusDiv.style.color = "green";
+            document.getElementById("submitBtn").disabled = false;
             
-            client = new Paho.MQTT.Client(mqttHost, mqttPort, mqttPath, clientId);
-
-            client.onConnectionLost = onConnectionLost;
-            client.onMessageArrived = onMessageArrived;
-
-            const options = {
-                useSSL: false, // HiveMQ public ws 通常不強制 SSL
-                onSuccess: onConnect,
-                onFailure: (e) => {
-                    console.log("連線失敗:", e);
-                    updateStatus(false, "連線失敗，重試中...");
-                    setTimeout(connectMQTT, 3000);
-                }
-            };
-            
-            client.connect(options);
-        }
-
-        function onConnect() {
-            console.log("MQTT 連線成功");
-            updateStatus(true, "已連線");
-            
-            // 訂閱這個頻道的 Topic
-            client.subscribe(`myqueue/${channelID}/number`);
-            
-            // 如果是剛連上，請求當前狀態 (Optional, 這裡簡化為等待更新)
-            // 在真實系統中，我們會用 retained message，但公用 broker 有時不支援
-        }
-
-        function onConnectionLost(responseObject) {
-            if (responseObject.errorCode !== 0) {
-                console.log("連線中斷:"+ responseObject.errorMessage);
-                updateStatus(false, "連線中斷");
-                // 自動重連
-                setTimeout(connectMQTT, 3000);
-            }
-        }
-
-        // --- 接收訊息 ---
-        function onMessageArrived(message) {
-            const payload = message.payloadString;
-            console.log("收到訊息:", payload);
-            
-            // 更新畫面
-            const newNum = parseInt(payload);
-            if (!isNaN(newNum)) {
-                animateChange(newNum);
-                currentNumber = newNum;
-            }
-        }
-
-        // --- 發送訊息 (控制端) ---
-        function publishNumber(num) {
-            if(!isConnected) return;
-            
-            message = new Paho.MQTT.Message(num.toString());
-            message.destinationName = `myqueue/${channelID}/number`;
-            message.retained = true; // 讓新加入的人能收到最後一筆訊息
-            client.send(message);
-        }
-
-        // --- 業務邏輯 ---
-        function updateNumber(delta) {
-            const nextNum = currentNumber + delta;
-            if(nextNum < 0) return;
-            // 樂觀更新 (先改本地，再發送)
-            animateChange(nextNum);
-            currentNumber = nextNum;
-            publishNumber(currentNumber);
-            playDing();
-        }
-
-        function resetNumber() {
-            if(confirm("確定要重置號碼為 0 嗎？")) {
-                currentNumber = 0;
-                animateChange(0);
-                publishNumber(0);
-            }
-        }
-
-        // --- UI 輔助 ---
-        function updateStatus(online, text) {
-            isConnected = online;
-            const dot = document.getElementById('status-dot');
-            const txt = document.getElementById('status-text');
-            
-            dot.className = online ? 'dot online' : 'dot error';
-            txt.innerText = text;
-        }
-
-        function animateChange(num) {
-            const display = document.getElementById('main-number');
-            display.innerText = num;
-            
-            // 簡單的彈跳動畫
-            const area = document.getElementById('display-area');
-            area.classList.remove('pop-anim');
-            void area.offsetWidth; // Trigger reflow
-            area.classList.add('pop-anim');
-        }
-
-        // 產生清脆的叮咚聲 (Web Audio API，不需要外部檔案)
-        function playDing() {
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                
-                const ctx = new AudioContext();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-                osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5); // Drop to A4
-                
-                gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-
-                osc.start();
-                osc.stop(ctx.currentTime + 0.5);
-            } catch(e) {
-                console.error("Audio error", e);
-            }
-        }
-
-        function copyControlLink() {
-            const url = window.location.href;
-            // 確保複製的是帶有 admin 參數的連結
-            const adminUrl = url.includes('admin=true') ? url : url + "&admin=true";
-            
-            navigator.clipboard.writeText(adminUrl).then(() => {
-                alert("連結已複製！請傳送到你的手機開啟控制台。");
+            selectedBtns.forEach(function(btn) {
+              btn.classList.remove("selected");
             });
-        }
-
-        // --- 啟動 ---
-        initChannel();
-        connectMQTT();
-
+            updateSubmitBtn();
+          })
+          .recordBatchData(className, students, action);
+      }
     </script>
-</body>
+  </body>
 </html>
