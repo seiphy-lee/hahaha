@@ -297,7 +297,7 @@
             border-radius: 8px;
             background: #f8f9fa;
             cursor: pointer;
-            font-size: 0.95rem;
+            font-size: 1.425rem; /* 👨‍🏫 老師修改：將 0.95rem 放大 1.5 倍變成 1.425rem */
             font-weight: bold;
             text-align: center;
             position: relative;
@@ -319,7 +319,7 @@
             padding: 12px;
             border: 2px solid #ddd;
             border-radius: 8px;
-            font-size: 0.95rem;
+            font-size: 1.425rem; /* 👨‍🏫 老師修改：將 0.95rem 放大 1.5 倍變成 1.425rem */
             text-align: center;
             transition: all 0.2s;
             background: #fff;
@@ -472,7 +472,8 @@
     <aside>
         <h3 style="display: flex; justify-content: space-between; align-items: center;">
             1. 學生上課行為
-            <button id="sync-behavior-btn" class="btn-outline" style="font-size: 0.7rem; padding: 2px 5px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
+            
+            <button id="sync-behavior-btn" class="btn-info" style="font-size: 1.4rem; padding: 4px 10px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
         </h3>
         <div class="behavior-selector" id="behavior-group">
             <!-- 動態生成的按鈕將會插在這裡 -->
@@ -1292,7 +1293,7 @@
                 </x:ExcelWorksheet>
                 </x:ExcelWorksheets>
                 </x:ExcelWorkbook>
-                </xml>
+                </x:xml>
                 <![endif]-->
                 <style>
                     table { border-collapse: collapse; }
