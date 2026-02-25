@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 修改標題文字 -->
     <title>教室安排座位輪盤抽籤(阿發老師設計)</title>
     <!-- Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -116,7 +117,7 @@
 
     <!-- 頂部導航 -->
     <header class="bg-slate-900 p-4 shadow-md z-10 flex justify-between items-center">
-        <!-- 修改標題：字體放大 (text-4xl)，顏色白色，阿發老師字樣黃色 -->
+        <!-- 修改標題：(42人版) -> (阿發老師設計) -->
         <h1 class="text-4xl font-bold text-white flex items-center">
             <i class="fa-solid fa-atom mr-2"></i>
             教室安排座位輪盤抽籤
@@ -218,13 +219,14 @@
                 <h3 class="text-lg font-bold mb-3 text-yellow-400 border-b border-slate-600 pb-2">輸入學生名單，與座位直行、橫列數量</h3>
                 
                 <div class="grid grid-cols-2 gap-4 mb-2">
+                    <!-- 修改：預設值為 6x7 = 42 -->
                     <div>
                         <label class="block text-sm text-slate-300">列數 (Rows)</label>
                         <input type="number" id="rowsInput" value="6" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-300">行數 (Cols)</label>
-                        <input type="number" id="colsInput" value="8" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
+                        <input type="number" id="colsInput" value="7" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
                     </div>
                 </div>
 
@@ -295,7 +297,6 @@
 
 <script>
     // --- 音效控制器 (Web Audio API) ---
-    // 為了避免瀏覽器政策阻擋，我們在第一次點擊按鈕時恢復 AudioContext
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     // 1. 轉動時的答答聲 (短促的高音)
@@ -371,11 +372,29 @@
     // --- 1. 初始化與設定 ---
 
     window.onload = function() {
-        const demoNames = [];
-        for(let i=1; i<=48; i++) {
-            demoNames.push(`${i}號同學`);
+        // [修改重點] 建立真實的學生姓名陣列 (42人)
+        const sampleNames = [
+            "陳建宏", "林怡君", "張淑芬", "黃志明", "王雅婷", "李俊傑", "吳欣怡", "蔡宗翰", "劉家豪", "楊佩君",
+            "陳思妤", "林志偉", "黃美惠", "張家瑋", "王欣儀", "李志豪", "吳怡萱", "蔡佳穎", "劉俊宏", "楊宗緯",
+            "陳詩涵", "林冠宇", "黃淑娟", "張哲瑋", "王佩珊", "李冠廷", "吳家瑋", "蔡雅雯", "劉怡婷", "楊凱文",
+            "陳怡如", "林承翰", "黃柏翰", "張雅涵", "王心怡", "李宗憲", "吳家豪", "蔡宜君", "劉承恩", "楊惠如",
+            "陳俊宏", "林佳宏"
+        ];
+        
+        const demoList = [];
+        
+        // 迴圈從 1 跑到 42 (對應 sampleNames 的 0~41 索引)
+        for(let i=0; i<42; i++) {
+            // padStart(2, '0') 補零： 1 -> "01", 10 -> "10"
+            const seatNum = (i + 1).toString().padStart(2, '0');
+            
+            // 組合字串：座號 + 姓名
+            // 如果 sampleNames 不夠用，就用 "同學" 當後備，但這裡剛好準備了 42 個
+            const name = sampleNames[i] || "同學";
+            demoList.push(`${seatNum}${name}`);
         }
-        document.getElementById('studentList').value = demoNames.join('\n');
+        
+        document.getElementById('studentList').value = demoList.join('\n');
     };
 
     // 匯入 CSV/TXT 功能
@@ -521,11 +540,9 @@
         } else {
             el.classList.add('seat-empty');
             el.classList.remove('seat-excluded');
-            // 如果加回，放回剩餘座位 (放回最後或依照某種順序，這裡簡單 push)
+            // 如果加回，放回剩餘座位
             if (!remainingSeats.includes(index)) {
                 remainingSeats.push(index);
-                // 如果希望保持某種順序，這裡可以 sort，但使用者可能已經打亂了
-                // 為了簡單起見，加在最後，或者可以選擇重置
             }
         }
         
@@ -549,9 +566,6 @@
             sBtn.className = "flex-1 py-1 rounded text-sm text-slate-400 hover:text-white transition";
         }
 
-        // 切換模式時，通常希望重置順序為該模式的邏輯順序，
-        // 但如果使用者已經打亂了，可能不想重置。
-        // 這裡設定為切換模式會重置為預設順序 (Sort)，以避免混亂。
         prepareRound(true);
     }
 
@@ -629,7 +643,6 @@
             // 重置 remainingSeats
             remainingSeats = candidates.map(s => s.index);
         }
-        // 如果不是 forceReset，我們就保留 remainingSeats 目前的順序 (可能是打亂過的)
 
         const studentCount = remainingStudents.length;
         const seatCount = remainingSeats.length;
@@ -796,7 +809,6 @@
         // 偵測是否跨越分隔線以播放音效
         if (isSpinning && wheelSegments.length > 0) {
             // 計算目前指針下方的區塊 index
-            // 指針在上方 (270deg / 1.5PI)
             const currentRotation = wheelAngle % (2 * Math.PI);
             const segmentArc = (2 * Math.PI) / wheelSegments.length;
             let pointerAngle = (3 * Math.PI / 2) - currentRotation;
@@ -852,8 +864,6 @@
         if (currentMode === 'student') {
             // 模式 A: 學生選位
             const student = remainingStudents[0];
-            // 輪盤上的選項是 remainingSeats 的內容，順序與 remainingSeats 一致
-            // 所以 resultIndexInWheel 就對應 remainingSeats 的 index
             const seatIdx = remainingSeats[resultIndexInWheel];
             
             // 更新狀態
@@ -1040,3 +1050,5 @@
     }
 
 </script>
+</body>
+</html>
