@@ -214,6 +214,40 @@
             z-index: 5;
         }
 
+        /* 快速切換班級按鈕區 */
+        #quick-slots-container {
+            width: 100%;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-sizing: border-box;
+        }
+        
+        .quick-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .quick-slot-btn {
+            background: #b2b2b2; /* 預設無資料底色 */
+            color: #333;
+            text-shadow: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            border-radius: 6px;
+            padding: 10px 8px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        
+        .quick-slot-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
         /* 排除模式提示 */
         body.exclude-mode #classroom-container {
             border: 4px dashed #f59e0b;
@@ -520,6 +554,18 @@
         </div>
 
         <div id="sidebar-container">
+            <!-- 新增：快速切換班級區塊 -->
+            <div id="quick-slots-container">
+                <h4 style="color: var(--accent-color); margin-top: 0; margin-bottom: 12px; text-align: center; font-size: 1.1rem;">⚡ 快速切換班級</h4>
+                <div class="quick-slots">
+                    <button class="quick-slot-btn" onclick="quickLoadFromSlot(1)" id="quick-slot-1">空</button>
+                    <button class="quick-slot-btn" onclick="quickLoadFromSlot(2)" id="quick-slot-2">空</button>
+                    <button class="quick-slot-btn" onclick="quickLoadFromSlot(3)" id="quick-slot-3">空</button>
+                    <button class="quick-slot-btn" onclick="quickLoadFromSlot(4)" id="quick-slot-4">空</button>
+                    <button class="quick-slot-btn" onclick="quickLoadFromSlot(5)" id="quick-slot-5">空</button>
+                </div>
+            </div>
+
             <button id="start-btn" onclick="startLottery()">🚀 開始抽籤</button>
         </div>
     </div>
@@ -702,10 +748,26 @@
             const selector = document.getElementById('slot-selector');
             for (let i = 1; i <= 5; i++) {
                 const option = selector.options[i - 1];
+                const quickBtn = document.getElementById(`quick-slot-${i}`); // 抓取對應的快速按鈕
+
                 if (classSlots[i]) {
                     option.text = `槽位 ${i} (已儲存: ${classSlots[i].name || '未命名'})`;
+                    
+                    // 更新快速按鈕：有資料的狀態 (黃色底，顯示班級名稱)
+                    if (quickBtn) {
+                        quickBtn.innerText = classSlots[i].name || '未命名';
+                        quickBtn.style.background = '#ffff99';
+                        quickBtn.style.color = '#333';
+                    }
                 } else {
                     option.text = `槽位 ${i} (空)`;
+                    
+                    // 更新快速按鈕：無資料的狀態 (灰色底，顯示「空」)
+                    if (quickBtn) {
+                        quickBtn.innerText = '空';
+                        quickBtn.style.background = '#b2b2b2';
+                        quickBtn.style.color = '#333';
+                    }
                 }
             }
             updateSlotNameInput();
@@ -746,16 +808,8 @@
             alert(`✅ 班級「${className}」已成功暫存至槽位 ${slotId}！\n\n(提示：若要永久保存，請記得點擊「匯出所有資料」下載 JSON 檔喔)`);
         }
 
-        // 從選擇的記憶槽讀取資料
-        function loadFromSlot() {
-            const slotId = document.getElementById('slot-selector').value;
-            const data = classSlots[slotId];
-
-            if (!data) {
-                alert(`⚠️ 槽位 ${slotId} 目前沒有資料喔！`);
-                return;
-            }
-
+        // 共用的讀取邏輯 (抽出獨立成一個函數，符合 DRY 原則)
+        function loadDataIntoGrid(data) {
             // 還原行列數並重建網格
             document.getElementById('rows-input').value = data.rows;
             document.getElementById('cols-input').value = data.cols;
@@ -773,8 +827,32 @@
                     }
                 });
             }
-            
             playSound('confirm');
+        }
+
+        // 從選擇的記憶槽讀取資料 (下拉選單用)
+        function loadFromSlot() {
+            const slotId = document.getElementById('slot-selector').value;
+            const data = classSlots[slotId];
+
+            if (!data) {
+                alert(`⚠️ 槽位 ${slotId} 目前沒有資料喔！`);
+                return;
+            }
+
+            loadDataIntoGrid(data);
+        }
+
+        // 新增：按下快捷按鈕的讀取邏輯
+        function quickLoadFromSlot(slotId) {
+            const data = classSlots[slotId];
+
+            if (!data) {
+                alert(`⚠️ 這個槽位目前是「空」的喔！\n請先從上方的「💾 班級存檔管理」建立並儲存班級。`);
+                return;
+            }
+
+            loadDataIntoGrid(data);
         }
 
         // --- 新增：匯出 JSON 檔案 (JSON.stringify) ---
