@@ -327,8 +327,8 @@
                 <div>
                     <div class="section-header">1. 設定教室矩陣</div>
                     <div class="input-row">
-                        排 (Rows): <input type="number" id="rows" value="7" min="1">
-                        列 (Cols): <input type="number" id="cols" value="7" min="1">
+                        列 (橫向 Rows): <input type="number" id="rows" value="7" min="1">
+                        排 (直向 Cols): <input type="number" id="cols" value="7" min="1">
                     </div>
                 </div>
                 
@@ -337,16 +337,14 @@
             </div>
 
             <!-- 卡片 2: 步驟 2 (輸入名單) -->
-            <!-- 順序調整：將名單輸入移到這裡 -->
             <div class="card">
                 <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
                     2. 輸入學生名單
-                    <!-- CSV 匯入按鈕改為藍色 -->
                     <input type="file" id="csvInput" accept=".csv" style="display: none;" onchange="handleCSVImport(this)">
                     <button class="btn-import" onclick="document.getElementById('csvInput').click()">📂 匯入名單(CSV)</button>
                 </div>
 
-                <textarea id="student-list" placeholder="張三&#10;李四&#10;王五&#10;..."></textarea>
+                <textarea id="student-list" placeholder="01張三&#10;02李四&#10;03王五&#10;..."></textarea>
                 
                 <div class="status-bar" id="status-text">目前名單：0 人 | 可用座位：0</div>
 
@@ -377,10 +375,8 @@
             </div>
 
             <!-- 卡片 3: 步驟 3 (執行操作) -->
-            <!-- 順序調整：將操作按鈕移到最下方 -->
             <div class="card">
                 <div class="section-header">3. 執行操作</div>
-                <!-- 開始按鈕改為綠色，文字修改 -->
                 <button class="btn-green btn-full" style="margin-bottom: 10px;" onclick="startLottery()">🚀 開始隨機安排座位</button>
                 <div class="btn-row">
                     <button class="btn-red" style="flex:1" onclick="clearNames()">🧹 清除名字</button>
@@ -419,10 +415,12 @@
             const firstNames = ['冠宇','怡君','雅婷','宗翰','佳穎','家豪','承恩','欣妤','彥廷','詩涵'];
             
             for(let i=0; i<42; i++) {
+                 // 使用 padStart 來確保數字都有兩位數 (如: 01, 02... 42)
+                 let seatNum = String(i + 1).padStart(2, '0');
                  let name = lastNames[i % 10] + firstNames[i % 10];
-                 // 偶爾加個數字區分
-                 if(i > 9) name += (i+1);
-                 demoNames.push(name);
+                 
+                 // 將座號與名字結合
+                 demoNames.push(`${seatNum}${name}`);
             }
             
             document.getElementById('student-list').value = demoNames.join('\n');
