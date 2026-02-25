@@ -216,7 +216,7 @@
 
             <!-- 2. 設定區塊 -->
             <div id="setupPanel" class="p-4 bg-slate-700 rounded-lg shadow shrink-0">
-                <h3 class="text-lg font-bold mb-3 text-yellow-400 border-b border-slate-600 pb-2">輸入學生名單，與座位直行、橫列數量</h3>
+                <h3 class="text-lg font-bold mb-3 text-yellow-400 border-b border-slate-600 pb-2">輸入學生名單，與座位直排、橫列數量</h3>
                 
                 <div class="grid grid-cols-2 gap-4 mb-2">
                     <!-- 修改：預設值為 6x7 = 42 -->
@@ -225,7 +225,8 @@
                         <input type="number" id="rowsInput" value="6" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-300">行數 (Cols)</label>
+                        <!-- 將行數改為排數 -->
+                        <label class="block text-sm text-slate-300">排數 (Cols)</label>
                         <input type="number" id="colsInput" value="7" class="w-full bg-slate-900 border border-slate-600 rounded p-1 text-center">
                     </div>
                 </div>
@@ -472,7 +473,7 @@
         const rawText = document.getElementById('studentList').value.trim();
 
         if (rInput < 1 || cInput < 1) {
-            alert("行與列必須大於 0");
+            alert("排與列必須大於 0"); // 一併修改防呆文字
             return;
         }
         if (!rawText) {
@@ -510,7 +511,7 @@
                 el.id = seatId;
                 el.className = 'seat seat-empty h-20 rounded-md flex flex-col items-center justify-center text-xs shadow-sm font-bold select-none';
                 el.onclick = () => toggleSeatExclusion(currentIdx);
-                // 顯示編號：行-列 (c+1)-(r+1)
+                // 顯示編號：排列 (c+1)-(r+1)
                 el.innerHTML = `<span class="text-[10px] opacity-50 absolute top-1 left-1">${c+1}-${r+1}</span><span class="seat-name"></span>`;
                 
                 grid.appendChild(el);
@@ -1052,3 +1053,4 @@
 </script>
 </body>
 </html>
+
