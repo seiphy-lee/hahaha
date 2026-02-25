@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>座位抽籤系統 | Seating Lottery</title>
+    <title>座位抽籤系統 | Seating Lottery (Local JSON Version)</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -48,7 +48,7 @@
 
         h1 {
             margin: 0;
-            font-size: 3rem;
+            font-size: 2.5rem;
             color: white; 
             text-shadow: 0 0 5px var(--accent-color);
             line-height: 1.2;
@@ -154,12 +154,12 @@
             box-shadow: 0 0 10px var(--orange-color);
         }
 
-        /* 藍色雲端按鈕 */
-        #cloud-btn {
+        /* 藍色本機存檔按鈕 (取代雲端) */
+        #save-btn {
             background: linear-gradient(45deg, var(--blue-color), #2563eb);
             box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
         }
-        #cloud-btn:hover {
+        #save-btn:hover {
             box-shadow: 0 0 10px var(--blue-color);
         }
 
@@ -397,13 +397,13 @@
             top: 85px;
             right: 20px;
             background: var(--panel-color);
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
             border: 1px solid #475569;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             display: none;
             z-index: 50;
-            width: 320px;
+            width: 340px;
         }
 
         textarea {
@@ -441,18 +441,21 @@
             background-color: #059669;
         }
 
-        /* 雲端輸入框 */
-        .cloud-input {
+        /* JSON 輸入框與選單樣式 */
+        .slot-input {
             width: 100%;
-            padding: 10px;
-            font-size: 1.2rem;
-            text-align: center;
+            padding: 8px;
+            font-size: 1rem;
             border-radius: 5px;
             border: 1px solid var(--accent-color);
             background: #0f172a;
             color: white;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             box-sizing: border-box;
+        }
+
+        select.slot-input {
+            cursor: pointer;
         }
 
         /* 動畫定義 */
@@ -489,22 +492,22 @@
     <canvas id="bg-canvas"></canvas>
 
     <header>
-        <h1>⚛️ 抽籤回答系統(座位模式)---阿發老師設計</h1>
+        <h1>⚛️ 抽籤回答(座位模式)<span style="font-size: 0.6em; color: #ffc000;">---阿發老師設計</span></h1>
         <div class="header-right">
             <div class="controls">
                 <label>行: <input type="number" id="rows-input" value="5" min="1" max="10"></label>
                 <label>列: <input type="number" id="cols-input" value="6" min="1" max="10"></label>
-                <button id="cloud-btn" onclick="toggleCloudPanel()">☁️ 雲端存取</button>
+                <!-- 將原本的雲端按鈕改成班級管理 -->
+                <button id="save-btn" onclick="toggleSavePanel()">💾 班級存檔管理</button>
                 <button onclick="toggleImportPanel()">📂 匯入名單</button>
                 <button class="toggle-mode" id="mode-btn" onclick="toggleExcludeMode()">🚫 設定排除名單</button>
                 <button id="view-btn" onclick="toggleView()">🔄 切換視角</button>
-                <button id="reset-btn" onclick="resizeGrid()">重設</button>
+                <button id="reset-btn" onclick="resizeGrid()">重設座位</button>
             </div>
             <div class="hint-text">
                 提示：<br>
-                1. 點擊匯入名單，可以從CVS檔直接匯入座位表。<br>
-                2. 切換視角可以將座位切換成「老師視角」或「學生視角」。<br>
-                3. 點擊「設定排除名單」，可將不參與抽籤的學生排除。
+                1. 點擊「班級存檔管理」可切換 5 個班級，並將設定下載為 JSON。<br>
+                2. 點擊「設定排除名單」，可將不參與抽籤的學生排除（變成灰色）。
             </div>
         </div>
     </header>
@@ -521,35 +524,60 @@
         </div>
     </div>
 
-    <!-- 匯入工具 -->
+    <!-- 匯入 Excel 區塊名單工具 -->
     <div id="import-panel" class="control-panel">
         <h3>批次匯入名單</h3>
         <div class="file-input-wrapper">
             <label for="csv-file">
-                📂 點擊上傳CSV檔
+                📂 點擊上傳 CSV/TXT 檔
             </label>
             <input type="file" id="csv-file" accept=".csv, .txt" style="display: none;" onchange="handleFileUpload(this)">
         </div>
-        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">將自動偵測 Excel 的行列數並調整座位表</p>
-        <textarea id="name-list" placeholder="直接貼上 Excel 區塊..."></textarea>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">將自動偵測行列數並調整座位表，也可直接貼上文字</p>
+        <textarea id="name-list" placeholder="直接從 Excel 複製表格並貼上到這裡..."></textarea>
         <div style="display:flex; justify-content:space-between;">
             <button onclick="toggleImportPanel()" class="danger" style="font-size:0.8rem">關閉</button>
             <button onclick="processImport()" style="font-size:0.8rem">確認並重塑座位</button>
         </div>
     </div>
 
-    <!-- 雲端存取工具 -->
-    <div id="cloud-panel" class="control-panel">
-        <h3>☁️ 雲端座位表存取</h3>
-        <p style="font-size: 0.8rem; color: #94a3b8; margin-top:0;">輸入教室代碼（數字密碼）以儲存或讀取設定。</p>
-        <input type="text" id="cloud-code" class="cloud-input" placeholder="請輸入教室代碼 (例如: 8888)">
+    <!-- 本機 JSON 班級存檔工具 (取代原本的雲端設定) -->
+    <div id="save-panel" class="control-panel">
+        <h3 style="margin-top: 0; color: var(--accent-color);">💾 班級資料與存檔管理</h3>
+        
+        <label style="font-size: 0.9rem; color: #cbd5e1;">選擇記憶槽 (共5槽):</label>
+        <select id="slot-selector" class="slot-input" onchange="updateSlotNameInput()">
+            <option value="1">槽位 1 (空)</option>
+            <option value="2">槽位 2 (空)</option>
+            <option value="3">槽位 3 (空)</option>
+            <option value="4">槽位 4 (空)</option>
+            <option value="5">槽位 5 (空)</option>
+        </select>
+        
+        <input type="text" id="slot-name" class="slot-input" placeholder="輸入自訂班級名稱 (例如: 高一甲班)">
+        
+        <div style="display:flex; gap:10px; margin-bottom: 15px;">
+            <button onclick="saveToSlot()" style="flex:1;">📝 暫存至槽位</button>
+            <button onclick="loadFromSlot()" style="flex:1; background: linear-gradient(45deg, var(--orange-color), #d97706);">📂 讀取槽位</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 15px 0;">
+        <p style="font-size: 0.8rem; color: #94a3b8;">將這 5 個槽位的資料打包下載，或是從之前的檔案匯入：</p>
         
         <div style="display:flex; flex-direction:column; gap:10px;">
-            <button id="btn-save-cloud" onclick="saveToCloud()">⬆️ 上傳 (儲存至此代碼)</button>
-            <button id="btn-load-cloud" onclick="loadFromCloud()">⬇️ 下載 (從此代碼讀取)</button>
-            <button onclick="toggleCloudPanel()" class="danger" style="margin-top:5px;">關閉</button>
+            <button onclick="exportToJson()" style="background: linear-gradient(45deg, var(--success-color), #059669);">
+                ⬇️ 匯出所有資料 (下載 JSON)
+            </button>
+            
+            <div class="file-input-wrapper" style="margin: 0; padding: 0; border: none;">
+                <label for="json-upload" style="margin: 0; background-color: var(--blue-color);">
+                    ⬆️ 匯入資料 (讀取 JSON)
+                </label>
+                <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="importFromJson(this)">
+            </div>
+            
+            <button onclick="toggleSavePanel()" class="danger" style="margin-top:5px;">關閉面板</button>
         </div>
-        <p id="cloud-status" style="font-size: 0.8rem; color: #facc15; text-align: center; margin-top:10px; min-height: 1.2em;"></p>
     </div>
 
     <!-- 中獎視窗 -->
@@ -559,171 +587,57 @@
             <div class="winner-name" id="winner-display">???</div>
             <div class="modal-buttons">
                 <button onclick="handleDecision('keep')">保留並繼續</button>
-                <button onclick="handleDecision('remove')" class="danger">從名單移除</button>
+                <button onclick="handleDecision('remove')" class="danger">從名單排除</button>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        // --- Firebase Integration ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // *** 設定區域 - 請將下方 {} 替換為您的 Firebase Config ***
-        const firebaseConfig = {
-          apiKey: "AIzaSyAY0leEwzJ5n085J9AqCt6vN7XEv-jqpXI",
-          authDomain: "hahaha-c46df.firebaseapp.com",
-          projectId: "hahaha-c46df",
-          storageBucket: "hahaha-c46df.firebasestorage.app",
-          messagingSenderId: "366156547809",
-          appId: "1:366156547809:web:60f43df1d76d70080559a0",
-          measurementId: "G-CP8Q172WD3"
-        };
-
-        let app, auth, db, appId, user;
-
-        try {
-            if (firebaseConfig && firebaseConfig.apiKey) {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-                signInAnonymously(auth).then((userCredential) => {
-                    user = userCredential.user;
-                    console.log("Firebase Connected as", user.uid);
-                    showStatus("雲端連線成功！");
-                }).catch((error) => {
-                    console.error("Auth Error", error);
-                    showStatus("雲端連線失敗 (Auth)");
-                });
-            } else {
-                console.warn("No Firebase config found. Cloud features disabled.");
-                showStatus("請先設定 Firebase Config");
-            }
-        } catch (e) {
-            console.error("Firebase Init Error", e);
-        }
-
-        window.saveToCloud = async function() {
-            if (!db || !user) { alert("尚未連線到雲端資料庫，請檢查設定。"); return; }
-            
-            const code = document.getElementById('cloud-code').value.trim();
-            if (!code) { alert("請輸入教室代碼！"); return; }
-
-            const rows = parseInt(document.getElementById('rows-input').value);
-            const cols = parseInt(document.getElementById('cols-input').value);
-            const seatData = window.seats.map(s => ({
-                val: s.input.innerText,
-                rm: s.removed
-            }));
-
-            showStatus("上傳中...");
-            try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'classrooms', code), {
-                    rows: rows,
-                    cols: cols,
-                    seats: seatData,
-                    updatedAt: new Date().toISOString()
-                });
-                showStatus("✅ 上傳成功！");
-                alert(`儲存成功！\n下次輸入代碼「${code}」即可叫回此座位表。`);
-            } catch (e) {
-                console.error(e);
-                showStatus("❌ 上傳失敗");
-                alert("上傳失敗，請稍後再試。");
-            }
-        };
-
-        window.loadFromCloud = async function() {
-            if (!db || !user) { alert("尚未連線到雲端資料庫。"); return; }
-
-            const code = document.getElementById('cloud-code').value.trim();
-            if (!code) { alert("請輸入教室代碼！"); return; }
-
-            showStatus("讀取中...");
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'classrooms', code);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    
-                    document.getElementById('rows-input').value = data.rows;
-                    document.getElementById('cols-input').value = data.cols;
-                    window.resizeGrid();
-
-                    if (data.seats && Array.isArray(data.seats)) {
-                        data.seats.forEach((sData, idx) => {
-                            if (window.seats[idx]) {
-                                window.seats[idx].input.innerText = sData.val || "";
-                                if (sData.rm) {
-                                    window.seats[idx].removed = true;
-                                    window.seats[idx].element.classList.add('removed');
-                                }
-                            }
-                        });
-                    }
-                    showStatus("✅ 下載成功！");
-                    window.toggleCloudPanel();
-                    window.playSound('confirm');
-                } else {
-                    showStatus("⚠️ 找不到此代碼資料");
-                    alert("找不到此代碼的資料，請確認代碼是否正確。");
-                }
-            } catch (e) {
-                console.error(e);
-                showStatus("❌ 讀取失敗");
-            }
-        };
-
-        function showStatus(msg) {
-            const el = document.getElementById('cloud-status');
-            if(el) el.textContent = msg;
-        }
-    </script>
-
     <script>
-        // --- 變數與狀態 ---
+        // --- 老師小筆記：變數與資料結構設定 ---
         let rows = 5;
         let cols = 6;
         window.seats = []; 
         let isRunning = false;
         let isExcludeMode = false;
         let currentWinnerIndex = -1;
-        
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+        // 這是用來儲存 5 個班級的 JavaScript 物件，相當於我們的「隨身筆記本」
+        let classSlots = {
+            1: null,
+            2: null,
+            3: null,
+            4: null,
+            5: null
+        };
+
+        // 網頁載入時初始化
         document.addEventListener('DOMContentLoaded', () => {
             resizeGrid();
             initBackgroundParticle();
+            updateSlotUI(); // 更新下拉選單的顯示文字
         });
 
         // --- 面板控制 ---
-        function toggleCloudPanel() {
+        function toggleSavePanel() {
             document.getElementById('import-panel').style.display = 'none';
-            const panel = document.getElementById('cloud-panel');
+            const panel = document.getElementById('save-panel');
             panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
         }
 
         function toggleImportPanel() {
-            document.getElementById('cloud-panel').style.display = 'none';
+            document.getElementById('save-panel').style.display = 'none';
             const panel = document.getElementById('import-panel');
             panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
         }
-
-        window.toggleCloudPanel = toggleCloudPanel;
-        window.toggleImportPanel = toggleImportPanel;
 
         // --- 視角切換 ---
         function toggleView() {
             const grid = document.getElementById('seat-grid');
             grid.classList.toggle('flipped');
         }
-        window.toggleView = toggleView;
 
-        // --- 網格系統 ---
+        // --- 網格系統重設 ---
         function resizeGrid() {
             rows = parseInt(document.getElementById('rows-input').value);
             cols = parseInt(document.getElementById('cols-input').value);
@@ -740,6 +654,7 @@
                 cell.className = 'seat';
                 cell.dataset.index = i;
                 
+                // 點擊事件：排除模式
                 cell.addEventListener('click', (e) => {
                     if (isExcludeMode) {
                         e.preventDefault();
@@ -760,14 +675,11 @@
                 input.contentEditable = true;
                 input.setAttribute('data-placeholder', `${i + 1}`);
                 
-                input.addEventListener('input', function() {});
-
                 cell.appendChild(input);
                 grid.appendChild(cell);
                 window.seats.push({ element: cell, input: input, removed: false });
             }
         }
-        window.resizeGrid = resizeGrid;
 
         // --- 排除模式切換 ---
         function toggleExcludeMode() {
@@ -782,9 +694,133 @@
                 btn.innerHTML = "🚫 設定排除名單";
             }
         }
-        window.toggleExcludeMode = toggleExcludeMode;
 
-        // --- 匯入功能 ---
+        // --- 新增：班級槽位 (Slot) 管理邏輯 ---
+        
+        // 更新下拉選單的文字，讓使用者知道哪個槽位有資料
+        function updateSlotUI() {
+            const selector = document.getElementById('slot-selector');
+            for (let i = 1; i <= 5; i++) {
+                const option = selector.options[i - 1];
+                if (classSlots[i]) {
+                    option.text = `槽位 ${i} (已儲存: ${classSlots[i].name || '未命名'})`;
+                } else {
+                    option.text = `槽位 ${i} (空)`;
+                }
+            }
+            updateSlotNameInput();
+        }
+
+        function updateSlotNameInput() {
+            const slotId = document.getElementById('slot-selector').value;
+            const nameInput = document.getElementById('slot-name');
+            if (classSlots[slotId]) {
+                nameInput.value = classSlots[slotId].name || '';
+            } else {
+                nameInput.value = '';
+            }
+        }
+
+        // 暫存資料到選擇的記憶槽
+        function saveToSlot() {
+            const slotId = document.getElementById('slot-selector').value;
+            let className = document.getElementById('slot-name').value.trim();
+            if(!className) className = `自訂班級 ${slotId}`;
+
+            // 將當前的座位狀態打包起來
+            const seatData = window.seats.map(s => ({
+                val: s.input.innerText,
+                rm: s.removed
+            }));
+
+            // 儲存到我們準備好的 classSlots 物件裡
+            classSlots[slotId] = {
+                name: className,
+                rows: parseInt(document.getElementById('rows-input').value),
+                cols: parseInt(document.getElementById('cols-input').value),
+                seats: seatData
+            };
+
+            updateSlotUI();
+            playSound('confirm');
+            alert(`✅ 班級「${className}」已成功暫存至槽位 ${slotId}！\n\n(提示：若要永久保存，請記得點擊「匯出所有資料」下載 JSON 檔喔)`);
+        }
+
+        // 從選擇的記憶槽讀取資料
+        function loadFromSlot() {
+            const slotId = document.getElementById('slot-selector').value;
+            const data = classSlots[slotId];
+
+            if (!data) {
+                alert(`⚠️ 槽位 ${slotId} 目前沒有資料喔！`);
+                return;
+            }
+
+            // 還原行列數並重建網格
+            document.getElementById('rows-input').value = data.rows;
+            document.getElementById('cols-input').value = data.cols;
+            resizeGrid();
+
+            // 把名單和排除狀態填回座位中
+            if (data.seats && Array.isArray(data.seats)) {
+                data.seats.forEach((sData, idx) => {
+                    if (window.seats[idx]) {
+                        window.seats[idx].input.innerText = sData.val || "";
+                        if (sData.rm) {
+                            window.seats[idx].removed = true;
+                            window.seats[idx].element.classList.add('removed');
+                        }
+                    }
+                });
+            }
+            
+            playSound('confirm');
+        }
+
+        // --- 新增：匯出 JSON 檔案 (JSON.stringify) ---
+        function exportToJson() {
+            // 老師小提示：我們用 JSON.stringify 把 JavaScript 物件變成文字格式，參數 null, 2 則是為了讓它自動排版換行，比較好看。
+            const dataStr = JSON.stringify(classSlots, null, 2);
+            
+            // 將文字轉變成一個可以下載的二進位大物件 (Blob)
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // 建立一個隱藏的超連結來觸發下載
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "抽籤回答座位模式(備份).json";
+            document.body.appendChild(a);
+            a.click();
+            
+            // 下載完畢後清理掉這個連結
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- 新增：匯入 JSON 檔案 (JSON.parse) ---
+        function importFromJson(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    // 老師小提示：把讀取到的文字，用 JSON.parse 還原成原來的 JavaScript 物件。
+                    const parsedData = JSON.parse(e.target.result);
+                    classSlots = parsedData;
+                    updateSlotUI();
+                    alert("✅ 成功匯入 JSON 班級檔案！\n請從上方「選擇記憶槽」讀取你要的班級。");
+                } catch(err) {
+                    alert("❌ 糟糕！這個 JSON 檔案的格式好像不對喔。");
+                    console.error(err);
+                }
+                input.value = ""; // 清空 input 以便下次能再選同一個檔案
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 處理 CSV/TXT 檔案上傳 ---
         function handleFileUpload(input) {
             const file = input.files[0];
             if (!file) return;
@@ -795,9 +831,10 @@
                 document.getElementById('name-list').value = content;
             };
             reader.readAsText(file);
+            input.value = ""; // 清空 input
         }
-        window.handleFileUpload = handleFileUpload;
 
+        // --- 文字批次匯入功能 (Excel貼上) ---
         function processImport() {
             const text = document.getElementById('name-list').value;
             if (!text.trim()) return;
@@ -811,10 +848,8 @@
                 rawMatrix = text.split(/\r?\n/).map(line => [line]);
             }
 
-            let minRowIndex = Infinity;
-            let maxRowIndex = -1;
-            let minColIndex = Infinity;
-            let maxColIndex = -1;
+            let minRowIndex = Infinity; let maxRowIndex = -1;
+            let minColIndex = Infinity; let maxColIndex = -1;
 
             for(let r = 0; r < rawMatrix.length; r++) {
                 for(let c = 0; c < rawMatrix[r].length; c++) {
@@ -828,8 +863,7 @@
             }
 
             if (maxRowIndex === -1) {
-                alert("未偵測到有效資料，請確認內容。");
-                return;
+                alert("未偵測到有效資料，請確認內容。"); return;
             }
 
             let newRows = maxRowIndex - minRowIndex + 1;
@@ -837,7 +871,6 @@
 
             document.getElementById('rows-input').value = newRows;
             document.getElementById('cols-input').value = newCols;
-            
             resizeGrid();
 
             for(let r = 0; r < newRows; r++) {
@@ -848,20 +881,17 @@
                     if (rawMatrix[originalRow] && rawMatrix[originalRow][originalCol]) {
                         const val = rawMatrix[originalRow][originalCol].trim();
                         const seatIndex = r * newCols + c;
-                        
                         if(seatIndex < window.seats.length) {
                             window.seats[seatIndex].input.innerText = val;
                         }
                     }
                 }
             }
-
             toggleImportPanel();
             playSound('confirm');
         }
-        window.processImport = processImport;
 
-        // --- 核心抽籤邏輯 ---
+        // --- 核心抽籤動畫與邏輯 ---
         function startLottery() {
             if (isExcludeMode) toggleExcludeMode();
             if (isRunning) return;
@@ -872,7 +902,7 @@
                 .map(s => s.index);
 
             if (validIndices.length === 0) {
-                alert("沒有可抽籤的學生！請確認是否已輸入姓名。");
+                alert("沒有可抽籤的學生！請確認是否已輸入姓名，或確認有沒有被排除。");
                 return;
             }
 
@@ -882,7 +912,6 @@
             const duration = 5000;
             const startTime = Date.now();
             let currentHighlight = -1;
-            
             let winnerTargetIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
 
             const animate = () => {
@@ -902,7 +931,6 @@
                 }
 
                 const progress = elapsed / duration;
-                
                 let speed = 50 + 450 * Math.pow(progress, 2.5);
                 let isDramaticMoment = false;
                 
@@ -917,22 +945,18 @@
                 } while (nextIndex === currentHighlight && validIndices.length > 1);
                 
                 if (isDramaticMoment) {
-                    if (Math.random() < 0.5) {
-                        winnerTargetIndex = nextIndex;
-                    }
+                    if (Math.random() < 0.5) winnerTargetIndex = nextIndex;
                 }
                 
                 currentHighlight = nextIndex;
                 window.seats[currentHighlight].element.classList.add('active');
                 
                 playSound('tick', speed);
-
                 setTimeout(animate, speed);
             };
 
             animate();
         }
-        window.startLottery = startLottery;
 
         function finish(winnerIndex) {
             currentWinnerIndex = winnerIndex;
@@ -963,21 +987,17 @@
                 seat.removed = true;
                 seat.element.classList.add('removed');
             }
-
             currentWinnerIndex = -1;
         }
-        window.handleDecision = handleDecision;
 
         // --- 音效合成器 ---
         function playSound(type, speedMs = 100) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
             const now = audioCtx.currentTime;
 
             if (type === 'tick') {
@@ -994,7 +1014,6 @@
                 createChord([440, 880], 'sine', 0.1);
             }
         }
-        window.playSound = playSound;
 
         function createChord(freqs, type, duration = 1.5) {
             const now = audioCtx.currentTime;
@@ -1016,7 +1035,6 @@
         function initBackgroundParticle() {
             const canvas = document.getElementById('bg-canvas');
             const ctx = canvas.getContext('2d');
-            
             let particles = [];
             const particleCount = 50;
 
@@ -1028,9 +1046,7 @@
             resize();
 
             class Particle {
-                constructor() {
-                    this.reset();
-                }
+                constructor() { this.reset(); }
                 reset() {
                     this.x = Math.random() * canvas.width;
                     this.y = Math.random() * canvas.height;
@@ -1040,8 +1056,7 @@
                     this.alpha = Math.random() * 0.5;
                 }
                 update() {
-                    this.x += this.vx;
-                    this.y += this.vy;
+                    this.x += this.vx; this.y += this.vy;
                     if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
                 }
                 draw() {
@@ -1057,8 +1072,7 @@
             function animateBg() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 particles.forEach((p, index) => {
-                    p.update();
-                    p.draw();
+                    p.update(); p.draw();
                     for(let j=index+1; j<particles.length; j++){
                         const dx = p.x - particles[j].x;
                         const dy = p.y - particles[j].y;
