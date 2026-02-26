@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小組抽籤系統 - 阿發老師設計</title>
+    <style>
+        :root {
+            --bg-color: #050508; /* 深邃宇宙黑 */
+            --panel-bg: rgba(20, 20, 28, 0.85);
+            --neon-cyan: #00f2ff;
+            --neon-pink: #ff00ea;
+            --neon-green: #28a745;
+            --neon-yellow: #ffcc00;
+            --neon-purple: #9d00ff;
+            --text-main: #e0e0e0;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+        }
+
+        /* 畫布全屏，但在層級上位於背景 */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        /* 左側控制面板 */
+        .ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            max-height: 85vh;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.1);
+            overflow-y: auto;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+
+        /* 右側結果面板 - 寬度 480px */
+        .result-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            bottom: 20px;
+            width: 480px; 
+            background: rgba(15, 15, 20, 0.9);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 0, 234, 0.3);
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-header {
+            padding: 15px;
+            background: linear-gradient(90deg, rgba(255,0,234,0.1), transparent);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: var(--neon-pink);
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 結果卡片動畫 */
+        .result-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid var(--neon-cyan);
+            padding: 15px; 
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            animation: slideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.3s;
+        }
+
+        .result-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(-5px);
+        }
+
+        /* 序號放大 */
+        .order-badge {
+            background: var(--neon-cyan);
+            color: #000;
+            font-weight: bold;
+            width: 36px;       
+            height: 36px;       
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem; 
+            margin-right: 15px;
+        }
+
+        /* 名字放大 1.5 倍且改為黃色 */
+        .result-name {
+            font-size: 1.8rem; 
+            font-weight: bold;
+            flex: 1;
+            color: var(--neon-yellow); 
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.3);
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(50px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* 通用元件樣式 */
+        h2 { margin: 0 0 15px 0; color: var(--neon-cyan); font-size: 1.1rem; line-height: 1.4; text-shadow: 0 0 5px rgba(0, 242, 255, 0.5); }
+        
+        textarea {
+            width: 100%;
+            height: 120px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #444;
+            color: var(--neon-cyan);
+            border-radius: 6px;
+            padding: 8px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+
+        button {
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            background: linear-gradient(135deg, var(--neon-cyan), #0066ff);
+            color: #000;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(transparent, rgba(255,255,255,0.4), transparent);
+            transform: rotate(45deg) translate(-100%, 0);
+            transition: 0.5s;
+        }
+        
+        button:hover::after { transform: rotate(45deg) translate(100%, 0); }
+        button:hover { box-shadow: 0 0 20px var(--neon-cyan); transform: scale(1.02); color: white; }
+        button:active { transform: scale(0.98); }
+
+        button.reset-btn {
+            background: transparent;
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+        }
+        button.reset-btn:hover { background: var(--neon-pink); color: white; box-shadow: 0 0 15px var(--neon-pink); }
+
+        /* 綠色匯出按鈕樣式 */
+        button.btn-success {
+            background: linear-gradient(135deg, #28a745, #1e7e34);
+            color: white;
+        }
+        button.btn-success:hover {
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        /* 紫色按鈕樣式 (一鍵完成 & 存檔) */
+        button.btn-purple {
+            background: linear-gradient(135deg, #a55eea, #7d3ac1);
+            color: white;
+        }
+        button.btn-purple:hover {
+            box-shadow: 0 0 20px var(--neon-purple);
+        }
+
+        /* 紅色漸層按鈕樣式 (關閉面板) */
+        button.btn-danger {
+            background: linear-gradient(135deg, #ff4d4d, #cc0000);
+            color: white;
+        }
+        button.btn-danger:hover {
+            box-shadow: 0 0 20px #ff4d4d;
+        }
+
+        /* 快速切換班級按鈕專屬樣式 (避免被全局 button 覆蓋) */
+        button.quick-slot-btn {
+            padding: 6px 2px !important;
+            font-size: 0.75rem !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: bold;
+            letter-spacing: normal !important;
+        }
+        button.quick-slot-btn::after {
+            display: none !important; /* 移除全局的反光特效 */
+        }
+        button.quick-slot-btn.filled {
+            background: linear-gradient(135deg, #ffcc00, #ff9900) !important;
+            color: #000 !important;
+            border-color: #ff9900 !important;
+            text-shadow: none !important;
+        }
+        button.quick-slot-btn.empty {
+            background: #333 !important;
+            color: #888 !important;
+            box-shadow: none !important;
+        }
+        button.quick-slot-btn.filled:hover {
+            box-shadow: 0 0 10px var(--neon-yellow) !important;
+            transform: translateY(-2px) !important;
+        }
+
+        /* 本機存檔面板樣式 */
+        #save-panel {
+            display: none;
+            border: 1px solid var(--neon-purple);
+            box-shadow: 0 0 20px rgba(165, 94, 234, 0.3);
+            width: 320px;
+        }
+        .cloud-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: 1px solid var(--neon-purple);
+            background: rgba(0,0,0,0.5);
+            color: var(--neon-cyan);
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        select.cloud-input {
+            cursor: pointer;
+        }
+        .cloud-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--neon-purple);
+        }
+
+        /* 檔案匯入按鈕的偽裝標籤 */
+        .file-upload-label {
+            background: linear-gradient(135deg, #ffcc00, #ff9900);
+            color: black;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+            display: block;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 5px rgba(255, 204, 0, 0.3);
+        }
+        .file-upload-label:hover {
+            box-shadow: 0 0 20px var(--neon-yellow);
+            transform: scale(1.02);
+            color: white;
+        }
+
+        /* 暫時顯示的獲勝者提示 (Toast) */
+        .toast-overlay {
+            position: absolute;
+            top: 40%;
+            left: 40%; 
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 20;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .toast-name {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 20px var(--neon-pink), 0 0 40px var(--neon-pink);
+            background: rgba(0,0,0,0.6);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 2px solid var(--neon-pink);
+            backdrop-filter: blur(5px);
+        }
+
+        /* 卷軸美化 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+
+        .physics-label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 左側設定面板 -->
+    <div class="ui-overlay" id="settingPanel">
+        <h2>🌀 <span style="font-size: 1.5em;">抽籤排序</span><br>---阿發老師設計</h2>
+        
+        <!-- 新增的快速切換班級區塊 -->
+        <div id="quick-slots-container" style="margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.4); border-radius: 8px; border: 1px solid rgba(0, 242, 255, 0.2);">
+            <div style="font-size: 0.85rem; color: var(--neon-cyan); margin-bottom: 8px; text-align: center; font-weight: bold; text-shadow: 0 0 5px rgba(0,242,255,0.3);">⚡ 快速切換班級</div>
+            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px;">
+                <button class="quick-slot-btn empty" id="quick-slot-0" onclick="quickLoadFromSlot(0)">空</button>
+                <button class="quick-slot-btn empty" id="quick-slot-1" onclick="quickLoadFromSlot(1)">空</button>
+                <button class="quick-slot-btn empty" id="quick-slot-2" onclick="quickLoadFromSlot(2)">空</button>
+                <button class="quick-slot-btn empty" id="quick-slot-3" onclick="quickLoadFromSlot(3)">空</button>
+                <button class="quick-slot-btn empty" id="quick-slot-4" onclick="quickLoadFromSlot(4)">空</button>
+            </div>
+            <div id="main-status" style="font-size: 0.8rem; color: var(--neon-green); text-align: center; margin-top: 5px; min-height: 1.2em; font-weight:bold;"></div>
+        </div>
+
+        <label style="font-size: 0.9rem; color: #aaa;">輸入名單（每行一個，或逗點隔開）</label>
+        <textarea id="nameInput" onchange="updateWheelData()">愛因斯坦, 牛頓, 居禮夫人, 費曼, 霍金, 薛丁格, 普朗克, 特斯拉</textarea>
+        
+        <div class="controls">
+            <div style="display: flex; gap: 8px;">
+                <button onclick="updateWheelData()" style="flex:1; font-size: 0.9rem;">更新名單</button>
+                <button onclick="shuffleNames()" style="flex:1; background: #E97132; color: white; font-size: 0.9rem;">🔀 打散名單</button>
+            </div>
+
+            <!-- 班級存檔按鈕 -->
+            <button onclick="toggleSavePanel()" class="btn-purple">💾 班級存檔管理</button>
+            
+            <button id="spinBtn" style="height: 50px; font-size: 1.2rem; background: #FFC000; color: #000;">⚡ 旋轉輪盤 (開始抽籤)</button>
+
+            <button onclick="autoComplete()" class="btn-purple" style="margin-top: 5px;">⚡ 一鍵完成排序</button>
+
+            <button onclick="exportToExcel()" class="btn-success" style="margin-top: 5px;">📤 匯出成 Excel 檔</button>
+        </div>
+    </div>
+
+    <!-- 班級存檔管理面板 (隱藏) -->
+    <div class="ui-overlay" id="save-panel">
+        <h2 style="color: var(--neon-purple);">💾 班級資料與存檔管理</h2>
+        
+        <label style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px; display: block;">選擇記憶槽 (共5槽):</label>
+        <select id="slot-selector" class="cloud-input" onchange="updateSlotNameInput()" style="margin-bottom: 10px;">
+            <option value="0">槽位 1 (空)</option>
+            <option value="1">槽位 2 (空)</option>
+            <option value="2">槽位 3 (空)</option>
+            <option value="3">槽位 4 (空)</option>
+            <option value="4">槽位 5 (空)</option>
+        </select>
+        
+        <label style="font-size: 0.85rem; color: #aaa; margin-bottom: 5px; display: block;">班級名稱:</label>
+        <input type="text" id="slot-name" class="cloud-input" placeholder="輸入自訂班級名稱 (例如: 高一甲班)">
+        
+        <div class="controls" style="flex-direction: row; gap: 10px;">
+            <button onclick="saveToSlot()" style="flex: 1; background: linear-gradient(135deg, #a55eea, #7d3ac1); color: white; font-size: 0.9rem;">📝 暫存</button>
+            <button onclick="loadFromSlot()" style="flex: 1; background: linear-gradient(135deg, #00f2ff, #0066ff); color: black; font-size: 0.9rem;">📂 讀取</button>
+        </div>
+        
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 15px 0;">
+        <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px; text-align: center;">將這 5 個槽位的資料打包下載，或是匯入</p>
+        
+        <div class="controls" style="gap: 10px; margin-top: 0;">
+            <button onclick="exportJSON()" style="background: linear-gradient(135deg, #28a745, #1e7e34); color: white; font-size: 0.9rem;">⬇️ 匯出所有資料 (JSON)</button>
+            
+            <label class="file-upload-label" style="font-size: 0.9rem;">
+                ⬆️ 匯入資料 (JSON)
+                <input type="file" accept=".json" onchange="importJSON(this)" style="display: none;">
+            </label>
+            
+            <button class="btn-danger" onclick="toggleSavePanel()" style="font-size: 0.9rem; margin-top: 5px;">關閉面板</button>
+        </div>
+        <p id="save-status" style="font-size: 0.85rem; color: var(--neon-yellow); text-align: center; margin-top:10px; min-height: 1.2em; font-weight: bold;"></p>
+    </div>
+
+    <!-- 畫布 -->
+    <canvas id="canvas"></canvas>
+
+    <!-- 臨時獲勝者顯示 (Toast) -->
+    <div class="toast-overlay" id="toast">
+        <div style="color: var(--neon-cyan); font-size: 1.2rem; margin-bottom: 5px;">🏆 本日最幸運</div>
+        <div class="toast-name" id="toastName">Name</div>
+    </div>
+
+    <!-- 右側結果面板 -->
+    <div class="result-panel">
+        <div class="result-header">
+            <span>📋 抽籤順序結果</span>
+            <button class="reset-btn" onclick="clearResults()" style="font-size: 0.8rem; padding: 5px 10px;">清空</button>
+        </div>
+        <div class="result-list" id="resultList">
+            <!-- 結果會動態插入這裡 -->
+            <div style="text-align: center; color: #555; margin-top: 20px; font-style: italic;">
+                尚未產生數據<br>Waiting for experiment...
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 音效系統 ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playTick(freq = 400, type = 'sine', volume = 0.1, duration = 0.05) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // --- 變數初始化 ---
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+    const nameInput = document.getElementById('nameInput');
+    const resultList = document.getElementById('resultList');
+    const toast = document.getElementById('toast');
+    const toastName = document.getElementById('toastName');
+
+    let names = [];
+    let colors = [];
+    let results = []; 
+    
+    // 物理與動畫變數
+    let angle = 0;
+    let angularVel = 0;
+    let isSpinning = false;
+    let isStopping = false;
+    let lastTickIndex = -1;
+    let autoSortInterval = null; // 用於一鍵排序的計時器
+    
+    // 固定時間旋轉參數
+    let spinStartTime = 0;
+    const SPIN_DURATION = 7000; // 動畫時間統一 7 秒 (7000毫秒)
+    let startAngle = 0;
+    let targetAngle = 0;
+    let currentWinnerIndex = -1;
+
+    // 佈局變數
+    let centerX = 0;
+    let centerY = 0;
+    let radius = 0;
+
+    let particles = []; 
+    
+    // --- 本機存檔系統變數 (取代原有的 Firebase) ---
+    let savedSlots = JSON.parse(localStorage.getItem('group_draw_classes_data')) || [null, null, null, null, null];
+
+    // 初始化尺寸
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        // 輪盤中心保持在 40%
+        centerX = canvas.width * 0.4; 
+        centerY = canvas.height * 0.5;
+        
+        let availableWidth = canvas.width - 320 - 500;
+        if(availableWidth < 0) availableWidth = 300; 
+        
+        radius = Math.min(centerX * 0.85, canvas.height * 0.4);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // 網頁載入時初始化存檔選單與快取鍵狀態
+    document.addEventListener('DOMContentLoaded', () => {
+        updateSlotUI();
+    });
+
+    // --- 存檔面板與功能 ---
+    function toggleSavePanel() {
+        const settingPanel = document.getElementById('settingPanel');
+        const savePanel = document.getElementById('save-panel');
+        
+        if (savePanel.style.display === 'block') {
+            savePanel.style.display = 'none';
+            settingPanel.style.opacity = '1';
+            settingPanel.style.pointerEvents = 'auto';
+        } else {
+            updateSlotUI();
+            savePanel.style.display = 'block';
+            settingPanel.style.opacity = '0.3'; 
+            settingPanel.style.pointerEvents = 'none'; 
+        }
+    }
+    window.toggleSavePanel = toggleSavePanel;
+
+    function showMainStatus(msg, isError = false) {
+        const el = document.getElementById('main-status');
+        if (el) {
+            el.style.color = isError ? "var(--neon-pink)" : "var(--neon-green)";
+            el.textContent = msg;
+            setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3000);
+        }
+    }
+
+    function updateSlotUI() {
+        const selector = document.getElementById('slot-selector');
+        for (let i = 0; i < 5; i++) {
+            const btn = document.getElementById('quick-slot-' + i);
+            if (savedSlots[i]) {
+                selector.options[i].text = `槽位 ${i + 1} (已儲存: ${savedSlots[i].name || '未命名'})`;
+                if(btn) {
+                    btn.className = 'quick-slot-btn filled';
+                    btn.innerText = savedSlots[i].name || `槽位 ${i+1}`;
+                    btn.title = savedSlots[i].name || `槽位 ${i+1}`;
+                }
+            } else {
+                selector.options[i].text = `槽位 ${i + 1} (空)`;
+                if(btn) {
+                    btn.className = 'quick-slot-btn empty';
+                    btn.innerText = '空';
+                    btn.title = '';
+                }
+            }
+        }
+        updateSlotNameInput();
+    }
+    window.updateSlotUI = updateSlotUI;
+
+    function updateSlotNameInput() {
+        const index = parseInt(document.getElementById('slot-selector').value);
+        const nameInput = document.getElementById('slot-name');
+        nameInput.value = savedSlots[index] ? (savedSlots[index].name || "") : "";
+    }
+    window.updateSlotNameInput = updateSlotNameInput;
+
+    function showSaveStatus(msg) {
+        const el = document.getElementById('save-status');
+        if (el) {
+            el.textContent = msg;
+            // 3 秒後清空狀態
+            setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3000);
+        }
+    }
+
+    function saveToSlot() {
+        const index = parseInt(document.getElementById('slot-selector').value);
+        let slotName = document.getElementById('slot-name').value.trim();
+        if (!slotName) slotName = `自訂班級 ${index + 1}`;
+
+        savedSlots[index] = {
+            name: slotName,
+            names: document.getElementById('nameInput').value,
+            timestamp: new Date().toLocaleString('zh-TW', {hour12: false})
+        };
+
+        localStorage.setItem('group_draw_classes_data', JSON.stringify(savedSlots));
+        updateSlotUI();
+        showSaveStatus(`✅ 成功儲存班級「${slotName}」`);
+    }
+    window.saveToSlot = saveToSlot;
+
+    function loadFromSlot() {
+        const index = parseInt(document.getElementById('slot-selector').value);
+        if (!savedSlots[index]) {
+            showSaveStatus(`⚠️ 槽位 ${index + 1} 目前為空`);
+            return;
+        }
+
+        document.getElementById('nameInput').value = savedSlots[index].names || "";
+        updateWheelData();
+        showSaveStatus(`✅ 成功載入班級「${savedSlots[index].name}」`);
+    }
+    window.loadFromSlot = loadFromSlot;
+
+    // 快取鍵讀取功能
+    function quickLoadFromSlot(index) {
+        if (!savedSlots[index]) {
+            showMainStatus(`⚠️ 這個槽位目前是空的喔！`, true);
+            playTick(150, 'square', 0.1, 0.1); 
+            return;
+        }
+
+        document.getElementById('nameInput').value = savedSlots[index].names || "";
+        updateWheelData();
+        showMainStatus(`✅ 成功載入「${savedSlots[index].name}」`);
+        playTick(600, 'sine', 0.1, 0.1); 
+    }
+    window.quickLoadFromSlot = quickLoadFromSlot;
+
+    function getFormattedDate() {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}${month}${day}`;
+    }
+
+    function exportJSON() {
+        const dataToExport = {
+            version: "1.0",
+            exportDate: new Date().toISOString(),
+            slots: savedSlots
+        };
+        const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // 指定備份檔名
+        a.download = `順序抽籤(備份)_${getFormattedDate()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showSaveStatus(`✅ 已下載備份檔`);
+    }
+    window.exportJSON = exportJSON;
+
+    function importJSON(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = JSON.parse(e.target.result);
+                if (parsed && parsed.slots && Array.isArray(parsed.slots)) {
+                    const newSlots = parsed.slots.slice(0, 5);
+                    while(newSlots.length < 5) newSlots.push(null);
+                    
+                    savedSlots = newSlots;
+                    localStorage.setItem('group_draw_classes_data', JSON.stringify(savedSlots));
+                    updateSlotUI();
+                    showSaveStatus("✅ 備份檔匯入成功！");
+                } else {
+                    throw new Error("格式不正確");
+                }
+            } catch(err) {
+                showSaveStatus("❌ 匯入失敗：檔案格式不對");
+                console.error(err);
+            }
+        };
+        reader.readAsText(file);
+        input.value = ""; // 清空以便下次能選擇同一個檔案
+    }
+    window.importJSON = importJSON;
+
+    // --- 資料處理 ---
+    function updateWheelData() {
+        const raw = nameInput.value;
+        names = raw.split(/[\n,]+/).map(n => n.trim()).filter(n => n !== "");
+        colors = names.map((_, i) => {
+            const hue = (i * 360 / names.length) % 360;
+            return `hsl(${hue}, 80%, 60%)`;
+        });
+        angle = 0; 
+    }
+    window.updateWheelData = updateWheelData;
+    updateWheelData();
+
+    function shuffleNames() {
+        if (isSpinning) return;
+        for (let i = names.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [names[i], names[j]] = [names[j], names[i]];
+        }
+        nameInput.value = names.join('\n'); // 使用換行較好閱讀
+        updateWheelData();
+        playTick(500, 'sine', 0.1, 0.2);
+    }
+    window.shuffleNames = shuffleNames;
+
+    function clearResults() {
+        results = [];
+        resultList.innerHTML = '<div style="text-align: center; color: #555; margin-top: 20px; font-style: italic;">尚未產生數據<br>Waiting for experiment...</div>';
+        if (autoSortInterval) clearInterval(autoSortInterval);
+        isSpinning = false;
+    }
+    window.clearResults = clearResults;
+
+    // 匯出 Excel
+    function exportToExcel() {
+        if (results.length === 0) {
+            alert("目前沒有抽籤結果可以匯出喔！");
+            return;
+        }
+
+        let xmlContent = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="新細明體" x:CharSet="136" x:Family="Roman" ss:Size="12" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="sBorder">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/>
+   </Borders>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="抽籤結果">
+  <Table ss:ExpandedColumnCount="2" ss:ExpandedRowCount="${results.length + 1}" x:FullColumns="1"
+   x:FullRows="1" ss:DefaultRowHeight="30">
+   <Column ss:AutoFitWidth="0" ss:Width="60"/> 
+   <Column ss:AutoFitWidth="0" ss:Width="180"/> 
+   <Row ss:Height="30">
+    <Cell ss:StyleID="sBorder"><Data ss:Type="String">序號</Data></Cell>
+    <Cell ss:StyleID="sBorder"><Data ss:Type="String">姓名/組別</Data></Cell>
+   </Row>`;
+
+        results.forEach((name, index) => {
+            xmlContent += `
+   <Row ss:Height="30">
+    <Cell ss:StyleID="sBorder"><Data ss:Type="Number">${index + 1}</Data></Cell>
+    <Cell ss:StyleID="sBorder"><Data ss:Type="String">${name}</Data></Cell>
+   </Row>`;
+        });
+
+        xmlContent += `
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+        const blob = new Blob([xmlContent], { type: "application/vnd.ms-excel" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `抽籤順序結果_${getFormattedDate()}.xls`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    window.exportToExcel = exportToExcel;
+
+    // --- 核心邏輯：旋轉 ---
+    function startSpin() {
+        if (isSpinning || names.length === 0) return;
+        
+        isSpinning = true;
+        isStopping = false; 
+        
+        // 設定固定 7 秒的旋轉參數
+        spinStartTime = performance.now();
+        startAngle = angle;
+        
+        // 預先決定中獎者
+        currentWinnerIndex = Math.floor(Math.random() * names.length);
+        
+        // 計算目標角度
+        const slice = (Math.PI * 2) / names.length;
+        const pointerAngle = 1.5 * Math.PI; // 頂部指針 (270度)
+        
+        // 在中獎格內加上隨機偏移，避免每次都停在正中央
+        const offset = (Math.random() * 0.6 + 0.2) * slice;
+        let baseTarget = pointerAngle - (currentWinnerIndex * slice + offset);
+        
+        // 增加 5 到 8 圈的額外旋轉，看起來更刺激
+        // [Bug Fix] 加上 Math.floor 確保是「整數圈」，否則小數點圈數會導致指針完全偏離目標！
+        const extraSpins = Math.floor(5 + Math.random() * 3) * Math.PI * 2;
+        
+        // 正規化角度確保向前轉
+        while (baseTarget <= startAngle) {
+            baseTarget += Math.PI * 2;
+        }
+        
+        targetAngle = baseTarget + extraSpins;
+        lastTickIndex = -1;
+        playTick(600, 'square', 0.15, 0.1);
+    }
+
+    spinBtn.addEventListener('click', startSpin);
+
+    // 輪盤滑鼠互動 (點擊輪盤也能抽籤)
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        // 勾股定理：計算滑鼠到圓心的距離
+        const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+        
+        if (dist <= radius && !isSpinning && names.length > 0) {
+            canvas.style.cursor = 'pointer'; // 變為手指圖示
+        } else {
+            canvas.style.cursor = 'default';
+        }
+    });
+
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+        
+        // 如果點擊範圍在半徑內，就呼叫旋轉函式
+        if (dist <= radius) {
+            startSpin();
+        }
+    });
+
+    // 一鍵完成排序邏輯
+    function autoComplete() {
+        if (isSpinning || names.length === 0) return;
+        
+        // 鎖定狀態
+        isSpinning = true;
+        
+        autoSortInterval = setInterval(() => {
+            if (names.length === 0) {
+                clearInterval(autoSortInterval);
+                isSpinning = false;
+                createParticles(canvas.width/2, canvas.height/2, 200, '#ffffff'); // 結束煙火
+                return;
+            }
+
+            // 隨機選一個
+            const randomIndex = Math.floor(Math.random() * names.length);
+            const winnerName = names[randomIndex];
+
+            // 加入結果
+            results.push(winnerName);
+            addResultCard(results.length, winnerName);
+            
+            // 視覺特效
+            playTick(800, 'triangle', 0.1, 0.1);
+            createParticles(centerX, centerY - radius * 0.5, 10, '#a55eea');
+
+            // 移除並更新 UI
+            names.splice(randomIndex, 1);
+            nameInput.value = names.join('\n');
+            updateWheelData();
+
+        }, 300); // 每 300 毫秒抽出一個
+    }
+    window.autoComplete = autoComplete;
+
+    // 處理獲勝邏輯 (原本的旋轉抽籤)
+    function handleWin(winnerIndex) {
+        const winnerName = names[winnerIndex];
+        
+        toastName.innerText = winnerName;
+        toast.style.opacity = 1;
+        toast.style.transform = "translate(-50%, -50%) scale(1.1)";
+        
+        playTick(800, 'triangle', 0.2, 0.5);
+
+        createParticles(centerX, centerY - radius, 50, colors[winnerIndex]);
+
+        results.push(winnerName);
+        addResultCard(results.length, winnerName);
+
+        setTimeout(() => {
+            toast.style.opacity = 0;
+            toast.style.transform = "translate(-50%, -50%) scale(1)";
+
+            names.splice(winnerIndex, 1);
+            
+            // 自動清空最後一支籤
+            if (names.length === 1) {
+                const lastName = names[0];
+                results.push(lastName);
+                addResultCard(results.length, lastName);
+                names = []; 
+            }
+
+            nameInput.value = names.join('\n');
+            updateWheelData(); 
+            
+            isSpinning = false; 
+            
+            if (names.length === 0) {
+                createParticles(canvas.width/2, canvas.height/2, 200, '#ffffff');
+            }
+        }, 1000); 
+    }
+
+    function addResultCard(order, name) {
+        if (results.length === 1) resultList.innerHTML = '';
+
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.innerHTML = `
+            <div class="order-badge">${order}</div>
+            <div class="result-name">${name}</div>
+        `;
+        resultList.appendChild(card);
+        resultList.scrollTop = resultList.scrollHeight;
+    }
+
+    // --- 繪圖與動畫循環 ---
+    
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y;
+            this.color = color;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.03 + 0.01;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.1; 
+            this.life -= this.decay;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = this.life;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    function createParticles(x, y, count, color) {
+        for(let i=0; i<count; i++) {
+            particles.push(new Particle(x, y, color));
+        }
+    }
+
+    function animate() {
+        ctx.fillStyle = 'rgba(5, 5, 8, 0.2)'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (isSpinning) {
+            // 如果是一鍵排序模式，不執行固定時間物理
+            if (!autoSortInterval) {
+                const now = performance.now();
+                let elapsed = now - spinStartTime;
+                if (elapsed >= SPIN_DURATION) {
+                    elapsed = SPIN_DURATION;
+                }
+                
+                // 使用 easeOutQuart 緩動函數，讓旋轉平滑停止
+                const t = elapsed / SPIN_DURATION;
+                const easeOut = 1 - Math.pow(1 - t, 4);
+                
+                const prevAngle = angle;
+                angle = startAngle + (targetAngle - startAngle) * easeOut;
+                angularVel = angle - prevAngle; // 計算角速度用於特效和音效
+
+                if (names.length > 0) {
+                    const slice = (Math.PI * 2) / names.length;
+                    const currentTickIndex = Math.floor(((angle % (Math.PI * 2)) + (Math.PI * 2)) % (Math.PI * 2) / slice);
+                    if (currentTickIndex !== lastTickIndex && angularVel > 0.005) {
+                        playTick(300 + angularVel * 300, 'sine', 0.05 + angularVel * 0.1);
+                        lastTickIndex = currentTickIndex;
+                    }
+                }
+
+                if (elapsed === SPIN_DURATION && !isStopping) {
+                    isStopping = true;
+                    handleWin(currentWinnerIndex);
+                }
+            } else {
+                // 自動排序時，輪盤慢速空轉裝飾
+                angle += 0.02;
+                angularVel = 0.02;
+            }
+        }
+
+        // 繪製輪盤
+        if (names.length > 0) {
+            const slice = (Math.PI * 2) / names.length;
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle);
+
+            names.forEach((name, i) => {
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, i * slice, (i + 1) * slice);
+                ctx.fillStyle = colors[i];
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.rotate(i * slice + slice / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                const fontSize = Math.min(radius/6, 24); 
+                ctx.font = `bold ${fontSize}px Arial`;
+                ctx.shadowColor = "rgba(0,0,0,0.8)";
+                ctx.shadowBlur = 4;
+                ctx.fillText(name, radius - 20, 8);
+                ctx.restore();
+            });
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.beginPath();
+            ctx.arc(0, 0, radius + 5, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0, 242, 255, ${0.3 + angularVel * 2})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.restore();
+        } else {
+            ctx.fillStyle = "#444";
+            ctx.font = "30px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("EMPTY SYSTEM", centerX, centerY);
+        }
+
+        // 繪製指針
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.beginPath();
+        ctx.moveTo(-15, -radius - 10);
+        ctx.lineTo(15, -radius - 10);
+        ctx.lineTo(0, -radius + 25);
+        ctx.fillStyle = '#ff00ea';
+        ctx.shadowColor = '#ff00ea';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.restore();
+
+        // 中心裝飾蓋
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw(ctx);
+            if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+
+</script>
+</body>
+</html>
