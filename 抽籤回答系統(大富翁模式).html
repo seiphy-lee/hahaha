@@ -209,7 +209,6 @@
             border: 2px solid #111;
             box-shadow: 3px 3px 0px #111;
             font-weight: bold;
-            /* 移除了 color: #111，改由 HTML 中的 tailwind class 獨立控制，以支援白字 */
             transition: all 0.1s;
         }
         .btn-black-border:active {
@@ -263,82 +262,39 @@
                     playTone(600, 'sine', 0.05, 0.1); 
                     break;
                 case 'win':
-                    // Fanfare
                     playTone(523.25, 'triangle', 0.6, 0.3); 
                     setTimeout(() => playTone(659.25, 'triangle', 0.6, 0.3), 100);
                     setTimeout(() => playTone(783.99, 'triangle', 0.6, 0.3), 200);
                     setTimeout(() => playTone(1046.50, 'triangle', 1.2, 0.4), 300);
                     break;
                 case 'draw-chance':
-                    playTone(659.25, 'sine', 0.2, 0.2); // E5
-                    setTimeout(() => playTone(880, 'sine', 0.4, 0.3), 150); // A5
+                    playTone(659.25, 'sine', 0.2, 0.2); 
+                    setTimeout(() => playTone(880, 'sine', 0.4, 0.3), 150); 
                     break;
                 case 'draw-fate':
-                    playTone(440, 'triangle', 0.2, 0.2); // A4
-                    setTimeout(() => playTone(329.63, 'triangle', 0.4, 0.3), 150); // E4
+                    playTone(440, 'triangle', 0.2, 0.2); 
+                    setTimeout(() => playTone(329.63, 'triangle', 0.4, 0.3), 150); 
+                    break;
+                case 'teleport-start':
+                    playTone(400, 'sine', 0.1, 0.1);
+                    setTimeout(() => playTone(500, 'sine', 0.1, 0.1), 100);
+                    setTimeout(() => playTone(600, 'sine', 0.4, 0.1), 200);
+                    break;
+                case 'teleport-end':
+                    playTone(880, 'triangle', 0.15, 0.2);
+                    setTimeout(() => playTone(1046.50, 'triangle', 0.3, 0.2), 150);
                     break;
             }
         };
 
-        // --- Data & Constants ---
         const CELL_COLORS = [
             "#FFD1DC", "#FFDFD3", "#FFFFBA", "#D0F0C0", 
             "#BAE1FF", "#E6E6FA", "#F0E68C", "#FFB7B2"
         ];
 
-        const INITIAL_CHANCE_TEXT = `下一位抽到的同學答對，加1分
-下一位抽到的同學答對，加2分
-下一位抽到的同學答對，加3分
-下一位抽到的同學答對，平時成績直接加5分 (大獎！)
-下一位抽到的同學答對，老師唱歌
-下一位抽到的同學答對，全班起立鼓掌
-下一位抽到的同學答對，他左邊的同學講笑話
-下一位抽到的同學答對，他右邊的同學青蛙跳3下
-下一位抽到的同學答對，獲得「免死金牌」一張
-下一位抽到的同學答對，老師請喝飲料 (超級大獎！)
-下一位抽到的同學答對，他與好哥們(或好姊妹)共3人一起加2分
-下一位抽到的同學答對，可以指定下一個回答問題的幸運兒
-下一位抽到的同學答對，獲得「作業減半」卡一張
-下一位抽到的同學答對，老師跳一段抖音舞
-下一位抽到的同學答對，今天下課提早1分鐘
-下一位抽到的同學答對，獲得一張「Pass卡」(可無條件略過一次問題)
-下一位抽到的同學答對，全班給予愛的鼓勵
-下一位抽到的同學答對，老師代替該同學做5個伏地挺身
-下一位抽到的同學答對，該同學可以問老師一個與課程無關的八卦問題
-下一位抽到的同學答對，獲得「求救卡」一張 (未來可指定同學代答)
-下一位抽到的同學答對，該同學今天的筆記可以少寫一頁
-下一位抽到的同學答對，前後左右的同學一起歡呼「你最棒！」
-下一位抽到的同學答對，老師必須真誠地稱讚該同學30秒
-下一位抽到的同學答對，全班一起唱生日快樂歌 (就當他生日吧)
-下一位抽到的同學答對，該同學可以選擇今天的下課音樂
-下一位抽到的同學答對，老師模仿一種動物叫聲
-下一位抽到的同學答對，請上台跟老師擊掌
-下一位抽到的同學答對，可以上台跟老師自拍合照`;
+        const INITIAL_CHANCE_TEXT = `下一位抽到的同學答對，加1分\n下一位抽到的同學答對，加2分\n下一位抽到的同學答對，加3分\n下一位抽到的同學答對，平時成績直接加5分 (大獎！)\n下一位抽到的同學答對，老師唱歌\n下一位抽到的同學答對，全班起立鼓掌\n下一位抽到的同學答對，他左邊的同學講笑話\n下一位抽到的同學答對，他右邊的同學青蛙跳3下\n下一位抽到的同學答對，獲得「免死金牌」一張\n下一位抽到的同學答對，老師請喝飲料 (超級大獎！)\n下一位抽到的同學答對，他與好哥們(或好姊妹)共3人一起加2分\n下一位抽到的同學答對，可以指定下一個回答問題的幸運兒\n下一位抽到的同學答對，獲得「作業減半」卡一張\n下一位抽到的同學答對，老師跳一段抖音舞\n下一位抽到的同學答對，今天下課提早1分鐘\n下一位抽到的同學答對，獲得一張「Pass卡」(可無條件略過一次問題)\n下一位抽到的同學答對，全班給予愛的鼓勵\n下一位抽到的同學答對，老師代替該同學做5個伏地挺身\n下一位抽到的同學答對，該同學可以問老師一個與課程無關的八卦問題\n下一位抽到的同學答對，獲得「求救卡」一張 (未來可指定同學代答)\n下一位抽到的同學答對，該同學今天的筆記可以少寫一頁\n下一位抽到的同學答對，前後左右的同學一起歡呼「你最棒！」\n下一位抽到的同學答對，老師必須真誠地稱讚該同學30秒\n下一位抽到的同學答對，全班一起唱生日快樂歌 (就當他生日吧)\n下一位抽到的同學答對，該同學可以選擇今天的下課音樂\n下一位抽到的同學答對，老師模仿一種動物叫聲\n下一位抽到的同學答對，請上台跟老師擊掌\n下一位抽到的同學答對，可以上台跟老師自拍合照\n這節課只上到這裡\n老師請全班喝飲料\n全班加1分`;
 
-        const INITIAL_FATE_TEXT = `下一位抽到的同學答錯，扣1分
-下一位抽到的同學答錯，扣2分
-下一位抽到的同學答錯，扣3分
-下一位抽到的同學答錯，當值日生1天
-下一位抽到的同學答錯，當值日生3天
-下一位抽到的同學答錯，負責擦黑板一星期
-下一位抽到的同學答錯，全班罰站1分鐘
-下一位抽到的同學答錯，該同學罰站到下課
-下一位抽到的同學答錯，直接當掉 (開玩笑的，平時成績扣3分)
-下一位抽到的同學答錯，免死金牌加持 (意想不到的幸運反轉！)
-下一位抽到的同學答錯，該同學深蹲10下
-下一位抽到的同學答錯，他左邊的同學連帶扣1分 (連坐法)
-下一位抽到的同學答錯，他右邊的同學連帶扣1分 (連坐法)
-下一位抽到的同學答錯，他與好哥們(或好姊妹)共3人一起扣2分
-下一位抽到的同學答錯，該同學要大聲對全班說「對不起，我上課沒專心」
-下一位抽到的同學答錯，該同學要把這題的正確答案抄在黑板上3次
-下一位抽到的同學答錯，該同學要負責倒今天教室的垃圾
-下一位抽到的同學答錯，老師再多問一個進階問題 (奪命連環問)
-下一位抽到的同學答錯，該同學要對全班做鬼臉保持10秒
-下一位抽到的同學答錯，該同學的座位移到講台旁邊(VIP特等席)一節課
-下一位抽到的同學答錯，該同學要請全班每人一顆糖果
-下一位抽到的同學答錯，全班一起大笑他三聲「哈哈哈」
-下一位抽到的同學答錯，該同學要模仿老師的一句口頭禪
-下一位抽到的同學答錯，該同學要畫一張自畫像貼在黑板旁`;
+        const INITIAL_FATE_TEXT = `下一位抽到的同學答錯，扣1分\n下一位抽到的同學答錯，扣2分\n下一位抽到的同學答錯，扣3分\n下一位抽到的同學答錯，當值日生1天\n下一位抽到的同學答錯，當值日生3天\n下一位抽到的同學答錯，負責擦黑板一星期\n下一位抽到的同學答錯，全班罰站1分鐘\n下一位抽到的同學答錯，該同學罰站到下課\n下一位抽到的同學答錯，直接當掉 (開玩笑的，平時成績扣3分)\n下一位抽到的同學答錯，免死金牌加持 (意想不到的幸運反轉！)\n下一位抽到的同學答錯，該同學深蹲10下\n下一位抽到的同學答錯，他左邊的同學連帶扣1分 (連坐法)\n下一位抽到的同學答錯，他右邊的同學連帶扣1分 (連坐法)\n下一位抽到的同學答錯，他與好哥們(或好姊妹)共3人一起扣2分\n下一位抽到的同學答錯，該同學要大聲對全班說「對不起，我上課沒專心」\n下一位抽到的同學答錯，該同學要把這題的正確答案抄在黑板上3次\n下一位抽到的同學答錯，該同學要負責倒今天教室的垃圾\n下一位抽到的同學答錯，老師再多問一個進階問題 (奪命連環問)\n下一位抽到的同學答錯，該同學要對全班做鬼臉保持10秒\n下一位抽到的同學答錯，該同學的座位移到講台旁邊(VIP特等席)一節課\n下一位抽到的同學答錯，該同學要請全班每人一顆糖果\n下一位抽到的同學答錯，全班一起大笑他三聲「哈哈哈」\n下一位抽到的同學答錯，該同學要模仿老師的一句口頭禪\n下一位抽到的同學答錯，該同學要畫一張自畫像貼在黑板旁\n下一節課小考\n這節課晚5分鐘下課`;
 
         // --- Helper Functions ---
         const generateRingCoordinates = (totalCells) => {
@@ -352,40 +308,31 @@
             w += Math.ceil(diff / 2);
             
             const coords = [];
-            // Top Row
             for (let i = 0; i < w; i++) coords.push({ x: i + 1, y: 1, type: 'top' });
-            // Right Column
             for (let i = 1; i < h; i++) coords.push({ x: w, y: i + 1, type: 'right' });
-            // Bottom Row
             for (let i = w - 2; i >= 0; i--) coords.push({ x: i + 1, y: h, type: 'bottom' });
-            // Left Column
             for (let i = h - 2; i > 0; i--) coords.push({ x: 1, y: i + 1, type: 'left' });
 
             return { w, h, coords: coords.slice(0, totalCells) };
         };
 
-        // --- Main Component ---
         const App = () => {
             const [view, setView] = useState('setup');
 
-            // Config State
-            const [inputNames, setInputNames] = useState("01愛因斯坦\n02牛頓\n03波耳\n04海森堡\n05薛丁格\n06費曼\n07居里夫人\n08馬克斯威爾\n09法拉第\n10伽利略\n11特斯拉\n12普朗克\n13赫茲\n14焦耳\n15歐姆");
+            const [inputNames, setInputNames] = useState("01 陳冠宇\n02 林雅婷\n03 黃柏翰\n04 張雅涵\n05 李彥廷\n06 王怡君\n07 吳柏睿\n08 劉佳穎\n09 蔡承恩\n10 楊詩雅\n11 許家宇\n12 鄭鈺婷\n13 謝哲睿\n14 洪欣妤\n15 郭宇軒\n16 邱佳蓉\n17 曾智偉\n18 廖慧君\n19 賴宗翰\n20 徐佩蓉\n21 潘俊傑\n22 葉美玲\n23 彭家豪\n24 莊美惠\n25 蘇志偉\n26 蕭淑芬\n27 簡志明\n28 鐘淑惠\n29 羅子軒\n30 高子涵\n31 陳恩熙\n32 林靖雯\n33 黃語彤\n34 張宇傑\n35 李柏宏\n36 王柏勳\n37 吳家瑋\n38 劉芷瑜\n39 蔡承翰\n40 楊品妤");
             const [numDice, setNumDice] = useState(2);
             const [chanceCellCount, setChanceCellCount] = useState(3);
             const [fateCellCount, setFateCellCount] = useState(3);
             const [chanceText, setChanceText] = useState(INITIAL_CHANCE_TEXT);
             const [fateText, setFateText] = useState(INITIAL_FATE_TEXT);
             
-            // Local Save State
             const [showSaveModal, setShowSaveModal] = useState(false);
             const [showDeckModal, setShowDeckModal] = useState(false);
             const [saveStatus, setSaveStatus] = useState("");
             
-            // Panel states (For modal dropdown and input)
             const [activeSlotIndex, setActiveSlotIndex] = useState(0);
             const [slotNameInput, setSlotNameInput] = useState("");
 
-            // 讀取瀏覽器 LocalStorage 內的 5 個班級資料
             const [savedSlots, setSavedSlots] = useState(() => {
                 const stored = localStorage.getItem('monopoly_classes_data');
                 return stored ? JSON.parse(stored) : [null, null, null, null, null];
@@ -397,29 +344,29 @@
                 }
             }, [activeSlotIndex, showSaveModal, savedSlots]);
 
-            // Game State
             const [namesList, setNamesList] = useState([]);
             const [boardConfig, setBoardConfig] = useState({ w: 10, h: 8, coords: [] });
             const [currentPos, setCurrentPos] = useState(0);
             const [isMoving, setIsMoving] = useState(false);
             const [lastRoll, setLastRoll] = useState([1, 1]); 
             const [gameMessage, setGameMessage] = useState("準備開始物理課抽籤！");
+            const [skipSpecial, setSkipSpecial] = useState(false); 
             
-            // Winner & Card Popup State
+            const [chanceHistory, setChanceHistory] = useState([]);
+            const [fateHistory, setFateHistory] = useState([]);
+            
             const [showWinner, setShowWinner] = useState(false);
             const [winnerInfo, setWinnerInfo] = useState({ name: "", index: -1 });
             const [drawnCard, setDrawnCard] = useState({ show: false, type: '', text: '' });
             
             useEffect(() => {
                 if(window.lucide) window.lucide.createIcons();
-            }, [view, lastRoll, showSaveModal, showDeckModal, drawnCard]);
+            }, [view, lastRoll, showSaveModal, showDeckModal, drawnCard, skipSpecial, namesList]);
 
-            // 當 savedSlots 改變時，自動存入 LocalStorage
             useEffect(() => {
                 localStorage.setItem('monopoly_classes_data', JSON.stringify(savedSlots));
             }, [savedSlots]);
 
-            // 即時同步骰子數量的畫面顯示
             useEffect(() => {
                 setLastRoll(prev => {
                     if (prev.length === numDice) return prev;
@@ -430,20 +377,30 @@
             const getNextValidPos = (startPos, direction = 1) => {
                 let next = (startPos + direction + namesList.length) % namesList.length;
                 let attempts = 0;
-                while (namesList[next]?.removed && attempts < namesList.length) {
+                
+                while (attempts < namesList.length) {
+                    const item = namesList[next];
+                    if (!item) break; 
+
+                    const isSpecialCell = item.name === '機會' || item.name === '命運' || item.name === '任意門';
+                    const shouldSkip = item.removed || (skipSpecial && isSpecialCell);
+
+                    if (!shouldSkip) {
+                        break; 
+                    }
+
                     next = (next + direction + namesList.length) % namesList.length;
                     attempts++;
                 }
+
                 if (attempts >= namesList.length) return startPos; 
                 return next;
             };
 
             const handleStartGame = () => {
-                // 1. 保留原本輸入的名單順序
                 let names = inputNames.split(/[\n,]+/).map(n => n.trim()).filter(n => n);
                 let finalContentStrings = [...names];
                 
-                // 2. 建立要插入的機會與命運卡牌陣列
                 const cardsToInsert = [];
                 const cCount = parseInt(chanceCellCount) || 0;
                 for (let i = 0; i < cCount; i++) {
@@ -454,31 +411,53 @@
                     cardsToInsert.push("命運");
                 }
 
-                // 將卡牌彼此打亂，避免機會全擠在一起
                 cardsToInsert.sort(() => Math.random() - 0.5);
 
-                // 3. 將機會與命運隨機「安插」到原本的名單順序中
                 for (const card of cardsToInsert) {
-                    // 在現有陣列長度內隨機挑一個位置插入
                     const randomIndex = Math.floor(Math.random() * (finalContentStrings.length + 1));
                     finalContentStrings.splice(randomIndex, 0, card);
                 }
 
-                // 總格子數由學生人數加上設定的卡牌數量決定 (為避免棋盤破版，最少設定為4格)
-                const numTotal = Math.max(4, finalContentStrings.length); 
-                
-                // 如果總數少於4(防呆機制)，補上空字串
-                while(finalContentStrings.length < numTotal) {
-                    finalContentStrings.push("空");
+                const baseCount = finalContentStrings.length; 
+                const doorCount = (baseCount % 2 === 0) ? 2 : 3; 
+
+                let mixItems = [...finalContentStrings];
+                if (doorCount === 3) {
+                    const randomIndex = Math.floor(Math.random() * (mixItems.length + 1));
+                    mixItems.splice(randomIndex, 0, "任意門");
                 }
 
-                const finalList = finalContentStrings.map(name => ({ name, removed: false }));
-                setNamesList(finalList);
+                const numTotal = Math.max(4, mixItems.length + 2); 
+                
+                while(mixItems.length < numTotal - 2) {
+                    mixItems.push("空");
+                }
 
                 const config = generateRingCoordinates(numTotal);
+                const { w, h } = config;
+                
+                const topLeftIndex = 0;
+                const bottomRightIndex = w + h - 2;
+
+                const finalList = new Array(numTotal).fill(null);
+                finalList[topLeftIndex] = { name: '任意門', removed: false, fixed: true };
+                finalList[bottomRightIndex] = { name: '任意門', removed: false, fixed: true };
+
+                let mixIdx = 0;
+                for (let i = 0; i < numTotal; i++) {
+                    if (finalList[i] === null) {
+                        finalList[i] = { name: mixItems[mixIdx], removed: false, fixed: false };
+                        mixIdx++;
+                    }
+                }
+
+                setNamesList(finalList);
                 setBoardConfig(config);
                 setCurrentPos(0);
-                setGameMessage("地圖生成完畢，請投擲骰子！");
+                setGameMessage("地圖與任意門生成完畢，請投擲骰子！");
+                
+                setChanceHistory([]);
+                setFateHistory([]);
                 
                 if (audioCtx.state === 'suspended') {
                     audioCtx.resume();
@@ -497,7 +476,6 @@
                 reader.readAsText(file);
             };
 
-            // --- 進階儲存機制相關函數 ---
             const handleSaveToCurrentSlot = () => {
                 const finalName = slotNameInput.trim() || `自訂班級 ${activeSlotIndex + 1}`;
                 const newData = { 
@@ -587,12 +565,36 @@
                 reader.readAsText(file);
                 e.target.value = null; 
             };
-            // ------------------------
 
             const handleWin = (finalIndex) => {
+                const landedObj = namesList[finalIndex];
+
+                if (landedObj.name === '任意門') {
+                    playSound('teleport-start');
+                    setGameMessage("🚪 進入任意門！時空傳送中...");
+                    
+                    const doorIndices = namesList
+                        .map((item, idx) => item.name === '任意門' ? idx : -1)
+                        .filter(idx => idx !== -1 && idx !== finalIndex);
+
+                    if (doorIndices.length > 0) {
+                        const targetIdx = doorIndices[Math.floor(Math.random() * doorIndices.length)];
+                        
+                        setTimeout(() => {
+                            setCurrentPos(targetIdx);
+                            playSound('teleport-end');
+                            setGameMessage("✨ 傳送完成！請等待下一回合操作。");
+                            setIsMoving(false); 
+                        }, 1500);
+                    } else {
+                        setGameMessage("✨ 糟糕！任意門好像故障了！");
+                        setIsMoving(false);
+                    }
+                    return; 
+                }
+
                 setIsMoving(false);
                 playSound('win');
-                const landedObj = namesList[finalIndex];
                 setGameMessage(`✨ 抽中：${landedObj.name || '未知'} ✨`);
                 
                 if (landedObj.name === '機會' || landedObj.name === '命運') {
@@ -605,8 +607,10 @@
 
             const rollDice = async () => {
                 if (isMoving) return;
-                if (namesList.every(item => item.removed)) {
-                    alert("所有名單皆已移除！請重設名單。");
+                
+                const validPeopleCount = namesList.filter(item => !item.removed && item.name !== '機會' && item.name !== '命運' && item.name !== '任意門').length;
+                if (validPeopleCount === 0) {
+                    alert("所有名單皆已移除！請回到設定重新開始。");
                     return;
                 }
 
@@ -657,8 +661,10 @@
 
             const startSlotMachine = () => {
                 if (isMoving) return;
-                if (namesList.every(item => item.removed)) {
-                    alert("所有名單皆已移除！請重設名單。");
+                
+                const validPeopleCount = namesList.filter(item => !item.removed && item.name !== '機會' && item.name !== '命運' && item.name !== '任意門').length;
+                if (validPeopleCount === 0) {
+                    alert("所有名單皆已移除！請回到設定重新開始。");
                     return;
                 }
 
@@ -666,7 +672,12 @@
                 setShowWinner(false);
                 setGameMessage("🎰 跑馬燈模式啟動！");
 
-                const validIndices = namesList.map((item, index) => item.removed ? -1 : index).filter(i => i !== -1);
+                const validIndices = namesList.map((item, index) => {
+                    const isSpecialCell = item.name === '機會' || item.name === '命運' || item.name === '任意門';
+                    const shouldSkip = item.removed || (skipSpecial && isSpecialCell);
+                    return shouldSkip ? -1 : index;
+                }).filter(i => i !== -1);
+                
                 const targetIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
                 const validCount = validIndices.length;
                 let currentValidIndexInList = validIndices.indexOf(currentPos);
@@ -706,9 +717,21 @@
             };
 
             const shuffleNames = () => {
-                const shuffled = [...namesList].sort(() => Math.random() - 0.5);
-                setNamesList(shuffled);
-                setGameMessage("名單已打亂");
+                const nonFixedItems = namesList.filter(item => !item.fixed);
+                
+                nonFixedItems.sort(() => Math.random() - 0.5);
+                
+                let nonFixedIdx = 0;
+                const newNamesList = namesList.map(item => {
+                    if (item.fixed) {
+                        return item; 
+                    } else {
+                        return nonFixedItems[nonFixedIdx++]; 
+                    }
+                });
+                
+                setNamesList(newNamesList);
+                setGameMessage("名單已打亂（起點與對角任意門不受影響）");
             };
             
             const handleKeepUser = () => {
@@ -730,7 +753,7 @@
             };
 
             const drawCard = (type) => {
-                if(isMoving) return; // 避免移動中也能抽卡
+                if(isMoving) return; 
                 
                 const list = type === '機會' 
                     ? chanceText.split(/[\n]+/).map(i => i.trim()).filter(i => i)
@@ -749,6 +772,12 @@
                     type: type,
                     text: randomItem
                 });
+
+                if (type === '機會') {
+                    setChanceHistory(prev => [randomItem, ...prev].slice(0, 3));
+                } else if (type === '命運') {
+                    setFateHistory(prev => [randomItem, ...prev].slice(0, 3));
+                }
             };
 
             const renderName = (name, isVertical) => {
@@ -775,30 +804,32 @@
                 return (
                     <div className="setup-container flex-col">
                         <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-5xl fade-in border border-gray-100 relative">
-                            {/* Save/Load Button (Absolute top right) */}
-                            <div className="absolute top-6 right-6 flex gap-3">
-                                <button 
-                                    onClick={() => setShowDeckModal(true)}
-                                    className="bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition flex items-center gap-2 font-bold text-sm"
-                                >
-                                    <i data-lucide="sparkles" className="w-4 h-4"></i> 編輯機會與命運
-                                </button>
-                                <button 
-                                    onClick={() => setShowSaveModal(true)}
-                                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition flex items-center gap-2 font-bold text-sm"
-                                >
-                                    <i data-lucide="hard-drive" className="w-4 h-4"></i> 班級設定存檔
-                                </button>
-                            </div>
-
-                            {/* --- 標題區域 (靠左，放大1.2倍) --- */}
-                            <div className="text-left mb-6 mt-4 px-2">
-                                <h1 className="font-bold text-blue-600 flex items-baseline justify-start gap-3 mb-2 whitespace-nowrap">
-                                    <i data-lucide="atom" className="w-10 h-10 self-center"></i>
-                                    <span className="text-[2.7rem] leading-none">抽籤回答(大富翁模式)</span>
-                                    <span className="text-lg text-gray-500 ml-2">---阿發老師設計</span>
-                                </h1>
-                                <p className="text-gray-500 ml-14">請先設定名單與參數，準備開始今天的課程！</p>
+                            {/* --- Header 區域 (含按鈕排版優化) --- */}
+                            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-6 mt-4 px-2 gap-4 border-b border-gray-100 pb-4">
+                                <div className="text-left w-full lg:w-auto">
+                                    <h1 className="font-bold text-blue-600 flex items-baseline justify-start gap-3 mb-2 flex-wrap">
+                                        <i data-lucide="atom" className="w-10 h-10 self-center shrink-0"></i>
+                                        <span className="text-[2.7rem] leading-none">抽籤回答(大富翁模式)</span>
+                                        <span className="text-[1.7rem] text-blue-600 ml-2 font-black tracking-wide">---阿發老師設計</span>
+                                    </h1>
+                                    <p className="text-gray-500 ml-14">請先設定名單與參數，準備開始今天的課程！</p>
+                                </div>
+                                
+                                {/* 將原本在右上角的設定按鈕，利用 Flexbox 移到標題文字的右下方 */}
+                                <div className="flex gap-3 w-full lg:w-auto ml-14 lg:ml-0 justify-start lg:justify-end shrink-0">
+                                    <button 
+                                        onClick={() => setShowDeckModal(true)}
+                                        className="bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition flex items-center gap-2 font-bold text-sm"
+                                    >
+                                        <i data-lucide="sparkles" className="w-4 h-4"></i> 編輯機會與命運
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowSaveModal(true)}
+                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition flex items-center gap-2 font-bold text-sm"
+                                    >
+                                        <i data-lucide="hard-drive" className="w-4 h-4"></i> 班級設定存檔
+                                    </button>
+                                </div>
                             </div>
 
                             {/* --- Quick Slots Container --- */}
@@ -830,7 +861,6 @@
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-4 flex flex-col justify-between">
                                     <div>
-                                        {/* --- 左右並排的機會與命運格子設定 --- */}
                                         <div className="flex gap-4">
                                             <div className="flex-1">
                                                 <label className="block text-sm font-bold text-green-700 mb-2">機會的格子數</label>
@@ -857,7 +887,6 @@
                                             </div>
                                         </div>
 
-                                        {/* --- 移到此處的 JSON 匯出匯入按鍵 --- */}
                                         <div className="flex gap-4 pt-6">
                                             <button 
                                                 onClick={exportJSON} 
@@ -906,7 +935,7 @@
                             </div>
                         </div>
 
-                        {/* --- Deck Setup Modal (機會命運編輯) --- */}
+                        {/* --- Deck Setup Modal --- */}
                         {showDeckModal && (
                             <div 
                                 className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center popup-overlay p-4"
@@ -1048,18 +1077,21 @@
                             const isRemoved = item.removed;
                             const isChance = item.name === '機會';
                             const isFate = item.name === '命運';
+                            const isDoor = item.name === '任意門';
 
                             let bgColor = isRemoved ? '#374151' : CELL_COLORS[index % CELL_COLORS.length];
                             let textColor = isRemoved ? '#9ca3af' : '#1e293b';
 
-                            // 針對機會與命運格子做專屬著色
                             if (!isRemoved) {
                                 if (isChance) {
-                                    bgColor = '#00B050'; // 機會綠底
-                                    textColor = '#ffffff'; // 機會白字
+                                    bgColor = '#00B050'; 
+                                    textColor = '#ffffff'; 
                                 } else if (isFate) {
-                                    bgColor = '#f59e0b'; // 命運橘黃底
-                                    textColor = '#ffffff'; // 命運白字
+                                    bgColor = '#f59e0b'; 
+                                    textColor = '#ffffff'; 
+                                } else if (isDoor) {
+                                    bgColor = '#a855f7'; 
+                                    textColor = '#ffffff'; 
                                 }
                             }
                             
@@ -1071,15 +1103,20 @@
                                         gridColumn: coord.x,
                                         gridRow: coord.y,
                                         backgroundColor: isActive ? 'white' : bgColor,
-                                        color: isActive ? '#000000' : textColor // 確保走到該格子時字體可見
+                                        color: isActive ? '#000000' : textColor 
                                     }}
                                 >
+                                    {isDoor && !isTopBottom && (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 mr-1 inline">
+                                            <path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z"/>
+                                        </svg>
+                                    )}
                                     {renderName(item.name, isTopBottom)}
                                 </div>
                             );
                         })}
 
-                        {/* --- 新版 Center Panel --- */}
+                        {/* --- Center Panel --- */}
                         <div className="center-panel">
                             {/* Header Area */}
                             <div className="flex justify-between items-center mb-2">
@@ -1096,11 +1133,40 @@
                             </div>
                             
                             {/* Message Board */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-xl mb-4 border border-blue-100 text-center shadow-sm min-h-[60px] flex items-center justify-center">
-                                <p className="text-xl font-bold text-blue-900 animate-pulse">{gameMessage}</p>
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-2 rounded-xl mb-4 border border-blue-100 shadow-sm min-h-[90px] grid grid-cols-4 items-center">
+                                {/* 左側：機會紀錄 */}
+                                <div className="col-span-1 h-full flex flex-col justify-start text-left border-r border-blue-200 pr-2 overflow-hidden">
+                                    <span className="text-[11px] font-bold text-green-700 mb-1 border-b border-green-200 pb-[2px]">最近機會</span>
+                                    <div className="flex flex-col overflow-hidden">
+                                        {chanceHistory.length === 0 && <span className="text-[11px] text-gray-400 mt-1">尚未抽取</span>}
+                                        {chanceHistory.map((msg, i) => (
+                                            <span key={`c-${i}`} className="text-[12px] font-bold text-[#ff0000] truncate leading-relaxed" title={msg}>
+                                                {msg}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* 中間：主訊息 */}
+                                <div className="col-span-2 px-2 flex items-center justify-center h-full text-center">
+                                    <p className="text-xl font-bold text-blue-900 animate-pulse">{gameMessage}</p>
+                                </div>
+
+                                {/* 右側：命運紀錄 */}
+                                <div className="col-span-1 h-full flex flex-col justify-start text-left border-l border-blue-200 pl-2 overflow-hidden">
+                                    <span className="text-[11px] font-bold text-amber-700 mb-1 border-b border-amber-200 pb-[2px]">最近命運</span>
+                                    <div className="flex flex-col overflow-hidden">
+                                        {fateHistory.length === 0 && <span className="text-[11px] text-gray-400 mt-1">尚未抽取</span>}
+                                        {fateHistory.map((msg, i) => (
+                                            <span key={`f-${i}`} className="text-[12px] font-bold text-[#ff0000] truncate leading-relaxed" title={msg}>
+                                                {msg}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Main Interactive Area (4 Columns) */}
+                            {/* Main Interactive Area */}
                             <div className="flex-1 flex justify-center items-center gap-4 md:gap-8 px-2 overflow-x-auto">
                                 
                                 {/* Col 1: Control Buttons */}
@@ -1122,10 +1188,24 @@
                                     </div>
 
                                     <button 
-                                        onClick={() => setCurrentPos(0)} disabled={isMoving} 
-                                        className="btn-black-border bg-gray-400 text-gray-900 hover:bg-gray-500 rounded-lg py-3 text-xl text-center"
+                                        onClick={() => setSkipSpecial(!skipSpecial)} disabled={isMoving} 
+                                        className={`btn-black-border rounded-lg py-3 text-lg font-bold text-center flex items-center justify-center gap-2 transition-all ${
+                                            skipSpecial 
+                                            ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-[inset_0_0_10px_rgba(0,0,0,0.2)]' 
+                                            : 'bg-slate-300 text-slate-700 hover:bg-slate-400'
+                                        }`}
+                                        title="開啟後，移動時將自動跳過機會、命運與任意門"
                                     >
-                                        歸零
+                                        {skipSpecial ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                                                <rect width="20" height="14" x="2" y="5" rx="7"/><circle cx="15" cy="12" r="3"/>
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                                                <rect width="20" height="14" x="2" y="5" rx="7"/><circle cx="9" cy="12" r="3"/>
+                                            </svg>
+                                        )}
+                                        {skipSpecial ? '忽略特殊格: 開' : '忽略特殊格: 關'}
                                     </button>
                                 </div>
 
@@ -1147,7 +1227,6 @@
                                         ))}
                                     </div>
                                     
-                                    {/* 加上黑色立體邊框，並維持白色文字 */}
                                     <button 
                                         onClick={rollDice}
                                         disabled={isMoving}
@@ -1157,7 +1236,6 @@
                                         <i data-lucide="dices" className="w-6 h-6"></i> 擲骰子
                                     </button>
                                     
-                                    {/* 加上黑色立體邊框，並維持白色文字 */}
                                     <button 
                                         onClick={startSlotMachine}
                                         disabled={isMoving}
@@ -1194,27 +1272,35 @@
                                     <div className="absolute top-20 right-20 text-5xl rotate-180">🎊</div>
                                 </div>
                                 
-                                <h2 className="text-4xl text-gray-600 mb-4 font-bold tracking-widest uppercase">
-                                    CONGRATULATIONS
+                                {/* 修改為「本次幸運星」及彩色漸層 */}
+                                <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-widest uppercase text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 drop-shadow-sm">
+                                    本次幸運星
                                 </h2>
+                                
+                                {/* 名單字體改為藍色漸層，使用 drop-shadow 營造 3D 效果，移除白邊 */}
                                 <div className="py-6">
-                                    <div className="text-[5rem] md:text-[7rem] font-black text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-orange-600 drop-shadow-lg leading-tight break-keep" style={{ WebkitTextStroke: '2px white' }}>
+                                    <div 
+                                        className="text-[5rem] md:text-[7rem] font-black text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 via-blue-500 to-blue-800 leading-tight break-keep" 
+                                        style={{ 
+                                            filter: 'drop-shadow(3px 3px 0px #1e3a8a) drop-shadow(6px 6px 0px rgba(30, 58, 138, 0.4))'
+                                        }}
+                                    >
                                         {winnerInfo.name}
                                     </div>
                                 </div>
 
-                                {/* Action Buttons */}
+                                {/* Action Buttons：加入 justify-center 使內容置中 */}
                                 <div className="mt-6 flex justify-center gap-6 relative z-10">
                                     <button 
                                         onClick={handleKeepUser}
-                                        className="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2"
+                                        className="px-8 py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2"
                                     >
                                         <i data-lucide="check-circle" className="w-8 h-8"></i>
                                         保留名單
                                     </button>
                                     <button 
                                         onClick={handleRemoveUser}
-                                        className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center gap-2"
+                                        className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white text-2xl font-bold rounded-xl shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2"
                                     >
                                         <i data-lucide="trash-2" className="w-8 h-8"></i>
                                         移除此人
