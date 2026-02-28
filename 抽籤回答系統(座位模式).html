@@ -214,6 +214,17 @@
             z-index: 5;
         }
 
+        /* 匯出匯入區塊 */
+        #data-management-container {
+            width: 100%;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-sizing: border-box;
+        }
+
         /* 快速切換班級按鈕區 */
         #quick-slots-container {
             width: 100%;
@@ -554,6 +565,23 @@
         </div>
 
         <div id="sidebar-container">
+            <!-- 新增：匯出匯入區塊 -->
+            <div id="data-management-container">
+                <h4 style="color: var(--success-color); margin-top: 0; margin-bottom: 12px; text-align: center; font-size: 1.1rem;">💾 存檔與讀取</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="exportToJson()" style="background: linear-gradient(45deg, var(--success-color), #059669); width: 100%;">
+                        ⬇️ 匯出進度與班級
+                    </button>
+                    
+                    <div class="file-input-wrapper" style="margin: 0; padding: 0; border: none; width: 100%;">
+                        <label for="json-upload-sidebar" style="margin: 0; background-color: var(--blue-color); text-align: center;">
+                            ⬆️ 匯入存檔
+                        </label>
+                        <input type="file" id="json-upload-sidebar" accept=".json" style="display: none;" onchange="importFromJson(this)">
+                    </div>
+                </div>
+            </div>
+
             <!-- 新增：快速切換班級區塊 -->
             <div id="quick-slots-container">
                 <h4 style="color: var(--accent-color); margin-top: 0; margin-bottom: 12px; text-align: center; font-size: 1.1rem;">⚡ 快速切換班級</h4>
@@ -589,7 +617,7 @@
 
     <!-- 本機 JSON 班級存檔工具 (取代原本的雲端設定) -->
     <div id="save-panel" class="control-panel">
-        <h3 style="margin-top: 0; color: var(--accent-color);">💾 班級資料與存檔管理</h3>
+        <h3 style="margin-top: 0; color: var(--accent-color);">💾 班級資料設定</h3>
         
         <label style="font-size: 0.9rem; color: #cbd5e1;">選擇記憶槽 (共5槽):</label>
         <select id="slot-selector" class="slot-input" onchange="updateSlotNameInput()">
@@ -608,22 +636,7 @@
         </div>
 
         <hr style="border: 0; border-top: 1px solid #334155; margin: 15px 0;">
-        <p style="font-size: 0.8rem; color: #94a3b8;">將這 5 個槽位的資料打包下載，或是從之前的檔案匯入：</p>
-        
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <button onclick="exportToJson()" style="background: linear-gradient(45deg, var(--success-color), #059669);">
-                ⬇️ 匯出所有資料 (下載 JSON)
-            </button>
-            
-            <div class="file-input-wrapper" style="margin: 0; padding: 0; border: none;">
-                <label for="json-upload" style="margin: 0; background-color: var(--blue-color);">
-                    ⬆️ 匯入資料 (讀取 JSON)
-                </label>
-                <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="importFromJson(this)">
-            </div>
-            
-            <button onclick="toggleSavePanel()" class="danger" style="margin-top:5px;">關閉面板</button>
-        </div>
+        <button onclick="toggleSavePanel()" class="danger" style="width: 100%;">關閉面板</button>
     </div>
 
     <!-- 中獎視窗 -->
@@ -654,7 +667,19 @@
             2: null,
             3: null,
             4: null,
-            5: null
+            5: {
+                name: "練習用",
+                rows: 6,
+                cols: 6,
+                seats: [
+                    { val: "(X)", rm: true }, { val: "36 王柏勳", rm: false }, { val: "18 廖慧君", rm: false }, { val: "07 吳柏睿", rm: false }, { val: "24 莊美惠", rm: false }, { val: "(X)", rm: true },
+                    { val: "32 林靖雯", rm: false }, { val: "10 楊詩雅", rm: false }, { val: "19 賴宗翰", rm: false }, { val: "29 羅子軒", rm: false }, { val: "40 楊品妤", rm: false }, { val: "20 徐佩蓉", rm: false },
+                    { val: "33 黃語彤", rm: false }, { val: "15 郭宇軒", rm: false }, { val: "05 李彥廷", rm: false }, { val: "06 王怡君", rm: false }, { val: "09 蔡承恩", rm: false }, { val: "25 蘇志偉", rm: false },
+                    { val: "11 許家宇", rm: false }, { val: "12 鄭鈺婷", rm: false }, { val: "39 蔡承翰", rm: false }, { val: "01 陳冠宇", rm: false }, { val: "34 張宇傑", rm: false }, { val: "35 李柏宏", rm: false },
+                    { val: "38 劉芷瑜", rm: false }, { val: "13 謝哲睿", rm: false }, { val: "37 吳家瑋", rm: false }, { val: "17 曾智偉", rm: false }, { val: "02 林雅婷", rm: false }, { val: "21 潘俊傑", rm: false },
+                    { val: "26 蕭淑芬", rm: false }, { val: "30 高子涵", rm: false }, { val: "16 邱佳蓉", rm: false }, { val: "27 簡志明", rm: false }, { val: "23 彭家豪", rm: false }, { val: "03 黃柏翰", rm: false }
+                ]
+            }
         };
 
         // 網頁載入時初始化
@@ -805,7 +830,7 @@
 
             updateSlotUI();
             playSound('confirm');
-            alert(`✅ 班級「${className}」已成功暫存至槽位 ${slotId}！\n\n(提示：若要永久保存，請記得點擊「匯出所有資料」下載 JSON 檔喔)`);
+            alert(`✅ 班級「${className}」已成功暫存至槽位 ${slotId}！\n\n(提示：若要永久保存，請記得點擊右側的「匯出進度與班級」下載 JSON 檔喔)`);
         }
 
         // 共用的讀取邏輯 (抽出獨立成一個函數，符合 DRY 原則)
@@ -855,28 +880,41 @@
             loadDataIntoGrid(data);
         }
 
-        // --- 新增：匯出 JSON 檔案 (JSON.stringify) ---
+        // --- 新增(v2.0)：匯出 JSON 檔案，現在包含當前抽籤進度！ ---
         function exportToJson() {
-            // 老師小提示：我們用 JSON.stringify 把 JavaScript 物件變成文字格式，參數 null, 2 則是為了讓它自動排版換行，比較好看。
-            const dataStr = JSON.stringify(classSlots, null, 2);
+            // 首先擷取畫面上「目前的」抽籤與排版狀態
+            const currentBoardData = {
+                rows: parseInt(document.getElementById('rows-input').value),
+                cols: parseInt(document.getElementById('cols-input').value),
+                seats: window.seats.map(s => ({
+                    val: s.input.innerText,
+                    rm: s.removed // 包含已被抽中或排除的狀態！
+                }))
+            };
+
+            // 將槽位資料與當前進度一起打包
+            const exportData = {
+                version: "2.0",
+                classSlots: classSlots,
+                currentBoard: currentBoardData
+            };
+
+            // 轉成 JSON 格式文字
+            const dataStr = JSON.stringify(exportData, null, 2);
             
-            // 將文字轉變成一個可以下載的二進位大物件 (Blob)
+            // 下載流程
             const blob = new Blob([dataStr], { type: "application/json" });
             const url = URL.createObjectURL(blob);
-            
-            // 建立一個隱藏的超連結來觸發下載
             const a = document.createElement("a");
             a.href = url;
-            a.download = "抽籤回答座位模式(備份).json";
+            a.download = "抽籤回答(含進度存檔).json";
             document.body.appendChild(a);
             a.click();
-            
-            // 下載完畢後清理掉這個連結
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
-        // --- 新增：匯入 JSON 檔案 (JSON.parse) ---
+        // --- 新增(v2.0)：匯入 JSON 檔案，自動還原進度 ---
         function importFromJson(input) {
             const file = input.files[0];
             if (!file) return;
@@ -884,11 +922,22 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    // 老師小提示：把讀取到的文字，用 JSON.parse 還原成原來的 JavaScript 物件。
                     const parsedData = JSON.parse(e.target.result);
-                    classSlots = parsedData;
+                    
+                    // 判斷是否為包含進度的新版結構 (v2.0)
+                    if (parsedData.version === "2.0") {
+                        classSlots = parsedData.classSlots;
+                        // 立刻讀取並還原上次抽籤到一半的畫面狀態！
+                        if (parsedData.currentBoard) {
+                            loadDataIntoGrid(parsedData.currentBoard);
+                        }
+                    } else {
+                        // 針對舊版純 classSlots 的兼容處理
+                        classSlots = parsedData;
+                    }
+
                     updateSlotUI();
-                    alert("✅ 成功匯入 JSON 班級檔案！\n請從上方「選擇記憶槽」讀取你要的班級。");
+                    alert("✅ 成功匯入存檔資料！\n班級槽位已更新，如果有儲存進度，畫面也已還原。");
                 } catch(err) {
                     alert("❌ 糟糕！這個 JSON 檔案的格式好像不對喔。");
                     console.error(err);
@@ -1171,4 +1220,3 @@
     </script>
 </body>
 </html>
-
