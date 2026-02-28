@@ -529,14 +529,14 @@
         <h1>⚛️ 抽籤回答(座位模式)<span style="font-size: 0.6em; color: #ffc000;">---阿發老師設計</span></h1>
         <div class="header-right">
             <div class="controls">
-                <label>行: <input type="number" id="rows-input" value="5" min="1" max="10"></label>
-                <label>列: <input type="number" id="cols-input" value="6" min="1" max="10"></label>
+                <label>列: <input type="number" id="rows-input" value="5" min="1" max="10"></label>
+                <label>排: <input type="number" id="cols-input" value="6" min="1" max="10"></label>
                 <!-- 將原本的雲端按鈕改成班級管理 -->
+                <button id="reset-btn" onclick="resizeGrid()">重設座位</button>
                 <button id="save-btn" onclick="toggleSavePanel()">💾 班級存檔管理</button>
                 <button onclick="toggleImportPanel()">📂 匯入名單</button>
                 <button class="toggle-mode" id="mode-btn" onclick="toggleExcludeMode()">🚫 設定排除名單</button>
                 <button id="view-btn" onclick="toggleView()">🔄 切換視角</button>
-                <button id="reset-btn" onclick="resizeGrid()">重設座位</button>
             </div>
             <div class="hint-text">
                 提示：<br>
@@ -1171,3 +1171,4 @@
     </script>
 </body>
 </html>
+
