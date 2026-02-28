@@ -54,9 +54,6 @@
         button:hover { transform: scale(1.02); box-shadow: 0 0 15px rgba(0, 210, 255, 0.5); }
         button:active { transform: scale(0.98); }
 
-        input[type="range"] { width: 100%; -webkit-appearance: none; height: 4px; background: #444; outline: none; border-radius: 2px; margin-top: 5px; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #00d2ff; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 10px #00d2ff; }
-        
         table { width: 100%; border-collapse: collapse; font-size: 0.9em; margin-bottom: 15px; }
         th { text-align: left; color: #888; padding: 4px; font-size: 0.8em; }
         td { padding: 4px; border-bottom: 1px solid #333; }
@@ -76,19 +73,8 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-overlay" class="overlay-panel">
-        <h2>物理參數控制面板</h2>
-        <div class="control-group">
-            <label>小精靈速度</label>
-            <input type="range" id="speedSlider" min="1.5" max="5" value="2.5" step="0.1">
-        </div>
-        <div class="control-group">
-            <label>幽靈感知半徑</label>
-            <input type="range" id="ghostRangeSlider" min="50" max="400" value="150" step="10">
-        </div>
-        <div class="control-group">
-            <label>幽靈速度</label>
-            <input type="range" id="ghostSpeedSlider" min="0.5" max="3" value="1.5" step="0.1">
-        </div>
+        <h2>小精靈---阿發老師設計</h2>
+        
         <div id="score-board">
             <div style="display:flex; flex-direction:column;">
                 <span style="font-size:0.8em; color:#aaa">SCORE</span>
@@ -302,17 +288,13 @@
         const bigCoin = { x: -100, y: -100, spawnTime: 0, duration: 5000, value: 20 };
         const pacman = { x: GRID_SIZE * 1.5, y: GRID_SIZE * 1.5, radius: 12, speed: 2.5, dx: 0, dy: 0, nextDx: 0, nextDy: 0, angle: 0, mouthOpen: 0, mouthSpeed: 0.2 };
         
-        // 幽靈定義
+        // 幽靈定義 (保留預設速度與感知半徑)
         const ghosts = [
             { x: GRID_SIZE*9.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostRed, color: COLORS.ghostRed, dx: 1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 },
             { x: GRID_SIZE*10.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*10.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostYellow, color: COLORS.ghostYellow, dx: -1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 },
             { x: GRID_SIZE*9.5, y: GRID_SIZE*10.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*10.5, originalColor: COLORS.ghostGreen, color: COLORS.ghostGreen, dx: 0, dy: -1, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 }
         ];
         let ghostDetectionRadius = 150;
-
-        document.getElementById('speedSlider').addEventListener('input', (e) => pacman.speed = parseFloat(e.target.value));
-        document.getElementById('ghostRangeSlider').addEventListener('input', (e) => ghostDetectionRadius = parseFloat(e.target.value));
-        document.getElementById('ghostSpeedSlider').addEventListener('input', (e) => ghosts.forEach(g => g.speed = parseFloat(e.target.value)));
 
         document.addEventListener('keydown', (e) => {
             if(!gameStarted || gameOver || gameWin) return;
