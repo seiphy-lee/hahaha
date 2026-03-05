@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">載入中... 簽到系統</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 350px;
+            z-index: 10;
+            position: relative;
+        }
+        h2 { color: #0056b3; margin-bottom: 5px; }
+        .subtitle { color: #666; font-size: 0.9em; margin-bottom: 10px; font-weight: bold;}
+        .input-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: bold;}
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+        select:focus { outline: none; border-color: #0056b3; }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        #error-msg, #success-msg {
+            display: none;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        #error-msg { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        #success-msg { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+        
+        .debug-banner {
+            background: #ffc107; color: #856404; padding: 8px; font-size: 0.85rem;
+            margin-bottom: 15px; border-radius: 5px; border: 1px solid #ffeeba; display: none; 
+            font-weight: bold;
+        }
+
+        #anim-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5;
+        }
+        .teacher-link { font-size: 0.8em; color: #999; text-decoration: underline; cursor: pointer; display: inline-block; margin-top: 15px;}
+
+        .status-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        .status-tag {
+            font-weight: bold;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="anim-canvas"></canvas>
+
+    <div class="container" id="main-box">
+        <h2 id="display-course">⚛️ 載入中...</h2>
+        <div class="subtitle" id="display-class">連線至資料庫中...</div>
+        
+        <h2 style="margin-top: 5px; margin-bottom: 20px;">源理與阿發老師設計</h2>
+        
+        <div id="debug-banner" class="debug-banner">👨‍🏫 教師權限已啟用 (無設備限制)</div>
+
+        <div id="form-area">
+            <form id="attendance-form" onsubmit="submitData(event);">
+                
+                <div class="input-group">
+                    <label>請選擇姓名 (Select Student)</label>
+                    <select id="studentSelect" required disabled>
+                        <option value="" disabled selected>🔄 正在向資料庫載入名單...</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submit-btn" disabled>請稍候...</button>
+            </form>
+        </div>
+
+        <div id="error-msg">
+            ⚠️ <strong>設備錯誤</strong><br>
+            請使用學校配發的 Chromebook 進行簽到。<br>
+            <span class="teacher-link" onclick="teacherLogin()">[我是老師，解除限制]</span>
+        </div>
+
+        <div id="success-msg"></div>
+    </div>
+
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {finishSubmission();}"></iframe>
+
+    <script>
+        // ================= ★★★ 請填入您的四個常數 ★★★ =================
+        // 請記得在這裡填入您實際的表單網址、題目 ID 和 API 網址
+        const GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSczdWE9RMIj9tET0PySsPlqfj9fRNkRI6phKGKdS2zVeGOysw/formResponse"; 
+        const ENTRY_STUDENT = "entry.2071466222";  
+        const API_URL = "https://script.google.com/macros/s/AKfycbzp4u0HACQUogHFIGR9nnR6MnUmXn1peXlhdiSKlX_Nxebq3J6ica4sda9w-BW7ucLC/exec"; 
+        const TEACHER_PASSWORD = "huleefafa"; 
+        // ====================================================================
+
+        let limitHour = 0;
+        let limitMinute = 0;
+        let absentHour = 0;   // ★ 新增：接收曠課小時
+        let absentMinute = 0; // ★ 新增：接收曠課分鐘
+        let currentClassName = ""; 
+        let submittedStudentName = ""; 
+
+        var submitted = false;
+        var isTeacherMode = localStorage.getItem('physics_teacher_mode') === 'true';
+
+        window.onload = function() {
+            const isChromebook = navigator.userAgent.indexOf("CrOS") !== -1;
+            if (isChromebook || isTeacherMode) {
+                if (isTeacherMode) document.getElementById('debug-banner').style.display = 'block';
+                fetchDataFromDatabase();
+            } else {
+                document.getElementById('form-area').style.display = 'none';
+                document.getElementById('error-msg').style.display = 'block';
+            }
+        };
+
+        function fetchDataFromDatabase() {
+            if(API_URL.includes("填入您剛剛部署的") || API_URL.includes("填入您最新發佈的_API網址")) {
+                document.getElementById('display-course').innerText = "⚠️ 系統設定未完成";
+                document.getElementById('display-class').innerText = "請老師填入 API_URL";
+                return;
+            }
+
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === "success") {
+                        currentClassName = data.className;
+                        document.getElementById('page-title').innerText = `${data.className}班 ${data.courseName}簽到`;
+                        document.getElementById('display-course').innerText = `⚛️ ${data.courseName}簽到`;
+                        document.getElementById('display-class').innerText = `班級：${data.className} 班`;
+
+                        // 讀取遲到時間
+                        const timeParts = data.limitTime.split(":");
+                        if(timeParts.length === 2) {
+                            limitHour = parseInt(timeParts[0]);
+                            limitMinute = parseInt(timeParts[1]);
+                        }
+                        
+                        // ★ 新增：從資料庫讀取曠課時間
+                        if(data.absentTime) {
+                            const absParts = data.absentTime.split(":");
+                            if(absParts.length === 2) {
+                                absentHour = parseInt(absParts[0]);
+                                absentMinute = parseInt(absParts[1]);
+                            }
+                        } else {
+                            // 舊版備用防呆：如果抓不到曠課時間，預設為遲到時間往後加 25 分鐘
+                            absentHour = limitHour;
+                            absentMinute = limitMinute + 25; 
+                        }
+                        
+                        const select = document.getElementById('studentSelect');
+                        select.innerHTML = '<option value="" disabled selected>請點擊這裡選擇...</option>';
+                        
+                        data.roster.forEach(studentStr => {
+                            let option = document.createElement("option");
+                            option.value = studentStr; 
+                            option.text = studentStr;
+                            select.appendChild(option);
+                        });
+
+                        select.disabled = false;
+                        const btn = document.getElementById('submit-btn');
+                        btn.disabled = false;
+                        btn.innerText = "確認簽到";
+                        
+                        checkDailyStatus(data.className);
+                    }
+                })
+                .catch(error => {
+                    console.error("抓取資料失敗:", error);
+                    document.getElementById('studentSelect').innerHTML = '<option value="" disabled>網路錯誤，載入失敗</option>';
+                    alert("網路連線異常，無法載入班級資料，請重新整理頁面。");
+                });
+        }
+
+        function teacherLogin() {
+            if (prompt("請輸入教師密碼:") === TEACHER_PASSWORD) {
+                localStorage.setItem('physics_teacher_mode', 'true');
+                location.reload();
+            } else {
+                alert("密碼錯誤");
+            }
+        }
+
+        function checkDailyStatus(className) {
+            const todayStr = new Date().toDateString(); 
+            const storageKey = 'physics_attendance_' + className;
+            const lastSignDate = localStorage.getItem(storageKey);
+            if (lastSignDate === todayStr && !isTeacherMode) showAlreadySignedUI();
+        }
+
+        function submitData(event) {
+            event.preventDefault(); 
+            submitted = true;
+            
+            const form = document.getElementById('attendance-form');
+            form.action = GOOGLE_FORM_URL;
+            form.method = "POST";
+            form.target = "hidden_iframe"; 
+            
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.innerText = "資料傳送中...";
+            
+            submittedStudentName = document.getElementById('studentSelect').value;
+            createHiddenInput(form, ENTRY_STUDENT, submittedStudentName);
+            form.submit(); 
+        }
+
+        function createHiddenInput(form, name, value) {
+            const oldInput = form.querySelector(`input[name="${name}"]`);
+            if (oldInput) oldInput.remove();
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        }
+
+        function finishSubmission() {
+            const storageKey = 'physics_attendance_' + currentClassName;
+            localStorage.setItem(storageKey, new Date().toDateString());
+            
+            document.getElementById('form-area').style.display = 'none';
+            const successMsg = document.getElementById('success-msg');
+            successMsg.style.display = 'block';
+            
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            // ★ 修正：完全使用 API 傳來的曠課時間精確計算，與後端 100% 同步
+            const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+            const limitSeconds = limitHour * 3600 + limitMinute * 60;
+            const absentThresholdSeconds = absentHour * 3600 + absentMinute * 60;
+
+            let statusText = "準時";
+            let statusColor = "#28a745"; 
+
+            // 判斷邏輯：大於或等於曠課時間即為曠課
+            if (currentSeconds >= absentThresholdSeconds) {
+                statusText = "曠課";
+                statusColor = "#dc3545"; 
+            } else if (currentSeconds > limitSeconds) {
+                statusText = "遲到";
+                statusColor = "#fd7e14"; 
+            }
+
+            successMsg.innerHTML = `
+                <h3>✅ 簽到成功</h3>
+                <p>${currentClassName}班 ${submittedStudentName} 資料已寫入</p>
+                <div class="status-info">
+                    登入時間：${timeString} <span class="status-tag" style="color: ${statusColor}">(${statusText})</span>
+                </div>
+            `;
+            
+            startPhysicsAnimation();
+        }
+
+        function showAlreadySignedUI() {
+            document.getElementById('form-area').style.display = 'none';
+            const successMsg = document.getElementById('success-msg');
+            successMsg.style.display = 'block';
+            successMsg.innerHTML = `<h3>👌 本日已完成簽到</h3><div class="status-info">系統處於穩態 (Stable State)</div>`;
+            startPhysicsAnimation();
+        }
+
+        function startPhysicsAnimation() {
+            const canvas = document.getElementById('anim-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            let x = canvas.width / 2, y = 50, r = 15, vy = 0, g = 0.8, bounce = -0.7; 
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = "#007bff"; ctx.fill();
+                ctx.closePath();
+                vy += g; y += vy;
+                if (y + r > canvas.height) { y = canvas.height - r; vy *= bounce; if (Math.abs(vy) < 1.5) { vy = 0; g = 0; } }
+                if (g !== 0) requestAnimationFrame(draw);
+            }
+            draw();
+        }
+        window.onresize = () => { document.getElementById('anim-canvas').width = window.innerWidth; document.getElementById('anim-canvas').height = window.innerHeight; };
+    </script>
+</body>
+</html>
