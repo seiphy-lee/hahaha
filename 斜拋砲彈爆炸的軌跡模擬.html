@@ -50,12 +50,15 @@
                     <span id="theta0-val" class="slider-value">60</span> °
                 </div>
                 
-                <div class="slider-container">
-                    <span class="slider-label">質量比例 (m₁/M)</span>
-                    <input type="range" id="massRatio" min="0.1" max="0.9" value="0.5" step="0.1">
-                    <span id="massRatio-val" class="slider-value">0.5</span>
+                <div class="flex items-center mb-2 mt-4">
+                    <span class="w-[140px] font-semibold text-gray-700 text-[0.9rem]">質量比 (m₁ : m₂)</span>
+                    <div class="flex items-center gap-2 flex-1 justify-end">
+                        <input type="number" id="mass1" min="1" max="5" value="1" step="1" class="w-16 p-1 text-center border rounded border-gray-300 text-green-700 font-bold focus:ring-2 focus:ring-blue-400 outline-none">
+                        <span class="font-bold text-gray-500">:</span>
+                        <input type="number" id="mass2" min="1" max="5" value="1" step="1" class="w-16 p-1 text-center border rounded border-gray-300 text-blue-700 font-bold focus:ring-2 focus:ring-blue-400 outline-none">
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">*設定碎片1佔總質量的比例</p>
+                <p class="text-xs text-gray-500 mt-1">*請輸入 1 到 5 的整數，設定兩碎片質量比</p>
             </div>
 
             <!-- Section 2: Fragment 1 -->
@@ -134,7 +137,8 @@
         const inputs = {
             v0: document.getElementById('v0'),
             theta0: document.getElementById('theta0'),
-            massRatio: document.getElementById('massRatio'),
+            mass1: document.getElementById('mass1'),
+            mass2: document.getElementById('mass2'),
             v1: document.getElementById('v1'),
             theta1: document.getElementById('theta1'),
         };
@@ -147,7 +151,6 @@
         const displays = {
             v0: document.getElementById('v0-val'),
             theta0: document.getElementById('theta0-val'),
-            massRatio: document.getElementById('massRatio-val'),
             v1: document.getElementById('v1-val'),
             theta1: document.getElementById('theta1-val'),
             time: document.getElementById('timeDisplay'),
@@ -194,10 +197,25 @@
         window.addEventListener('resize', resizeCanvas);
 
         // Input Event Listeners for Physics Parameters
-        Object.keys(inputs).forEach(key => {
+        ['v0', 'theta0', 'v1', 'theta1'].forEach(key => {
             inputs[key].addEventListener('input', (e) => {
                 displays[key].innerText = e.target.value;
-                // If physics params change, reset simulation
+                if (!isRunning) resetSimulation();
+            });
+        });
+
+        // 質量輸入框的事件監聽 (限制 1~5 整數)
+        ['mass1', 'mass2'].forEach(key => {
+            inputs[key].addEventListener('input', (e) => {
+                // 在輸入期間只做重置，不強制改變數字（避免輸入兩位數時卡住）
+                if (!isRunning) resetSimulation();
+            });
+            // 當使用者離開輸入框 (blur) 或按下 Enter 時檢查邊界
+            inputs[key].addEventListener('change', (e) => {
+                let val = parseInt(e.target.value);
+                if (isNaN(val) || val < 1) e.target.value = 1;
+                else if (val > 5) e.target.value = 5;
+                else e.target.value = val;
                 if (!isRunning) resetSimulation();
             });
         });
@@ -300,13 +318,16 @@
 
         function calculateExplosion(proj) {
             // Use cached params to ensure consistency
-            const m_ratio = simParams.mRatio; 
+            const m1_r = simParams.m1Ratio;
+            const m2_r = simParams.m2Ratio;
             const v1_mag = simParams.v1;
             const theta1 = simParams.theta1;
             
+            // 質量計算 (總質量為 1.0)
             const M = 1.0; 
-            const m1 = M * m_ratio;
-            const m2 = M * (1 - m_ratio);
+            const totalRatio = m1_r + m2_r;
+            const m1 = M * (m1_r / totalRatio);
+            const m2 = M * (m2_r / totalRatio);
 
             const v_top_x = proj.vx; 
             const v_top_y = 0; 
@@ -387,7 +408,8 @@
             simParams = {
                 v0: parseFloat(inputs.v0.value),
                 theta0: parseFloat(inputs.theta0.value),
-                mRatio: parseFloat(inputs.massRatio.value),
+                m1Ratio: parseFloat(inputs.mass1.value),
+                m2Ratio: parseFloat(inputs.mass2.value),
                 v1: parseFloat(inputs.v1.value),
                 theta1: parseFloat(inputs.theta1.value),
                 v0_y: parseFloat(inputs.v0.value) * Math.sin(degToRad(parseFloat(inputs.theta0.value)))
