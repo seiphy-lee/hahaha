@@ -286,18 +286,24 @@
 
         .behavior-selector {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            /* 👨‍🏫 老師修改：將原本的 1fr 1fr 改成 repeat(3, 1fr) 
+               這樣就能在同一橫排分配「三個」相等寬度的空間喔！*/
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px; /* 稍微縮小按鈕之間的間距，讓畫面更緊湊 */
             margin-bottom: 20px;
         }
 
         .behavior-btn {
-            padding: 12px;
+            /* 👨‍🏫 老師修改：將原本 12px 的內邊距縮小，讓按鈕實體變小 */
+            padding: 8px 4px; 
             border: 2px solid transparent;
             border-radius: 8px;
             background: #f8f9fa;
             cursor: pointer;
-            font-size: 1.425rem; /* 👨‍🏫 老師修改：將 0.95rem 放大 1.5 倍變成 1.425rem */
+            
+            /* 👨‍🏫 老師修改：你原本的字體是 1.425rem，乘以 0.7 倍大約是 0.9975rem。
+               我們直接設定為 1rem，看起來會整齊又清晰喔！*/
+            font-size: 1rem; 
             font-weight: bold;
             text-align: center;
             position: relative;
@@ -309,17 +315,20 @@
         }
 
         .behavior-input-wrapper {
-            grid-column: span 2;
+            /* 👨‍🏫 老師修改：因為上面改成了三個一排，所以這個底部的輸入框
+               也必須跟著改成 span 3（橫跨三個格子），才會佔滿整排！*/
+            grid-column: span 3; 
             display: flex;
             gap: 5px;
         }
         
         #custom-input {
             width: 100%;
-            padding: 12px;
+            /* 👨‍🏫 老師修改：為了視覺一致性，這裡的內邊距和字體大小也一起按比例縮小 */
+            padding: 8px;
             border: 2px solid #ddd;
             border-radius: 8px;
-            font-size: 1.425rem; /* 👨‍🏫 老師修改：將 0.95rem 放大 1.5 倍變成 1.425rem */
+            font-size: 1rem; 
             text-align: center;
             transition: all 0.2s;
             background: #fff;
@@ -473,7 +482,7 @@
         <h3 style="display: flex; justify-content: space-between; align-items: center;">
             1. 學生上課行為
             
-            <button id="sync-behavior-btn" class="btn-info" style="font-size: 1.4rem; padding: 4px 10px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
+            <button id="sync-behavior-btn" class="btn-info" style="font-size: 1rem; padding: 4px 10px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
         </h3>
         <div class="behavior-selector" id="behavior-group">
             <!-- 動態生成的按鈕將會插在這裡 -->
@@ -772,7 +781,10 @@
         .then(response => response.json())
         .then(data => {
             if(data.result === 'success') {
-                alert(`上傳成功！共 ${data.count} 筆記錄已寫入 Google Sheet。`);
+                // 👨‍🏫 老師修改：更新提示訊息，讓使用者知道記錄被清空了
+                alert(`上傳成功！共 ${data.count} 筆記錄已寫入 Google Sheet。\n\n系統已自動為您清除目前的觀測記錄。`);
+                // 👨‍🏫 老師修改：呼叫清除功能，並傳入 true，告訴系統「不用再跳出確認視窗了」
+                clearAllLogs(true); 
             } else {
                 alert("上傳失敗：" + data.error);
             }
@@ -1155,13 +1167,19 @@
         const timestamp = new Date();
         const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
         
+        // 👨‍🏫 老師修改：將時間格式化為台灣本地時間 (YYYY-MM-DD HH:mm:ss)
+        const year = timestamp.getFullYear();
+        const month = String(timestamp.getMonth() + 1).padStart(2, '0'); // 月份是從 0 開始的，所以要 +1
+        const day = String(timestamp.getDate()).padStart(2, '0');
+        const localFullTime = `${year}-${month}-${day} ${timeString}`;
+        
         const logEntry = {
             id: Date.now(),
             seatId: seatId,
             name: name,
             behavior: currentBehavior,
             time: timeString,
-            fullTime: timestamp.toISOString()
+            fullTime: localFullTime // 👨‍🏫 老師修改：使用本地時間，不用 toISOString() 了
         };
 
         logs.push(logEntry);
@@ -1196,8 +1214,11 @@
         saveLogsToStorage();
     }
     
-    function clearAllLogs() {
-        if(!confirm("確定要刪除「所有」觀測記錄嗎？\n這將會把所有學生的行為計數歸零！")) return;
+    // 👨‍🏫 老師修改：給函數加上一個名為 skipConfirm 的參數（預設是 false）
+    function clearAllLogs(skipConfirm = false) {
+        // 如果 skipConfirm 是 false，而且使用者按了取消，才中斷執行
+        if(!skipConfirm && !confirm("確定要刪除「所有」觀測記錄嗎？\n這將會把所有學生的行為計數歸零！")) return;
+        
         logs = [];
         updateLogDisplay();
         localStorage.setItem(getKey('student_counts'), '{}');
@@ -1338,7 +1359,11 @@
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        const dateStr = new Date().toISOString().slice(0,10);
+        
+        // 👨‍🏫 老師修改：匯出檔名也一併改成使用本地日期，避免出現跨日時區差異
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
         link.download = `${classCode}_${dateStr}_上課記錄.xls`; 
         document.body.appendChild(link);
         link.click();
