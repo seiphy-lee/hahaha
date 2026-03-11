@@ -569,22 +569,27 @@
         container.innerHTML = '';
         colorMap = {}; // 重置對應表
         
+        // 👨‍🏫 老師新增：準備一組備用調色盤。如果雲端傳來的資料沒有提供顏色，就自動幫它上色！
+        const fallbackColors = ['#28a745', '#007bff', '#6f42c1', '#fd7e14', '#dc3545', '#6c757d', '#17a2b8', '#e83e8c', '#20c997', '#6610f2'];
+        
         behaviorsList.forEach((b, index) => {
-            colorMap[b.value] = b.color;
+            // 檢查行為有沒有自帶顏色，沒有的話就從備用調色盤依序挑一個
+            const btnColor = b.color || fallbackColors[index % fallbackColors.length];
+            colorMap[b.value] = btnColor;
             
             const btn = document.createElement('div');
             btn.className = 'behavior-btn';
-            btn.dataset.color = b.color;
-            btn.style.color = b.color;
-            btn.style.borderColor = b.color + '55'; // 加上透明度的邊框
+            btn.dataset.color = btnColor;
+            btn.style.color = btnColor;
+            btn.style.borderColor = btnColor + '55'; // 加上透明度的邊框
             btn.innerText = b.name;
             
-            btn.onclick = function() { selectBehavior(b.value, this, b.color); };
+            btn.onclick = function() { selectBehavior(b.value, this, btnColor); };
             
             // 預設選中第一個
             if (index === 0) {
                 btn.classList.add('selected');
-                btn.style.background = b.color;
+                btn.style.background = btnColor;
                 btn.style.color = 'white';
                 currentBehavior = b.value;
             } else {
