@@ -201,7 +201,7 @@
             justify-content: flex-start;
             align-items: center;
             position: relative;
-            background: #fdfdfd;
+            background: #ffff99; /* 👨‍🏫 老師修改：將底色改為 #ffff99 (淡黃色) */
             transition: transform 0.1s, border-color 0.2s;
             cursor: pointer;
             overflow: hidden;
@@ -395,10 +395,10 @@
             width: 100%;
             text-align: center;
             margin-top: calc(15px * var(--zoom));
-            background: #e9ecef;
+            background: #00CC00; /* 👨‍🏫 老師修改：將背景顏色改成 #00CC00 */
             padding: calc(8px * var(--zoom));
             border-radius: 4px;
-            color: #495057;
+            color: #000000; /* 👨‍🏫 老師修改：將字體顏色改成純黑色 #000000 */
             font-weight: bold;
             letter-spacing: 2px;
             border: 2px solid #ced4da;
@@ -1158,11 +1158,12 @@
         const behaviorColor = colorMap[currentBehavior] || CUSTOM_COLOR;
         
         seatDiv.style.borderColor = behaviorColor;
-        seatDiv.style.backgroundColor = behaviorColor + '11'; 
+        /* 👨‍🏫 老師修改：點擊特效顏色稍微加深一點，避免覆蓋掉原有的黃底 */
+        seatDiv.style.backgroundColor = behaviorColor + '33'; 
         seatDiv.classList.add('active-click');
         setTimeout(() => {
             seatDiv.style.borderColor = '';
-            seatDiv.style.backgroundColor = '#fdfdfd';
+            seatDiv.style.backgroundColor = '#ffff99'; /* 👨‍🏫 老師修改：特效結束後，確保它恢復成新的 #ffff99 淡黃色 */
             seatDiv.classList.remove('active-click');
         }, 300);
 
