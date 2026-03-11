@@ -191,7 +191,8 @@
         }
 
         .seat {
-            width: calc(100px * var(--zoom));
+            /* 👨‍🏫 老師修改：寬度從 100px 放大 1.5 倍成 150px，高度維持 90px */
+            width: calc(150px * var(--zoom));
             height: calc(90px * var(--zoom));
             border: 2px solid #ccc;
             border-radius: 8px;
@@ -227,11 +228,13 @@
 
         .seat input {
             width: 100%;
-            padding: 5px 0;
+            /* 👨‍🏫 老師修改：將高度固定佔整體的 50%，達成 1:1 的視覺比例 */
+            height: 50%;
             border: none;
             border-bottom: 1px solid #bbb;
             text-align: center;
-            font-size: calc(1rem * var(--zoom));
+            /* 👨‍🏫 老師修改：文字大小從 1rem 放大 1.5 倍到 1.5rem */
+            font-size: calc(1.5rem * var(--zoom));
             background: #e9ecef;
             color: #333;
             font-weight: bold;
@@ -246,10 +249,16 @@
 
         .seat::after {
             content: "點擊記錄";
-            font-size: calc(0.75rem * var(--zoom));
+            /* 👨‍🏫 老師修改：同樣給它 50% 的高度 */
+            height: 50%;
+            width: 100%;
+            /* 👨‍🏫 老師修改：利用 flex 排版讓裡面的文字完美地垂直與水平置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 👨‍🏫 老師修改：文字大小從 0.75rem 放大 1.5 倍到 1.125rem */
+            font-size: calc(1.125rem * var(--zoom));
             color: #aaa;
-            margin-top: auto;
-            margin-bottom: 5px;
             pointer-events: none;
         }
 
@@ -260,9 +269,11 @@
             background: #333;
             color: white;
             border-radius: 50%;
-            width: calc(24px * var(--zoom));
-            height: calc(24px * var(--zoom));
-            font-size: calc(12px * var(--zoom));
+            /* 👨‍🏫 老師修改：將計數圈圈的長寬從 24px 放大到 36px (1.5倍) */
+            width: calc(36px * var(--zoom));
+            height: calc(36px * var(--zoom));
+            /* 👨‍🏫 老師修改：將計數圈圈的數字從 12px 放大到 18px (1.5倍) */
+            font-size: calc(18px * var(--zoom));
             display: flex;
             justify-content: center;
             align-items: center;
@@ -286,23 +297,17 @@
 
         .behavior-selector {
             display: grid;
-            /* 👨‍🏫 老師修改：將原本的 1fr 1fr 改成 repeat(3, 1fr) 
-               這樣就能在同一橫排分配「三個」相等寬度的空間喔！*/
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px; /* 稍微縮小按鈕之間的間距，讓畫面更緊湊 */
+            gap: 8px;
             margin-bottom: 20px;
         }
 
         .behavior-btn {
-            /* 👨‍🏫 老師修改：將原本 12px 的內邊距縮小，讓按鈕實體變小 */
             padding: 8px 4px; 
             border: 2px solid transparent;
             border-radius: 8px;
             background: #f8f9fa;
             cursor: pointer;
-            
-            /* 👨‍🏫 老師修改：你原本的字體是 1.425rem，乘以 0.7 倍大約是 0.9975rem。
-               我們直接設定為 1rem，看起來會整齊又清晰喔！*/
             font-size: 1rem; 
             font-weight: bold;
             text-align: center;
@@ -315,8 +320,6 @@
         }
 
         .behavior-input-wrapper {
-            /* 👨‍🏫 老師修改：因為上面改成了三個一排，所以這個底部的輸入框
-               也必須跟著改成 span 3（橫跨三個格子），才會佔滿整排！*/
             grid-column: span 3; 
             display: flex;
             gap: 5px;
@@ -324,7 +327,6 @@
         
         #custom-input {
             width: 100%;
-            /* 👨‍🏫 老師修改：為了視覺一致性，這裡的內邊距和字體大小也一起按比例縮小 */
             padding: 8px;
             border: 2px solid #ddd;
             border-radius: 8px;
