@@ -30,7 +30,7 @@
         /* UI 控制面板 - 回歸正中央 */
         #ui-layer {
             position: absolute;
-            top: 50%; /* 回到 50% */
+            top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
@@ -52,15 +52,41 @@
             transition: opacity 0.3s;
         }
 
+        /* 模式切換按鈕區域 */
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .mode-btn {
+            background: transparent;
+            color: #aaa;
+            border: 1px solid #555;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1rem;
+            transition: 0.3s;
+        }
+
+        .mode-btn.active {
+            color: #00f0ff;
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+
         /* 執行中的按鈕容器 - 垂直置中，水平靠右 */
         #active-controls {
             position: absolute;
-            top: 50%; /* 回到 50% */
-            /* 圓半徑現在是 42vmin，按鈕保持在右側 */
+            top: 50%;
             left: calc(50% + 55vmin); 
             transform: translate(0, -50%);
             z-index: 20;
-            display: none; /* 預設隱藏 */
+            display: none; 
             pointer-events: auto;
             display: flex; 
             flex-direction: column;
@@ -70,19 +96,19 @@
         /* 底部中原標準時間 - 移到左邊並放大 */
         #std-time-container {
             position: absolute;
-            top: 50%;          /* 垂直置中 */
-            left: 40px;        /* 左側間距 */
-            bottom: auto;      /* 清除底部定位 */
-            transform: translateY(-50%); /* 修正垂直置中偏移 */
+            top: 50%;
+            left: 40px;
+            bottom: auto;
+            transform: translateY(-50%);
             width: auto;
-            text-align: left;  /* 文字靠左 */
+            text-align: left;
             z-index: 10;
             pointer-events: none;
-            white-space: nowrap; /* 不換行 */
+            white-space: nowrap;
         }
 
         #std-time {
-            font-size: 4.5rem; /* 放大 1.5 倍 */
+            font-size: 4.5rem;
             color: rgba(255, 255, 255, 0.9);
             text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
             letter-spacing: 3px;
@@ -90,7 +116,7 @@
         }
 
         #std-label {
-            font-size: 2.7rem; /* 放大 1.5 倍 */
+            font-size: 2.7rem;
             color: #00f0ff;
             text-transform: uppercase;
             letter-spacing: 6px;
@@ -101,7 +127,6 @@
 
         /* 手機版適配 */
         @media (max-aspect-ratio: 1/1) {
-            /* 按鈕放到底部 */
             #active-controls {
                 top: 80%; 
                 left: 50%;
@@ -109,7 +134,6 @@
                 flex-direction: row; 
             }
 
-            /* 時間放回底部 (手機左邊放不下) */
             #std-time-container {
                 top: auto;
                 bottom: 30px;
@@ -118,7 +142,6 @@
                 text-align: center;
                 transform: none;
             }
-            /* 手機版字體稍微縮小回正常，避免爆版 */
             #std-time { font-size: 3rem; }
             #std-label { font-size: 1.5rem; }
         }
@@ -142,6 +165,12 @@
             font-family: 'Share Tech Mono', monospace;
             outline: none;
             transition: all 0.3s;
+        }
+
+        /* 指定時間輸入框稍微加寬 */
+        #target-time-in {
+            width: auto;
+            padding: 10px 15px;
         }
 
         .time-input:focus {
@@ -206,7 +235,6 @@
             box-shadow: 0 0 20px #ff0055;
         }
 
-        /* 全螢幕按鈕 - 右上角 */
         #fs-btn {
             position: absolute;
             top: 20px;
@@ -235,14 +263,19 @@
 
     <canvas id="canvas"></canvas>
 
-    <!-- 全螢幕開關 -->
     <button id="fs-btn">⛶ 全螢幕</button>
 
     <!-- 初始設定面板 -->
     <div id="ui-layer">
         <div id="controls">
-            <div style="margin-bottom: 15px; color: #00f0ff; font-size: 1.2rem;">設定倒數時間</div>
-            <div class="input-group">
+            <!-- 新增模式切換 -->
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="btn-mode-duration">倒數時長</button>
+                <button class="mode-btn" id="btn-mode-target">指定時間</button>
+            </div>
+
+            <!-- 原本的倒數時長設定 -->
+            <div class="input-group" id="group-duration">
                 <div>
                     <label>時 (HRS)</label>
                     <input type="number" id="h-in" class="time-input" min="0" max="99" value="0">
@@ -256,17 +289,24 @@
                     <input type="number" id="s-in" class="time-input" min="0" max="59" value="10">
                 </div>
             </div>
+
+            <!-- 新增的指定時間設定 (預設隱藏) -->
+            <div class="input-group" id="group-target" style="display: none;">
+                <div>
+                    <label>目標時間 (TIME)</label>
+                    <input type="time" id="target-time-in" class="time-input">
+                </div>
+            </div>
+
             <button class="btn" id="start-btn">啟動 (START)</button>
         </div>
     </div>
     
-    <!-- 執行中按鈕群組 -->
     <div id="active-controls" style="display: none;">
          <button class="btn btn-pause" id="pause-btn">暫停 (PAUSE)</button>
-         <button class="btn btn-stop" id="stop-btn">終止 (ABORT)</button>
+         <button class="btn btn-stop" id="stop-btn">終局 (ABORT)</button>
     </div>
 
-    <!-- 中原標準時間 -->
     <div id="std-time-container">
         <div id="std-label">中原標準時間</div>
         <div id="std-time">Loading...</div>
@@ -277,47 +317,76 @@
         const ctx = canvas.getContext('2d');
         const fsBtn = document.getElementById('fs-btn');
         
-        // 狀態變數
         let animationId;
         let particles = [];
         let width, height;
         let centerX, centerY;
-        let minDim; // 最小邊長，用於響應式計算
+        let minDim; 
         
-        // 計時器邏輯變數
         let totalTimeMs = 0;
         let endTime = 0;
         let remainingTimeMs = 0;
         let isRunning = false;
         let isPaused = false; 
         let isAlarmPlaying = false;
-        let lastBeepSecond = -1; // 記錄上一次發出滴答聲的秒數
+        let lastBeepSecond = -1; 
         
-        // UI 元素
         const controlsDiv = document.getElementById('controls');
         const activeControlsDiv = document.getElementById('active-controls');
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
         const pauseBtn = document.getElementById('pause-btn'); 
         const stdTimeDisplay = document.getElementById('std-time');
+
+        // 新增的模式相關變數
+        let currentMode = 'duration'; // 'duration' 或是 'target'
+        const btnModeDuration = document.getElementById('btn-mode-duration');
+        const btnModeTarget = document.getElementById('btn-mode-target');
+        const groupDuration = document.getElementById('group-duration');
+        const groupTarget = document.getElementById('group-target');
+        const targetTimeInput = document.getElementById('target-time-in');
         
-        // 音效 Context
         let audioCtx;
         let oscillator;
         let gainNode;
 
-        // 初始化畫布尺寸
+        // 初始化指定時間的預設值 (預設為現在時間往後推 5 分鐘)
+        function initTargetTimeDefault() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 5);
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            targetTimeInput.value = `${hh}:${mm}`;
+        }
+        initTargetTimeDefault();
+
+        // 處理模式切換邏輯
+        btnModeDuration.addEventListener('click', () => {
+            currentMode = 'duration';
+            btnModeDuration.classList.add('active');
+            btnModeTarget.classList.remove('active');
+            groupDuration.style.display = 'flex';
+            groupTarget.style.display = 'none';
+        });
+
+        btnModeTarget.addEventListener('click', () => {
+            currentMode = 'target';
+            btnModeTarget.classList.add('active');
+            btnModeDuration.classList.remove('active');
+            groupDuration.style.display = 'none';
+            groupTarget.style.display = 'flex';
+        });
+
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
             minDim = Math.min(width, height);
             centerX = width / 2;
-            centerY = height * 0.5; // 正中央
+            centerY = height * 0.5; 
         }
         window.addEventListener('resize', resize);
         resize();
 
-        // 全螢幕切換
         fsBtn.addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
@@ -332,7 +401,6 @@
             }
         });
 
-        // 監聽全螢幕變化
         document.addEventListener('fullscreenchange', () => {
              if (!document.fullscreenElement) {
                 fsBtn.textContent = "⛶ 全螢幕";
@@ -341,7 +409,6 @@
              }
         });
 
-        // --- 粒子系統 (背景特效) ---
         class Particle {
             constructor() {
                 this.reset();
@@ -380,8 +447,6 @@
             particles.push(new Particle());
         }
 
-        // --- 核心繪圖函數 ---
-        
         function formatTime(ms) {
             if (ms < 0) ms = 0;
             const totalSec = Math.ceil(ms / 1000);
@@ -392,7 +457,6 @@
         }
 
         function drawTimerRing(percent) {
-            // 半徑 42%
             const radius = minDim * 0.42; 
             const startAngle = -Math.PI / 2; 
             const endAngle = startAngle + (Math.PI * 2 * percent);
@@ -410,18 +474,16 @@
                 glow = 30 + flicker * 20;
             }
             else if (remainingTimeMs <= 30000) {
-                color = '#ffb700'; // 橙黃色
+                color = '#ffb700'; 
                 glow = 25;
             }
 
-            // 1. 底軌
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.lineWidth = 15;
             ctx.stroke();
 
-            // 2. 進度條
             if (percent > 0) {
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
@@ -433,7 +495,6 @@
                 ctx.stroke();
                 ctx.shadowBlur = 0;
 
-                // 3. 光點
                 const headX = centerX + radius * Math.cos(endAngle);
                 const headY = centerY + radius * Math.sin(endAngle);
                 ctx.beginPath();
@@ -445,7 +506,6 @@
                 ctx.shadowBlur = 0;
             }
 
-            // 4. 中央文字 - 動態字體大小
             const fontSize = minDim * 0.18; 
             
             ctx.fillStyle = color;
@@ -455,12 +515,18 @@
             ctx.shadowBlur = 15;
             ctx.shadowColor = color;
             
-            let displayMs = isRunning ? remainingTimeMs : getInputMs();
-            if (!isRunning && remainingTimeMs === 0 && totalTimeMs > 0) displayMs = 0; 
+            // 決定畫面上要顯示的預覽時間
+            let displayMs = 0;
+            if (isRunning) {
+                displayMs = remainingTimeMs;
+            } else if (!isRunning && remainingTimeMs === 0 && totalTimeMs > 0) {
+                displayMs = 0; // 剛結束時保持 0
+            } else {
+                displayMs = getPreviewMs(); // 從選單動態讀取當前設定的時間
+            }
             
             ctx.fillText(formatTime(displayMs), centerX, centerY);
             
-            // 毫秒顯示 / 暫停文字
             const msFontSize = fontSize * 0.4; 
             const msOffset = fontSize * 0.75;  
             
@@ -475,7 +541,6 @@
             ctx.shadowBlur = 0;
         }
 
-        // --- 主動畫循環 ---
         function animate() {
             ctx.fillStyle = 'rgba(5, 7, 10, 0.25)'; 
             ctx.fillRect(0, 0, width, height);
@@ -492,7 +557,6 @@
                     const now = Date.now();
                     remainingTimeMs = endTime - now;
 
-                    // 倒數 10 秒音效邏輯
                     if (remainingTimeMs > 0 && remainingTimeMs <= 10000) {
                         const sec = Math.ceil(remainingTimeMs / 1000);
                         if (sec !== lastBeepSecond) {
@@ -522,15 +586,33 @@
 
         // --- 邏輯函數 ---
 
-        function getInputMs() {
-            const h = parseInt(document.getElementById('h-in').value) || 0;
-            const m = parseInt(document.getElementById('m-in').value) || 0;
-            const s = parseInt(document.getElementById('s-in').value) || 0;
-            return (h * 3600 + m * 60 + s) * 1000;
+        // 讀取設定的時間差 (毫秒)
+        function getPreviewMs() {
+            if (currentMode === 'duration') {
+                const h = parseInt(document.getElementById('h-in').value) || 0;
+                const m = parseInt(document.getElementById('m-in').value) || 0;
+                const s = parseInt(document.getElementById('s-in').value) || 0;
+                return (h * 3600 + m * 60 + s) * 1000;
+            } else {
+                // 指定時間模式，計算與當前時間的差值
+                const timeStr = targetTimeInput.value;
+                if (!timeStr) return 0;
+                
+                const now = new Date();
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0); // 將秒歸零以對準整分
+                
+                // 如果設定的時間比現在還早，代表是要倒數到明天的這個時間
+                if (target.getTime() <= now.getTime()) {
+                    target.setDate(target.getDate() + 1);
+                }
+                
+                return target.getTime() - now.getTime();
+            }
         }
 
         function startTimer() {
-            const ms = getInputMs();
+            const ms = getPreviewMs();
             if (ms <= 0) return;
 
             if (!audioCtx) {
@@ -542,7 +624,7 @@
             isRunning = true;
             isPaused = false;
             isAlarmPlaying = false;
-            lastBeepSecond = -1; // 重置滴答聲計數器
+            lastBeepSecond = -1; 
             
             pauseBtn.textContent = "暫停 (PAUSE)";
 
@@ -581,7 +663,6 @@
             }
         }
 
-        // 播放短促的滴答聲
         function playTick() {
             if (!audioCtx) return;
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -590,10 +671,10 @@
             const gain = audioCtx.createGain();
 
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime); // 較高頻率
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
             osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
 
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); // 音量
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); 
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
 
             osc.connect(gain);
@@ -669,5 +750,4 @@
 
     </script>
 </body>
-
 </html>
