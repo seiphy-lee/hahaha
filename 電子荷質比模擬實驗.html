@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>湯姆森荷質比實驗模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc;
+            overflow: hidden;
+        }
+        canvas {
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            border-radius: 16px;
+            box-shadow: 0 0 40px rgba(34, 197, 94, 0.1) inset, 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        /* 自訂滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #22c55e;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #475569;
+            border-radius: 2px;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen">
+
+    <!-- 左側控制面板 -->
+    <div class="w-full md:w-1/3 lg:w-1/4 bg-slate-800 p-6 flex flex-col gap-6 overflow-y-auto z-10 shadow-2xl">
+        <div>
+            <h1 class="text-2xl font-bold text-green-400 glow-text">湯姆森荷質比實驗</h1>
+            <p class="text-sm text-slate-400 mt-2">J.J. Thomson's e/m Experiment</p>
+        </div>
+
+        <div class="bg-slate-700/50 p-4 rounded-xl space-y-4 border border-slate-600">
+            <div>
+                <div class="flex justify-between mb-1">
+                    <label class="text-sm font-medium">電子初速 <span class="italic">v₀</span></label>
+                    <span id="v0Val" class="text-green-400 font-mono">30.0</span>
+                </div>
+                <!-- 調整步長使其更加絲滑 -->
+                <input type="range" id="v0Slider" min="10" max="60" value="30" step="0.1">
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1 items-center">
+                    <label class="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-green-300 transition">
+                        <input type="checkbox" id="eSwitch" checked class="w-4 h-4 accent-green-500 cursor-pointer">
+                        <span>電場 <span class="italic">E</span> (上下)</span>
+                    </label>
+                    <span id="eVal" class="text-green-400 font-mono">0.0</span>
+                </div>
+                <!-- 調整步長使其更加絲滑 -->
+                <input type="range" id="eSlider" min="-150" max="150" value="0" step="0.5" class="transition-opacity">
+                <p class="text-xs text-slate-400 mt-1">正值：電場向下 (電子受力向上)</p>
+            </div>
+
+            <div>
+                <div class="flex justify-between mb-1 items-center">
+                    <label class="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-green-300 transition">
+                        <input type="checkbox" id="bSwitch" checked class="w-4 h-4 accent-green-500 cursor-pointer">
+                        <span>磁場 <span class="italic">B</span> (穿出/穿入)</span>
+                    </label>
+                    <span id="bVal" class="text-green-400 font-mono">0.00</span>
+                </div>
+                <!-- 調整步長使其更加絲滑 -->
+                <input type="range" id="bSlider" min="-5" max="5" value="0" step="0.01" class="transition-opacity">
+                <p class="text-xs text-slate-400 mt-1">正值：磁場穿入 ⊗ (電子受力向下)</p>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button id="saveTraceBtn" class="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg transition font-medium">
+                保留當前軌跡
+            </button>
+            <button id="clearTraceBtn" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-lg transition font-medium">
+                清除軌跡
+            </button>
+        </div>
+
+        <!-- 即時數據面板 -->
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+            <h2 class="text-sm font-bold text-slate-300 mb-3 border-b border-slate-700 pb-2">即時觀測數據</h2>
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">螢幕打擊點 Y：</span>
+                    <span id="outY" class="font-mono text-green-400">0.00</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">狀態：</span>
+                    <span id="outStatus" class="font-bold text-green-400">直線前進</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 物理原理解說 -->
+        <div class="text-sm text-slate-400 leading-relaxed">
+            <p><span class="text-blue-400 font-bold">【老師提示】</span><br>
+            電子帶負電。在正交的電磁場中，若要使電子不發生偏轉（直線前進），電場力與磁場力必須大小相等、方向相反：<br>
+            <span class="block text-center my-2 text-white font-mono bg-slate-900 py-1 rounded">eE = ev₀B  ⇒  v₀ = E / B</span>
+            試著調整 E 和 B 的數值，驗證這個關係式吧！</p>
+        </div>
+    </div>
+
+    <!-- 右側動畫區 -->
+    <div class="flex-1 flex justify-center items-center p-4 lg:p-8 relative">
+        <canvas id="simCanvas" width="900" height="600" class="w-full max-w-5xl max-h-full object-contain"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 元素
+        const v0Slider = document.getElementById('v0Slider');
+        const eSlider = document.getElementById('eSlider');
+        const bSlider = document.getElementById('bSlider');
+        const eSwitch = document.getElementById('eSwitch');
+        const bSwitch = document.getElementById('bSwitch');
+        const v0Val = document.getElementById('v0Val');
+        const eVal = document.getElementById('eVal');
+        const bVal = document.getElementById('bVal');
+        const outY = document.getElementById('outY');
+        const outStatus = document.getElementById('outStatus');
+        const saveTraceBtn = document.getElementById('saveTraceBtn');
+        const clearTraceBtn = document.getElementById('clearTraceBtn');
+
+        // 物理與繪圖參數
+        const originX = 150; // 電子槍出口 X (畫布座標)
+        const originY = 300; // 電子槍出口 Y (畫布座標)
+        const L = 250;       // 偏轉極板長度
+        const D = 400;       // 無場漂移區長度 (L + D = 螢幕位置)
+        const plateGap = 120; // 極板間距 (y = -60 to 60)
+        
+        // 系統狀態
+        let currentPath = [];
+        let hitPlates = false;
+        let escapedLeft = false;
+        let trapped = false;
+        let finalY = 0;
+        let traces = [];
+        let pulseIndex = 0;
+
+        // 更新 UI 顯示值並重新計算軌跡
+        function updateSim() {
+            const eOn = eSwitch.checked;
+            const bOn = bSwitch.checked;
+
+            v0Val.innerText = parseFloat(v0Slider.value).toFixed(1);
+
+            // 更新電場數值與 UI 狀態
+            if (eOn) {
+                eVal.innerText = parseFloat(eSlider.value).toFixed(1);
+                eVal.className = "text-green-400 font-mono";
+                eSlider.classList.remove('opacity-40');
+                eSlider.disabled = false;
+            } else {
+                eVal.innerText = "OFF";
+                eVal.className = "text-slate-500 font-mono font-bold";
+                eSlider.classList.add('opacity-40');
+                eSlider.disabled = true;
+            }
+
+            // 更新磁場數值與 UI 狀態
+            if (bOn) {
+                bVal.innerText = parseFloat(bSlider.value).toFixed(2);
+                bVal.className = "text-green-400 font-mono";
+                bSlider.classList.remove('opacity-40');
+                bSlider.disabled = false;
+            } else {
+                bVal.innerText = "OFF";
+                bVal.className = "text-slate-500 font-mono font-bold";
+                bSlider.classList.add('opacity-40');
+                bSlider.disabled = true;
+            }
+
+            calculatePath();
+        }
+
+        // 綁定事件
+        v0Slider.addEventListener('input', updateSim);
+        eSlider.addEventListener('input', updateSim);
+        bSlider.addEventListener('input', updateSim);
+        eSwitch.addEventListener('change', updateSim);
+        bSwitch.addEventListener('change', updateSim);
+
+        saveTraceBtn.addEventListener('click', () => {
+            traces.push([...currentPath]);
+            // 最多保留 5 條軌跡
+            if(traces.length > 5) traces.shift();
+        });
+
+        clearTraceBtn.addEventListener('click', () => {
+            traces = [];
+        });
+
+        // 核心物理計算 (Euler Method)
+        function calculatePath() {
+            const v0 = parseFloat(v0Slider.value);
+            // 根據開關狀態決定真實物理場強
+            const E = eSwitch.checked ? parseFloat(eSlider.value) : 0;
+            const B = bSwitch.checked ? parseFloat(bSlider.value) : 0;
+
+            currentPath = [];
+            hitPlates = false;
+            escapedLeft = false;
+            trapped = false;
+            
+            let x = 0;
+            let y = 0;
+            let vx = v0;
+            let vy = 0;
+            const dt = 0.2; // 時間步長
+            
+            // 加入步數保護機制，避免極端磁場下造成迴圈當機
+            let stepCount = 0;
+            const maxSteps = 10000; 
+
+            // 模擬電子的 q/m。我們設 q = -1, m = 1。
+            // 則加速度 a = F/m = -1 * (E_vec + v_vec x B_vec)
+            
+            while (x <= L + D) {
+                currentPath.push({ x: x, y: y });
+                stepCount++;
+
+                // 防止當機：如果在磁場中打轉太久
+                if (stepCount >= maxSteps) {
+                    trapped = true;
+                    break;
+                }
+
+                let ax = 0;
+                let ay = 0;
+
+                // 判斷是否在偏轉區內 (0 <= x <= L)
+                if (x >= 0 && x <= L) {
+                    // 若碰到極板，停止計算
+                    if (Math.abs(y) >= plateGap / 2) {
+                        hitPlates = true;
+                        break;
+                    }
+
+                    // 物理計算 (標準笛卡兒座標：向右為+x，向上為+y)
+                    // E > 0 代表電場向下 (E_y = -E)。電子受力向上。
+                    // B > 0 代表磁場穿入紙面 (B_z = -B)。v 往右(+x)，v x B 向上(+y)，電子受力向下(-y)。
+                    
+                    ax = vy * B;       // 磁力 x 分量
+                    ay = E - vx * B;   // 電場力(E) + 磁力 y 分量(-vx * B)
+                }
+
+                vx += ax * dt;
+                vy += ay * dt;
+                x += vx * dt;
+                y += vy * dt;
+
+                // 若因磁力過大導致電子發生大迴旋反向飛出電子槍口
+                if (x < 0 && stepCount > 10) {
+                    escapedLeft = true;
+                    break;
+                }
+            }
+
+            finalY = y;
+            pulseIndex = 0; // 重置動畫光點位置
+
+            // 更新面板狀態
+            if (hitPlates) {
+                outY.innerText = "---";
+                outStatus.innerText = "💥 撞擊極板";
+                outStatus.className = "font-bold text-rose-500";
+            } else if (escapedLeft) {
+                outY.innerText = "---";
+                outStatus.innerText = "↩️ 磁力過大 (反向飛出)";
+                outStatus.className = "font-bold text-orange-400";
+            } else if (trapped) {
+                outY.innerText = "---";
+                outStatus.innerText = "🌀 軌跡卡住 (困於場區)";
+                outStatus.className = "font-bold text-purple-400";
+            } else {
+                outY.innerText = y.toFixed(1);
+                if (Math.abs(y) < 1) {
+                    outStatus.innerText = "⚖️ 直線前進 (平衡)";
+                    outStatus.className = "font-bold text-blue-400";
+                } else if (y > 0) {
+                    outStatus.innerText = "↑ 向上偏轉";
+                    outStatus.className = "font-bold text-green-400";
+                } else {
+                    outStatus.innerText = "↓ 向下偏轉";
+                    outStatus.className = "font-bold text-yellow-400";
+                }
+            }
+        }
+
+        // --- 繪圖相關函數 ---
+
+        // 座標轉換：將物理座標轉換為畫布座標 (y軸反轉)
+        function cx(x) { return originX + x; }
+        function cy(y) { return originY - y; }
+
+        function drawCRT() {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            
+            // 繪製陰極射線管玻璃外殼
+            const startX = originX - 100;
+            const neckTopY = originY - (plateGap/2 + 20);
+            const neckBotY = originY + (plateGap/2 + 20);
+            const screenX = originX + L + D;
+            const screenRadius = 200;
+
+            // 上半部
+            ctx.moveTo(startX, neckTopY);
+            ctx.lineTo(originX + L + 20, neckTopY);
+            ctx.bezierCurveTo(originX + L + 150, neckTopY, screenX - 50, originY - screenRadius, screenX, originY - screenRadius);
+            
+            // 螢幕弧線
+            ctx.quadraticCurveTo(screenX + 30, originY, screenX, originY + screenRadius);
+
+            // 下半部
+            ctx.bezierCurveTo(screenX - 50, originY + screenRadius, originX + L + 150, neckBotY, originX + L + 20, neckBotY);
+            ctx.lineTo(startX, neckBotY);
+            ctx.closePath();
+            
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.fill();
+
+            // 畫螢幕刻度
+            ctx.beginPath();
+            for(let dy = -150; dy <= 150; dy += 30) {
+                let sy = originY - dy;
+                // 簡易投影弧線上的X座標補償
+                let sx = screenX + (1 - Math.pow(Math.abs(dy)/150, 2)) * 10; 
+                ctx.moveTo(sx - 5, sy);
+                ctx.lineTo(sx + 5, sy);
+                if (dy !== 0) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(dy, sx + 10, sy + 4);
+                }
+            }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 電子槍
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(originX - 80, originY - 15, 70, 30);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(originX - 10, originY - 5, 10, 10);
+            
+            ctx.restore();
+        }
+
+        function drawPlatesAndFields() {
+            const E = eSwitch.checked ? parseFloat(eSlider.value) : 0;
+            const B = bSwitch.checked ? parseFloat(bSlider.value) : 0;
+            
+            // 電場板
+            const plateThickness = 10;
+            const topPlateY_canvas = cy(plateGap / 2);
+            const botPlateY_canvas = cy(-plateGap / 2) - plateThickness;
+
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(cx(0), topPlateY_canvas - plateThickness, L, plateThickness);
+            ctx.fillRect(cx(0), botPlateY_canvas, L, plateThickness);
+
+            // 繪製電力線與電場符號
+            if (E !== 0) {
+                // 明暗度與電場強度成正比 (最少保留0.1避免完全看不見)
+                const eOpacity = Math.max(0.1, Math.abs(E) / 150);
+                
+                // 1. 畫電力線
+                ctx.strokeStyle = `rgba(255, 255, 255, ${eOpacity * 0.7})`;
+                ctx.lineWidth = 1.5;
+                const arrowSize = 5;
+
+                for(let i = 20; i < L; i += 30) {
+                    const drawX = cx(i);
+                    // 若 E > 0 (電場向下)，電力線由上板畫至下板
+                    const startY = E > 0 ? topPlateY_canvas : botPlateY_canvas;
+                    const endY = E > 0 ? botPlateY_canvas : topPlateY_canvas;
+
+                    ctx.beginPath();
+                    ctx.moveTo(drawX, startY);
+                    ctx.lineTo(drawX, endY);
+                    ctx.stroke();
+
+                    // 畫電力線的箭頭
+                    const midY = (startY + endY) / 2;
+                    const dir = E > 0 ? 1 : -1; // +1 為畫布向下
+                    ctx.beginPath();
+                    ctx.moveTo(drawX - arrowSize, midY - dir * arrowSize);
+                    ctx.lineTo(drawX, midY);
+                    ctx.lineTo(drawX + arrowSize, midY - dir * arrowSize);
+                    ctx.stroke();
+                }
+
+                // 2. 畫極板正負電符號
+                // 紅色代表正極，藍色代表負極，顏色亮度隨電場增強
+                ctx.fillStyle = E > 0 ? `rgba(239, 68, 68, ${eOpacity + 0.2})` : `rgba(59, 130, 246, ${eOpacity + 0.2})`; 
+                ctx.font = '16px monospace';
+                const topSign = E > 0 ? '+' : '-';
+                const botSign = E > 0 ? '-' : '+';
+                
+                for(let i = 20; i < L; i += 30) {
+                    ctx.fillText(topSign, cx(i) - 4, topPlateY_canvas - 15);
+                    ctx.fillText(botSign, cx(i) - 4, botPlateY_canvas + 25);
+                }
+            }
+
+            // 磁場視覺化
+            if (B !== 0) {
+                const bOpacity = Math.min(Math.abs(B) / 5, 1);
+                ctx.strokeStyle = `rgba(234, 179, 8, ${bOpacity})`; // 黃色系
+                ctx.fillStyle = `rgba(234, 179, 8, ${bOpacity})`;
+                ctx.lineWidth = 1.5;
+
+                const step = 25;
+                for (let px = 15; px < L; px += step) {
+                    for (let py = -plateGap/2 + 15; py < plateGap/2; py += step) {
+                        const drawX = cx(px);
+                        const drawY = cy(py);
+                        
+                        if (B > 0) {
+                            // 穿入紙面 (叉叉)
+                            const s = 4;
+                            ctx.beginPath();
+                            ctx.moveTo(drawX - s, drawY - s); ctx.lineTo(drawX + s, drawY + s);
+                            ctx.moveTo(drawX + s, drawY - s); ctx.lineTo(drawX - s, drawY + s);
+                            ctx.stroke();
+                        } else {
+                            // 穿出紙面 (點)
+                            ctx.beginPath();
+                            ctx.arc(drawX, drawY, 2, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(drawX, drawY, 5, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawPathArray(pathArray, isCurrent) {
+            if (pathArray.length === 0) return;
+
+            ctx.beginPath();
+            ctx.moveTo(cx(pathArray[0].x), cy(pathArray[0].y));
+            for (let i = 1; i < pathArray.length; i++) {
+                ctx.lineTo(cx(pathArray[i].x), cy(pathArray[i].y));
+            }
+
+            if (isCurrent) {
+                ctx.strokeStyle = '#22c55e'; // 主光束
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#22c55e';
+                ctx.shadowBlur = 15;
+            } else {
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)'; // 歷史軌跡
+                ctx.lineWidth = 1.5;
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.stroke();
+            ctx.shadowBlur = 0; // 重置
+        }
+
+        // 動畫主迴圈
+        function render() {
+            // 清空畫布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawCRT();
+            drawPlatesAndFields();
+
+            // 畫歷史軌跡
+            traces.forEach(trace => drawPathArray(trace, false));
+
+            // 畫當前電子束
+            drawPathArray(currentPath, true);
+
+            // 動畫：移動的電子光點
+            if (currentPath.length > 0) {
+                const pt = currentPath[pulseIndex];
+                ctx.beginPath();
+                ctx.arc(cx(pt.x), cy(pt.y), 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#4ade80';
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // 打擊螢幕時的閃光
+                if (pulseIndex === currentPath.length - 1 && !hitPlates && !escapedLeft && !trapped) {
+                    ctx.beginPath();
+                    ctx.arc(cx(pt.x), cy(pt.y), 15, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(74, 222, 128, 0.4)';
+                    ctx.fill();
+                }
+
+                // 推進動畫幀
+                pulseIndex += 2; // 調整移動速度
+                if (pulseIndex >= currentPath.length) {
+                    pulseIndex = 0;
+                }
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // 初始化
+        updateSim(); // 直接呼叫更新函數，確保留存的初始數值正確
+        render();
+
+    </script>
+</body>
+</html>
