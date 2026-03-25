@@ -318,7 +318,6 @@
     </div>
     
     <!-- Template for a layer item -->
-    <!-- 移除了預設的 draggable="true"，改為透過 JS 動態設定 -->
     <template id="layer-template">
         <div class="layer-item">
             <div class="drag-handle" title="拖曳以排序">☰</div>
@@ -556,6 +555,7 @@
                     const layerTopY = currentLayerIdx * layerHeight;
                     const layerBottomY = (currentLayerIdx + 1) * layerHeight;
                     
+                    let incomingDirY = directionY; // 記錄抵達介面時的行進方向
                     let targetY = directionY === 1 ? layerBottomY : layerTopY;
                     let dy = targetY - currentY;
                     let dx = Math.abs(dy) * Math.tan(currentAngle); 
@@ -563,10 +563,6 @@
                     let nextX = currentX + dx;
 
                     ctx.lineTo(nextX, targetY);
-                    
-                    if (targetY !== 0 && targetY !== height) {
-                        normalsToDraw.push({x: nextX, y: targetY});
-                    }
 
                     let nextLayerIdx = currentLayerIdx + directionY;
                     
@@ -575,14 +571,34 @@
                         let n2 = layers[nextLayerIdx].n;
 
                         let sinT2 = (n1 / n2) * Math.sin(currentAngle);
+                        let angleInDeg = (currentAngle * 180 / Math.PI).toFixed(1);
+                        let isTIR = false;
+                        let angleOutDeg;
 
+                        // 判斷是否全反射
                         if (sinT2 > 1.0 || sinT2 < -1.0) {
                             directionY *= -1; 
                             bounces++;
+                            isTIR = true;
+                            angleOutDeg = angleInDeg; // 反射角等於入射角
                         } else {
                             currentAngle = Math.asin(sinT2);
                             currentLayerIdx = nextLayerIdx; 
+                            angleOutDeg = (currentAngle * 180 / Math.PI).toFixed(1); // 計算出折射角
                         }
+
+                        // 如果不是打在畫布的絕對邊界(最頂端或最底端)，才畫法線和標註角度
+                        if (targetY !== 0 && targetY !== height) {
+                            normalsToDraw.push({
+                                x: nextX, 
+                                y: targetY,
+                                angleIn: angleInDeg,
+                                angleOut: angleOutDeg,
+                                isTIR: isTIR,
+                                dirY: incomingDirY
+                            });
+                        }
+
                     } else {
                         break;
                     }
@@ -593,18 +609,50 @@
                 
                 ctx.stroke();
 
-                // 3. 畫出交界處的法線 (虛線)
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = 1;
+                // 3. 畫出交界處的法線 (加粗2倍)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 2; // 法線加粗2倍 (原本為1)
                 ctx.setLineDash([5, 5]);
                 
                 normalsToDraw.forEach(pt => {
                     ctx.beginPath();
-                    ctx.moveTo(pt.x, pt.y - 40);
-                    ctx.lineTo(pt.x, pt.y + 40);
+                    ctx.moveTo(pt.x, pt.y - 45); // 法線稍微拉長，讓角度有空間
+                    ctx.lineTo(pt.x, pt.y + 45);
                     ctx.stroke();
                 });
+
+                // 4. 在法線旁標示即時入射角與折射角
                 ctx.setLineDash([]); 
+                // 加入文字陰影，確保在任何顏色的介質層都能看清楚
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+
+                normalsToDraw.forEach(pt => {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '14px "Segoe UI", sans-serif';
+                    ctx.textBaseline = 'middle';
+
+                    // 判斷文字要畫在介面的上方還是下方
+                    let yOffsetIn = pt.dirY === 1 ? -16 : 16;
+                    let yOffsetOut = pt.isTIR ? (pt.dirY === 1 ? -16 : 16) : (pt.dirY === 1 ? 16 : -16);
+
+                    // 入射角 (畫在法線左側)
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`θ₁ = ${pt.angleIn}°`, pt.x - 8, pt.y + yOffsetIn);
+
+                    // 折射角 / 反射角 (畫在法線右側)
+                    ctx.textAlign = 'left';
+                    let outText = pt.isTIR ? `θ₂ = ${pt.angleOut}° (全反射)` : `θ₂ = ${pt.angleOut}°`;
+                    ctx.fillText(outText, pt.x + 8, pt.y + yOffsetOut);
+                });
+
+                // 重置陰影以免影響後續繪圖（如有）
+                ctx.shadowColor = "transparent";
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
             }
 
             // Init
