@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斜拋運動軌跡模擬</title>
+    <!-- 使用 Tailwind CSS 作為 UI 框架 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自訂卷軸樣式 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        input[type=range] { accent-color: #3b82f6; }
+        
+        /* 拖曳時的游標樣式 */
+        .cursor-grab { cursor: grab; }
+        .cursor-grabbing { cursor: grabbing !important; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen w-screen overflow-hidden flex flex-col md:flex-row font-sans">
+
+    <!-- 左側控制面板 -->
+    <div class="w-full md:w-80 bg-gray-800 p-5 flex flex-col gap-4 overflow-y-auto border-r border-gray-700 shadow-xl z-10">
+        <div>
+            <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-1">斜拋運動軌跡模擬</h1>
+            <p class="text-xs text-emerald-400 font-bold tracking-wider">重力加速度 g = 10 m/s²</p>
+        </div>
+
+        <!-- 系統全域控制 -->
+        <div class="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
+            <h2 class="text-sm font-semibold text-gray-300 mb-3 flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                系統設定
+            </h2>
+            
+            <label class="flex items-center cursor-pointer mb-3">
+                <input type="checkbox" id="slowMoToggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500 relative"></div>
+                <span class="ml-3 text-sm font-medium text-gray-200">開啟慢動作 (1/5 倍速)</span>
+            </label>
+
+            <div class="mb-1">
+                <div class="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>空間縮放 (px/m)</span>
+                    <span id="scaleLabel">15.0</span>
+                </div>
+                <input type="range" id="scaleSlider" min="2" max="50" step="0.5" value="15" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+            </div>
+            
+            <div class="text-[10px] text-gray-400 mt-3 text-center bg-gray-800 p-2 rounded">
+                💡 提示：在尚未發射前，可以直接在畫布上拉動軌跡的「最高點」或「落點」來改變參數喔！
+            </div>
+        </div>
+
+        <!-- 產生兩個物體的控制面板 -->
+        <div id="projectilesControls" class="flex flex-col gap-3"></div>
+
+        <!-- 播放控制按鈕 -->
+        <div class="mt-auto pt-4 flex gap-2">
+            <button id="btnPlay" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors flex justify-center items-center">
+                <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                發射 / 繼續
+            </button>
+            <button id="btnPause" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors hidden justify-center items-center">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+            </button>
+            <button id="btnReset" class="bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-colors flex justify-center items-center">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 右側畫布區域 -->
+    <div class="flex-1 relative bg-gray-950">
+        <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full cursor-default"></canvas>
+        
+        <!-- 即時時間顯示 -->
+        <div class="absolute top-4 right-4 bg-gray-800/80 backdrop-blur border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none">
+            <div class="text-sm text-gray-400 mb-1">經過時間 (t)</div>
+            <div class="text-3xl font-mono text-white" id="timeDisplay">0.00 s</div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 物理老師的程式核心筆記：
+         * 1. 重力加速度改為 10，方便快速計算檢驗。
+         * 2. 新增滑鼠拖曳軌跡反推 (H, R) -> (v0, θ) 的強大功能。
+         * 3. 嚴格限制 simTime <= 飛行時間，避免幀數溢位。
+         * 4. 飛過最高點時，自動標記並顯示最大高度。
+         * 5. [新增] 支援「極座標 (初速/仰角)」與「笛卡爾座標 (水平/鉛直)」兩種參數設定模式！
+         */
+
+        const G = 10.0; // 重力加速度 m/s^2
+
+        // 高中物理常用的角度簡化 (37度、53度直角三角形)
+        function getSin(angle) {
+            // 將容差擴大至 0.5，讓 vx=40, vy=30 反推的 36.87 度也能被判定為 37 度來套用 0.6 簡化
+            if (Math.abs(angle - 37) < 0.5) return 0.6;
+            if (Math.abs(angle - 53) < 0.5) return 0.8;
+            return Math.sin(angle * Math.PI / 180);
+        }
+
+        function getCos(angle) {
+            if (Math.abs(angle - 37) < 0.5) return 0.8;
+            if (Math.abs(angle - 53) < 0.5) return 0.6;
+            return Math.cos(angle * Math.PI / 180);
+        }
+
+        // 物體狀態與設定資料
+        const projectiles = [
+            { id: 1, active: true,  v0: 25, angle: 37, inputMode: 'polar', color: '#ef4444', label: '物體 1 (紅)' },
+            { id: 2, active: false, v0: 20, angle: 53, inputMode: 'polar', color: '#10b981', label: '物體 2 (綠)' }
+        ];
+
+        // 系統變數
+        let simTime = 0;       
+        let isRunning = false; 
+        let lastTimestamp = 0; 
+        
+        // 畫面參數
+        let scale = 15;        
+        let isSlowMo = false;
+        const originX = 50;    
+        const originY = 50;    
+
+        // 拖曳互動相關變數
+        let hoveredHandle = null; 
+        let draggingHandle = null; 
+        let dragInitialH = 0;
+
+        // DOM 元素擷取
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const scaleSlider = document.getElementById('scaleSlider');
+        const scaleLabel = document.getElementById('scaleLabel');
+        const slowMoToggle = document.getElementById('slowMoToggle');
+        
+        const btnPlay = document.getElementById('btnPlay');
+        const btnPause = document.getElementById('btnPause');
+        const btnReset = document.getElementById('btnReset');
+        const controlsContainer = document.getElementById('projectilesControls');
+
+        // ==========================================
+        // 初始化 UI 控制面板
+        // ==========================================
+        function initUI() {
+            projectiles.forEach((p, index) => {
+                const isChecked = p.active ? 'checked' : '';
+                const opacityClass = p.active ? 'opacity-100' : 'opacity-50';
+                
+                // 計算初始的 vx, vy
+                const initialVx = p.v0 * getCos(p.angle);
+                const initialVy = p.v0 * getSin(p.angle);
+                
+                const html = `
+                    <div class="bg-gray-700/40 p-3 rounded-lg border-l-4 transition-opacity duration-300 ${opacityClass}" id="card-${p.id}" style="border-color: ${p.color}">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="font-bold text-sm" style="color: ${p.color}">${p.label}</span>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" class="sr-only peer" data-id="${p.id}" ${isChecked} onchange="toggleActive(${p.id}, this.checked)">
+                                <div class="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all relative" style="${p.active ? 'background-color:'+p.color : ''}"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- 模式切換按鈕 -->
+                        <div class="flex bg-gray-800 rounded p-0.5 mb-3 border border-gray-600 shadow-inner">
+                            <button id="btn-polar-${p.id}" class="flex-1 text-[11px] py-1 rounded bg-blue-600 text-white transition-colors font-medium" onclick="switchInputMode(${p.id}, 'polar')">初速 / 仰角</button>
+                            <button id="btn-cartesian-${p.id}" class="flex-1 text-[11px] py-1 rounded bg-transparent text-gray-400 hover:text-gray-200 transition-colors font-medium" onclick="switchInputMode(${p.id}, 'cartesian')">水平 / 鉛直</button>
+                        </div>
+                        
+                        <!-- 極座標輸入 (初速、仰角) -->
+                        <div id="polar-inputs-${p.id}" class="space-y-3">
+                            <div>
+                                <div class="flex justify-between items-center text-xs text-gray-300 mb-1">
+                                    <span>初速 v₀ (m/s)</span>
+                                    <input type="number" id="v0-input-${p.id}" value="${p.v0.toFixed(1)}" step="0.1" min="0.1" max="100" class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-right focus:outline-none focus:border-blue-500" onchange="updateParam(${p.id}, 'v0', this.value)">
+                                </div>
+                                <input type="range" id="v0-${p.id}" min="1" max="100" step="0.1" value="${p.v0}" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="updateParam(${p.id}, 'v0', this.value)" style="accent-color: ${p.color}">
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between items-center text-xs text-gray-300 mb-1">
+                                    <span>仰角 θ (度)</span>
+                                    <div class="flex items-center">
+                                        <input type="number" id="angle-input-${p.id}" value="${p.angle.toFixed(1)}" step="0.1" min="0.1" max="89.9" class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-right focus:outline-none focus:border-blue-500" onchange="updateParam(${p.id}, 'angle', this.value)">
+                                        <span class="ml-1">°</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="angle-${p.id}" min="0.1" max="89.9" step="0.1" value="${p.angle}" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="updateParam(${p.id}, 'angle', this.value)" style="accent-color: ${p.color}">
+                            </div>
+                        </div>
+
+                        <!-- 笛卡爾座標輸入 (水平、鉛直) -->
+                        <div id="cartesian-inputs-${p.id}" class="space-y-3 hidden">
+                            <div>
+                                <div class="flex justify-between items-center text-xs text-gray-300 mb-1">
+                                    <span>水平初速 vₓ (m/s)</span>
+                                    <input type="number" id="vx-input-${p.id}" value="${initialVx.toFixed(1)}" step="0.1" min="0.1" max="100" class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-right focus:outline-none focus:border-blue-500" onchange="updateParam(${p.id}, 'vx', this.value)">
+                                </div>
+                                <input type="range" id="vx-${p.id}" min="0.1" max="100" step="0.1" value="${initialVx}" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="updateParam(${p.id}, 'vx', this.value)" style="accent-color: ${p.color}">
+                            </div>
+                            
+                            <div>
+                                <div class="flex justify-between items-center text-xs text-gray-300 mb-1">
+                                    <span>鉛直初速 v_y (m/s)</span>
+                                    <input type="number" id="vy-input-${p.id}" value="${initialVy.toFixed(1)}" step="0.1" min="0.1" max="100" class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-right focus:outline-none focus:border-blue-500" onchange="updateParam(${p.id}, 'vy', this.value)">
+                                </div>
+                                <input type="range" id="vy-${p.id}" min="0.1" max="100" step="0.1" value="${initialVy}" class="w-full h-1.5 bg-gray-600 rounded-lg appearance-none cursor-pointer" oninput="updateParam(${p.id}, 'vy', this.value)" style="accent-color: ${p.color}">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                controlsContainer.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        // ==========================================
+        // 參數與狀態更新
+        // ==========================================
+        window.switchInputMode = function(id, mode) {
+            const p = projectiles.find(p => p.id === id);
+            p.inputMode = mode;
+            
+            const polarDiv = document.getElementById(`polar-inputs-${id}`);
+            const cartesianDiv = document.getElementById(`cartesian-inputs-${id}`);
+            const btnPolar = document.getElementById(`btn-polar-${id}`);
+            const btnCartesian = document.getElementById(`btn-cartesian-${id}`);
+            
+            if (mode === 'polar') {
+                polarDiv.classList.remove('hidden');
+                cartesianDiv.classList.add('hidden');
+                
+                btnPolar.className = "flex-1 text-[11px] py-1 rounded bg-blue-600 text-white transition-colors font-medium";
+                btnCartesian.className = "flex-1 text-[11px] py-1 rounded bg-transparent text-gray-400 hover:text-gray-200 transition-colors font-medium";
+            } else {
+                polarDiv.classList.add('hidden');
+                cartesianDiv.classList.remove('hidden');
+                
+                btnCartesian.className = "flex-1 text-[11px] py-1 rounded bg-blue-600 text-white transition-colors font-medium";
+                btnPolar.className = "flex-1 text-[11px] py-1 rounded bg-transparent text-gray-400 hover:text-gray-200 transition-colors font-medium";
+            }
+            
+            // 切換時確保兩邊數值同步
+            syncUIFromData(p);
+        }
+
+        window.toggleActive = function(id, isActive) {
+            const p = projectiles.find(p => p.id === id);
+            p.active = isActive;
+            const card = document.getElementById(`card-${id}`);
+            
+            if (isActive) {
+                card.classList.remove('opacity-50');
+                card.classList.add('opacity-100');
+                card.querySelector('.peer').nextElementSibling.style.backgroundColor = p.color;
+            } else {
+                card.classList.add('opacity-50');
+                card.classList.remove('opacity-100');
+                card.querySelector('.peer').nextElementSibling.style.backgroundColor = '';
+            }
+            if(!isRunning && simTime === 0) draw(); 
+        }
+
+        window.updateParam = function(id, param, value) {
+            const p = projectiles.find(p => p.id === id);
+            let val = parseFloat(value);
+            
+            if (param === 'angle') {
+                if (val > 89.9) val = 89.9;
+                if (val < 0.1) val = 0.1;
+                p.angle = val;
+            } else if (param === 'v0') {
+                if (val > 100) val = 100;
+                if (val < 0.1) val = 0.1;
+                p.v0 = val;
+            } else if (param === 'vx') {
+                if (val > 100) val = 100;
+                if (val < 0.1) val = 0.1;
+                // 利用當前的 v0, angle 取得當前的 vy
+                let vyCalc = p.v0 * getSin(p.angle);
+                p.v0 = Math.sqrt(val * val + vyCalc * vyCalc);
+                p.angle = Math.atan2(vyCalc, val) * (180 / Math.PI);
+            } else if (param === 'vy') {
+                if (val > 100) val = 100;
+                if (val < 0.1) val = 0.1;
+                // 利用當前的 v0, angle 取得當前的 vx
+                let vxCalc = p.v0 * getCos(p.angle);
+                p.v0 = Math.sqrt(vxCalc * vxCalc + val * val);
+                p.angle = Math.atan2(val, vxCalc) * (180 / Math.PI);
+            }
+
+            // 防呆極端值
+            if (p.angle > 89.9) p.angle = 89.9;
+            if (p.angle < 0.1) p.angle = 0.1;
+            if (p.v0 > 100) p.v0 = 100;
+
+            // 同步更新所有滑桿與輸入框
+            syncUIFromData(p);
+            
+            if (!isRunning && simTime === 0) {
+                draw();
+            } else if (!isRunning) {
+                resetSimulation();
+            }
+        }
+
+        // 當經由畫布拖曳或參數更新時，同步更新兩套 UI 的數值
+        function syncUIFromData(p) {
+            // 更新極座標 UI
+            const v0Slider = document.getElementById(`v0-${p.id}`);
+            const angleSlider = document.getElementById(`angle-${p.id}`);
+            const v0Input = document.getElementById(`v0-input-${p.id}`);
+            const angleInput = document.getElementById(`angle-input-${p.id}`);
+            
+            if (v0Slider) v0Slider.value = p.v0.toFixed(1);
+            if (v0Input) v0Input.value = p.v0.toFixed(1);
+            if (angleSlider) angleSlider.value = p.angle.toFixed(1);
+            if (angleInput) angleInput.value = p.angle.toFixed(1);
+
+            // 更新笛卡爾座標 UI
+            const vx = p.v0 * getCos(p.angle);
+            const vy = p.v0 * getSin(p.angle);
+
+            const vxSlider = document.getElementById(`vx-${p.id}`);
+            const vxInput = document.getElementById(`vx-input-${p.id}`);
+            const vySlider = document.getElementById(`vy-${p.id}`);
+            const vyInput = document.getElementById(`vy-input-${p.id}`);
+            
+            if (vxSlider) vxSlider.value = vx.toFixed(1);
+            if (vxInput) vxInput.value = vx.toFixed(1);
+            if (vySlider) vySlider.value = vy.toFixed(1);
+            if (vyInput) vyInput.value = vy.toFixed(1);
+        }
+
+        // ==========================================
+        // 畫布座標轉換與互動邏輯
+        // ==========================================
+        function getCanvasX(physicsX) { return originX + (physicsX * scale); }
+        function getCanvasY(physicsY) { return canvas.height - originY - (physicsY * scale); }
+        function getPhysicsX(canvasX) { return (canvasX - originX) / scale; }
+        function getPhysicsY(canvasY) { return (canvas.height - originY - canvasY) / scale; }
+
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function checkHover(mousePos) {
+            if (simTime > 0 || isRunning) return null; 
+            
+            let foundHandle = null;
+            const threshold = 15; 
+
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                if (!p.active) continue;
+
+                const vx = p.v0 * getCos(p.angle);
+                const vy = p.v0 * getSin(p.angle);
+                const H = (vy * vy) / (2 * G);
+                const flightTime = (2 * vy) / G;
+                const R = vx * flightTime;
+
+                const cxPeak = getCanvasX(R / 2);
+                const cyPeak = getCanvasY(H);
+                const distPeak = Math.hypot(mousePos.x - cxPeak, mousePos.y - cyPeak);
+
+                const cxLand = getCanvasX(R);
+                const cyLand = getCanvasY(0);
+                const distLand = Math.hypot(mousePos.x - cxLand, mousePos.y - cyLand);
+
+                if (distPeak < threshold) {
+                    foundHandle = { id: p.id, type: 'peak', H: H };
+                    break;
+                }
+                if (distLand < threshold) {
+                    foundHandle = { id: p.id, type: 'landing', H: H };
+                    break;
+                }
+            }
+            return foundHandle;
+        }
+
+        function handlePointerDown(e) {
+            const pos = getMousePos(e);
+            hoveredHandle = checkHover(pos);
+            
+            if (hoveredHandle) {
+                draggingHandle = hoveredHandle;
+                dragInitialH = hoveredHandle.H;
+                canvas.classList.add('cursor-grabbing');
+                if(e.type === 'touchstart') e.preventDefault(); 
+            }
+        }
+
+        function handlePointerMove(e) {
+            const pos = getMousePos(e);
+
+            if (draggingHandle) {
+                const p = projectiles.find(proj => proj.id === draggingHandle.id);
+                let physX = Math.max(0.1, getPhysicsX(pos.x)); 
+                let physY = Math.max(0.1, getPhysicsY(pos.y)); 
+
+                let newR, newH;
+
+                if (draggingHandle.type === 'peak') {
+                    newR = physX * 2;
+                    newH = physY;
+                } else {
+                    newR = physX;
+                    newH = dragInitialH;
+                }
+
+                const vy = Math.sqrt(2 * G * newH);
+                const vx = (newR * G) / (2 * vy);
+
+                let newV0 = Math.sqrt(vx*vx + vy*vy);
+                let newAngle = Math.atan2(vy, vx) * (180 / Math.PI);
+
+                if (newV0 > 100) newV0 = 100; 
+                if (newAngle > 89.9) newAngle = 89.9;
+                if (newAngle < 0.1) newAngle = 0.1;
+
+                p.v0 = newV0;
+                p.angle = newAngle;
+
+                syncUIFromData(p);
+                draw();
+
+            } else {
+                hoveredHandle = checkHover(pos);
+                if (hoveredHandle) {
+                    canvas.classList.add('cursor-grab');
+                } else {
+                    canvas.classList.remove('cursor-grab');
+                }
+                draw(); 
+            }
+        }
+
+        function handlePointerUp() {
+            draggingHandle = null;
+            canvas.classList.remove('cursor-grabbing');
+            draw();
+        }
+
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+        
+        canvas.addEventListener('touchstart', handlePointerDown, {passive: false});
+        canvas.addEventListener('touchmove', handlePointerMove, {passive: false});
+        window.addEventListener('touchend', handlePointerUp);
+
+        // ==========================================
+        // 全域控制監聽
+        // ==========================================
+        scaleSlider.addEventListener('input', (e) => {
+            scale = parseFloat(e.target.value);
+            scaleLabel.innerText = scale.toFixed(1);
+            draw();
+        });
+
+        slowMoToggle.addEventListener('change', (e) => {
+            isSlowMo = e.target.checked;
+        });
+
+        btnPlay.addEventListener('click', () => {
+            isRunning = true;
+            lastTimestamp = performance.now();
+            btnPlay.classList.add('hidden');
+            btnPause.classList.remove('hidden');
+            btnPause.classList.add('flex');
+            
+            hoveredHandle = null;
+            canvas.classList.remove('cursor-grab', 'cursor-grabbing');
+            
+            requestAnimationFrame(gameLoop);
+        });
+
+        btnPause.addEventListener('click', () => {
+            isRunning = false;
+            btnPause.classList.add('hidden');
+            btnPause.classList.remove('flex');
+            btnPlay.classList.remove('hidden');
+        });
+
+        btnReset.addEventListener('click', () => {
+            resetSimulation();
+        });
+
+        function resetSimulation() {
+            isRunning = false;
+            simTime = 0;
+            timeDisplay.innerText = "0.00 s";
+            
+            btnPause.classList.add('hidden');
+            btnPause.classList.remove('flex');
+            btnPlay.classList.remove('hidden');
+            
+            draw();
+        }
+
+        // ==========================================
+        // 畫布與視窗處理
+        // ==========================================
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // ==========================================
+        // 繪圖與核心邏輯
+        // ==========================================
+        function drawGrid() {
+            ctx.strokeStyle = '#374151'; 
+            ctx.lineWidth = 1;
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = '#9ca3af';
+
+            const widthMeters = (canvas.width - originX) / scale;
+            const heightMeters = (canvas.height - originY) / scale;
+            
+            let stepMeters = 10;
+            if (scale > 20) stepMeters = 5;
+            if (scale > 40) stepMeters = 1;
+            if (scale < 5) stepMeters = 50;
+
+            for (let x = 0; x <= widthMeters; x += stepMeters) {
+                const cx = getCanvasX(x);
+                ctx.beginPath();
+                ctx.moveTo(cx, 0);
+                ctx.lineTo(cx, canvas.height - originY + 5);
+                ctx.stroke();
+                if (x > 0) ctx.fillText(x + 'm', cx - 10, canvas.height - originY + 20);
+            }
+
+            for (let y = 0; y <= heightMeters; y += stepMeters) {
+                const cy = getCanvasY(y);
+                ctx.beginPath();
+                ctx.moveTo(originX - 5, cy);
+                ctx.lineTo(canvas.width, cy);
+                ctx.stroke();
+                if (y > 0) ctx.fillText(y + 'm', originX - 35, cy + 4);
+            }
+
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(originX, 0);
+            ctx.lineTo(originX, canvas.height);
+            ctx.moveTo(0, canvas.height - originY);
+            ctx.lineTo(canvas.width, canvas.height - originY);
+            ctx.stroke();
+            
+            ctx.fillText('0', originX - 15, canvas.height - originY + 15);
+        }
+
+        function drawHandlePoint(cx, cy, color, isHovered) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, isHovered ? 8 : 5, 0, Math.PI * 2);
+            ctx.fillStyle = isHovered ? '#fff' : color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+
+            projectiles.forEach(p => {
+                if (!p.active) return;
+
+                const vx = p.v0 * getCos(p.angle);
+                const vy = p.v0 * getSin(p.angle);
+                
+                const flightTime = (2 * vy) / G;
+                const H = (vy * vy) / (2 * G);
+                const R = vx * flightTime;
+
+                if (simTime === 0 && !isRunning) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = p.color;
+                    ctx.setLineDash([5, 5]); 
+                    ctx.lineWidth = 1.5;
+                    ctx.globalAlpha = 0.6;
+                    
+                    ctx.moveTo(getCanvasX(0), getCanvasY(0));
+                    for (let i = 1; i <= 50; i++) {
+                        const t_temp = (i / 50) * flightTime;
+                        const xt = vx * t_temp;
+                        const yt = vy * t_temp - 0.5 * G * t_temp * t_temp;
+                        ctx.lineTo(getCanvasX(xt), getCanvasY(yt));
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]); 
+                    ctx.globalAlpha = 1.0;
+
+                    const isPeakHovered = hoveredHandle && hoveredHandle.id === p.id && hoveredHandle.type === 'peak';
+                    drawHandlePoint(getCanvasX(R / 2), getCanvasY(H), p.color, isPeakHovered);
+
+                    const isLandHovered = hoveredHandle && hoveredHandle.id === p.id && hoveredHandle.type === 'landing';
+                    drawHandlePoint(getCanvasX(R), getCanvasY(0), p.color, isLandHovered);
+                }
+
+                let currentT = simTime;
+                
+                if (currentT >= flightTime) {
+                    currentT = flightTime;
+                }
+
+                const curX = vx * currentT;
+                const curY = vy * currentT - 0.5 * G * currentT * currentT;
+
+                if (currentT > 0) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = p.color;
+                    ctx.lineWidth = 3;
+                    ctx.moveTo(getCanvasX(0), getCanvasY(0));
+                    
+                    const stepT = 0.05; 
+                    for (let t = stepT; t < currentT; t += stepT) {
+                        const xt = vx * t;
+                        const yt = vy * t - 0.5 * G * t * t;
+                        ctx.lineTo(getCanvasX(xt), getCanvasY(yt));
+                    }
+                    ctx.lineTo(getCanvasX(curX), getCanvasY(curY));
+                    ctx.stroke();
+                }
+
+                const cx = getCanvasX(curX);
+                const cy = getCanvasY(curY);
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                const t_peak = vy / G;
+                if (currentT >= t_peak && simTime > 0) {
+                    const peakX = getCanvasX(R / 2);
+                    const peakY = getCanvasY(H);
+                    
+                    ctx.beginPath();
+                    ctx.arc(peakX, peakY, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.fillStyle = p.color;
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`最大高度：${H.toFixed(1)} 公尺`, peakX, peakY - 12);
+                    ctx.textAlign = 'left'; 
+                }
+
+                if (simTime > 0) {
+                    ctx.fillStyle = 'rgba(17, 24, 39, 0.8)'; 
+                    ctx.roundRect(cx + 15, cy - 40, 95, 45, 4);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = p.color;
+                    ctx.font = '12px monospace';
+                    ctx.textAlign = 'left'; 
+                    ctx.fillText(`x: ${curX.toFixed(1)} m`, cx + 22, cy - 22);
+                    ctx.fillText(`y: ${Math.max(0, curY).toFixed(1)} m`, cx + 22, cy - 8); 
+                }
+            });
+        }
+
+        function gameLoop(timestamp) {
+            if (!isRunning) return;
+
+            let dt = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            if (dt > 0.1) dt = 0.1;
+
+            if (isSlowMo) {
+                dt *= 0.2; 
+            }
+
+            let maxFlightTime = 0;
+            let hasActive = false;
+            projectiles.forEach(p => {
+                if (!p.active) return;
+                hasActive = true;
+                const vy = p.v0 * getSin(p.angle); 
+                const flightTime = (2 * vy) / G;
+                if (flightTime > maxFlightTime) {
+                    maxFlightTime = flightTime;
+                }
+            });
+
+            if (!hasActive) {
+                isRunning = false;
+                btnPause.classList.add('hidden');
+                btnPause.classList.remove('flex');
+                btnPlay.classList.remove('hidden');
+                return;
+            }
+
+            simTime += dt;
+
+            if (simTime >= maxFlightTime) {
+                simTime = maxFlightTime;
+                isRunning = false; 
+            }
+
+            timeDisplay.innerText = simTime.toFixed(2) + " s";
+            draw();
+
+            if (!isRunning) {
+                btnPause.classList.add('hidden');
+                btnPause.classList.remove('flex');
+                btnPlay.classList.remove('hidden');
+            } else {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // 初始化
+        initUI();
+        resizeCanvas();
+
+    </script>
+</body>
+</html>
