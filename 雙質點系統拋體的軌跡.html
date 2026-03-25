@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>剛體拋體運動與質心軌跡模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #f0f4f8;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            overflow: hidden; /* 隱藏捲軸，全螢幕顯示 */
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            background-color: #ffffff;
+            cursor: crosshair;
+        }
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            width: 320px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+        .btn {
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        .btn:active {
+            transform: translateY(1px);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="control-panel flex flex-col gap-4">
+        <h1 class="text-xl font-bold text-gray-800 border-b pb-2">剛體拋體運動與軌跡</h1>
+        
+        <div class="flex flex-col gap-5">
+            <!-- 質量控制 -->
+            <div class="space-y-3">
+                <div class="font-semibold text-gray-700">1. 質點設定</div>
+                <div>
+                    <label class="flex justify-between text-sm text-green-600 font-bold mb-1">
+                        <span>上方質點 1 (m₁)</span>
+                        <span id="m1-val">5</span>
+                    </label>
+                    <input type="range" id="m1-slider" min="1" max="10" value="5" class="w-full">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm text-blue-600 font-bold mb-1">
+                        <span>下方質點 2 (m₂)</span>
+                        <span id="m2-val">5</span>
+                    </label>
+                    <input type="range" id="m2-slider" min="1" max="10" value="5" class="w-full">
+                </div>
+            </div>
+
+            <!-- 互動控制 -->
+            <div class="space-y-3">
+                <div class="font-semibold text-gray-700">2. 互動與模擬設定</div>
+                <div class="flex items-center space-x-4 bg-gray-50 p-2 rounded border">
+                    <label class="flex items-center space-x-1 cursor-pointer">
+                        <input type="radio" name="ctrl-target" value="1" checked class="w-4 h-4 text-green-600">
+                        <span class="text-gray-700 text-sm">施力於上方(綠)</span>
+                    </label>
+                    <label class="flex items-center space-x-1 cursor-pointer">
+                        <input type="radio" name="ctrl-target" value="2" class="w-4 h-4 text-blue-600">
+                        <span class="text-gray-700 text-sm">施力於下方(藍)</span>
+                    </label>
+                </div>
+                <label class="flex items-center space-x-2 cursor-pointer mt-2">
+                    <input type="checkbox" id="chk-slowmo" class="w-4 h-4 text-purple-600 rounded">
+                    <span class="text-gray-800 text-sm font-bold">開啟慢動作 (1/5 速度)</span>
+                </label>
+            </div>
+
+            <!-- 視角控制 -->
+            <div class="space-y-3">
+                <div class="font-semibold text-gray-700">3. 視角與畫面</div>
+                <div>
+                    <label class="flex justify-between text-sm text-gray-600 font-bold mb-1">
+                        <span>畫面縮放 (Zoom)</span>
+                        <span id="zoom-val">1.0x</span>
+                    </label>
+                    <input type="range" id="zoom-slider" min="0.2" max="2" step="0.1" value="1" class="w-full">
+                </div>
+            </div>
+
+            <!-- 顯示控制 -->
+            <div class="space-y-2">
+                <div class="font-semibold text-gray-700">4. 軌跡顯示</div>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="show-path1" checked class="w-4 h-4 text-green-600 rounded">
+                    <span class="text-gray-700 text-sm">顯示質點 1 (綠) 軌跡</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="show-path2" checked class="w-4 h-4 text-blue-600 rounded">
+                    <span class="text-gray-700 text-sm">顯示質點 2 (藍) 軌跡</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" id="show-pathCOM" checked class="w-4 h-4 text-red-600 rounded">
+                    <span class="text-gray-700 text-sm font-bold">顯示質心 (紅) 軌跡</span>
+                </label>
+            </div>
+
+            <!-- 動作控制 -->
+            <div class="flex flex-col justify-center space-y-3 mt-2">
+                <button id="btn-start" class="btn bg-[#FFC000] text-black font-bold py-2 px-4 rounded shadow">
+                    ▶ 開始模擬
+                </button>
+                <button id="btn-reset" class="btn bg-[#6600CC] text-white font-bold py-2 px-4 rounded shadow">
+                    ↺ 重設狀態
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const m1Slider = document.getElementById('m1-slider');
+    const m2Slider = document.getElementById('m2-slider');
+    const m1Val = document.getElementById('m1-val');
+    const m2Val = document.getElementById('m2-val');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomVal = document.getElementById('zoom-val');
+    const chkPath1 = document.getElementById('show-path1');
+    const chkPath2 = document.getElementById('show-path2');
+    const chkPathCOM = document.getElementById('show-pathCOM');
+    const btnStart = document.getElementById('btn-start');
+    const btnReset = document.getElementById('btn-reset');
+    const radioCtrlTarget = document.getElementsByName('ctrl-target');
+    const chkSlowMo = document.getElementById('chk-slowmo');
+
+    // Simulation Parameters
+    const gravity = 600; // 像素/秒^2
+    const L = 180; // 棍子長度
+    let platformWidth = 300;
+    let platformY = 300;
+    let groundY = 600;
+    
+    // View & Control Parameters
+    let zoom = 1.0;
+    const VELOCITY_DISPLAY_SCALE = 0.25; // 將速度顯示長度縮小為 1/4
+    let activeControl = 1; // 1 控制上方(綠)，2 控制下方(藍)
+
+    // State variables
+    let state = 'SETUP'; // SETUP, RUNNING, FINISHED
+    let m1 = parseInt(m1Slider.value);
+    let m2 = parseInt(m2Slider.value);
+    
+    // Initial Conditions (Setup phase)
+    let r1_init = { x: 0, y: 0 };
+    let r2_init = { x: 0, y: 0 };
+    let v1_init = { x: 250, y: -200 };
+    let v2_init = { x: 0, y: -200 }; // 剛體垂直約束，v2.y 必須等於 v1.y
+
+    // Physics Variables for Runtime
+    let lastTime = 0;
+    let simTime = 0; // 累積的模擬時間 (用於慢動作)
+    let R0, V0, omega0, theta0;
+    let p1_0, p2_0; // 初始狀態下質點相對於質心的向量
+
+    // Current State
+    let current_r1 = { x: 0, y: 0 };
+    let current_r2 = { x: 0, y: 0 };
+    let current_R = { x: 0, y: 0 };
+    
+    // Trajectories
+    let path1 = [];
+    let path2 = [];
+    let pathCOM = [];
+
+    // Interaction variables
+    let dragTarget = null; // 1 for v1 arrow, 2 for v2 arrow
+    let hoverTarget = null;
+
+    // Initialize the simulation & handle window resize
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Update environment bounds
+        platformWidth = Math.min(300, canvas.width * 0.25);
+        platformY = canvas.height * 0.4; // 平台在畫面 40% 高度
+        groundY = canvas.height - 40;    // 地面在最下方
+        
+        if (state === 'SETUP') {
+            resetSim();
+        } else {
+            draw();
+        }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function init() {
+        updateMass();
+        resizeCanvas();
+    }
+
+    // Event Listeners for Controls
+    zoomSlider.addEventListener('input', (e) => {
+        zoom = parseFloat(e.target.value);
+        zoomVal.textContent = zoom.toFixed(1) + 'x';
+        draw();
+    });
+
+    radioCtrlTarget.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            activeControl = parseInt(e.target.value);
+            // 切換目標時重置合理的初速度方向
+            if (activeControl === 1) {
+                v1_init = { x: 250, y: -200 };
+                v2_init = { x: 0, y: -200 };
+            } else {
+                v1_init = { x: 0, y: -200 };
+                v2_init = { x: 250, y: -200 };
+            }
+            if (state === 'SETUP') draw();
+        });
+    });
+
+    // Calculate COM during setup
+    function calcCOM_Setup() {
+        current_R.x = (m1 * r1_init.x + m2 * r2_init.x) / (m1 + m2);
+        current_R.y = (m1 * r1_init.y + m2 * r2_init.y) / (m1 + m2);
+    }
+
+    function updateMass() {
+        m1 = parseInt(m1Slider.value);
+        m2 = parseInt(m2Slider.value);
+        m1Val.textContent = m1;
+        m2Val.textContent = m2;
+        if (state === 'SETUP') {
+            calcCOM_Setup();
+            draw();
+        } else {
+            resetSim(); // 如果在運行中改變質量，強制重設
+        }
+    }
+    m1Slider.addEventListener('input', updateMass);
+    m2Slider.addEventListener('input', updateMass);
+
+    // Render toggles
+    chkPath1.addEventListener('change', draw);
+    chkPath2.addEventListener('change', draw);
+    chkPathCOM.addEventListener('change', draw);
+
+    // Buttons
+    btnStart.addEventListener('click', () => {
+        if (state === 'SETUP') startSim();
+    });
+    btnReset.addEventListener('click', resetSim);
+
+    function resetSim() {
+        state = 'SETUP';
+        path1 = [];
+        path2 = [];
+        pathCOM = [];
+        
+        // Reset positions based on current canvas size
+        r1_init = { x: platformWidth - 40, y: platformY - L }; // 上方質點
+        r2_init = { x: platformWidth - 40, y: platformY };     // 下方質點 (貼齊平台)
+        
+        current_r1 = { ...r1_init };
+        current_r2 = { ...r2_init };
+        
+        // 重設按鈕樣式
+        btnStart.textContent = '▶ 開始模擬';
+        btnStart.className = 'btn bg-[#FFC000] text-black font-bold py-2 px-4 rounded shadow';
+        
+        calcCOM_Setup();
+        draw();
+    }
+
+    function startSim() {
+        state = 'RUNNING';
+        // 運行中按鈕樣式
+        btnStart.textContent = '模擬運行中...';
+        btnStart.className = 'btn bg-yellow-600 text-white font-bold py-2 px-4 rounded shadow';
+        
+        // 1. 計算質心初始位置 R0
+        R0 = {
+            x: (m1 * r1_init.x + m2 * r2_init.x) / (m1 + m2),
+            y: (m1 * r1_init.y + m2 * r2_init.y) / (m1 + m2)
+        };
+
+        // 2. 計算質心初速度 V0
+        V0 = {
+            x: (m1 * v1_init.x + m2 * v2_init.x) / (m1 + m2),
+            y: (m1 * v1_init.y + m2 * v2_init.y) / (m1 + m2)
+        };
+
+        // 3. 計算各質點相對質心的向量
+        p1_0 = { x: r1_init.x - R0.x, y: r1_init.y - R0.y };
+        p2_0 = { x: r2_init.x - R0.x, y: r2_init.y - R0.y };
+
+        // 4. 計算相對於質心的總角動量與轉動慣量
+        let L_com = (p1_0.x * (m1 * v1_init.y) - p1_0.y * (m1 * v1_init.x)) +
+                    (p2_0.x * (m2 * v2_init.y) - p2_0.y * (m2 * v2_init.x));
+        
+        let I = m1 * (p1_0.x**2 + p1_0.y**2) + m2 * (p2_0.x**2 + p2_0.y**2);
+        
+        // 5. 初始角速度與角度
+        omega0 = L_com / I;
+        theta0 = 0; 
+
+        path1 = [{...r1_init}];
+        path2 = [{...r2_init}];
+        pathCOM = [{...R0}];
+
+        // 初始化時間變數
+        lastTime = performance.now();
+        simTime = 0;
+        requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(time) {
+        if (state !== 'RUNNING') return;
+
+        // 計算實際經過的時間與模擬時間 (處理慢動作)
+        let realDt = (time - lastTime) / 1000;
+        lastTime = time;
+        
+        let timeScale = chkSlowMo.checked ? 0.2 : 1.0;
+        simTime += realDt * timeScale;
+        
+        let dt = simTime; // 帶入解析解公式使用的是累積模擬時間
+        
+        // 解析解計算質心位置 (拋體運動)
+        current_R.x = R0.x + V0.x * dt;
+        current_R.y = R0.y + V0.y * dt + 0.5 * gravity * dt * dt;
+
+        // 解析解計算旋轉角度 (等角速度旋轉)
+        let theta = theta0 + omega0 * dt;
+        let cosT = Math.cos(theta);
+        let sinT = Math.sin(theta);
+
+        // 運用旋轉矩陣更新質點位置
+        current_r1.x = current_R.x + p1_0.x * cosT - p1_0.y * sinT;
+        current_r1.y = current_R.y + p1_0.x * sinT + p1_0.y * cosT;
+
+        current_r2.x = current_R.x + p2_0.x * cosT - p2_0.y * sinT;
+        current_r2.y = current_R.y + p2_0.x * sinT + p2_0.y * cosT;
+
+        // 紀錄軌跡 (以固定的模擬時間間隔紀錄可避免慢動作時軌跡點過度密集)
+        if (dt > 0) {
+            path1.push({...current_r1});
+            path2.push({...current_r2});
+            pathCOM.push({...current_R});
+        }
+
+        draw();
+
+        // 落地判斷：動態判斷目前是在平台上方還是地面上方
+        let floor1 = current_r1.x <= platformWidth ? platformY : groundY;
+        let floor2 = current_r2.x <= platformWidth ? platformY : groundY;
+        let floorCOM = current_R.x <= platformWidth ? platformY : groundY;
+
+        if (dt > 0.1 && (current_r1.y >= floor1 || current_r2.y >= floor2 || current_R.y >= floorCOM)) {
+            state = 'FINISHED';
+            // 結束時按鈕樣式
+            btnStart.textContent = '模擬結束';
+            btnStart.className = 'btn bg-gray-400 text-white font-bold py-2 px-4 rounded shadow cursor-not-allowed';
+            draw(); // 確保最後一幀被畫出來
+        } else {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    // Drawing Functions
+    function draw() {
+        // 重置畫面必須在 scale 外面執行
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        
+        // 將縮放中心點設在地面高度 (0, groundY)
+        // 這樣畫面縮放時，地面位置就會保持不變，向上(天空)方向延伸
+        ctx.translate(0, groundY);
+        ctx.scale(zoom, zoom); 
+        ctx.translate(0, -groundY);
+
+        // 計算可見的世界座標邊界 (Y軸現在可能為負值，因為向天空延伸)
+        const viewW = canvas.width / zoom;
+        const viewTop = groundY - groundY / zoom;
+        const viewBottom = groundY + (canvas.height - groundY) / zoom;
+
+        // 畫格線 (背景) - 確保填滿縮放後的整個可視區域
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        for(let i = 0; i < viewW; i+=50) {
+            ctx.beginPath(); ctx.moveTo(i, viewTop); ctx.lineTo(i, viewBottom); ctx.stroke();
+        }
+        // Y軸的格線要從視窗最上方開始畫
+        let startY = Math.floor(viewTop / 50) * 50;
+        for(let i = startY; i < viewBottom; i+=50) {
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(viewW, i); ctx.stroke();
+        }
+
+        // 畫高台
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(0, platformY, platformWidth, Math.max(0, viewBottom - platformY));
+        // 高台邊緣線
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, platformY); ctx.lineTo(platformWidth, platformY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(platformWidth, platformY); ctx.lineTo(platformWidth, Math.max(platformY, viewBottom)); ctx.stroke();
+
+        // 畫地面
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillRect(platformWidth, groundY, Math.max(0, viewW - platformWidth), Math.max(0, viewBottom - groundY));
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(platformWidth, groundY);
+        ctx.lineTo(Math.max(viewW, platformWidth), groundY);
+        ctx.stroke();
+
+        if (state === 'SETUP') {
+            drawSetup();
+        } else {
+            drawRunning();
+        }
+
+        ctx.restore();
+    }
+
+    function drawSetup() {
+        // 畫棍子
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(r1_init.x, r1_init.y);
+        ctx.lineTo(r2_init.x, r2_init.y);
+        ctx.stroke();
+
+        // 畫質心 (改為紅色)
+        calcCOM_Setup();
+        drawCross(current_R.x, current_R.y, '#dc2626');
+
+        // 畫質點 (紅點改綠色 #16a34a, 藍點維持藍色)
+        drawCircle(r1_init.x, r1_init.y, getRadius(m1), '#16a34a'); // 綠色 m1
+        drawCircle(r2_init.x, r2_init.y, getRadius(m2), '#2563eb'); // 藍色 m2
+
+        // 畫速度向量與互動提示 (根據啟用的控制目標來畫)
+        if (activeControl === 1) {
+            drawDraggableArrow(r1_init.x, r1_init.y, v1_init, '#4ade80', hoverTarget === 1); // 亮綠色
+            // 下方質點畫出灰色向量，表示其為從屬狀態
+            drawDraggableArrow(r2_init.x, r2_init.y, v2_init, '#cbd5e1', false);
+        } else {
+            drawDraggableArrow(r2_init.x, r2_init.y, v2_init, '#93c5fd', hoverTarget === 2);
+            // 上方質點畫出灰色向量，表示其為從屬狀態
+            drawDraggableArrow(r1_init.x, r1_init.y, v1_init, '#cbd5e1', false);
+        }
+    }
+
+    function drawRunning() {
+        // 畫軌跡 (加入指定的寬度參數)
+        if (chkPath1.checked) drawPath(path1, '#4ade80', 2); // 亮綠色，寬度 2
+        if (chkPath2.checked) drawPath(path2, '#93c5fd', 2); // 亮藍色，寬度 2
+        if (chkPathCOM.checked) drawPath(pathCOM, '#fca5a5', 4); // 亮紅色，加粗為 4
+
+        // 畫當前棍子
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(current_r1.x, current_r1.y);
+        ctx.lineTo(current_r2.x, current_r2.y);
+        ctx.stroke();
+
+        // 畫質心 (改為紅色)
+        drawCross(current_R.x, current_R.y, '#dc2626');
+
+        // 畫質點 (紅點改綠色 #16a34a)
+        drawCircle(current_r1.x, current_r1.y, getRadius(m1), '#16a34a');
+        drawCircle(current_r2.x, current_r2.y, getRadius(m2), '#2563eb');
+    }
+
+    function getRadius(mass) {
+        return 6 + mass * 1.5;
+    }
+
+    function drawCircle(x, y, radius, color) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    function drawCross(x, y, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6);
+        ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    function drawPath(pathArray, color, lineWidth = 2) {
+        if (pathArray.length < 2) return;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(pathArray[0].x, pathArray[0].y);
+        for (let i = 1; i < pathArray.length; i++) {
+            ctx.lineTo(pathArray[i].x, pathArray[i].y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset
+    }
+
+    function drawDraggableArrow(startX, startY, vec, color, isHovered) {
+        // 利用 VELOCITY_DISPLAY_SCALE 將顯示的向量縮小
+        const displayVecX = vec.x * VELOCITY_DISPLAY_SCALE;
+        const displayVecY = vec.y * VELOCITY_DISPLAY_SCALE;
+        
+        const endX = startX + displayVecX;
+        const endY = startY + displayVecY;
+        
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 3;
+
+        // 箭身
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 箭頭
+        const angle = Math.atan2(displayVecY, displayVecX);
+        const headlen = 12;
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+        ctx.fill();
+
+        // 互動熱區提示
+        if (isHovered) {
+            ctx.beginPath();
+            // 讓提示圈根據縮放率反向調整，確保不管拉近拉遠，視覺上的選取區都是固定的
+            ctx.arc(endX, endY, 15 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+            ctx.fill();
+        }
+    }
+
+    // Mouse Interaction for vectors
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        // 將滑鼠螢幕座標轉換回真實世界座標（考慮到原點平移至 groundY 的縮放）
+        const screenX = evt.clientX - rect.left;
+        const screenY = evt.clientY - rect.top;
+        return {
+            x: screenX / zoom,
+            y: (screenY - groundY) / zoom + groundY
+        };
+    }
+
+    function checkHover(mousePos) {
+        if (state !== 'SETUP') return null;
+        
+        if (activeControl === 1) {
+            const tip1 = { 
+                x: r1_init.x + v1_init.x * VELOCITY_DISPLAY_SCALE, 
+                y: r1_init.y + v1_init.y * VELOCITY_DISPLAY_SCALE 
+            };
+            const dist1 = Math.hypot(mousePos.x - tip1.x, mousePos.y - tip1.y);
+            if (dist1 < 20 / zoom) return 1;
+        } else {
+            const tip2 = { 
+                x: r2_init.x + v2_init.x * VELOCITY_DISPLAY_SCALE, 
+                y: r2_init.y + v2_init.y * VELOCITY_DISPLAY_SCALE 
+            };
+            const dist2 = Math.hypot(mousePos.x - tip2.x, mousePos.y - tip2.y);
+            if (dist2 < 20 / zoom) return 2;
+        }
+
+        return null;
+    }
+
+    canvas.addEventListener('mousemove', (evt) => {
+        if (state !== 'SETUP') return;
+        
+        const mousePos = getMousePos(evt);
+
+        if (dragTarget === 1) {
+            // 回推真實速度需將滑鼠位移除以 VELOCITY_DISPLAY_SCALE
+            v1_init.x = (mousePos.x - r1_init.x) / VELOCITY_DISPLAY_SCALE;
+            v1_init.y = (mousePos.y - r1_init.y) / VELOCITY_DISPLAY_SCALE;
+            // 約束 v2.y = v1.y (垂直方向剛體長度約束)，且被動端無水平初速
+            v2_init.y = v1_init.y;
+            v2_init.x = 0;
+            draw();
+        } else if (dragTarget === 2) {
+            v2_init.x = (mousePos.x - r2_init.x) / VELOCITY_DISPLAY_SCALE;
+            v2_init.y = (mousePos.y - r2_init.y) / VELOCITY_DISPLAY_SCALE;
+            // 約束 v1.y = v2.y (垂直方向剛體長度約束)，且被動端無水平初速
+            v1_init.y = v2_init.y;
+            v1_init.x = 0;
+            draw();
+        } else {
+            // Hover effect
+            const newHover = checkHover(mousePos);
+            if (newHover !== hoverTarget) {
+                hoverTarget = newHover;
+                canvas.style.cursor = hoverTarget ? 'pointer' : 'crosshair';
+                draw();
+            }
+        }
+    });
+
+    canvas.addEventListener('mousedown', (evt) => {
+        if (state !== 'SETUP') return;
+        const mousePos = getMousePos(evt);
+        dragTarget = checkHover(mousePos);
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        dragTarget = null;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        dragTarget = null;
+        hoverTarget = null;
+        draw();
+    });
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>
