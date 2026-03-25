@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>斜拋運動軌跡模擬</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>斜拋運動模擬器</title>
     <!-- 使用 Tailwind CSS 作為 UI 框架 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -17,14 +17,28 @@
         /* 拖曳時的游標樣式 */
         .cursor-grab { cursor: grab; }
         .cursor-grabbing { cursor: grabbing !important; }
+
+        /* 防止手機端拖曳畫布時觸發頁面滾動 */
+        #simCanvas { touch-action: none; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 h-screen w-screen overflow-hidden flex flex-col md:flex-row font-sans">
+<body class="bg-gray-900 text-gray-100 h-[100dvh] w-screen overflow-hidden flex flex-col md:flex-row font-sans">
 
-    <!-- 左側控制面板 -->
-    <div class="w-full md:w-80 bg-gray-800 p-5 flex flex-col gap-4 overflow-y-auto border-r border-gray-700 shadow-xl z-10">
+    <!-- 畫布區域 (手機端自動移至上方，桌面端在右側) -->
+    <div class="w-full h-[45vh] md:h-full md:flex-1 relative bg-gray-950 order-1 md:order-2 shrink-0 border-b md:border-b-0 border-gray-700">
+        <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full cursor-default"></canvas>
+        
+        <!-- 即時時間顯示 -->
+        <div class="absolute top-2 right-2 md:top-4 md:right-4 bg-gray-800/80 backdrop-blur border border-gray-700 p-2 md:p-3 rounded-lg shadow-2xl pointer-events-none z-20">
+            <div class="text-[10px] md:text-sm text-gray-400 mb-0 md:mb-1">經過時間 (t)</div>
+            <div class="text-xl md:text-3xl font-mono text-white" id="timeDisplay">0.00 s</div>
+        </div>
+    </div>
+
+    <!-- 左側/下方控制面板 (手機端自動移至下方，桌面端在左側) -->
+    <div class="w-full flex-1 md:w-80 md:flex-none md:h-full bg-gray-800 p-5 flex flex-col gap-4 overflow-y-auto md:border-r border-gray-700 shadow-xl z-10 order-2 md:order-1">
         <div>
-            <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-1">斜拋運動軌跡模擬</h1>
+            <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-1">斜拋運動模擬器</h1>
             <p class="text-xs text-emerald-400 font-bold tracking-wider">重力加速度 g = 10 m/s²</p>
         </div>
 
@@ -72,25 +86,15 @@
         </div>
     </div>
 
-    <!-- 右側畫布區域 -->
-    <div class="flex-1 relative bg-gray-950">
-        <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full cursor-default"></canvas>
-        
-        <!-- 即時時間顯示 -->
-        <div class="absolute top-4 right-4 bg-gray-800/80 backdrop-blur border border-gray-700 p-3 rounded-lg shadow-2xl pointer-events-none">
-            <div class="text-sm text-gray-400 mb-1">經過時間 (t)</div>
-            <div class="text-3xl font-mono text-white" id="timeDisplay">0.00 s</div>
-        </div>
-    </div>
-
     <script>
         /**
          * 物理老師的程式核心筆記：
          * 1. 重力加速度改為 10，方便快速計算檢驗。
          * 2. 新增滑鼠拖曳軌跡反推 (H, R) -> (v0, θ) 的強大功能。
          * 3. 嚴格限制 simTime <= 飛行時間，避免幀數溢位。
-         * 4. 飛過最高點時，自動標記並顯示最大高度。
+         * 4. 飛過最高點時，自動標記並顯示最大高度 (字體放大2倍為 24px)。
          * 5. [新增] 支援「極座標 (初速/仰角)」與「笛卡爾座標 (水平/鉛直)」兩種參數設定模式！
+         * 6. [新增] 行動裝置自動完美上下排版適配 (RWD)，無損桌機版面。
          */
 
         const G = 10.0; // 重力加速度 m/s^2
@@ -398,11 +402,15 @@
                 draggingHandle = hoveredHandle;
                 dragInitialH = hoveredHandle.H;
                 canvas.classList.add('cursor-grabbing');
+                // 在手機上拖拉控制點時，防止畫面跟著滾動
                 if(e.type === 'touchstart') e.preventDefault(); 
             }
         }
 
         function handlePointerMove(e) {
+            // 防止手機端拖拉畫布造成網頁更新
+            if (e.cancelable && e.type === 'touchmove') e.preventDefault();
+
             const pos = getMousePos(e);
 
             if (draggingHandle) {
@@ -665,10 +673,11 @@
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
 
+                    // 字體放大兩倍 (24px) 且將偏移距離拉長以防止遮住白點
                     ctx.fillStyle = p.color;
-                    ctx.font = 'bold 12px sans-serif';
+                    ctx.font = 'bold 24px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.fillText(`最大高度：${H.toFixed(1)} 公尺`, peakX, peakY - 12);
+                    ctx.fillText(`最大高度：${H.toFixed(1)} 公尺`, peakX, peakY - 24);
                     ctx.textAlign = 'left'; 
                 }
 
