@@ -7,7 +7,15 @@
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fff5f5; display: flex; flex-direction: column; align-items: center; padding: 50px 20px; }
         h1 { color: #d63031; margin-bottom: 30px; text-align: center; }
-        .menu-container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; }
+        
+        .menu-container { 
+            display: grid; /* 改成網格排版 */
+            grid-template-columns: repeat(6, 1fr); /* 設定每一排有 6 個等寬的區塊 */
+            gap: 20px; 
+            width: 100%; 
+            max-width: 1400px; /* 將寬度放寬，這樣 6 個按鈕才不會太擠 */
+        }
+        
         .btn { background-color: #fff; color: #d63031; padding: 20px; text-decoration: none; border-radius: 12px; text-align: center; font-size: 1.2em; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 2px solid #d63031; transition: transform 0.2s; }
         .btn:hover { transform: translateY(-3px); background-color: #d63031; color: #fff; }
         .back-btn { margin-top: 30px; color: #666; text-decoration: none; font-weight: bold; }
