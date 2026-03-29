@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>等速圓周運動與角動量守恆模擬</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --bg-color: #f9f4ed;
+            --table-color: #CFAF8E;
+            --table-side: #C58E62;
+            --table-leg: #AE7E57;
+            --ball-color: #00B0F0;
+            --force-color: #c0392b;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            overflow: hidden;
+            /* 增加最大寬度以容納右側的兩個圖表 */
+            max-width: 1450px;
+            width: 100%;
+        }
+
+        .visuals {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            border-bottom: 1px solid #eee;
+        }
+
+        @media (min-width: 1000px) {
+            .visuals {
+                flex-direction: row;
+            }
+        }
+
+        .canvas-container {
+            flex: 1.2;
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .graphs-container {
+            display: flex;
+            flex-direction: row;
+            background-color: #fff;
+        }
+
+        .graph-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            border-left: 1px solid #eee;
+            position: relative;
+            min-width: 320px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        .controls-panel {
+            padding: 25px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        label {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 1.1em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 100%;
+            appearance: none;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            background: #a93226;
+        }
+
+        .stats-box {
+            background: var(--bg-color);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-item {
+            font-size: 1.05em;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-item span:last-child {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-top: 4px;
+        }
+
+        .math-expr {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+
+        .explanation {
+            font-size: 0.95em;
+            color: #555;
+            line-height: 1.6;
+            margin-top: 5px;
+        }
+        
+        .preset-btns {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .graph-title {
+            position: absolute;
+            top: 20px;
+            font-weight: bold;
+            color: #555;
+            text-align: center;
+            width: 100%;
+            left: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>角動量守恆與向心力模擬</h1>
+    
+    <div class="container">
+        <div class="visuals">
+            <div class="canvas-container">
+                <!-- 放大主模擬區的 Canvas 尺寸 -->
+                <canvas id="simCanvas" width="750" height="550"></canvas>
+            </div>
+            
+            <div class="graphs-container">
+                <div class="graph-container">
+                    <div class="graph-title">拉力(F) 與 半徑(R) 關係圖</div>
+                    <canvas id="graphCanvas" width="300" height="400"></canvas>
+                </div>
+                <div class="graph-container">
+                    <div class="graph-title">速率(v) 與 半徑(R) 關係圖</div>
+                    <canvas id="vGraphCanvas" width="300" height="400"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="forceSlider">
+                    <span>向下的拉力 <span class="math-expr">F</span></span>
+                    <span id="forceValue" class="math-expr" style="color: var(--force-color);">1.00 F₀</span>
+                </label>
+                <!-- 設定拉力從 1 倍 到 27 倍 -->
+                <input type="range" id="forceSlider" min="1" max="27" step="0.1" value="1">
+            </div>
+
+            <div class="preset-btns">
+                <button onclick="setForce(1)">初始狀態 (F = 1)</button>
+                <button onclick="setForce(27)">拉力變 27 倍</button>
+            </div>
+
+            <div class="stats-box">
+                <div class="stat-item">
+                    <span>圓周半徑 <span class="math-expr">R</span>:</span>
+                    <span id="radiusDisplay" class="math-expr">1.00 R₀</span>
+                </div>
+                <div class="stat-item">
+                    <span>小球速率 <span class="math-expr">v</span>:</span>
+                    <span id="velocityDisplay" class="math-expr">1.00 v₀</span>
+                </div>
+                <div class="stat-item">
+                    <span>繩子張力 <span class="math-expr">T</span>:</span>
+                    <span id="tensionDisplay" class="math-expr">1.00 F₀</span>
+                </div>
+                <div class="stat-item">
+                    <span>角動量 <span class="math-expr">L</span>:</span>
+                    <span class="math-expr" style="color: #27ae60;">1.00 R₀m₀v₀ (守恆)</span>
+                </div>
+            </div>
+
+            <div class="explanation">
+                <strong>物理原理：</strong><br>
+                在沒有額外力矩的情況下，小球的角動量守恆 (<span class="math-expr">L = mvR = \text{定值}</span>)，這意味著速率與半徑成反比 (<span class="math-expr">v \propto 1/R</span>)。<br>
+                向下的拉力 <span class="math-expr">F</span> 提供了圓周運動所需的向心力：<span class="math-expr">F = m\frac{v^2}{R}</span>。<br>
+                將速率 <span class="math-expr">v = \frac{L}{mR}</span> 代入向心力公式可得：<span class="math-expr">F = \frac{L^2}{m R^3} \propto \frac{1}{R^3}</span>。<br>
+                由圖形可見，當拉力增加為 27 倍時，半徑將縮小為 1/3 倍，此時小球的速率會提升為 3 倍。
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 模擬區 Canvas 設定 ===
+        const simCanvas = document.getElementById('simCanvas');
+        const ctx = simCanvas.getContext('2d');
+        const cx = simCanvas.width / 2;
+        const cy = 200; // 配合放大後的桌面，中心點向下微調
+        const tilt = 0.35; // 橢圓透視壓縮比例
+        
+        // === 圖表 Canvas 設定 ===
+        const graphCanvas = document.getElementById('graphCanvas');
+        const gtx = graphCanvas.getContext('2d');
+        const vGraphCanvas = document.getElementById('vGraphCanvas');
+        const vtx = vGraphCanvas.getContext('2d');
+
+        // 物理與繪圖基準參數 (相較於之前放大約 1.8~2 倍)
+        const baseR = 300; 
+        const baseV = 1;   
+        const baseOmega = 0.025; 
+        const stringBelowTableLength = 40; 
+
+        // 當前狀態
+        let currentForceRatio = 1; // F / F0
+        let currentR = baseR;
+        let currentV = baseV;
+        let currentOmega = baseOmega;
+        let angle = 0;
+
+        // DOM 元素
+        const forceSlider = document.getElementById('forceSlider');
+        const forceValueDisplay = document.getElementById('forceValue');
+        const radiusDisplay = document.getElementById('radiusDisplay');
+        const velocityDisplay = document.getElementById('velocityDisplay');
+        const tensionDisplay = document.getElementById('tensionDisplay');
+
+        function setForce(value) {
+            forceSlider.value = value;
+            updatePhysics();
+        }
+
+        function updatePhysics() {
+            currentForceRatio = parseFloat(forceSlider.value);
+            
+            // F ∝ 1/R^3  => R ∝ F^(-1/3)
+            // v ∝ F^(1/3)
+            let rRatio = Math.pow(currentForceRatio, -1/3);
+            let vRatio = Math.pow(currentForceRatio, 1/3);
+            
+            currentR = baseR * rRatio;
+            currentV = baseV * vRatio;
+            currentOmega = baseOmega * Math.pow(currentForceRatio, 2/3);
+
+            // 更新 UI 顯示
+            forceValueDisplay.innerText = currentForceRatio.toFixed(2) + " F₀";
+            
+            if (Math.abs(rRatio - (1/3)) < 0.01) radiusDisplay.innerText = "0.33 R₀ (R₀/3)";
+            else radiusDisplay.innerText = rRatio.toFixed(2) + " R₀";
+            
+            velocityDisplay.innerText = vRatio.toFixed(2) + " v₀";
+            tensionDisplay.innerText = currentForceRatio.toFixed(2) + " F₀";
+        }
+
+        forceSlider.addEventListener('input', updatePhysics);
+
+        // 畫帶有箭頭的線
+        function drawArrow(ctx, fromX, fromY, toX, toY, color, width=2) {
+            const headlen = width * 4;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        // 繪製透視梯形桌子 (跟著軌跡等比例放大)
+        function drawTable() {
+            const tw_top = 550; // 桌面後緣寬度
+            const tw_bot = 720; // 桌面前緣寬度
+            const th = 280;     // 桌面深度
+            const t = 26;       // 桌面厚度
+            const ty_top = cy - th/2;
+            const ty_bot = cy + th/2;
+
+            const legW = 26;
+            const legH = 260;
+
+            // 後桌腳
+            ctx.fillStyle = '#AE7E57';
+            ctx.fillRect(cx - tw_top/2 + 20, ty_top, legW, legH);
+            ctx.fillRect(cx + tw_top/2 - 46, ty_top, legW, legH);
+
+            // 前桌腳
+            ctx.fillRect(cx - tw_bot/2 + 35, ty_bot, legW, legH);
+            ctx.fillRect(cx + tw_bot/2 - 61, ty_bot, legW, legH);
+
+            // 桌面表面 (梯形)
+            ctx.fillStyle = '#CFAF8E';
+            ctx.beginPath();
+            ctx.moveTo(cx - tw_top/2, ty_top);
+            ctx.lineTo(cx + tw_top/2, ty_top);
+            ctx.lineTo(cx + tw_bot/2, ty_bot);
+            ctx.lineTo(cx - tw_bot/2, ty_bot);
+            ctx.fill();
+
+            // 桌面正面厚度
+            ctx.fillStyle = '#C58E62';
+            ctx.beginPath();
+            ctx.moveTo(cx - tw_bot/2, ty_bot);
+            ctx.lineTo(cx + tw_bot/2, ty_bot);
+            ctx.lineTo(cx + tw_bot/2, ty_bot + t);
+            ctx.lineTo(cx - tw_bot/2, ty_bot + t);
+            ctx.fill();
+        }
+
+        // 繪製 F-R 關係圖
+        function drawFGraph() {
+            gtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            const padL = 45, padR = 25, padT = 60, padB = 40;
+            const plotW = w - padL - padR;
+            const plotH = h - padT - padB;
+
+            const maxR = 1.2;
+            const maxF = 30;
+
+            const getX = (r) => padL + (r / maxR) * plotW;
+            const getY = (f) => padT + plotH - (f / maxF) * plotH;
+
+            // 繪製格線
+            gtx.strokeStyle = '#eee';
+            gtx.lineWidth = 1;
+            for(let r=0.2; r<=1.2; r+=0.2) {
+                gtx.beginPath(); gtx.moveTo(getX(r), padT); gtx.lineTo(getX(r), padT+plotH); gtx.stroke();
+            }
+            for(let f=5; f<=30; f+=5) {
+                gtx.beginPath(); gtx.moveTo(padL, getY(f)); gtx.lineTo(padL+plotW, getY(f)); gtx.stroke();
+            }
+
+            // 繪製 X, Y 軸
+            gtx.beginPath();
+            gtx.strokeStyle = '#333';
+            gtx.lineWidth = 2;
+            gtx.moveTo(padL, padT - 10);
+            gtx.lineTo(padL, padT + plotH);
+            gtx.lineTo(padL + plotW + 10, padT + plotH);
+            gtx.stroke();
+
+            // 繪製軸箭頭
+            drawArrow(gtx, padL, padT, padL, padT - 10, '#333', 2);
+            drawArrow(gtx, padL + plotW, padT + plotH, padL + plotW + 10, padT + plotH, '#333', 2);
+
+            // 軸標籤
+            gtx.fillStyle = '#333';
+            gtx.font = 'italic 16px "Times New Roman"';
+            gtx.fillText('R', w - padR - 20, h - padB + 20);
+            gtx.fillText('F', padL - 30, padT - 20);
+
+            // 刻度文字
+            gtx.font = '12px Arial';
+            gtx.fillStyle = '#666';
+            gtx.fillText('1.0', getX(1) - 10, padT + plotH + 15);
+            gtx.fillText('0.33', getX(0.33) - 12, padT + plotH + 15);
+            gtx.fillText('1', padL - 15, getY(1) + 4);
+            gtx.fillText('27', padL - 20, getY(27) + 4);
+
+            // 繪製 F = 1/R^3 曲線
+            gtx.beginPath();
+            gtx.strokeStyle = '#3498db';
+            gtx.lineWidth = 3;
+            let started = false;
+            for (let r = 0.3; r <= maxR; r += 0.02) {
+                let f = 1 / Math.pow(r, 3);
+                if (f > maxF + 2) continue;
+                let px = getX(r);
+                let py = getY(f);
+                if (!started) { gtx.moveTo(px, py); started = true; }
+                else { gtx.lineTo(px, py); }
+            }
+            gtx.stroke();
+
+            // 繪製目前狀態點
+            const curR = Math.pow(currentForceRatio, -1/3);
+            const curF = currentForceRatio;
+            const cX = getX(curR);
+            const cY = getY(curF);
+
+            // 輔助虛線
+            gtx.beginPath();
+            gtx.setLineDash([4, 4]);
+            gtx.strokeStyle = '#aaa';
+            gtx.moveTo(cX, cY);
+            gtx.lineTo(cX, padT + plotH);
+            gtx.moveTo(cX, cY);
+            gtx.lineTo(padL, cY);
+            gtx.stroke();
+            gtx.setLineDash([]);
+
+            // 紅色圓點
+            gtx.beginPath();
+            gtx.fillStyle = '#e74c3c';
+            gtx.arc(cX, cY, 5, 0, Math.PI*2);
+            gtx.fill();
+            gtx.strokeStyle = 'white';
+            gtx.lineWidth = 2;
+            gtx.stroke();
+        }
+
+        // 繪製 v-R 關係圖
+        function drawVGraph() {
+            vtx.clearRect(0, 0, vGraphCanvas.width, vGraphCanvas.height);
+            const w = vGraphCanvas.width;
+            const h = vGraphCanvas.height;
+            const padL = 40, padR = 25, padT = 60, padB = 40;
+            const plotW = w - padL - padR;
+            const plotH = h - padT - padB;
+
+            const maxR = 1.2;
+            const maxV = 3.5; // v 從 1 到 3
+
+            const getX = (r) => padL + (r / maxR) * plotW;
+            const getY = (v) => padT + plotH - (v / maxV) * plotH;
+
+            // 繪製格線
+            vtx.strokeStyle = '#eee';
+            vtx.lineWidth = 1;
+            for(let r=0.2; r<=1.2; r+=0.2) {
+                vtx.beginPath(); vtx.moveTo(getX(r), padT); vtx.lineTo(getX(r), padT+plotH); vtx.stroke();
+            }
+            for(let v=0.5; v<=3; v+=0.5) {
+                vtx.beginPath(); vtx.moveTo(padL, getY(v)); vtx.lineTo(padL+plotW, getY(v)); vtx.stroke();
+            }
+
+            // 繪製 X, Y 軸
+            vtx.beginPath();
+            vtx.strokeStyle = '#333';
+            vtx.lineWidth = 2;
+            vtx.moveTo(padL, padT - 10);
+            vtx.lineTo(padL, padT + plotH);
+            vtx.lineTo(padL + plotW + 10, padT + plotH);
+            vtx.stroke();
+
+            // 繪製軸箭頭
+            drawArrow(vtx, padL, padT, padL, padT - 10, '#333', 2);
+            drawArrow(vtx, padL + plotW, padT + plotH, padL + plotW + 10, padT + plotH, '#333', 2);
+
+            // 軸標籤
+            vtx.fillStyle = '#333';
+            vtx.font = 'italic 16px "Times New Roman"';
+            vtx.fillText('R', w - padR - 20, h - padB + 20);
+            vtx.fillText('v', padL - 25, padT - 20);
+
+            // 刻度文字
+            vtx.font = '12px Arial';
+            vtx.fillStyle = '#666';
+            vtx.fillText('1.0', getX(1) - 10, padT + plotH + 15);
+            vtx.fillText('0.33', getX(0.33) - 12, padT + plotH + 15);
+            vtx.fillText('1', padL - 15, getY(1) + 4);
+            vtx.fillText('3', padL - 15, getY(3) + 4);
+
+            // 繪製 v = 1/R 曲線
+            vtx.beginPath();
+            vtx.strokeStyle = '#e67e22'; // 使用橘色區分
+            vtx.lineWidth = 3;
+            let started = false;
+            for (let r = 0.25; r <= maxR; r += 0.02) {
+                let v = 1 / r;
+                if (v > maxV + 0.5) continue;
+                let px = getX(r);
+                let py = getY(v);
+                if (!started) { vtx.moveTo(px, py); started = true; }
+                else { vtx.lineTo(px, py); }
+            }
+            vtx.stroke();
+
+            // 繪製目前狀態點
+            const curR = Math.pow(currentForceRatio, -1/3);
+            const curV = Math.pow(currentForceRatio, 1/3);
+            const cX = getX(curR);
+            const cY = getY(curV);
+
+            // 輔助虛線
+            vtx.beginPath();
+            vtx.setLineDash([4, 4]);
+            vtx.strokeStyle = '#aaa';
+            vtx.moveTo(cX, cY);
+            vtx.lineTo(cX, padT + plotH);
+            vtx.moveTo(cX, cY);
+            vtx.lineTo(padL, cY);
+            vtx.stroke();
+            vtx.setLineDash([]);
+
+            // 紅色圓點
+            vtx.beginPath();
+            vtx.fillStyle = '#e74c3c';
+            vtx.arc(cX, cY, 5, 0, Math.PI*2);
+            vtx.fill();
+            vtx.strokeStyle = 'white';
+            vtx.lineWidth = 2;
+            vtx.stroke();
+        }
+
+        // 主繪圖迴圈 (左側模擬)
+        function drawSim() {
+            ctx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+
+            drawTable();
+
+            // O 點
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 6, 6 * tilt, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = 'italic 18px "Times New Roman"';
+            ctx.fillText('O', cx - 25, cy + 5);
+
+            // 小球位置
+            const ballX = cx + currentR * Math.cos(angle);
+            const ballY = cy + currentR * Math.sin(angle) * tilt;
+
+            // 旋轉軌跡
+            ctx.beginPath();
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 6]);
+            ctx.ellipse(cx, cy, currentR, currentR * tilt, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 桌面的繩子
+            ctx.beginPath();
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(ballX, ballY);
+            ctx.stroke();
+
+            // 半徑標示
+            const rx = cx + (currentR/2) * Math.cos(angle);
+            const ry = cy + (currentR/2) * Math.sin(angle) * tilt;
+            ctx.fillStyle = 'black';
+            ctx.fillText('R', rx + 5, ry - 5);
+
+            // --- 繪製向下的繩子與施力 ---
+            const th = 280; 
+            const t = 26;
+            const tableFrontBottomY = cy + th/2 + t; 
+            const forceY = tableFrontBottomY + stringBelowTableLength; 
+
+            // 1. 被桌面遮蔽的繩段 (虛線)
+            ctx.beginPath();
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx, tableFrontBottomY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 2. 露出桌子下方的繩段 (實線)
+            ctx.beginPath();
+            ctx.moveTo(cx, tableFrontBottomY);
+            ctx.lineTo(cx, forceY);
+            ctx.stroke();
+
+            // 3. 繪製施力箭頭 (對 1 到 27 倍進行合理縮放以防超出畫布底端)
+            const arrowLen = 25 + (currentForceRatio - 1) * 2.5; 
+            drawArrow(ctx, cx, forceY, cx, forceY + arrowLen, '#c0392b', 4);
+            
+            // F 標示 
+            ctx.fillStyle = '#c0392b';
+            ctx.font = 'italic 22px "Times New Roman"';
+            ctx.fillText('F', cx + 18, forceY + arrowLen / 2 + 5);
+
+            // --- 繪製小球 ---
+            ctx.beginPath();
+            // 球的大小保持不變 (維持 12)
+            const ballRadius = 12 + (Math.sin(angle)*1.5); 
+            
+            // 建立帶有反光效果的放射狀漸層
+            const grad = ctx.createRadialGradient(
+                ballX - ballRadius/3, ballY - ballRadius/3, ballRadius/10, 
+                ballX, ballY, ballRadius
+            );
+            grad.addColorStop(0, '#ffffff');             
+            grad.addColorStop(0.3, '#00B0F0');           
+            grad.addColorStop(1, '#006a90');             
+            
+            ctx.fillStyle = grad;
+            ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 標示 m
+            ctx.fillStyle = 'black';
+            ctx.fillText('m', ballX + 16, ballY + 5);
+
+            // 速度向量 v 已經依照需求移除
+
+            // 更新角度
+            angle -= currentOmega;
+
+            // 繪製圖表
+            drawFGraph();
+            drawVGraph();
+
+            requestAnimationFrame(drawSim);
+        }
+
+        // 初始化
+        updatePhysics();
+        drawSim();
+
+    </script>
+</body>
+</html>
