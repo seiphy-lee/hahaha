@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人工具</title>
+    <style>
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            /* 配合主頁面的個人工具卡片顏色，將背景改為極淡的桃紅色 */
+            background-color: #fdf2f7; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 50px 20px; 
+            margin: 0;
+        }
+        h1 { 
+            /* 主題色：桃紅色 (與 index.html 的 .card-personal 呼應) */
+            color: #e84393; 
+            margin-bottom: 30px; 
+            text-align: center; 
+            font-size: 2.5rem;
+        }
+
+        /* 沿用 Grid 佈局，設定每列 4 個 */
+        .menu-container { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 20px; 
+            width: 100%; 
+            max-width: 1200px; 
+        }
+        
+        /* 一般按鈕樣式 */
+        .btn { 
+            background-color: #fff; 
+            color: #e84393; 
+            padding: 30px 20px; 
+            text-decoration: none; 
+            border-radius: 12px; 
+            text-align: center; 
+            font-size: 1.2em; 
+            font-weight: bold; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            border: 2px solid #e84393; 
+            transition: transform 0.2s; 
+            cursor: pointer; 
+            
+            /* 讓文字垂直置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px; 
+        }
+        .btn:hover { 
+            transform: translateY(-3px); 
+            background-color: #e84393; 
+            color: #fff; 
+        }
+        
+        /* 備用的加鎖按鈕樣式 (深桃紅色) */
+        .btn-lock { 
+            border-color: #ad1457; 
+            color: #ad1457; 
+            background-color: #fce4ec; 
+        }
+        .btn-lock:hover { 
+            background-color: #ad1457; 
+            color: #fff; 
+        }
+
+        .back-btn { 
+            margin-top: 40px; 
+            color: #666; 
+            text-decoration: none; 
+            font-weight: bold; 
+            font-size: 1.1rem;
+            padding: 10px 20px;
+        }
+        .back-btn:hover { 
+            color: #e84393; 
+        }
+
+        /* RWD 響應式：手機和平板自動調整 */
+        @media (max-width: 992px) {
+            .menu-container {
+                grid-template-columns: repeat(2, 1fr); /* 平板變 2 欄 */
+            }
+        }
+        @media (max-width: 576px) {
+            .menu-container {
+                grid-template-columns: 1fr; /* 手機變 1 欄 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚙️ 個人工具</h1>
+
+    <div class="menu-container">
+        <!-- 放入你指定的學生行為記錄檔案連結 -->
+        <a href="學生行為記錄(筆電座位).html" class="btn">1. 學生行為記錄<br>(筆電座位)</a>
+        <a href="學生行為記錄(手機座位).html" class="btn">2. 學生行為記錄<br>(手機座位)</a>
+        <a href="學生共同評分.html" class="btn">3. 學生共同評分</a>
+        
+        <!-- 未來可以繼續在這裡新增其他個人工具 -->
+        <!-- <a href="#" class="btn">2. 待新增工具</a> -->
+    </div>
+
+    <a href="index.html" class="back-btn">⬅ 回到主選單</a>
+
+</body>
+
+</html>
