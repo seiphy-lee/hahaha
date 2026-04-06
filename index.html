@@ -20,15 +20,17 @@
             display: flex;
             flex-direction: row;
             align-items: center;
-            justify-content: center;
-            gap: 50px;
-            max-width: 1200px;
+            justify-content: center; 
+            gap: 40px;
+            max-width: 1400px; 
             width: 100%;
-            flex-wrap: wrap;
+            /* 關鍵修改：強制不換行，讓這三個區塊始終保持在同一列 */
+            flex-wrap: nowrap; 
         }
 
         .content-area {
-            flex: 1;
+            /* 允許主內容區塊在空間不夠時縮小，內部的卡片會自動往下排 */
+            flex: 1 1 auto; 
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -36,14 +38,23 @@
         }
 
         .teacher-img {
+            /* 讓圖片也能配合視窗稍微縮小，避免把右側卡片擠走 */
+            flex: 0 1 350px; 
             max-width: 350px;
             width: 100%;
             height: auto;
-            /* 如果圖片有背景色，drop-shadow 會作用在框線上，建議去背後存成 PNG 效果較好 */
             filter: drop-shadow(10px 10px 20px rgba(0,0,0,0.2));
             animation: float 3s ease-in-out infinite;
-            /* 嘗試讓 JPG 背景融入 (如果背景色相近) */
             border-radius: 20px; 
+        }
+
+        .right-area {
+            /* 讓右側個人工具卡片保持原始大小，不被過度壓縮 */
+            flex: 0 0 auto; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 200px;
         }
 
         @keyframes float {
@@ -61,14 +72,13 @@
             line-height: 1.2;
         }
         
-        /* 設定容器寬度以確保每行三個卡片 */
         .menu-container { 
             display: flex; 
             flex-wrap: wrap; 
             justify-content: center; 
             gap: 30px; 
             width: 100%; 
-            max-width: 800px; /* 限制最大寬度，強迫換行對齊 */
+            max-width: 800px; 
         }
         
         .category-card {
@@ -84,42 +94,69 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            box-sizing: border-box;
         }
         
-        .category-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .category-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
+        }
         
         .icon { font-size: 3em; margin-bottom: 15px; }
         .title { color: #333; font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
         .desc { color: #666; font-size: 0.9em; line-height: 1.5; }
         
         /* 各分類顏色設定 */
-        .card-motion { border-top-color: #ff6b6b; } /* 紅色 */
-        .card-waves { border-top-color: #4ecdc4; }  /* 藍綠色 */
-        .card-optics { border-top-color: #ffe66d; } /* 黃色 */
-        .card-modern { border-top-color: #2ecc71; } /* 翡翠綠 (調整位置) */
-        .card-tools { border-top-color: #a55eea; }  /* 紫色 */
-        .card-inquiry { border-top-color: #ff9f43; } /* 橘色 (新增) */
+        .card-motion { border-top-color: #ff6b6b; } 
+        .card-waves { border-top-color: #4ecdc4; }  
+        .card-optics { border-top-color: #ffe66d; } 
+        .card-modern { border-top-color: #2ecc71; } 
+        .card-tools { border-top-color: #a55eea; }  
+        .card-inquiry { border-top-color: #ff9f43; } 
+        .card-personal { border-top-color: #e84393; }
 
-        /* 響應式調整 */
-        @media (max-width: 900px) {
+        /* 響應式調整：當螢幕小於 1200px 時改為垂直排列 */
+        @media (max-width: 1200px) {
             .main-layout {
-                flex-direction: column-reverse;
-                gap: 20px;
+                flex-direction: column; /* 改為垂直排列 */
+                gap: 30px;
             }
+            .teacher-img { order: 1; max-width: 250px; }
+            .content-area { order: 2; }
+            .right-area { order: 3; }
+            
             h1 { font-size: 3em; }
-            .teacher-img { max-width: 200px; margin-bottom: 20px;}
         }
     </style>
+
+    <script>
+        function checkPersonalPassword(event) {
+            // 阻止原本的直接跳轉行為
+            event.preventDefault(); 
+            
+            // 1. 彈出視窗詢問密碼
+            var password = prompt("請輸入 6 位數個人工具專用密碼：");
+
+            // 2. 檢查密碼 (這裡預設是 123456，老師可以在這裡修改)
+            if (password === "601021") {
+                // 密碼正確 -> 跳轉到目標檔案
+                window.location.href = "personal.html"; 
+            } else if (password != null) {
+                // 密碼錯誤 -> 顯示警告 (排除按取消的情況)
+                alert("密碼錯誤，存取被拒絕 🚫");
+            }
+        }
+    </script>
 </head>
 <body>
 
     <div class="main-layout">
         
+        <!-- 左側區塊：主內容與選單 -->
         <div class="content-area">
             <h1>α老師物理模擬動畫實驗室</h1>
 
             <div class="menu-container">
-                <!-- 第一排 -->
                 <a href="motion.html" class="category-card card-motion">
                     <div class="icon">🏎️</div>
                     <div class="title">運動與力</div>
@@ -138,7 +175,6 @@
                     <div class="desc">面鏡成像、透鏡折射與光學儀器。</div>
                 </a>
 
-                <!-- 第二排：調整順序為 近代物理 -> 小工具 -> 探究與實作 -->
                 <a href="modern.html" class="category-card card-modern">
                     <div class="icon">⚛️</div>
                     <div class="title">近代物理</div>
@@ -151,18 +187,25 @@
                     <div class="desc">包含計時器、計算機等教學輔助工具。</div>
                 </a>
 
-                <!-- 新增區塊 -->
                 <a href="探究與實作.html" class="category-card card-inquiry">
                     <div class="icon">🧪</div>
                     <div class="title">探究與實作</div>
                     <div class="desc">實驗設計、數據分析與誤差傳播。</div>
                 </a>
-
             </div>
         </div>
 
-        <!-- 更新圖片連結為 teacher.png -->
+        <!-- 中間區塊：α老師人像 -->
         <img src="teacher.png" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMzAwIj4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNSwwKSI+CiAgICA8IS0tIEJvZHkgLS0+CiAgICA8cGF0aCBkPSJNODUsMjgwIEw4NSwxNjAgTDUwLDE2MCBMNDAsMjIwIEwzMCwyMjAgTDQwLDE1MCBMNTAsMTAwIEwxMjAsMTAwIEwxMzAsMTUwIEwxNDAsMjIwIEwxMzAsMjIwIEwxMjAsMTYwIEw4NSwxNjAgTDg1LDI4MCIgZmlsbD0iIzMzMyIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIEhlYWQgLS0+CiAgICA8Y2lyY2xlIGN4PSI4NSIgY3k9IjYwIiByPSI0MCIgZmlsbD0iI2Y1YzJiNyIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIEhhaXIgLS0+CiAgICA8cGF0aCBkPSJNNDUsNjAgQzQ1LDIwIDg1LTAgMTI1LDYwIEwxMjUsNzAgQzEyNSwzMCA4NSwxMCA0NSw3MCBaIiBmaWxsPSIjMzMzIi8+CiAgICA8IS0tIEZhY2UgLS0+CiAgICA8Y2lyY2xlIGN4PSI3MCIgY3k9IjU1IiByPSI0IiBmaWxsPSJibGFjayIvPgogICAgPGNpcmNsZSBjeT0iMTAwIiBjeT0iNTUiIHI9IjQiIGZpbGw9ImJsYWNrIi8+CiAgICA8cGF0aCBkPSJNNzAsODAgUTg1LDkwIDEwMCw4MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIFNoaXJ0IExvZ28gLS0+CiAgICA8dGV4dCB4PSI4NSIgeT0iMTQ1IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iNDAiIGZpbGw9IiNmZGQ4MzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiYjOTQ1OzwvdGV4dD4KICA8L2c+Cjwvc3ZnPg=='" alt="α老師" class="teacher-img">
+
+        <!-- 右側區塊：新增的個人工具卡片 -->
+        <div class="right-area">
+            <a href="personal.html" onclick="checkPersonalPassword(event)" class="category-card card-personal">
+                <div class="icon">⚙️</div>
+                <div class="title">個人工具</div>
+                <div class="desc">自訂實驗參數、儲存模擬進度與教學筆記。</div>
+            </a>
+        </div>
 
     </div>
 
