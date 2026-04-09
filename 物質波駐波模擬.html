@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>波耳假設與物質波駐波模擬</title>
+    <!-- 明確載入 Tailwind CSS，確保排版樣式不失效 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a; /* Tailwind slate-900 */
+            color: #f8fafc; /* Tailwind slate-50 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* Custom scrollbar for control panel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-full bg-slate-900">
+
+    <!-- Canvas Area -->
+    <div class="flex-1 relative bg-slate-900 overflow-hidden min-h-[50vh]" id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        
+        <!-- Status Overlay -->
+        <div class="absolute top-6 left-6 pointer-events-none z-10">
+            <h1 class="text-3xl font-bold mb-2 text-cyan-400 glow-text">物質波駐波模型</h1>
+            <div id="status-badge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border transition-colors duration-300">
+                <!-- Status will be injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="w-full md:w-96 bg-slate-800 p-6 flex flex-col shadow-2xl z-20 border-t md:border-t-0 md:border-l border-slate-700 h-1/2 md:h-full overflow-y-auto">
+        
+        <h2 class="text-xl font-bold mb-4 text-slate-100 border-b border-slate-600 pb-2">控制面板</h2>
+
+        <!-- Quantum Number Slider -->
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-slate-300 mb-2 flex justify-between">
+                <span>量子數 (n)</span>
+                <span id="n-display" class="font-bold text-cyan-400 text-lg">3.0</span>
+            </label>
+            <input type="range" id="n-slider" min="1" max="8" step="0.1" value="3" 
+                   class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+            
+            <div class="flex justify-between mt-3 space-x-2">
+                <button id="btn-dec" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded transition-colors text-sm font-medium">
+                    -1 (整數)
+                </button>
+                <button id="btn-inc" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded transition-colors text-sm font-medium">
+                    +1 (整數)
+                </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">提示：嘗試將數值拉到非整數（如 3.5），觀察波形為何無法閉合。</p>
+        </div>
+
+        <!-- Toggles -->
+        <div class="space-y-3 mb-6 border-t border-slate-600 pt-4">
+            <label class="flex items-center space-x-3 cursor-pointer group">
+                <input type="checkbox" id="toggle-orbit" checked class="form-checkbox h-5 w-5 text-cyan-500 rounded border-slate-500 bg-slate-700 focus:ring-cyan-500 focus:ring-offset-slate-800">
+                <span class="text-slate-300 group-hover:text-white transition-colors">顯示古典圓形軌道</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer group">
+                <input type="checkbox" id="toggle-nodes" checked class="form-checkbox h-5 w-5 text-cyan-500 rounded border-slate-500 bg-slate-700 focus:ring-cyan-500 focus:ring-offset-slate-800">
+                <span class="text-slate-300 group-hover:text-white transition-colors">標示波節 (Nodes)</span>
+            </label>
+            <label class="flex items-center space-x-3 cursor-pointer group">
+                <input type="checkbox" id="toggle-interference" class="form-checkbox h-5 w-5 text-cyan-500 rounded border-slate-500 bg-slate-700 focus:ring-cyan-500 focus:ring-offset-slate-800">
+                <span class="text-slate-300 group-hover:text-white transition-colors">顯示多圈疊加 (觀察干涉)</span>
+            </label>
+        </div>
+
+        <!-- Physics Explanation -->
+        <div class="bg-slate-900 rounded-lg p-4 mt-auto border border-slate-700">
+            <h3 class="font-bold text-cyan-400 mb-2 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                物理小知識
+            </h3>
+            <p class="text-sm text-slate-300 mb-2">
+                波耳假設電子只能在特定軌道運行。德布羅意解釋：這是因為電子具有波動性，必須滿足駐波條件：
+            </p>
+            <div class="bg-black/50 p-2 rounded text-center my-2 font-mono text-cyan-300">
+                2πr = nλ
+            </div>
+            <ul class="text-xs text-slate-400 list-disc pl-4 space-y-1">
+                <li><strong class="text-slate-200">2πr</strong>：電子軌道周長</li>
+                <li><strong class="text-slate-200">n</strong>：主量子數 (1, 2, 3...)</li>
+                <li><strong class="text-slate-200">λ</strong>：物質波波長</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+        const nSlider = document.getElementById('n-slider');
+        const nDisplay = document.getElementById('n-display');
+        const btnInc = document.getElementById('btn-inc');
+        const btnDec = document.getElementById('btn-dec');
+        const checkboxOrbit = document.getElementById('toggle-orbit');
+        const checkboxNodes = document.getElementById('toggle-nodes');
+        const checkboxInterference = document.getElementById('toggle-interference');
+        const statusBadge = document.getElementById('status-badge');
+
+        // Simulation State
+        let state = {
+            n: 3.0,
+            time: 0,
+            baseRadius: 150, // Visual radius
+            amplitude: 25,   // Wave amplitude
+            showOrbit: true,
+            showNodes: true,
+            showInterference: false
+        };
+
+        // Resize Canvas to fit container
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            // Adjust base radius based on screen size for better mobile view
+            state.baseRadius = Math.min(canvas.width, canvas.height) * 0.25;
+            state.amplitude = state.baseRadius * 0.15;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        // Initial resize
+        resizeCanvas();
+
+        // UI Event Listeners
+        function updateN(value) {
+            // Constrain between 1 and 8
+            state.n = Math.max(1, Math.min(8, value));
+            nSlider.value = state.n;
+            nDisplay.textContent = state.n.toFixed(1);
+            updateStatus();
+        }
+
+        nSlider.addEventListener('input', (e) => {
+            updateN(parseFloat(e.target.value));
+        });
+
+        btnInc.addEventListener('click', () => {
+            updateN(Math.floor(state.n) + 1);
+        });
+
+        btnDec.addEventListener('click', () => {
+            updateN(Math.ceil(state.n) - 1);
+        });
+
+        checkboxOrbit.addEventListener('change', (e) => state.showOrbit = e.target.checked);
+        checkboxNodes.addEventListener('change', (e) => state.showNodes = e.target.checked);
+        checkboxInterference.addEventListener('change', (e) => state.showInterference = e.target.checked);
+
+        function updateStatus() {
+            const isInteger = Math.abs(state.n - Math.round(state.n)) < 0.05;
+            if (isInteger) {
+                // Snap visually if very close
+                state.n = Math.round(state.n);
+                nDisplay.textContent = state.n.toFixed(1);
+                
+                statusBadge.innerHTML = '✓ 穩定駐波 (符合量子化)';
+                statusBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border border-emerald-500 text-emerald-400 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.3)]';
+            } else {
+                statusBadge.innerHTML = '✗ 破壞性干涉 (無法存在)';
+                statusBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border border-rose-500 text-rose-400 bg-rose-500/10 shadow-[0_0_10px_rgba(244,63,94,0.3)]';
+            }
+        }
+
+        // Initial status update
+        updateStatus();
+
+        // Main Drawing Loop
+        function draw() {
+            // Clear background with slight trail effect (motion blur)
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)'; // Slate-900 with opacity
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const isInteger = Math.abs(state.n - Math.round(state.n)) < 0.05;
+
+            // Colors based on stability
+            const waveColor = isInteger ? '#06b6d4' : '#f43f5e'; // Cyan for stable, Rose for unstable
+            const waveGlow = isInteger ? '#22d3ee' : '#fb7185';
+            
+            // Draw Nucleus
+            ctx.beginPath();
+            ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+            ctx.fillStyle = '#ef4444'; // Red-500
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            // Reset shadow
+            ctx.shadowBlur = 0;
+            
+            // Add proton (+) sign
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('+', cx, cy);
+
+            // Draw Classical Orbit
+            if (state.showOrbit) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, state.baseRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)'; // Slate-400
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw Matter Wave
+            ctx.shadowColor = waveGlow;
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = waveColor;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            
+            const maxTurns = state.showInterference ? 8 : 1;
+            
+            // Calculate base opacity based on turns to avoid blowing out the brightnes
+            const alpha = state.showInterference ? 0.4 : 1.0;
+            ctx.strokeStyle = isInteger ? `rgba(6, 182, 212, ${alpha})` : `rgba(244, 63, 94, ${alpha})`;
+
+            ctx.beginPath();
+            
+            // Increase resolution for smoother lines
+            const resolution = 1; // degrees per step
+            const totalDegrees = 360 * maxTurns;
+            
+            for (let i = 0; i <= totalDegrees; i += resolution) {
+                const theta = (i * Math.PI) / 180;
+                
+                // Standing wave equation: r(θ, t) = R + A * sin(nθ) * cos(ωt)
+                const r = state.baseRadius + state.amplitude * Math.sin(state.n * theta) * Math.cos(state.time);
+                
+                const x = cx + r * Math.cos(theta);
+                const y = cy + r * Math.sin(theta);
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.lineWidth = isInteger ? 3 : 2;
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Draw Nodes (only if stable integer and enabled)
+            if (isInteger && state.showNodes) {
+                ctx.fillStyle = '#fbbf24'; // Amber-400
+                ctx.shadowColor = '#f59e0b';
+                ctx.shadowBlur = 8;
+                
+                const nInt = Math.round(state.n);
+                // There are 2n nodes in a standing wave on a circle
+                for (let i = 0; i < 2 * nInt; i++) {
+                    const theta = (i * Math.PI) / nInt;
+                    const r = state.baseRadius; // Nodes are always on the base radius
+                    const x = cx + r * Math.cos(theta);
+                    const y = cy + r * Math.sin(theta);
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+            }
+
+            // Update time
+            state.time += 0.05;
+
+            // Loop
+            requestAnimationFrame(draw);
+        }
+
+        // Start Animation
+        draw();
+
+    </script>
+</body>
+</html>
