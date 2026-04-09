@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子還是波？電子繞射 3D 空間模擬</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050508;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            /* 防止拖曳時選取文字 */
+            user-select: none; 
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        canvas:active {
+            cursor: grabbing;
+        }
+
+        /* 玻璃擬態控制面板 */
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 20, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            width: 320px;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .instruction {
+            font-size: 0.85rem; 
+            color: #ffaa00; 
+            margin-top: -5px; 
+            margin-bottom: 15px;
+            background: rgba(255, 170, 0, 0.1);
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #ffaa00;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+
+        .value-display {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #00ffff;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        }
+
+        /* 說明圖例 */
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: none;
+            color: #aaa;
+            font-size: 0.85rem;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.1); margin-right: 5px; margin-bottom: 5px;}
+    </style>
+</head>
+<body>
+
+    <div id="control-panel">
+        <h1>✨ 電子繞射 (真實晶格模型)</h1>
+        <div class="instruction">
+            👆 <strong>操作提示：</strong> 在畫面上拖曳可以旋轉 3D 視角。目前的環狀比例已設定為鋁 (FCC 結構) 的真實繞射分佈。
+        </div>
+        
+        <div class="control-group">
+            <label>加速電壓 (Voltage) <span id="val-voltage" class="value-display">30 kV</span></label>
+            <input type="range" id="slider-voltage" min="10" max="80" value="30" step="1">
+            <small style="color:#666; font-size:0.75rem;">電壓越大，波長越短，圓環會越收縮</small>
+        </div>
+
+        <div class="control-group">
+            <label>晶格常數 a (Lattice) <span id="val-lattice" class="value-display">4.0 Å</span></label>
+            <input type="range" id="slider-lattice" min="2.0" max="6.0" value="4.0" step="0.1">
+            <small style="color:#666; font-size:0.75rem;">鋁 (Al) 的真實晶格常數約為 4.04 Å</small>
+        </div>
+
+        <div class="control-group">
+            <label>電子發射速率 <span id="val-rate" class="value-display">高</span></label>
+            <input type="range" id="slider-rate" min="1" max="25" value="15" step="1">
+        </div>
+
+        <button id="btn-clear">清除感光螢幕</button>
+        <button id="btn-reset-view" style="border-color: #aaa; color: #aaa;">重置預設視角</button>
+    </div>
+
+    <div id="legend">
+        <div class="tag" style="color: #00ffff; border-left: 3px solid #00ffff;">中心亮點 (穿透未偏折)</div><br>
+        <div class="tag" style="color: #39ff14; border-left: 3px solid #39ff14;">內側雙環: (111) 與 (200) 晶面</div><br>
+        <div class="tag" style="color: #22cc11; border-left: 3px solid #22cc11;">外圍暗環: (220)、(311) 晶面</div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 系統與物理參數
+        const config = {
+            voltage: 30,
+            lattice: 4.0, // 鋁的 FCC 晶格常數約為 4.04
+            rate: 15,
+            centerX: 0,
+            centerY: 0
+        };
+
+        // 3D 視角控制變數
+        // 預設稍微傾斜，完美展示「由鋁箔後方看向螢光幕」的一前一後透視感
+        let rotX = 0.05;  
+        let rotY = -0.20; 
+        
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        let electrons = [];
+        let hitPoints = []; 
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            config.centerX = canvas.width / 2;
+            config.centerY = canvas.height / 2;
+        }
+
+        window.addEventListener('resize', resize);
+
+        // --- 滑鼠與觸控拖曳控制 (3D 旋轉) ---
+        function startDrag(x, y) {
+            isDragging = true;
+            lastMouseX = x;
+            lastMouseY = y;
+        }
+        function doDrag(x, y) {
+            if (!isDragging) return;
+            let dx = x - lastMouseX;
+            let dy = y - lastMouseY;
+            rotY += dx * 0.005;
+            rotX += dy * 0.005;
+
+            rotX = Math.max(-Math.PI/3, Math.min(Math.PI/3, rotX));
+            rotY = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, rotY));
+
+            lastMouseX = x;
+            lastMouseY = y;
+        }
+        function endDrag() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => doDrag(e.clientX, e.clientY));
+        window.addEventListener('mouseup', endDrag);
+
+        canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); doDrag(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        // --- UI 監聽 ---
+        document.getElementById('slider-voltage').addEventListener('input', (e) => {
+            config.voltage = parseFloat(e.target.value);
+            document.getElementById('val-voltage').textContent = config.voltage + ' kV';
+        });
+
+        document.getElementById('slider-lattice').addEventListener('input', (e) => {
+            config.lattice = parseFloat(e.target.value);
+            document.getElementById('val-lattice').textContent = config.lattice.toFixed(1) + ' Å';
+        });
+
+        document.getElementById('slider-rate').addEventListener('input', (e) => {
+            config.rate = parseInt(e.target.value);
+            document.getElementById('val-rate').textContent = config.rate > 18 ? '極高' : (config.rate > 8 ? '中' : '低');
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => { hitPoints = []; });
+        
+        document.getElementById('btn-reset-view').addEventListener('click', () => {
+            rotX = 0.05;
+            rotY = -0.20;
+        });
+
+        // --- 核心 3D 投影引擎 ---
+        function project3D(x, y, z) {
+            let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
+            let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+
+            let x2 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
+            let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
+
+            const fl = 800; 
+            let distance = fl + z2 + 300; 
+            let scale = fl / distance;
+
+            let px = config.centerX + x2 * scale;
+            let py = config.centerY + y1 * scale;
+
+            return { x: px, y: py, scale: scale, zDepth: z2 };
+        }
+
+        function randomGaussian(mean, stdev) {
+            let u = 1 - Math.random(); 
+            let v = Math.random();
+            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return z * stdev + mean;
+        }
+
+        // --- 電子物件 ---
+        class Electron {
+            constructor() {
+                this.z = -300; 
+                this.x = (Math.random() - 0.5) * 4; 
+                this.y = (Math.random() - 0.5) * 4;
+                
+                this.vz = 20; // 提升飛行速度讓畫面更流暢
+                this.vx = 0;
+                this.vy = 0;
+                
+                this.state = 'incoming'; 
+                this.color = '#00ffff'; 
+                this.size = 1.5;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.z += this.vz;
+
+                if (this.state === 'incoming' && this.z >= 0) {
+                    this.state = 'scattered';
+                    
+                    // --- 核心物理：面心立方 (FCC) 晶體繞射比例 ---
+                    // 布拉格定律: R ∝ 1/d ∝ sqrt(h^2 + k^2 + l^2)
+                    // 基礎縮放常數 R0 (結合了電壓波長與晶格常數)
+                    const R0 = 600 * (10 / Math.sqrt(config.voltage)) / config.lattice;
+
+                    let prob = Math.random();
+                    let targetR = 0;
+
+                    // 依照實際鋁箔電子繞射照片的機率分佈調整：
+                    if (prob < 0.15) {
+                        // 中心亮點 (未偏折穿透)
+                        targetR = Math.abs(randomGaussian(0, 8)); 
+                        this.color = '#00ffff'; 
+                        this.size = 2.0;
+                    } else if (prob < 0.50) {
+                        // 內圈最亮主環：(111) 晶面 (h^2+k^2+l^2 = 3)
+                        targetR = randomGaussian(R0 * Math.sqrt(3), 8); 
+                        this.color = '#39ff14'; 
+                        this.size = 1.2;
+                    } else if (prob < 0.70) {
+                        // 緊鄰主環的次亮環：(200) 晶面 (h^2+k^2+l^2 = 4)
+                        targetR = randomGaussian(R0 * Math.sqrt(4), 8); 
+                        this.color = '#39ff14'; 
+                        this.size = 1.0;
+                    } else if (prob < 0.85) {
+                        // 較遠的外圍暗環：(220) 晶面 (h^2+k^2+l^2 = 8)
+                        targetR = randomGaussian(R0 * Math.sqrt(8), 12); 
+                        this.color = '#22cc11'; 
+                        this.size = 0.8;
+                    } else if (prob < 0.95) {
+                        // 更遠的最外圍暗環：(311) 晶面 (h^2+k^2+l^2 = 11)
+                        targetR = randomGaussian(R0 * Math.sqrt(11), 15); 
+                        this.color = '#1aa10d'; 
+                        this.size = 0.6;
+                    } else {
+                        // 背景隨機散射雜訊 (營造底片顆粒感)
+                        targetR = Math.random() * R0 * 4; 
+                        this.color = '#444444';
+                        this.size = 0.5;
+                    }
+
+                    // 繞射的方位角 (多晶體隨機方向形成完整的圓環)
+                    let angle = Math.random() * Math.PI * 2;
+                    let targetX = targetR * Math.cos(angle);
+                    let targetY = targetR * Math.sin(angle);
+
+                    let dz = 600 - this.z;
+                    let framesToScreen = dz / this.vz;
+                    this.vx = (targetX - this.x) / framesToScreen;
+                    this.vy = (targetY - this.y) / framesToScreen;
+                }
+
+                if (this.z >= 600) {
+                    hitPoints.push({
+                        x: this.x, 
+                        y: this.y, 
+                        z: 600,
+                        color: this.color,
+                        size: this.size * 2.0, // 在螢幕上渲染得大一點點以利發光
+                        life: 1.0
+                    });
+                    return false; 
+                }
+                return true;
+            }
+
+            draw(ctx) {
+                let p = project3D(this.x, this.y, this.z);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, this.size * p.scale, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function drawPlane3D(z, width, height, fillStyle, strokeStyle, label) {
+            let p1 = project3D(-width/2, -height/2, z);
+            let p2 = project3D(width/2, -height/2, z);
+            let p3 = project3D(width/2, height/2, z);
+            let p4 = project3D(-width/2, height/2, z);
+
+            ctx.fillStyle = fillStyle;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.lineTo(p3.x, p3.y);
+            ctx.lineTo(p4.x, p4.y);
+            ctx.closePath();
+            ctx.fill();
+
+            if (strokeStyle) {
+                ctx.strokeStyle = strokeStyle;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            if (label) {
+                let labelPos = project3D(0, height/2 + 30, z);
+                ctx.fillStyle = '#ddd';
+                ctx.font = 'bold 16px "Segoe UI", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, labelPos.x, labelPos.y);
+            }
+        }
+
+        // 動畫主迴圈
+        function animate() {
+            ctx.fillStyle = '#050508';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 根據發射速率產生電子
+            for(let i = 0; i < config.rate; i++) {
+                if (Math.random() > 0.1) {
+                    electrons.push(new Electron());
+                }
+            }
+
+            for (let i = electrons.length - 1; i >= 0; i--) {
+                if (!electrons[i].update()) {
+                    electrons.splice(i, 1);
+                }
+            }
+
+            // 1. 繪製最深處的「螢光幕」
+            drawPlane3D(600, 3000, 3000, 'rgba(15, 15, 20, 0.95)', '#444', '攝影底片 / 螢光幕');
+
+            // 2. 繪製螢光幕上的「繞射光點 (Hit Points)」長曝光殘影
+            for (let i = hitPoints.length - 1; i >= 0; i--) {
+                let hp = hitPoints[i];
+                let p = project3D(hp.x, hp.y, hp.z);
+                
+                ctx.globalAlpha = hp.life;
+                ctx.fillStyle = hp.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, hp.size * p.scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 殘影漸微衰減，留下微弱的底層印記
+                hp.life -= 0.003; 
+                if (hp.life <= 0) hitPoints.splice(i, 1);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // 3. 繪製已經穿透鋁箔的散射電子 (Z > 0)
+            for (let e of electrons) {
+                if (e.z > 0) e.draw(ctx);
+            }
+
+            // 4. 繪製中景的「多晶鋁箔」
+            drawPlane3D(0, 180, 180, 'rgba(150, 150, 170, 0.3)', 'rgba(255, 255, 255, 0.5)', '鋁箔 (Aluminum Foil)');
+
+            // 5. 繪製尚未穿透鋁箔的入射電子束 (Z < 0)
+            for (let e of electrons) {
+                if (e.z <= 0) e.draw(ctx);
+            }
+
+            // 6. 繪製最前方的「電子發射器」
+            drawPlane3D(-300, 50, 50, '#111', '#00ffff', '電子束發射源');
+
+            requestAnimationFrame(animate);
+        }
+
+        // 初始化與啟動
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>
