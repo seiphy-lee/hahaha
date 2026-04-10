@@ -153,9 +153,9 @@
     </div>
 
     <div id="legend">
-        <div class="tag" style="color: #00ffff; border-left: 3px solid #00ffff;">中心亮點 (穿透未偏折)</div><br>
-        <div class="tag" style="color: #39ff14; border-left: 3px solid #39ff14;">內側雙環: (111) 與 (200) 晶面</div><br>
-        <div class="tag" style="color: #22cc11; border-left: 3px solid #22cc11;">外圍暗環: (220)、(311) 晶面</div>
+        <div class="tag" style="color: #ffffff; border-left: 3px solid #ffffff;">中心亮點 (穿透未偏折)</div><br>
+        <div class="tag" style="color: #dddddd; border-left: 3px solid #dddddd;">內側雙環: (111) 與 (200) 晶面</div><br>
+        <div class="tag" style="color: #bbbbbb; border-left: 3px solid #bbbbbb;">外圍暗環: (220)、(311) 晶面</div>
     </div>
 
     <canvas id="simCanvas"></canvas>
@@ -309,32 +309,32 @@
                     if (prob < 0.15) {
                         // 中心亮點 (未偏折穿透)
                         targetR = Math.abs(randomGaussian(0, 8)); 
-                        this.color = '#00ffff'; 
+                        this.color = '#ffffff'; 
                         this.size = 2.0;
                     } else if (prob < 0.50) {
                         // 內圈最亮主環：(111) 晶面 (h^2+k^2+l^2 = 3)
                         targetR = randomGaussian(R0 * Math.sqrt(3), 8); 
-                        this.color = '#39ff14'; 
+                        this.color = '#ffffff'; 
                         this.size = 1.2;
                     } else if (prob < 0.70) {
                         // 緊鄰主環的次亮環：(200) 晶面 (h^2+k^2+l^2 = 4)
                         targetR = randomGaussian(R0 * Math.sqrt(4), 8); 
-                        this.color = '#39ff14'; 
+                        this.color = '#ffffff'; 
                         this.size = 1.0;
                     } else if (prob < 0.85) {
                         // 較遠的外圍暗環：(220) 晶面 (h^2+k^2+l^2 = 8)
                         targetR = randomGaussian(R0 * Math.sqrt(8), 12); 
-                        this.color = '#22cc11'; 
+                        this.color = '#ffffff'; 
                         this.size = 0.8;
                     } else if (prob < 0.95) {
                         // 更遠的最外圍暗環：(311) 晶面 (h^2+k^2+l^2 = 11)
                         targetR = randomGaussian(R0 * Math.sqrt(11), 15); 
-                        this.color = '#1aa10d'; 
+                        this.color = '#ffffff'; 
                         this.size = 0.6;
                     } else {
                         // 背景隨機散射雜訊 (營造底片顆粒感)
                         targetR = Math.random() * R0 * 4; 
-                        this.color = '#444444';
+                        this.color = '#888888';
                         this.size = 0.5;
                     }
 
