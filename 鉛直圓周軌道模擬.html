@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鉛直軌道物理模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap');
+        .math-font {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        input[type=range], input[type=checkbox] {
+            accent-color: #f97316;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 h-screen w-screen overflow-hidden flex flex-col md:flex-row m-0 p-0">
+
+    <!-- 左側：畫布區 (滿版) -->
+    <div id="canvasContainer" class="flex-1 relative bg-[#f5ece5]">
+        <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full block"></canvas>
+        
+        <!-- 即時數據顯示浮水印 (字體放大 2.5 倍) -->
+        <div class="absolute top-6 left-6 bg-white/85 backdrop-blur p-6 rounded-xl shadow-md pointer-events-none text-[35px] font-mono leading-relaxed border border-gray-200">
+            <div class="font-bold text-gray-700 border-b pb-4 mb-4 text-[40px]">即時物理量</div>
+            <div>模式: <span id="lblMode" class="text-blue-600 font-bold">水平直線</span></div>
+            <div>速度 <span class="math-font">v</span> : <span id="lblV">0.00</span> m/s</div>
+            <div>正向力 <span class="math-font">N</span> : <span id="lblN">0.00</span> N</div>
+            <div>角度 <span class="math-font">θ</span> : <span id="lblTheta">0.0</span>°</div>
+        </div>
+    </div>
+
+    <!-- 右側：控制面板 -->
+    <div class="w-full md:w-80 bg-white border-l border-gray-200 p-6 flex flex-col gap-6 overflow-y-auto shadow-[-4px_0_20px_rgba(0,0,0,0.05)] z-10 relative">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800 mb-1">鉛直軌道運動模擬</h1>
+            <p class="text-xs text-gray-500">質量 m=1kg, 半徑 R=2m, g=9.8m/s²</p>
+        </div>
+
+        <!-- 控制滑桿 -->
+        <div class="flex flex-col gap-2">
+            <label class="font-semibold text-sm flex justify-between">
+                <span>初始速度 <span class="math-font text-orange-500 font-bold">v<sub>0</sub></span></span>
+                <span id="v0Display" class="text-orange-600 font-bold">8.0 m/s</span>
+            </label>
+            <input type="range" id="v0Slider" min="0" max="12" step="0.1" value="8.0" class="w-full cursor-pointer">
+            <div class="flex justify-between text-xs text-gray-400">
+                <span>0</span>
+                <span>臨界值</span>
+                <span>12</span>
+            </div>
+        </div>
+
+        <!-- 預設按鈕 (老師教學好幫手) -->
+        <div class="flex flex-col gap-2">
+            <span class="font-semibold text-sm text-gray-700">快速預設情境：</span>
+            <button onclick="setV0(5.0)" class="px-3 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-100 rounded text-left transition-colors">
+                1. 無法到達 Q 點 (擺盪) <br><span class="text-xs text-gray-500">v₀ < √(2gR) ≈ 6.26 m/s</span>
+            </button>
+            <button onclick="setV0(8.0)" class="px-3 py-2 text-sm bg-white border border-orange-300 hover:bg-orange-50 rounded text-left transition-colors">
+                2. 越過 Q 點但脫軌 (拋體) <br><span class="text-xs text-orange-500">6.26 < v₀ < √(5gR) ≈ 9.9 m/s</span>
+            </button>
+            <button onclick="setV0(10.5)" class="px-3 py-2 text-sm bg-white border border-green-300 hover:bg-green-50 rounded text-left transition-colors">
+                3. 完整越過 M 點 (圓周) <br><span class="text-xs text-green-500">v₀ ≥ √(5gR) ≈ 9.9 m/s</span>
+            </button>
+        </div>
+
+        <!-- 顯示切換與慢動作控制 -->
+        <div class="flex flex-col gap-2 mt-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="showVectors" checked class="rounded text-orange-500 focus:ring-orange-500 w-4 h-4">
+                <span class="text-sm text-gray-700">顯示受力與速度向量</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="showPath" checked class="rounded text-orange-500 focus:ring-orange-500 w-4 h-4">
+                <span class="text-sm text-gray-700">顯示運動軌跡</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="slowMotion" class="rounded text-orange-500 focus:ring-orange-500 w-4 h-4">
+                <span class="text-sm text-gray-700 font-semibold">慢動作 (1/5 倍速)</span>
+            </label>
+        </div>
+
+        <div class="flex-grow"></div>
+
+        <!-- 執行控制 -->
+        <div class="flex gap-2">
+            <button id="btnPlay" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded shadow transition-transform active:scale-95">
+                播放 / 暫停
+            </button>
+            <button id="btnReset" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded shadow transition-transform active:scale-95">
+                重設
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 物理常數與全域變數 ---
+        const g = 9.8;      // 重力加速度 (m/s^2)
+        const R = 2.0;      // 軌道半徑 (m)
+        const m = 1.0;      // 物體質量 (kg)
+        const startX = -8.0;// 起始位置 (m) (往左移，創造更長的跑道)
+        
+        let v0 = 8.0;       // 初始速度
+        let isRunning = false;
+        let animationId = null;
+
+        // --- 繪圖比例與座標轉換 (支援動態縮放) ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+        
+        let scale = 100;
+        let originX = 0;
+        let originY = 0;
+
+        function resizeCanvas() {
+            // 讓 canvas 的內部解析度對齊其實際的 CSS 大小
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // 動態計算縮放比例，容納加長後的軌道寬度 (約12m)
+            scale = Math.min(canvas.width / 12, canvas.height / 6);
+            
+            // 動態置中原點 P 
+            // X 軸：讓半圓軌道靠最右邊 (保留 R=2m 以及 Q 點標籤的空間約 3m)
+            originX = canvas.width - (3.0 * scale); 
+            // Y 軸：放在畫面偏下 (80%) 的位置，留空間給上方的圓周軌道
+            originY = canvas.height * 0.8; 
+
+            if (!isRunning) draw(); // 視窗縮放時即時重繪
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function toScreenX(x) { return originX + x * scale; }
+        function toScreenY(y) { return originY - y * scale; }
+
+        // --- 物件狀態 ---
+        let ball = {
+            x: startX,
+            y: 0,
+            vx: v0,
+            vy: 0,
+            theta: 0,       
+            omega: 0,       
+            mode: 'HORIZ',  
+            N: 0            
+        };
+
+        let pathHistory = [];
+        let stepCount = 0;
+
+        // --- DOM 元素 ---
+        const v0Slider = document.getElementById('v0Slider');
+        const v0Display = document.getElementById('v0Display');
+        const btnPlay = document.getElementById('btnPlay');
+        const btnReset = document.getElementById('btnReset');
+        const showVectors = document.getElementById('showVectors');
+        const showPath = document.getElementById('showPath');
+        const slowMotion = document.getElementById('slowMotion');
+        
+        // UI 更新函式
+        function updateUI() {
+            v0Display.innerText = parseFloat(v0Slider.value).toFixed(1) + ' m/s';
+            v0 = parseFloat(v0Slider.value);
+            if (!isRunning && ball.mode === 'HORIZ' && ball.x === startX) {
+                ball.vx = v0;
+                draw();
+            }
+        }
+
+        window.setV0 = function(val) {
+            v0Slider.value = val;
+            updateUI();
+            resetSim();
+        }
+
+        v0Slider.addEventListener('input', updateUI);
+        
+        btnPlay.addEventListener('click', () => {
+            isRunning = !isRunning;
+            btnPlay.innerText = isRunning ? '暫停' : '繼續';
+            btnPlay.classList.toggle('bg-red-500', isRunning);
+            btnPlay.classList.toggle('bg-orange-500', !isRunning);
+            if (isRunning) lastTime = performance.now();
+        });
+
+        btnReset.addEventListener('click', resetSim);
+
+        function resetSim() {
+            isRunning = false;
+            btnPlay.innerText = '播放';
+            btnPlay.classList.remove('bg-red-500');
+            btnPlay.classList.add('bg-orange-500');
+            
+            ball = {
+                x: startX,
+                y: 0,
+                vx: v0,
+                vy: 0,
+                theta: 0,
+                omega: 0,
+                mode: 'HORIZ',
+                N: m * g
+            };
+            pathHistory = [];
+            stepCount = 0;
+            draw();
+            updateDashboard();
+        }
+
+        // --- 物理模擬核心引擎 ---
+        let lastTime = 0;
+        const timeStep = 1 / 60; 
+        const subSteps = 20;     
+        const dt = timeStep / subSteps;
+
+        function physicsStep() {
+            // 如果勾選慢動作，讓物理運算的時間步縮減為 1/5
+            let currentDt = slowMotion.checked ? dt / 5 : dt;
+
+            for (let i = 0; i < subSteps; i++) {
+                if (ball.mode === 'HORIZ') {
+                    ball.x += ball.vx * currentDt;
+                    ball.N = m * g;
+                    
+                    if (ball.x >= 0 && ball.vx > 0) {
+                        ball.mode = 'CIRCLE';
+                        ball.theta = 0;
+                        ball.omega = ball.vx / R;
+                        ball.x = 0; 
+                        ball.y = 0;
+                    }
+                } 
+                else if (ball.mode === 'CIRCLE') {
+                    let alpha = -(g / R) * Math.sin(ball.theta);
+                    ball.omega += alpha * currentDt;
+                    ball.theta += ball.omega * currentDt;
+
+                    ball.N = m * (ball.omega * ball.omega * R + g * Math.cos(ball.theta));
+
+                    ball.x = R * Math.sin(ball.theta);
+                    ball.y = R * (1 - Math.cos(ball.theta));
+                    ball.vx = ball.omega * R * Math.cos(ball.theta);
+                    ball.vy = ball.omega * R * Math.sin(ball.theta);
+
+                    if (ball.theta >= Math.PI) {
+                        ball.mode = 'FREE';
+                        ball.N = 0;
+                        ball.x = 0; 
+                        ball.y = 2 * R;
+                        ball.vx = ball.omega * R * Math.cos(Math.PI);
+                        ball.vy = 0;
+                    } 
+                    else if (ball.N <= 0 && ball.theta > Math.PI / 2) {
+                        ball.mode = 'FREE';
+                        ball.N = 0;
+                    }
+                    else if (ball.theta <= 0 && ball.omega < 0) {
+                        ball.mode = 'HORIZ';
+                        ball.x = 0;
+                        ball.y = 0;
+                        ball.vx = ball.omega * R;
+                        ball.vy = 0;
+                        ball.N = m * g;
+                    }
+                } 
+                else if (ball.mode === 'FREE') {
+                    ball.N = 0;
+                    ball.vy -= g * currentDt;
+                    ball.x += ball.vx * currentDt;
+                    ball.y += ball.vy * currentDt;
+
+                    if (ball.y <= 0 && ball.vy < 0) {
+                        ball.y = 0;
+                        ball.vy = -ball.vy * 1.0; 
+                    }
+                }
+
+                // 慢動作時降低記錄軌跡點的頻率，確保視覺上軌跡點疏密一致
+                let pathFrequency = slowMotion.checked ? 25 : 5;
+                if (stepCount++ % pathFrequency === 0) {
+                    pathHistory.push({ x: ball.x, y: ball.y });
+                    if (pathHistory.length > 200) pathHistory.shift();
+                }
+            }
+        }
+
+        // --- 繪圖函式 ---
+        function drawArrow(fromX, fromY, toX, toY, color, width = 2) {
+            const headlen = 10;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.lineTo(toX, toY);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const ballRadius = 14;
+            const trackOffset = ballRadius; 
+
+            // 1. 畫軌道與地面
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            // 稍微多往左延伸一點起點地平線
+            ctx.moveTo(toScreenX(startX - 1.5), toScreenY(0) + trackOffset);
+            ctx.lineTo(toScreenX(R * 3), toScreenY(0) + trackOffset);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(toScreenX(0), toScreenY(R), R * scale + trackOffset, Math.PI/2, -Math.PI/2, true);
+            ctx.stroke();
+
+            // 2. 畫輔助線與標示
+            ctx.strokeStyle = '#94a3b8';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1.5;
+            
+            ctx.beginPath(); ctx.moveTo(toScreenX(0), toScreenY(R)); ctx.lineTo(toScreenX(0), toScreenY(0) + trackOffset); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toScreenX(0), toScreenY(R)); ctx.lineTo(toScreenX(0), toScreenY(2*R) - trackOffset); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toScreenX(0), toScreenY(R)); ctx.lineTo(toScreenX(R) + trackOffset, toScreenY(R)); ctx.stroke();
+            ctx.setLineDash([]); 
+
+            // 畫 R 的箭頭與標示
+            const cX = toScreenX(0);
+            const edgeX = toScreenX(R) + trackOffset;
+            const arrowY = toScreenY(R) - 20; // 將箭頭放在虛線上方 20px
+
+            drawArrow(cX + (edgeX - cX)/2, arrowY, cX, arrowY, '#475569', 1.5);      // 左箭頭(精準指到圓心C)
+            drawArrow(cX + (edgeX - cX)/2, arrowY, edgeX, arrowY, '#475569', 1.5);  // 右箭頭(精準指到軌道邊緣)
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = "italic 20px 'Times New Roman', serif";
+            ctx.textAlign = 'center';
+            ctx.fillText("R", cX + (edgeX - cX)/2, arrowY - 8);
+            ctx.textAlign = 'left'; // 恢復預設
+
+            // 文字標籤
+            ctx.fillStyle = '#0f172a';
+            ctx.font = "italic bold 22px 'Times New Roman', serif";
+            ctx.fillText("O", toScreenX(startX + 0.2), toScreenY(0) + trackOffset + 25);
+            ctx.fillText("P", toScreenX(0) - 8, toScreenY(0) + trackOffset + 25);
+            ctx.fillText("C", toScreenX(-0.3), toScreenY(R) + 6);
+            ctx.fillText("Q", edgeX + 10, toScreenY(R) + 6);
+            ctx.fillText("M", toScreenX(0) - 10, toScreenY(2*R) - trackOffset - 10);
+
+            // 3. 畫軌跡
+            if (showPath.checked && pathHistory.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(pathHistory[0].x), toScreenY(pathHistory[0].y));
+                for (let i = 1; i < pathHistory.length; i++) {
+                    ctx.lineTo(toScreenX(pathHistory[i].x), toScreenY(pathHistory[i].y));
+                }
+                ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)'; 
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // 4. 畫球體
+            const bx = toScreenX(ball.x);
+            const by = toScreenY(ball.y);
+
+            let gradient = ctx.createRadialGradient(bx - 4, by - 4, 2, bx, by, ballRadius);
+            gradient.addColorStop(0, '#fdba74');
+            gradient.addColorStop(1, '#ea580c');
+            
+            ctx.beginPath();
+            ctx.arc(bx, by, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.strokeStyle = '#c2410c';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.fillStyle = 'white';
+            ctx.font = "italic 14px 'Times New Roman', serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("m", bx, by);
+            ctx.textAlign = 'left'; 
+
+            // 5. 畫物理向量
+            if (showVectors.checked) {
+                const vScale = 10; 
+                const fScale = 2;  
+
+                let vMag = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+                if (vMag > 0.1) {
+                    drawArrow(bx, by, bx + ball.vx * vScale, by - ball.vy * vScale, '#16a34a', 3);
+                    if (ball.mode === 'HORIZ' && ball.x === startX && !isRunning) {
+                         ctx.fillStyle = '#16a34a';
+                         ctx.fillText("v₀", bx + ball.vx * vScale + 5, by - ball.vy * vScale - 5);
+                    }
+                }
+
+                drawArrow(bx, by, bx, by + m * g * fScale, '#94a3b8', 2);
+
+                if (ball.N > 0.1 && ball.mode !== 'FREE') {
+                    let nx, ny;
+                    if (ball.mode === 'HORIZ') {
+                        nx = 0; ny = 1; 
+                    } else if (ball.mode === 'CIRCLE') {
+                        nx = -Math.sin(ball.theta);
+                        ny = Math.cos(ball.theta);
+                    }
+                    drawArrow(bx, by, bx + nx * ball.N * fScale, by - ny * ball.N * fScale, '#2563eb', 2);
+                }
+            }
+        }
+
+        // 更新左上角資料面板
+        function updateDashboard() {
+            const lblMode = document.getElementById('lblMode');
+            const modeName = {'HORIZ': '水平直線', 'CIRCLE': '圓周運動', 'FREE': '拋體 / 彈跳'};
+            const modeColors = {'HORIZ': 'text-blue-600', 'CIRCLE': 'text-purple-600', 'FREE': 'text-orange-600'};
+            
+            lblMode.innerText = modeName[ball.mode];
+            lblMode.className = `font-bold ${modeColors[ball.mode]}`;
+            
+            let currentV = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+            document.getElementById('lblV').innerText = currentV.toFixed(2);
+            document.getElementById('lblN').innerText = Math.max(0, ball.N).toFixed(2);
+            
+            let deg = 0;
+            if (ball.mode === 'CIRCLE') deg = ball.theta * 180 / Math.PI;
+            else if (ball.x > 0 && ball.x < R && ball.mode !== 'HORIZ') deg = "脫軌";
+            document.getElementById('lblTheta').innerText = typeof deg === 'string' ? deg : deg.toFixed(1) + '°';
+        }
+
+        // 主迴圈
+        function loop(timestamp) {
+            if (isRunning) {
+                physicsStep();
+                updateDashboard();
+            }
+            draw();
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // 初始化
+        resizeCanvas();
+        updateUI();
+        resetSim();
+        loop();
+
+    </script>
+</body>
+</html>
