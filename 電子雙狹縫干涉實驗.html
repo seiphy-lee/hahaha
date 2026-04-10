@@ -3,511 +3,449 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>粒子還是波？電子雙狹縫 3D 空間模擬</title>
+    <title>電子雙狹縫干涉實驗模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #050508;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+            color: #e2e8f0;
             overflow: hidden;
-            /* 防止拖曳時選取文字 */
-            user-select: none; 
+            user-select: none;
         }
 
-        canvas {
-            display: block;
+        /* 科技感發光滑桿 */
+        input[type=range] {
+            -webkit-appearance: none;
             width: 100%;
-            height: 100%;
-            cursor: grab;
-        }
-
-        canvas:active {
-            cursor: grabbing;
-        }
-
-        /* 玻璃擬態控制面板 */
-        #control-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(15, 20, 30, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 255, 0.3);
-            border-radius: 12px;
-            padding: 20px;
-            width: 320px;
-            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.1);
-            z-index: 10;
-        }
-
-        h1 {
-            font-size: 1.2rem;
-            margin-top: 0;
-            color: #00ffff;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-            margin-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 10px;
-        }
-
-        .instruction {
-            font-size: 0.85rem; 
-            color: #ffaa00; 
-            margin-top: -5px; 
-            margin-bottom: 15px;
-            background: rgba(255, 170, 0, 0.1);
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #ffaa00;
-        }
-
-        .control-group {
-            margin-bottom: 15px;
-        }
-
-        .control-group label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-            color: #ccc;
-        }
-
-        .value-display {
-            color: #00ffff;
-            font-weight: bold;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            cursor: pointer;
-            accent-color: #00ffff;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
             background: transparent;
-            border: 1px solid #00ffff;
-            color: #00ffff;
-            border-radius: 6px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #4ade80;
             cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            margin-top: 10px;
+            margin-top: -6px;
+            box-shadow: 0 0 10px #4ade80;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 2px;
+            border: 1px solid #334155;
         }
 
-        button:hover {
-            background: rgba(0, 255, 255, 0.2);
-            box-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        /* 自訂單選按鈕 (若無設定切換可保留樣式備用) */
+        .radio-custom {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #64748b;
+            border-radius: 50%;
+            position: relative;
+            margin-right: 8px;
+            vertical-align: middle;
         }
-
-        /* 說明圖例 */
-        #legend {
+        input[type="radio"]:checked + .radio-custom::after {
+            content: '';
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            pointer-events: none;
-            color: #aaa;
-            font-size: 0.85rem;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(5px);
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
+            top: 2px;
+            left: 2px;
+            width: 8px;
+            height: 8px;
+            background: #38bdf8;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #38bdf8;
         }
-        .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.1); margin-right: 5px; margin-bottom: 5px;}
+
+        .neon-border {
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.1), inset 0 0 20px rgba(56, 189, 248, 0.05);
+        }
+
+        .canvas-container {
+            position: relative;
+            background: #020617;
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        /* 3D 場景上的 HTML 標籤 */
+        .scene-label {
+            position: absolute;
+            color: #cbd5e1;
+            font-size: 1.75rem; /* 放大了 2 倍 */
+            font-weight: bold;
+            letter-spacing: 0.1em;
+            pointer-events: none;
+            text-shadow: 0 4px 6px rgba(0,0,0,0.9), 0 0 10px rgba(56, 189, 248, 0.5);
+            transform: translate(-50%, -50%); /* 確保置中對齊定位點 */
+            white-space: nowrap;
+        }
     </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col p-4 gap-4">
 
-    <div id="control-panel">
-        <h1>✨ 電子雙狹縫實驗</h1>
-        <div class="instruction">
-            👆 <strong>操作提示：</strong> 在畫面上拖曳可以旋轉 3D 視角。觀察電子穿過兩道狹縫後，如何在後方螢幕形成垂直的干涉條紋！
-        </div>
+    <!-- 標題 -->
+    <header class="flex items-center gap-4 px-4 py-2">
+        <h1 class="text-3xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500" style="text-shadow: 0 0 20px rgba(56,189,248,0.3);">
+            電子雙狹縫干涉實驗
+        </h1>
+        <div class="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent"></div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-1 flex gap-4 h-full relative">
         
-        <div class="control-group">
-            <label>加速電壓 (Voltage) <span id="val-voltage" class="value-display">40 kV</span></label>
-            <input type="range" id="slider-voltage" min="10" max="100" value="40" step="1">
-            <small style="color:#666; font-size:0.75rem;">電壓越大，波長越短，條紋間距越密集</small>
-        </div>
+        <!-- 左側控制面板 -->
+        <aside class="w-80 flex flex-col gap-6 neon-border bg-slate-900/80 p-6 rounded-xl relative z-20 backdrop-blur-sm">
 
-        <div class="control-group">
-            <label>狹縫間距 d (Separation) <span id="val-slit" class="value-display">3.5 nm</span></label>
-            <input type="range" id="slider-slit" min="1.0" max="8.0" value="3.5" step="0.1">
-            <small style="color:#666; font-size:0.75rem;">狹縫越遠，干涉條紋會越密集</small>
-        </div>
+            <!-- 電子槍頻率 -->
+            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-lg font-semibold text-cyan-300">電子槍</h2>
+                    <span id="freqVal" class="text-sm text-slate-400">中</span>
+                </div>
+                <label class="block text-sm mb-2 text-slate-300">電子發射頻率</label>
+                <input type="range" id="freqSlider" min="1" max="100" value="50">
+            </div>
 
-        <div class="control-group">
-            <label>電子發射速率 <span id="val-rate" class="value-display">極高 (曝光中)</span></label>
-            <input type="range" id="slider-rate" min="10" max="150" value="80" step="1">
-        </div>
+            <!-- 清除畫面按鈕 -->
+            <button onclick="clearScreen()" class="mt-auto py-2 rounded border border-red-500/50 text-red-400 hover:bg-red-500/20 transition-all font-semibold tracking-widest">
+                清除偵測屏幕
+            </button>
+            
+        </aside>
 
-        <button id="btn-clear">清除感光螢幕</button>
-        <button id="btn-reset-view" style="border-color: #aaa; color: #aaa;">重置預設視角</button>
-    </div>
+        <!-- 右側 3D 視覺化區域 -->
+        <section id="three-container" class="flex-1 canvas-container relative">
+            
+            <!-- 3D 視角標籤覆蓋層 (動態追蹤定位) -->
+            <div id="label-gun" class="scene-label">電子槍</div>
+            <div id="label-barrier" class="scene-label">擋板與狹縫</div>
+            <div id="label-screen" class="scene-label">偵測屏幕</div>
 
-    <div id="legend">
-        <div class="tag" style="color: #ffffff; border-left: 3px solid #ffffff;">中央亮帶 (n = 0)</div><br>
-        <div class="tag" style="color: #dddddd; border-left: 3px solid #dddddd;">第一階亮帶 (n = ±1)</div><br>
-        <div class="tag" style="color: #bbbbbb; border-left: 3px solid #bbbbbb;">第二階亮帶 (n = ±2)</div>
-    </div>
+            <!-- 屏幕殘影設定 (浮動於右側) -->
+            <div class="absolute right-0 top-12 bottom-12 w-16 flex flex-col items-center py-6 bg-slate-900/60 border-l border-slate-800 backdrop-blur-md z-10 rounded-l-xl">
+                <span class="text-xs text-slate-300 font-semibold" style="writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px;">電子停留時間</span>
+                <input type="range" id="decaySlider" min="0" max="100" value="95" class="mt-6" style="writing-mode: vertical-lr; direction: rtl; width: 4px; height: 100%;">
+            </div>
 
-    <canvas id="simCanvas"></canvas>
+        </section>
+    </main>
 
     <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-
-        // 系統與物理參數
-        const config = {
-            voltage: 40,
-            slitDist: 3.5, // 狹縫間距
-            rate: 80,
-            centerX: 0,
-            centerY: 0
-        };
-
-        // 3D 視角控制變數
-        // 回復為能清楚觀測垂直條紋的視角
-        let rotX = 0.08;  
-        let rotY = -0.35; 
+        // --- 狀態變數與 DOM ---
+        const freqSlider = document.getElementById('freqSlider');
+        const decaySlider = document.getElementById('decaySlider');
         
-        let isDragging = false;
-        let lastMouseX = 0;
-        let lastMouseY = 0;
+        // 標籤 DOM
+        const labelGun = document.getElementById('label-gun');
+        const labelBarrier = document.getElementById('label-barrier');
+        const labelScreen = document.getElementById('label-screen');
 
-        let electrons = [];
-        let hitPoints = []; 
+        // --- 物理/機率引擎參數 ---
+        const texSize = 1024; // 貼圖解析度
+        const envelopeWidth = 180; // 繞射波包寬度 
+        const fringeWidth = 35;   // 干涉條紋寬度 
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            config.centerX = canvas.width / 2;
-            config.centerY = canvas.height / 2;
-        }
+        // --- Three.js 場景設定 ---
+        const container = document.getElementById('three-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020617, 0.015);
 
-        window.addEventListener('resize', resize);
+        // 攝影機：側面等角透視 (類似截圖視角)
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(-25, 15, 45); 
+        camera.lookAt(10, -5, 0);
 
-        // --- 滑鼠與觸控拖曳控制 (3D 旋轉) ---
-        function startDrag(x, y) {
-            isDragging = true;
-            lastMouseX = x;
-            lastMouseY = y;
-        }
-        function doDrag(x, y) {
-            if (!isDragging) return;
-            let dx = x - lastMouseX;
-            let dy = y - lastMouseY;
-            rotY += dx * 0.005;
-            rotX += dy * 0.005;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
 
-            rotX = Math.max(-Math.PI/3, Math.min(Math.PI/3, rotX));
-            rotY = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, rotY));
-
-            lastMouseX = x;
-            lastMouseY = y;
-        }
-        function endDrag() {
-            isDragging = false;
-        }
-
-        canvas.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
-        window.addEventListener('mousemove', (e) => doDrag(e.clientX, e.clientY));
-        window.addEventListener('mouseup', endDrag);
-
-        canvas.addEventListener('touchstart', (e) => startDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
-        window.addEventListener('touchmove', (e) => { e.preventDefault(); doDrag(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
-        window.addEventListener('touchend', endDrag);
-
-        // --- UI 監聽 ---
-        document.getElementById('slider-voltage').addEventListener('input', (e) => {
-            config.voltage = parseFloat(e.target.value);
-            document.getElementById('val-voltage').textContent = config.voltage + ' kV';
-        });
-
-        document.getElementById('slider-slit').addEventListener('input', (e) => {
-            config.slitDist = parseFloat(e.target.value);
-            document.getElementById('val-slit').textContent = config.slitDist.toFixed(1) + ' nm';
-        });
-
-        document.getElementById('slider-rate').addEventListener('input', (e) => {
-            config.rate = parseInt(e.target.value);
-            document.getElementById('val-rate').textContent = config.rate > 100 ? '極高 (曝光中)' : (config.rate > 50 ? '高' : '中');
-        });
-
-        document.getElementById('btn-clear').addEventListener('click', () => { hitPoints = []; });
+        // 光源
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
         
-        document.getElementById('btn-reset-view').addEventListener('click', () => {
-            rotX = 0.08;
-            rotY = -0.35;
-        });
+        const dirLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+        dirLight.position.set(-20, 20, 20);
+        scene.add(dirLight);
 
-        // --- 核心 3D 投影引擎 ---
-        function project3D(x, y, z) {
-            let y1 = y * Math.cos(rotX) - z * Math.sin(rotX);
-            let z1 = y * Math.sin(rotX) + z * Math.cos(rotX);
+        // --- 建立物件 ---
 
-            let x2 = x * Math.cos(rotY) + z1 * Math.sin(rotY);
-            let z2 = -x * Math.sin(rotY) + z1 * Math.cos(rotY);
+        // 1. 電子槍模型
+        const gunGroup = new THREE.Group();
+        gunGroup.position.set(-25, 0, 0);
+        
+        const gunBody = new THREE.Mesh(
+            new THREE.BoxGeometry(8, 6, 6),
+            new THREE.MeshPhongMaterial({ color: 0x334155, flatShading: true })
+        );
+        const gunNozzle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.8, 0.8, 4, 16),
+            new THREE.MeshPhongMaterial({ color: 0x94a3b8 })
+        );
+        gunNozzle.rotation.z = -Math.PI / 2;
+        gunNozzle.position.set(5, 0, 0);
+        
+        gunGroup.add(gunBody);
+        gunGroup.add(gunNozzle);
+        scene.add(gunGroup);
 
-            const fl = 800; 
-            let distance = fl + z2 + 300; 
-            let scale = fl / distance;
+        // 電子槍開火閃光
+        const flashLight = new THREE.PointLight(0xfef08a, 0, 20);
+        flashLight.position.set(-18, 0, 0);
+        scene.add(flashLight);
+        let flashIntensity = 0;
 
-            let px = config.centerX + x2 * scale;
-            let py = config.centerY + y1 * scale;
+        // 電子閃爍粒子系統 (存放瞬間出現的小黃球)
+        const electronParticles = [];
+        // 將粒子大小大幅縮小以配合偵測屏幕上的亮點大小
+        const particleGeo = new THREE.SphereGeometry(0.12, 8, 8); 
 
-            return { x: px, y: py, scale: scale, zDepth: z2 };
+        function spawnElectronParticle(x, y, z) {
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0xfacc15, 
+                transparent: true, 
+                opacity: 1 
+            });
+            const mesh = new THREE.Mesh(particleGeo, material);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            electronParticles.push({ mesh, life: 1.0 });
         }
 
-        function randomGaussian(mean, stdev) {
-            let u = 1 - Math.random(); 
-            let v = Math.random();
-            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-            return z * stdev + mean;
-        }
+        // 2. 狹縫擋板 (使用 Shape 挖空雙狹縫)
+        let barrierMesh;
+        function updateBarrierGeometry() {
+            if (barrierMesh) scene.remove(barrierMesh);
 
-        // --- 電子物件 ---
-        class Electron {
-            constructor() {
-                this.z = -300; // 發射源 Z 座標
-                this.x = (Math.random() - 0.5) * 4; 
-                this.y = (Math.random() - 0.5) * 4;
-                
-                this.vz = 20; // 飛行速度
-                
-                // 決定要穿過左狹縫還是右狹縫 (回復垂直狹縫)
-                const visualSlitDist = config.slitDist * 15; // 視覺化狹縫間距
-                this.slitTargetX = (Math.random() > 0.5 ? 1 : -1) * (visualSlitDist / 2);
-                this.slitTargetY = randomGaussian(0, 80); // 在狹縫高度內垂直散佈
+            const shape = new THREE.Shape();
+            // 擋板外框 (高度縮減為原本 0.5 倍)
+            shape.moveTo(-15, -7.5);
+            shape.lineTo(15, -7.5);
+            shape.lineTo(15, 7.5);
+            shape.lineTo(-15, 7.5);
+            shape.lineTo(-15, -7.5);
 
-                // 計算射向狹縫的初始速度
-                let dz1 = 300; // 從 -300 到 0 (擋板位置)
-                let frames1 = dz1 / this.vz;
-                this.vx = (this.slitTargetX - this.x) / frames1;
-                this.vy = (this.slitTargetY - this.y) / frames1;
-                
-                this.state = 'incoming'; 
-                this.color = '#ffffff'; 
-                this.size = 1.5;
-            }
+            // 挖空雙狹縫
+            const slit1 = new THREE.Path();
+            slit1.moveTo(-2.5, -4);
+            slit1.lineTo(-1.5, -4);
+            slit1.lineTo(-1.5, 4);
+            slit1.lineTo(-2.5, 4);
+            slit1.lineTo(-2.5, -4);
+            shape.holes.push(slit1);
 
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.z += this.vz;
+            const slit2 = new THREE.Path();
+            slit2.moveTo(1.5, -4);
+            slit2.lineTo(2.5, -4);
+            slit2.lineTo(2.5, 4);
+            slit2.lineTo(1.5, 4);
+            slit2.lineTo(1.5, -4);
+            shape.holes.push(slit2);
 
-                // 當越過 Z=0 (狹縫擋板平面) 時，發生波的干涉
-                if (this.state === 'incoming' && this.z >= 0) {
-                    this.state = 'scattered';
-                    
-                    // --- 核心物理：雙狹縫干涉條紋分佈 ---
-                    // 建設性干涉條件: d * sin(theta) = n * lambda
-                    const baseSpacing = 2000 / Math.sqrt(config.voltage) / config.slitDist;
-
-                    let prob = Math.random();
-                    let n = null; // 干涉條紋階數 (Order)
-
-                    // 依照單狹縫繞射包絡線下的雙狹縫干涉強度分佈：
-                    if (prob < 0.25) {
-                        n = 0; // 中央亮帶 (n=0)
-                        this.size = 1.8;
-                    } else if (prob < 0.55) {
-                        n = (Math.random() > 0.5 ? 1 : -1); // 第一階亮帶
-                        this.size = 1.5;
-                    } else if (prob < 0.78) {
-                        n = (Math.random() > 0.5 ? 2 : -2); // 第二階亮帶
-                        this.size = 1.2;
-                    } else if (prob < 0.92) {
-                        n = (Math.random() > 0.5 ? 3 : -3); // 第三階亮帶
-                        this.size = 1.0;
-                    } else if (prob < 0.98) {
-                        n = (Math.random() > 0.5 ? 4 : -4); // 第四階亮帶
-                        this.size = 0.8;
-                    } else {
-                        n = (Math.random() > 0.5 ? 5 : -5); // 第五階亮帶
-                        this.size = 0.6;
-                    }
-
-                    this.color = '#ffffff'; 
-                    let targetX, targetY;
-                    
-                    // 回復垂直條紋：X軸呈現干涉的離散分佈，Y軸呈現高度的常態擴散
-                    targetX = randomGaussian(n * baseSpacing, 12); 
-                    targetY = randomGaussian(0, 200); 
-
-                    // 重新計算飛向螢光幕的速度
-                    let dz = 600 - this.z;
-                    let framesToScreen = dz / this.vz;
-                    this.vx = (targetX - this.x) / framesToScreen;
-                    this.vy = (targetY - this.y) / framesToScreen;
-                }
-
-                // 抵達螢光幕
-                if (this.z >= 600) {
-                    hitPoints.push({
-                        x: this.x, 
-                        y: this.y, 
-                        z: 600,
-                        color: this.color,
-                        size: this.size * 1.5, 
-                        life: 1.0
-                    });
-                    
-                    // 限制陣列最大長度避免效能卡頓，同時能維持極高的光點密度
-                    if (hitPoints.length > 8000) hitPoints.shift();
-                    
-                    return false; 
-                }
-                return true;
-            }
-
-            draw(ctx) {
-                let p = project3D(this.x, this.y, this.z);
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, this.size * p.scale, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-            }
-        }
-
-        // 畫實心 3D 矩形 (用於繪製擋板)
-        function drawSolidRect3D(x, y, z, w, h, fillStyle) {
-            let p1 = project3D(x - w/2, y - h/2, z);
-            let p2 = project3D(x + w/2, y - h/2, z);
-            let p3 = project3D(x + w/2, y + h/2, z);
-            let p4 = project3D(x - w/2, y + h/2, z);
-
-            ctx.fillStyle = fillStyle;
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.lineTo(p3.x, p3.y);
-            ctx.lineTo(p4.x, p4.y);
-            ctx.closePath();
-            ctx.fill();
+            const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false });
+            const material = new THREE.MeshPhongMaterial({ color: 0x0f172a, specular: 0x111111 });
             
-            // 加上微弱的邊框增加立體感
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            barrierMesh = new THREE.Mesh(geometry, material);
+            
+            // 加入明顯的白框
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
+            barrierMesh.add(line);
+            
+            barrierMesh.position.set(0, 0, 0);
+            barrierMesh.rotation.y = Math.PI / 2; // 面向 X 軸
+            scene.add(barrierMesh);
+        }
+        updateBarrierGeometry();
+
+        // 3. 偵測屏幕 (使用隱藏的 Canvas 動態繪製貼圖)
+        const hiddenCanvas = document.createElement('canvas');
+        hiddenCanvas.width = texSize;
+        hiddenCanvas.height = texSize;
+        const ctx = hiddenCanvas.getContext('2d');
+        
+        // 初始化背景
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, texSize, texSize);
+
+        const screenTexture = new THREE.CanvasTexture(hiddenCanvas);
+        // 使用 BasicMaterial 讓屏幕自己發光不受場景光源影響
+        const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture }); 
+        const screenGeometry = new THREE.PlaneGeometry(35, 30);
+        const screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
+        
+        // 加上屏幕的白框
+        const screenEdges = new THREE.EdgesGeometry(screenGeometry);
+        const screenLine = new THREE.LineSegments(screenEdges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 }));
+        screenMesh.add(screenLine);
+
+        screenMesh.position.set(25, 0, 0);
+        screenMesh.rotation.y = -Math.PI / 2; // 面向電子槍
+        scene.add(screenMesh);
+
+
+        // --- UI 與互動事件 ---
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // 稍微跟隨滑鼠製造 3D 視差感
+        let mouseX = 0;
+        let mouseY = 0;
+        container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        });
+
+        function clearScreen() {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, texSize, texSize);
+            screenTexture.needsUpdate = true;
         }
 
-        function drawPlane3D(z, width, height, fillStyle, strokeStyle, label) {
-            let p1 = project3D(-width/2, -height/2, z);
-            let p2 = project3D(width/2, -height/2, z);
-            let p3 = project3D(width/2, height/2, z);
-            let p4 = project3D(-width/2, height/2, z);
+        // --- 核心物理/機率引擎 ---
+        function getQuantumTargetZ() {
+            let maxAttempts = 200;
+            for(let i=0; i<maxAttempts; i++) {
+                // z 代表貼圖上的水平座標 (映射到 3D 的 Z 軸分佈)
+                let z = (Math.random() - 0.5) * texSize; 
+                
+                // 雙狹縫干涉機率：包絡線(單狹縫繞射) * 干涉項
+                let envelope = Math.exp(-(z*z) / (2 * envelopeWidth * envelopeWidth));
+                let interference = Math.pow(Math.cos(Math.PI * z / fringeWidth), 2);
+                let prob = envelope * interference;
 
-            ctx.fillStyle = fillStyle;
+                if (Math.random() < prob) {
+                    return z + texSize / 2; // 轉換回 0 ~ texSize
+                }
+            }
+            return texSize / 2;
+        }
+
+        function hitScreen(targetZ) {
+            // 在屏幕 Y 軸上給予隨機分佈 (垂直方向的擴散)
+            let targetY = texSize/2 + (Math.random() - 0.5) * texSize * 0.7; 
+            
             ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.lineTo(p3.x, p3.y);
-            ctx.lineTo(p4.x, p4.y);
-            ctx.closePath();
+            ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.9)'; // 亮黃色
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#facc15';
             ctx.fill();
-
-            if (strokeStyle) {
-                ctx.strokeStyle = strokeStyle;
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
-
-            if (label) {
-                let labelPos = project3D(0, height/2 + 30, z);
-                ctx.fillStyle = '#ddd';
-                ctx.font = 'bold 16px "Segoe UI", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(label, labelPos.x, labelPos.y);
-            }
+            ctx.shadowBlur = 0;
+            
+            screenTexture.needsUpdate = true;
         }
 
-        // 動畫主迴圈
+        // --- 動態標籤更新 ---
+        function updateLabelsPosition() {
+            const widthHalf = container.clientWidth / 2;
+            const heightHalf = container.clientHeight / 2;
+
+            // 將標籤定位在裝置正上方的 3D 座標，並轉換成 2D 螢幕座標
+            const posGun = new THREE.Vector3(-25, 7, 0).project(camera);
+            labelGun.style.left = (posGun.x * widthHalf + widthHalf) + 'px';
+            labelGun.style.top = (-(posGun.y * heightHalf) + heightHalf) + 'px';
+
+            const posBarrier = new THREE.Vector3(0, 11, 0).project(camera);
+            labelBarrier.style.left = (posBarrier.x * widthHalf + widthHalf) + 'px';
+            labelBarrier.style.top = (-(posBarrier.y * heightHalf) + heightHalf) + 'px';
+
+            const posScreen = new THREE.Vector3(25, 17, 0).project(camera);
+            labelScreen.style.left = (posScreen.x * widthHalf + widthHalf) + 'px';
+            labelScreen.style.top = (-(posScreen.y * heightHalf) + heightHalf) + 'px';
+        }
+
+        // --- 動畫迴圈 ---
         function animate() {
-            ctx.fillStyle = '#050508';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 根據發射速率產生電子
-            for(let i = 0; i < config.rate; i++) {
-                if (Math.random() > 0.1) {
-                    electrons.push(new Electron());
-                }
-            }
-
-            for (let i = electrons.length - 1; i >= 0; i--) {
-                if (!electrons[i].update()) {
-                    electrons.splice(i, 1);
-                }
-            }
-
-            // --- 繪製順序 (Painter's Algorithm) ---
-
-            // 1. 繪製最深處的「螢光幕」
-            drawPlane3D(600, 3000, 3000, 'rgba(15, 15, 20, 0.95)', '#444', '攝影底片 / 螢光幕');
-
-            // 2. 繪製螢光幕上的「條紋光點 (Hit Points)」長曝光殘影
-            for (let i = hitPoints.length - 1; i >= 0; i--) {
-                let hp = hitPoints[i];
-                let p = project3D(hp.x, hp.y, hp.z);
-                
-                ctx.globalAlpha = hp.life;
-                ctx.fillStyle = hp.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, hp.size * p.scale, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // 極度放慢衰減速度，讓光點長久累積，呈現截圖的「底片高感光」效果
-                hp.life -= 0.001; 
-                if (hp.life <= 0) hitPoints.splice(i, 1);
-            }
-            ctx.globalAlpha = 1.0;
-
-            // 3. 繪製已經穿透狹縫的干涉電子 (Z > 0)
-            for (let e of electrons) {
-                if (e.z > 0) e.draw(ctx);
-            }
-
-            // 4. 繪製中景的「雙狹縫擋板」
-            // 透過畫三塊實心的深色板子，中間留出兩道空隙來模擬垂直狹縫
-            const visualSlitDist = config.slitDist * 15;
-            const slitWidth = 8;
-            const wallHeight = 300;  
-            const wallColor = 'rgba(180, 130, 80, 0.85)'; // 配合截圖的棕色擋板
-            
-            // 左擋板
-            drawSolidRect3D(-visualSlitDist/2 - slitWidth/2 - 100, 0, 0, 200, wallHeight, wallColor);
-            // 中擋板
-            drawSolidRect3D(0, 0, 0, visualSlitDist - slitWidth, wallHeight, wallColor);
-            // 右擋板
-            drawSolidRect3D(visualSlitDist/2 + slitWidth/2 + 100, 0, 0, 200, wallHeight, wallColor);
-
-            // 狹縫擋板的標籤文字
-            let labelPos = project3D(0, wallHeight/2 + 40, 0);
-            ctx.fillStyle = '#ddd';
-            ctx.font = 'bold 16px "Segoe UI", sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('雙狹縫擋板 (Double Slit)', labelPos.x, labelPos.y);
-
-            // 5. 繪製尚未穿透狹縫的入射電子束 (Z < 0)
-            for (let e of electrons) {
-                if (e.z <= 0) e.draw(ctx);
-            }
-
-            // 6. 繪製最前方的「電子發射器」
-            drawPlane3D(-300, 50, 50, '#111', '#00ffff', '電子槍 (Electron Gun)');
-
             requestAnimationFrame(animate);
+
+            // 1. 處理攝影機視差 (微微移動)
+            const targetCamX = -25 + mouseX * 3;
+            const targetCamY = 15 + mouseY * 3;
+            camera.position.x += (targetCamX - camera.position.x) * 0.05;
+            camera.position.y += (targetCamY - camera.position.y) * 0.05;
+            camera.lookAt(10, -5, 0);
+
+            // 同步更新 3D 追蹤標籤位置
+            updateLabelsPosition();
+
+            // 2. 處理屏幕殘影淡出
+            let retention = decaySlider.value; 
+            let fadeAlpha = 1 - (retention / 100); 
+            if (fadeAlpha > 0) {
+                // 用底色覆蓋產生淡出
+                ctx.fillStyle = `rgba(15, 23, 42, ${fadeAlpha * 0.2})`;
+                ctx.fillRect(0, 0, texSize, texSize);
+                screenTexture.needsUpdate = true;
+            }
+
+            // 3. 槍口閃光衰減
+            if (flashIntensity > 0) {
+                flashIntensity -= 1.5;
+                flashLight.intensity = Math.max(0, flashIntensity);
+            }
+
+            // 4. 更新閃爍粒子狀態
+            for (let i = electronParticles.length - 1; i >= 0; i--) {
+                let p = electronParticles[i];
+                p.life -= 0.04; // 衰減速度
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    p.mesh.material.dispose();
+                    electronParticles.splice(i, 1);
+                } else {
+                    p.mesh.material.opacity = p.life;
+                    // 稍微縮小粒子放大的幅度，維持小亮點的細緻感
+                    p.mesh.scale.setScalar(1 + (1 - p.life) * 0.3); 
+                }
+            }
+
+            // 5. 發射電子邏輯 (瞬間塌縮，沒有連續軌跡)
+            let freq = parseInt(freqSlider.value);
+            if (Math.random() < (freq / 100) * 1.5) {
+                let burst = Math.floor(freq / 20) + 1;
+                for(let i=0; i<burst; i++){
+                    flashIntensity = 15; // 觸發閃光
+                    let z = getQuantumTargetZ();
+                    hitScreen(z); // 瞬間抵達屏幕
+                    
+                    // 【視覺特效】在電子槍口隨機製造粒子
+                    // 修正座標至槍口最右側：中心x=-25 + 槍管位移x=5 + 槍管長度一半x=2 = -18
+                    spawnElectronParticle(
+                        -18, 
+                        (Math.random() - 0.5) * 0.6, 
+                        (Math.random() - 0.5) * 0.6
+                    );
+
+                    // 【視覺特效】在狹縫處隨機製造粒子 (雙狹縫)
+                    let slitY = (Math.random() - 0.5) * 6; // 狹縫高度範圍
+                    // 隨機選定左/右狹縫
+                    let slitZ = Math.random() < 0.5 ? -2.0 + (Math.random()-0.5)*0.8 : 2.0 + (Math.random()-0.5)*0.8;
+                    // 稍微推前至擋板表面，避免被擋板本身遮住
+                    spawnElectronParticle(-0.3, slitY, slitZ);
+                }
+            }
+
+            renderer.render(scene, camera);
         }
 
-        // 初始化與啟動
-        resize();
         animate();
 
     </script>
