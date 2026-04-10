@@ -59,7 +59,6 @@
                     <label class="text-sm font-medium">電子初速 <span class="italic">v₀</span></label>
                     <span id="v0Val" class="text-green-400 font-mono">30.0</span>
                 </div>
-                <!-- 調整步長使其更加絲滑 -->
                 <input type="range" id="v0Slider" min="10" max="60" value="30" step="0.1">
             </div>
 
@@ -71,8 +70,8 @@
                     </label>
                     <span id="eVal" class="text-green-400 font-mono">0.0</span>
                 </div>
-                <!-- 調整步長使其更加絲滑 -->
-                <input type="range" id="eSlider" min="-150" max="150" value="0" step="0.5" class="transition-opacity">
+                <!-- 調整電場滑桿範圍與步長 -->
+                <input type="range" id="eSlider" min="-37.5" max="37.5" value="0" step="0.1" class="transition-opacity">
                 <p class="text-xs text-slate-400 mt-1">正值：電場向下 (電子受力向上)</p>
             </div>
 
@@ -84,19 +83,10 @@
                     </label>
                     <span id="bVal" class="text-green-400 font-mono">0.00</span>
                 </div>
-                <!-- 調整步長使其更加絲滑 -->
-                <input type="range" id="bSlider" min="-5" max="5" value="0" step="0.01" class="transition-opacity">
+                <!-- 調整磁場滑桿範圍與步長 -->
+                <input type="range" id="bSlider" min="-1.25" max="1.25" value="0" step="0.01" class="transition-opacity">
                 <p class="text-xs text-slate-400 mt-1">正值：磁場穿入 ⊗ (電子受力向下)</p>
             </div>
-        </div>
-
-        <div class="flex gap-2">
-            <button id="saveTraceBtn" class="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg transition font-medium">
-                保留當前軌跡
-            </button>
-            <button id="clearTraceBtn" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white py-2 rounded-lg transition font-medium">
-                清除軌跡
-            </button>
         </div>
 
         <!-- 即時數據面板 -->
@@ -143,8 +133,6 @@
         const bVal = document.getElementById('bVal');
         const outY = document.getElementById('outY');
         const outStatus = document.getElementById('outStatus');
-        const saveTraceBtn = document.getElementById('saveTraceBtn');
-        const clearTraceBtn = document.getElementById('clearTraceBtn');
 
         // 物理與繪圖參數
         const originX = 150; // 電子槍出口 X (畫布座標)
@@ -159,7 +147,6 @@
         let escapedLeft = false;
         let trapped = false;
         let finalY = 0;
-        let traces = [];
         let pulseIndex = 0;
 
         // 更新 UI 顯示值並重新計算軌跡
@@ -204,16 +191,6 @@
         bSlider.addEventListener('input', updateSim);
         eSwitch.addEventListener('change', updateSim);
         bSwitch.addEventListener('change', updateSim);
-
-        saveTraceBtn.addEventListener('click', () => {
-            traces.push([...currentPath]);
-            // 最多保留 5 條軌跡
-            if(traces.length > 5) traces.shift();
-        });
-
-        clearTraceBtn.addEventListener('click', () => {
-            traces = [];
-        });
 
         // 核心物理計算 (Euler Method)
         function calculatePath() {
@@ -392,7 +369,8 @@
             // 繪製電力線與電場符號
             if (E !== 0) {
                 // 明暗度與電場強度成正比 (最少保留0.1避免完全看不見)
-                const eOpacity = Math.max(0.1, Math.abs(E) / 150);
+                // 將最大值從 150 改為 37.5
+                const eOpacity = Math.max(0.1, Math.abs(E) / 37.5);
                 
                 // 1. 畫電力線
                 ctx.strokeStyle = `rgba(255, 255, 255, ${eOpacity * 0.7})`;
@@ -435,7 +413,8 @@
 
             // 磁場視覺化
             if (B !== 0) {
-                const bOpacity = Math.min(Math.abs(B) / 5, 1);
+                // 將最大值從 5 改為 1.25
+                const bOpacity = Math.min(Math.abs(B) / 1.25, 1);
                 ctx.strokeStyle = `rgba(234, 179, 8, ${bOpacity})`; // 黃色系
                 ctx.fillStyle = `rgba(234, 179, 8, ${bOpacity})`;
                 ctx.lineWidth = 1.5;
@@ -467,7 +446,7 @@
             }
         }
 
-        function drawPathArray(pathArray, isCurrent) {
+        function drawPathArray(pathArray) {
             if (pathArray.length === 0) return;
 
             ctx.beginPath();
@@ -476,16 +455,10 @@
                 ctx.lineTo(cx(pathArray[i].x), cy(pathArray[i].y));
             }
 
-            if (isCurrent) {
-                ctx.strokeStyle = '#22c55e'; // 主光束
-                ctx.lineWidth = 3;
-                ctx.shadowColor = '#22c55e';
-                ctx.shadowBlur = 15;
-            } else {
-                ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)'; // 歷史軌跡
-                ctx.lineWidth = 1.5;
-                ctx.shadowBlur = 0;
-            }
+            ctx.strokeStyle = '#22c55e'; // 主光束
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 15;
             
             ctx.stroke();
             ctx.shadowBlur = 0; // 重置
@@ -499,11 +472,8 @@
             drawCRT();
             drawPlatesAndFields();
 
-            // 畫歷史軌跡
-            traces.forEach(trace => drawPathArray(trace, false));
-
             // 畫當前電子束
-            drawPathArray(currentPath, true);
+            drawPathArray(currentPath);
 
             // 動畫：移動的電子光點
             if (currentPath.length > 0) {
