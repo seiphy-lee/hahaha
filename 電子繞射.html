@@ -93,10 +93,20 @@
                 </div>
                 <label class="block text-sm mb-2 text-slate-300">電子發射頻率</label>
                 <input type="range" id="freqSlider" min="1" max="100" value="60">
-                <p class="text-xs text-slate-500 mt-4 leading-relaxed">
-                    電子束打擊在多晶體的鋁箔上。由於鋁箔的晶格結構具有多重反射面，電子將會產生 2D 的同心圓環狀繞射圖紋（Debye-Scherrer rings）。
-                </p>
             </div>
+
+            <!-- 電子停留時間 -->
+            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-cyan-300">偵測屏幕設定</h2>
+                </div>
+                <label class="block text-sm mb-2 text-slate-300">電子停留時間</label>
+                <input type="range" id="decaySlider" min="0" max="100" value="98">
+            </div>
+
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed px-2">
+                電子束打擊在多晶體的鋁箔上。由於鋁箔的晶格結構具有多重反射面，電子將會產生 2D 的同心圓環狀繞射圖紋（Debye-Scherrer rings）。
+            </p>
 
             <!-- 清除畫面按鈕 -->
             <button onclick="clearScreen()" class="mt-auto py-2 rounded border border-red-500/50 text-red-400 hover:bg-red-500/20 transition-all font-semibold tracking-widest">
@@ -112,12 +122,6 @@
             <div id="label-gun" class="scene-label">電子槍</div>
             <div id="label-foil" class="scene-label">鋁箔靶材</div>
             <div id="label-screen" class="scene-label">偵測屏幕</div>
-
-            <!-- 屏幕殘影設定 (浮動於右側) -->
-            <div class="absolute right-0 top-12 bottom-12 w-16 flex flex-col items-center py-6 bg-slate-900/60 border-l border-slate-800 backdrop-blur-md z-10 rounded-l-xl">
-                <span class="text-xs text-slate-300 font-semibold" style="writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 4px;">電子停留時間</span>
-                <input type="range" id="decaySlider" min="0" max="100" value="98" class="mt-6" style="writing-mode: vertical-lr; direction: rtl; width: 4px; height: 100%;">
-            </div>
 
         </section>
     </main>
@@ -343,9 +347,9 @@
         function hitScreen(targetZ, targetY) {
             ctx.beginPath();
             ctx.arc(targetZ, targetY, 2.0, 0, Math.PI * 2); // 點縮小以維持精細度
-            ctx.fillStyle = 'rgba(254, 240, 138, 0.9)'; // 亮黃色
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; // 亮黃色改為白色
             ctx.shadowBlur = 12;
-            ctx.shadowColor = '#facc15';
+            ctx.shadowColor = '#ffffff'; // 陰影改為白色
             ctx.fill();
             ctx.shadowBlur = 0;
             
