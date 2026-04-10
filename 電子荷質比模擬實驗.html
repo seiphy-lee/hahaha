@@ -144,6 +144,7 @@
         // 系統狀態
         let currentPath = [];
         let hitPlates = false;
+        let hitGlass = false;
         let escapedLeft = false;
         let trapped = false;
         let finalY = 0;
@@ -201,6 +202,7 @@
 
             currentPath = [];
             hitPlates = false;
+            hitGlass = false;
             escapedLeft = false;
             trapped = false;
             
@@ -213,10 +215,12 @@
             // 加入步數保護機制，避免極端磁場下造成迴圈當機
             let stepCount = 0;
             const maxSteps = 10000; 
-
-            // 模擬電子的 q/m。我們設 q = -1, m = 1。
-            // 則加速度 a = F/m = -1 * (E_vec + v_vec x B_vec)
             
+            // 縮小荷質比，解決靈敏度過高飛出畫面的問題 (原為1，縮為 0.02)
+            // 這樣在 E 和 B 滑桿為最高值時，射線仍會維持在螢幕刻度與管壁範圍內
+            const q_m = 0.02;
+
+            // 模擬電子的受力
             while (x <= L + D) {
                 currentPath.push({ x: x, y: y });
                 stepCount++;
@@ -232,24 +236,45 @@
 
                 // 判斷是否在偏轉區內 (0 <= x <= L)
                 if (x >= 0 && x <= L) {
-                    // 若碰到極板，停止計算
-                    if (Math.abs(y) >= plateGap / 2) {
-                        hitPlates = true;
-                        break;
-                    }
-
                     // 物理計算 (標準笛卡兒座標：向右為+x，向上為+y)
                     // E > 0 代表電場向下 (E_y = -E)。電子受力向上。
                     // B > 0 代表磁場穿入紙面 (B_z = -B)。v 往右(+x)，v x B 向上(+y)，電子受力向下(-y)。
-                    
-                    ax = vy * B;       // 磁力 x 分量
-                    ay = E - vx * B;   // 電場力(E) + 磁力 y 分量(-vx * B)
+                    ax = q_m * (vy * B);       // 磁力 x 分量
+                    ay = q_m * (E - vx * B);   // 電場力(E) + 磁力 y 分量(-vx * B)
                 }
 
                 vx += ax * dt;
                 vy += ay * dt;
                 x += vx * dt;
                 y += vy * dt;
+
+                // 邊界碰撞檢查
+                if (x >= 0 && x <= L) {
+                    // 檢查極板碰撞
+                    if (Math.abs(y) >= plateGap / 2) {
+                        hitPlates = true;
+                        break;
+                    }
+                } else if (x > L) {
+                    // 檢查玻璃管壁碰撞
+                    let rawX = x - L;
+                    let neckY = plateGap / 2 + 18; // 頸部平直區邊界 (78)
+                    let boundY = 200; // 螢幕最大半徑
+                    
+                    if (rawX <= 20) {
+                        // 頸部直線段
+                        boundY = neckY;
+                    } else {
+                        // 利用次方近似貝茲曲線的喇叭口擴張形狀
+                        let t = (rawX - 20) / (D - 20); 
+                        boundY = neckY + Math.pow(t, 1.5) * (200 - neckY);
+                    }
+                    
+                    if (Math.abs(y) >= boundY) {
+                        hitGlass = true;
+                        break;
+                    }
+                }
 
                 // 若因磁力過大導致電子發生大迴旋反向飛出電子槍口
                 if (x < 0 && stepCount > 10) {
@@ -265,6 +290,10 @@
             if (hitPlates) {
                 outY.innerText = "---";
                 outStatus.innerText = "💥 撞擊極板";
+                outStatus.className = "font-bold text-rose-500";
+            } else if (hitGlass) {
+                outY.innerText = "---";
+                outStatus.innerText = "💥 撞擊管壁";
                 outStatus.className = "font-bold text-rose-500";
             } else if (escapedLeft) {
                 outY.innerText = "---";
@@ -487,7 +516,7 @@
                 ctx.shadowBlur = 0;
 
                 // 打擊螢幕時的閃光
-                if (pulseIndex === currentPath.length - 1 && !hitPlates && !escapedLeft && !trapped) {
+                if (pulseIndex === currentPath.length - 1 && !hitPlates && !hitGlass && !escapedLeft && !trapped) {
                     ctx.beginPath();
                     ctx.arc(cx(pt.x), cy(pt.y), 15, 0, Math.PI * 2);
                     ctx.fillStyle = 'rgba(74, 222, 128, 0.4)';
