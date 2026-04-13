@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高中物理：四大放射性元素衰變系列模擬 (含分支路徑)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .control-panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .btn-series { transition: all 0.2s ease-in-out; }
+        .btn-series.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #60a5fa;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .equation-text {
+            font-family: 'Times New Roman', Times, serif;
+            letter-spacing: 0.05em;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- 左側控制面板 -->
+    <aside class="control-panel w-full md:w-80 h-auto md:h-full flex-shrink-0 flex flex-col z-10 absolute md:relative overflow-y-auto">
+        <div class="p-6 flex-grow flex flex-col">
+            <h1 class="text-2xl font-bold mb-2 text-blue-400">放射性衰變模擬</h1>
+            <p class="text-sm text-slate-400 mb-6">支援多重分支路徑同步顯示</p>
+
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-600 pb-1">選擇衰變系列</h2>
+                <div class="grid grid-cols-1 gap-2">
+                    <button id="btn-uranium" class="btn-series active bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-4 rounded border border-slate-600 text-left" onclick="selectSeries('uranium')">
+                        <span class="font-bold">鈾系 (4n+2)</span><br><span class="text-xs opacity-80">U-238 → Pb-206</span>
+                    </button>
+                    <button id="btn-thorium" class="btn-series bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-4 rounded border border-slate-600 text-left" onclick="selectSeries('thorium')">
+                        <span class="font-bold">釷系 (4n)</span><br><span class="text-xs opacity-80">Th-232 → Pb-208</span>
+                    </button>
+                    <button id="btn-actinium" class="btn-series bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-4 rounded border border-slate-600 text-left" onclick="selectSeries('actinium')">
+                        <span class="font-bold">錒系 (4n+3)</span><br><span class="text-xs opacity-80">U-235 → Pb-207</span>
+                    </button>
+                    <button id="btn-neptunium" class="btn-series bg-slate-700 hover:bg-slate-600 text-slate-200 py-2 px-4 rounded border border-slate-600 text-left" onclick="selectSeries('neptunium')">
+                        <span class="font-bold">錼系 (4n+1)</span><br><span class="text-xs opacity-80">Np-237 → Bi-209</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-3 text-slate-200 border-b border-slate-600 pb-1">控制面板</h2>
+                <div class="flex space-x-2 mb-4">
+                    <button id="btn-play" class="flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded font-bold transition" onclick="togglePlay()">播放</button>
+                    <button class="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded font-bold transition" onclick="resetAnimation()">重置</button>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">播放速度</label>
+                    <input type="range" id="speed-slider" min="1" max="10" value="5" class="w-full">
+                </div>
+            </div>
+
+            <div class="mb-6 bg-slate-900 rounded-lg p-4 border border-slate-700 shadow-inner">
+                <h2 class="text-sm font-semibold text-slate-400 mb-2 uppercase tracking-wider">即時反應式</h2>
+                <!-- 調整高度以容納多條分支反應式 -->
+                <div id="equation-display" class="equation-text text-base text-yellow-300 min-h-[5rem] flex flex-col justify-center">
+                    <!-- 方程式將顯示於此 -->
+                </div>
+            </div>
+
+            <div class="mt-auto">
+                <h2 class="text-sm font-semibold text-slate-400 mb-2">圖例</h2>
+                <div class="flex items-center mb-1 text-sm">
+                    <div class="w-4 h-1 bg-red-500 mr-2"></div> &alpha; 衰變 (失去 2p, 2n)
+                </div>
+                <div class="flex items-center text-sm">
+                    <div class="w-4 h-1 bg-blue-500 mr-2"></div> &beta; 衰變 (1n 轉為 1p)
+                </div>
+                <div class="flex items-center text-sm mt-1 text-slate-400">
+                    * 較暗的線條為未來可能的分支路徑
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 右側畫布區域 -->
+    <main class="flex-1 relative bg-[#0f172a]">
+        <canvas id="simulationCanvas"></canvas>
+    </main>
+
+    <script>
+        // --- 物理資料與模型設定 (引入圖論結構支援分支) ---
+        const ELEMENTS = {
+            81: 'Tl', 82: 'Pb', 83: 'Bi', 84: 'Po', 85: 'At',
+            86: 'Rn', 87: 'Fr', 88: 'Ra', 89: 'Ac', 90: 'Th',
+            91: 'Pa', 92: 'U',  93: 'Np', 94: 'Pu'
+        };
+
+        // 使用節點(Nodes)與邊(Edges)定義所有可能的分支圖譜
+        const DECAY_GRAPH = {
+            uranium: { // 鈾系 4n+2
+                nodes: {
+                    'U-238': {z:92, a:238}, 'Th-234': {z:90, a:234}, 'Pa-234': {z:91, a:234}, 'U-234': {z:92, a:234},
+                    'Th-230': {z:90, a:230}, 'Ra-226': {z:88, a:226}, 'Rn-222': {z:86, a:222}, 'Po-218': {z:84, a:218},
+                    'Pb-214': {z:82, a:214}, 'At-218': {z:85, a:218}, 'Rn-218': {z:86, a:218},
+                    'Bi-214': {z:83, a:214}, 'Po-214': {z:84, a:214}, 'Tl-210': {z:81, a:210},
+                    'Pb-210': {z:82, a:210}, 'Bi-210': {z:83, a:210}, 'Po-210': {z:84, a:210}, 'Tl-206': {z:81, a:206},
+                    'Pb-206': {z:82, a:206} // 最終穩定態
+                },
+                edges: [
+                    {from:'U-238', to:'Th-234'}, {from:'Th-234', to:'Pa-234'}, {from:'Pa-234', to:'U-234'},
+                    {from:'U-234', to:'Th-230'}, {from:'Th-230', to:'Ra-226'}, {from:'Ra-226', to:'Rn-222'},
+                    {from:'Rn-222', to:'Po-218'},
+                    // 分支點 1: Po-218 
+                    {from:'Po-218', to:'Pb-214'}, {from:'Po-218', to:'At-218'},
+                    {from:'At-218', to:'Rn-218'}, {from:'Rn-218', to:'Po-214'},
+                    {from:'Pb-214', to:'Bi-214'},
+                    // 分支點 2: Bi-214 (圖表重點)
+                    {from:'Bi-214', to:'Po-214'}, {from:'Bi-214', to:'Tl-210'},
+                    {from:'Po-214', to:'Pb-210'}, {from:'Tl-210', to:'Pb-210'}, // 兩者匯聚至 Pb-210
+                    {from:'Pb-210', to:'Bi-210'},
+                    // 分支點 3: Bi-210
+                    {from:'Bi-210', to:'Po-210'}, {from:'Bi-210', to:'Tl-206'},
+                    {from:'Po-210', to:'Pb-206'}, {from:'Tl-206', to:'Pb-206'} // 匯聚至 Pb-206
+                ],
+                start: 'U-238'
+            },
+            thorium: { // 釷系 4n
+                nodes: {
+                    'Th-232': {z:90, a:232}, 'Ra-228': {z:88, a:228}, 'Ac-228': {z:89, a:228}, 'Th-228': {z:90, a:228},
+                    'Ra-224': {z:88, a:224}, 'Rn-220': {z:86, a:220}, 'Po-216': {z:84, a:216}, 'Pb-212': {z:82, a:212},
+                    'Bi-212': {z:83, a:212}, 'Po-212': {z:84, a:212}, 'Tl-208': {z:81, a:208}, 'Pb-208': {z:82, a:208}
+                },
+                edges: [
+                    {from:'Th-232', to:'Ra-228'}, {from:'Ra-228', to:'Ac-228'}, {from:'Ac-228', to:'Th-228'},
+                    {from:'Th-228', to:'Ra-224'}, {from:'Ra-224', to:'Rn-220'}, {from:'Rn-220', to:'Po-216'},
+                    {from:'Po-216', to:'Pb-212'}, {from:'Pb-212', to:'Bi-212'},
+                    // 分支點: Bi-212
+                    {from:'Bi-212', to:'Po-212'}, {from:'Bi-212', to:'Tl-208'},
+                    {from:'Po-212', to:'Pb-208'}, {from:'Tl-208', to:'Pb-208'}
+                ],
+                start: 'Th-232'
+            },
+            actinium: { // 錒系 4n+3
+                nodes: {
+                    'U-235': {z:92, a:235}, 'Th-231': {z:90, a:231}, 'Pa-231': {z:91, a:231}, 'Ac-227': {z:89, a:227},
+                    'Th-227': {z:90, a:227}, 'Fr-223': {z:87, a:223}, 'Ra-223': {z:88, a:223}, 'Rn-219': {z:86, a:219},
+                    'Po-215': {z:84, a:215}, 'At-215': {z:85, a:215}, 'Pb-211': {z:82, a:211}, 'Bi-211': {z:83, a:211},
+                    'Po-211': {z:84, a:211}, 'Tl-207': {z:81, a:207}, 'Pb-207': {z:82, a:207}
+                },
+                edges: [
+                    {from:'U-235', to:'Th-231'}, {from:'Th-231', to:'Pa-231'}, {from:'Pa-231', to:'Ac-227'},
+                    // 分支點 1: Ac-227
+                    {from:'Ac-227', to:'Th-227'}, {from:'Ac-227', to:'Fr-223'},
+                    {from:'Th-227', to:'Ra-223'}, {from:'Fr-223', to:'Ra-223'},
+                    {from:'Ra-223', to:'Rn-219'}, {from:'Rn-219', to:'Po-215'},
+                    // 分支點 2: Po-215
+                    {from:'Po-215', to:'Pb-211'}, {from:'Po-215', to:'At-215'},
+                    {from:'Pb-211', to:'Bi-211'}, {from:'At-215', to:'Bi-211'},
+                    // 分支點 3: Bi-211
+                    {from:'Bi-211', to:'Po-211'}, {from:'Bi-211', to:'Tl-207'},
+                    {from:'Po-211', to:'Pb-207'}, {from:'Tl-207', to:'Pb-207'}
+                ],
+                start: 'U-235'
+            },
+            neptunium: { // 錼系 4n+1
+                nodes: {
+                    'Np-237': {z:93, a:237}, 'Pa-233': {z:91, a:233}, 'U-233': {z:92, a:233}, 'Th-229': {z:90, a:229},
+                    'Ra-225': {z:88, a:225}, 'Ac-225': {z:89, a:225}, 'Fr-221': {z:87, a:221}, 'At-217': {z:85, a:217},
+                    'Bi-213': {z:83, a:213}, 'Po-213': {z:84, a:213}, 'Tl-209': {z:81, a:209}, 'Pb-209': {z:82, a:209},
+                    'Bi-209': {z:83, a:209}
+                },
+                edges: [
+                    {from:'Np-237', to:'Pa-233'}, {from:'Pa-233', to:'U-233'}, {from:'U-233', to:'Th-229'},
+                    {from:'Th-229', to:'Ra-225'}, {from:'Ra-225', to:'Ac-225'}, {from:'Ac-225', to:'Fr-221'},
+                    {from:'Fr-221', to:'At-217'}, {from:'At-217', to:'Bi-213'},
+                    // 分支點: Bi-213
+                    {from:'Bi-213', to:'Po-213'}, {from:'Bi-213', to:'Tl-209'},
+                    {from:'Po-213', to:'Pb-209'}, {from:'Tl-209', to:'Pb-209'},
+                    {from:'Pb-209', to:'Bi-209'}
+                ],
+                start: 'Np-237'
+            }
+        };
+
+        // --- 畫布與狀態設定 ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 座標軸範圍設定
+        const MIN_Z = 80;
+        const MAX_Z = 95;
+        const MIN_N = 122;
+        const MAX_N = 148;
+
+        let currentSeriesKey = 'uranium';
+        let currentSeriesData = DECAY_GRAPH[currentSeriesKey];
+        
+        // 分層步驟 (BFS)
+        let steps = []; 
+        let stepIndex = 0;
+        let animProgress = 0;
+        let isPlaying = false;
+        let animationId;
+        
+        // 特效與狀態
+        let particles = [];
+        let visitedNodeIds = new Set();
+
+        // UI 元素
+        const btnPlay = document.getElementById('btn-play');
+        const speedSlider = document.getElementById('speed-slider');
+        const eqDisplay = document.getElementById('equation-display');
+
+        // --- 廣度優先搜尋 (BFS) 預計算所有動畫層級 ---
+        function calculateSteps() {
+            steps = [];
+            let currentNodes = [currentSeriesData.start];
+            let visitedEdges = new Set();
+            
+            while(currentNodes.length > 0) {
+                let nextNodes = new Set();
+                let stepEdges = [];
+                for(let nodeId of currentNodes) {
+                    let outgoing = currentSeriesData.edges.filter(e => e.from === nodeId);
+                    for(let edge of outgoing) {
+                        let edgeId = edge.from + '-' + edge.to;
+                        if(!visitedEdges.has(edgeId)) {
+                            visitedEdges.add(edgeId);
+                            stepEdges.push(edge);
+                            nextNodes.add(edge.to);
+                        }
+                    }
+                }
+                if(stepEdges.length > 0) {
+                    steps.push(stepEdges);
+                }
+                currentNodes = Array.from(nextNodes);
+            }
+        }
+
+        // --- 初始化與事件監聽 ---
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+            draw(); 
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // 初始化
+        calculateSteps();
+        resetAnimation();
+        resizeCanvas();
+        requestAnimationFrame(gameLoop);
+
+        // --- 核心邏輯 ---
+
+        function selectSeries(seriesKey) {
+            currentSeriesKey = seriesKey;
+            currentSeriesData = DECAY_GRAPH[seriesKey];
+            
+            document.querySelectorAll('.btn-series').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${seriesKey}`).classList.add('active');
+            
+            calculateSteps();
+            resetAnimation();
+        }
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            btnPlay.textContent = isPlaying ? "暫停" : "播放";
+            btnPlay.className = isPlaying 
+                ? "flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded font-bold transition" 
+                : "flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded font-bold transition";
+            if (stepIndex >= steps.length) resetAnimation();
+        }
+
+        function resetAnimation() {
+            stepIndex = 0;
+            animProgress = 0;
+            particles = [];
+            isPlaying = false;
+            visitedNodeIds = new Set([currentSeriesData.start]);
+            btnPlay.textContent = "播放";
+            btnPlay.className = "flex-1 bg-green-600 hover:bg-green-500 text-white py-2 rounded font-bold transition";
+            updateEquationDisplay(0, false);
+            draw();
+        }
+
+        function mapX(z, width) {
+            const paddingLeft = 80;
+            const paddingRight = 40;
+            const usableWidth = width - paddingLeft - paddingRight;
+            return paddingLeft + ((z - MIN_Z) / (MAX_Z - MIN_Z)) * usableWidth;
+        }
+
+        function mapY(n, height) {
+            const paddingTop = 40;
+            const paddingBottom = 80;
+            const usableHeight = height - paddingTop - paddingBottom;
+            return paddingTop + usableHeight - ((n - MIN_N) / (MAX_N - MIN_N)) * usableHeight;
+        }
+
+        function formatIsotopeHTML(node) {
+            return `<sup>${node.a}</sup><sub>${node.z}</sub>${ELEMENTS[node.z]}`;
+        }
+
+        function updateEquationDisplay(currentStepIndex, isTransitioning) {
+            if (currentStepIndex >= steps.length) {
+                // 找出沒有向外連接邊的節點 (穩定核種)
+                let stableNodes = Object.keys(currentSeriesData.nodes)
+                    .filter(id => !currentSeriesData.edges.some(e => e.from === id))
+                    .map(id => formatIsotopeHTML(currentSeriesData.nodes[id]));
+                
+                eqDisplay.innerHTML = `<div class="text-center w-full">${stableNodes.join(', ')}<br><span class="text-sm opacity-80">(穩定同位素)</span></div>`;
+                return;
+            }
+
+            let currentEdges = steps[currentStepIndex];
+            if (!currentEdges) return;
+
+            let htmlLines = [];
+            currentEdges.forEach(edge => {
+                let current = currentSeriesData.nodes[edge.from];
+                let next = currentSeriesData.nodes[edge.to];
+                let particle = next.z < current.z ? `<sup>4</sup><sub>2</sub>&alpha;` : `<sup>0</sup><sub>-1</sub>&beta;`;
+                
+                if (isTransitioning) {
+                    htmlLines.push(`<span>${formatIsotopeHTML(current)} &rarr; ${formatIsotopeHTML(next)} + ${particle}</span>`);
+                } else {
+                    htmlLines.push(`<span>準備衰變: ${formatIsotopeHTML(current)}</span>`);
+                }
+            });
+
+            // 準備狀態下去除重複 (多個分支可能從同一個節點開始)
+            if (!isTransitioning) {
+                htmlLines = [...new Set(htmlLines)];
+            }
+
+            // 用 flex 布局讓方程式置中且美觀
+            eqDisplay.innerHTML = htmlLines.join('<div class="h-1"></div>'); // 簡單的間距
+        }
+
+        // --- 繪圖函數 ---
+
+        function drawGrid(w, h) {
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px "Noto Sans TC"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let z = MIN_Z; z <= MAX_Z; z++) {
+                let x = mapX(z, w);
+                ctx.beginPath();
+                ctx.moveTo(x, mapY(MIN_N, h));
+                ctx.lineTo(x, mapY(MAX_N, h));
+                ctx.stroke();
+                
+                if (z % 1 === 0) {
+                    ctx.fillText(`${ELEMENTS[z] || z}`, x, mapY(MIN_N, h) + 20);
+                    ctx.fillText(z, x, mapY(MIN_N, h) + 40);
+                }
+            }
+
+            ctx.textAlign = 'right';
+            for (let n = MIN_N; n <= MAX_N; n += 2) {
+                let y = mapY(n, h);
+                ctx.beginPath();
+                ctx.moveTo(mapX(MIN_Z, w), y);
+                ctx.lineTo(mapX(MAX_Z, w), y);
+                ctx.stroke();
+                ctx.fillText(n, mapX(MIN_Z, w) - 15, y);
+            }
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 16px "Noto Sans TC"';
+            ctx.textAlign = 'center';
+            ctx.fillText('質子數 Z (原子序)', w / 2, mapY(MIN_N, h) + 65);
+            
+            ctx.save();
+            ctx.translate(20, h / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('中子數 N', 0, 0);
+            ctx.restore();
+        }
+
+        function createParticleEffect(fromNode, toNode, w, h) {
+            const isAlpha = toNode.z < fromNode.z;
+            const startX = mapX(fromNode.z, w);
+            const startY = mapY(fromNode.a - fromNode.z, h);
+            
+            for(let i=0; i<15; i++) {
+                particles.push({
+                    x: startX,
+                    y: startY,
+                    vx: (Math.random() - 0.5) * 4 + (isAlpha ? -2 : 2),
+                    vy: (Math.random() - 0.5) * 4 + (isAlpha ? 2 : -2), 
+                    life: 1.0,
+                    color: isAlpha ? '#facc15' : '#60a5fa', 
+                    size: Math.random() * 3 + 1
+                });
+            }
+        }
+
+        function drawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function draw() {
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+            drawGrid(w, h);
+
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            // 1. 畫出圖譜的底圖 (所有未來可能的分支)
+            ctx.lineWidth = 1;
+            currentSeriesData.edges.forEach(edge => {
+                let fromNode = currentSeriesData.nodes[edge.from];
+                let toNode = currentSeriesData.nodes[edge.to];
+                ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)'; // 非常暗的 Slate
+                ctx.beginPath();
+                ctx.moveTo(mapX(fromNode.z, w), mapY(fromNode.a - fromNode.z, h));
+                ctx.lineTo(mapX(toNode.z, w), mapY(toNode.a - toNode.z, h));
+                ctx.stroke();
+            });
+
+            // 畫出所有淡淡的節點底圖
+            Object.keys(currentSeriesData.nodes).forEach(id => {
+                let node = currentSeriesData.nodes[id];
+                let nx = mapX(node.z, w);
+                let ny = mapY(node.a - node.z, h);
+                ctx.beginPath();
+                ctx.arc(nx, ny, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+            });
+
+            // 2. 畫出已走過與正在走的路徑
+            ctx.lineWidth = 3;
+            for (let i = 0; i <= stepIndex; i++) {
+                if (i >= steps.length) continue;
+                
+                let currentEdges = steps[i];
+                
+                currentEdges.forEach(edge => {
+                    let fromNode = currentSeriesData.nodes[edge.from];
+                    let toNode = currentSeriesData.nodes[edge.to];
+                    let isAlpha = toNode.z < fromNode.z;
+                    
+                    let startX = mapX(fromNode.z, w);
+                    let startY = mapY(fromNode.a - fromNode.z, h);
+                    let endX = mapX(toNode.z, w);
+                    let endY = mapY(toNode.a - toNode.z, h);
+
+                    ctx.strokeStyle = isAlpha ? '#ef4444' : '#3b82f6';
+
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+
+                    if (i < stepIndex) {
+                        // 已經完全走完的線
+                        ctx.lineTo(endX, endY);
+                        ctx.stroke();
+                    } else if (i === stepIndex && isPlaying) {
+                        // 正在動畫中的線
+                        let animX = startX + (endX - startX) * animProgress;
+                        let animY = startY + (endY - startY) * animProgress;
+                        ctx.lineTo(animX, animY);
+                        ctx.stroke();
+                        
+                        // 畫正在移動的光點
+                        ctx.fillStyle = '#ffffff';
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = ctx.strokeStyle;
+                        ctx.beginPath();
+                        ctx.arc(animX, animY, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                });
+            }
+
+            // 3. 畫出已觸及的核種節點
+            visitedNodeIds.forEach(id => {
+                let node = currentSeriesData.nodes[id];
+                let nx = mapX(node.z, w);
+                let ny = mapY(node.a - node.z, h);
+                
+                ctx.beginPath();
+                ctx.arc(nx, ny, 6, 0, Math.PI * 2);
+                
+                let isStart = (id === currentSeriesData.start);
+                let isEnd = !currentSeriesData.edges.some(e => e.from === id);
+                
+                ctx.fillStyle = isStart ? '#10b981' : (isEnd ? '#a855f7' : '#e2e8f0');
+                
+                // Highlight 如果是目前等待衰變的節點
+                if (!isPlaying && stepIndex < steps.length) {
+                    let isCurrentStepFrom = steps[stepIndex].some(e => e.from === id);
+                    if (isCurrentStepFrom) ctx.fillStyle = '#f59e0b';
+                }
+
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#0f172a';
+                ctx.stroke();
+
+                // 加上文字標籤，稍微調整偏移避免全部重疊
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '12px "Noto Sans TC"';
+                ctx.textAlign = 'left';
+                ctx.fillText(id, nx + 8, ny - 8);
+            });
+
+            drawParticles();
+        }
+
+        // --- 主迴圈 ---
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            const rect = canvas.getBoundingClientRect();
+
+            if (isPlaying && stepIndex < steps.length) {
+                const speedMult = parseFloat(speedSlider.value) * 0.005;
+                
+                if (animProgress === 0) {
+                    updateEquationDisplay(stepIndex, true);
+                }
+
+                animProgress += speedMult;
+
+                if (animProgress >= 1.0) {
+                    // 觸發該層所有邊的特效，並記錄抵達的新節點
+                    steps[stepIndex].forEach(edge => {
+                        let fromNode = currentSeriesData.nodes[edge.from];
+                        let toNode = currentSeriesData.nodes[edge.to];
+                        createParticleEffect(fromNode, toNode, rect.width, rect.height);
+                        visitedNodeIds.add(edge.to);
+                    });
+                    
+                    animProgress = 0;
+                    stepIndex++;
+                    
+                    if (stepIndex >= steps.length) {
+                        isPlaying = false;
+                        btnPlay.textContent = "完成";
+                        btnPlay.className = "flex-1 bg-gray-600 text-white py-2 rounded font-bold cursor-not-allowed";
+                        updateEquationDisplay(stepIndex, false);
+                    } else {
+                        updateEquationDisplay(stepIndex, false);
+                    }
+                }
+            }
+
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+    </script>
+</body>
+</html>
