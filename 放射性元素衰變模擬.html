@@ -554,11 +554,15 @@
                 ctx.strokeStyle = '#0f172a';
                 ctx.stroke();
 
-                // 加上文字標籤，稍微調整偏移避免全部重疊
+                // 加上文字標籤，將字體放大 2.5 倍 (12px -> 30px)，並稍微增加偏移避免蓋住圓點
                 ctx.fillStyle = '#f8fafc';
-                ctx.font = '12px "Noto Sans TC"';
+                ctx.font = 'bold 30px "Noto Sans TC"'; 
                 ctx.textAlign = 'left';
-                ctx.fillText(id, nx + 8, ny - 8);
+                // 為了讓大字體更清楚，加上一點深色陰影
+                ctx.shadowColor = '#0f172a';
+                ctx.shadowBlur = 4;
+                ctx.fillText(id, nx + 12, ny - 12);
+                ctx.shadowBlur = 0; // 重置陰影設定
             });
 
             drawParticles();
