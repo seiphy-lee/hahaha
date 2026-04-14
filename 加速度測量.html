@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>物理實驗：手機三軸加速度測量儀</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, 'PingFang TC', 'Heiti TC', 'Microsoft JhengHei', sans-serif;
+            background-color: #111827; /* Tailwind gray-900 */
+            color: #f3f4f6; /* Tailwind gray-100 */
+            overscroll-behavior-y: contain; /* 避免手機下拉更新 */
+        }
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.7); /* gray-800 with opacity */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(75, 85, 99, 0.4);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 自訂隱藏捲動條 */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+
+    <!-- 標題區塊 -->
+    <header class="text-center mb-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-blue-400 mb-2">📱 手機三軸加速度測量儀</h1>
+        <p class="text-sm md:text-base text-gray-400">高中物理：運動學與等效原理實作演示</p>
+    </header>
+
+    <!-- 控制面板與狀態 -->
+    <section class="glass-panel rounded-2xl p-4 md:p-6 mb-6 shadow-lg">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+            <div class="flex gap-2 w-full md:w-auto">
+                <button id="btn-start" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-blue-900/50">
+                    啟動感測器
+                </button>
+                <button id="btn-simulate" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-emerald-900/50">
+                    電腦模擬測試
+                </button>
+            </div>
+            <div id="status-display" class="px-4 py-2 rounded-lg bg-gray-700/50 text-sm font-mono text-yellow-300 w-full md:w-auto text-center border border-gray-600">
+                等待開始... (建議使用手機開啟)
+            </div>
+        </div>
+
+        <div class="text-sm text-gray-400 leading-relaxed border-t border-gray-700 pt-3">
+            <strong class="text-gray-200">物理小提醒：</strong>
+            靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">9.8 m/s²</span> 的數值。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。
+        </div>
+    </section>
+
+    <!-- 實時數據顯示區 -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <!-- X 軸 -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-red-500"></div>
+            <span class="text-gray-400 text-sm font-bold mb-1">X 軸 (左右)</span>
+            <span class="text-2xl md:text-3xl font-mono font-bold text-red-400" id="val-x">0.00</span>
+            <span class="text-xs text-gray-500 mt-1">m/s²</span>
+        </div>
+        <!-- Y 軸 -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
+            <span class="text-gray-400 text-sm font-bold mb-1">Y 軸 (前後)</span>
+            <span class="text-2xl md:text-3xl font-mono font-bold text-green-400" id="val-y">0.00</span>
+            <span class="text-xs text-gray-500 mt-1">m/s²</span>
+        </div>
+        <!-- Z 軸 -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+            <span class="text-gray-400 text-sm font-bold mb-1">Z 軸 (上下)</span>
+            <span class="text-2xl md:text-3xl font-mono font-bold text-blue-400" id="val-z">0.00</span>
+            <span class="text-xs text-gray-500 mt-1">m/s²</span>
+        </div>
+        <!-- 總合 |a| -->
+        <div class="glass-panel rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-white"></div>
+            <span class="text-gray-400 text-sm font-bold mb-1">總加速度 |a|</span>
+            <span class="text-2xl md:text-3xl font-mono font-bold text-white" id="val-mag">0.00</span>
+            <span class="text-xs text-gray-500 mt-1">m/s²</span>
+        </div>
+    </section>
+
+    <!-- 圖表區 -->
+    <section class="glass-panel rounded-2xl flex-1 min-h-[300px] relative overflow-hidden p-2 flex flex-col shadow-lg">
+        <div class="flex justify-between items-center px-2 mb-2">
+            <span class="text-sm font-bold text-gray-300">實時波形圖 (v-t 梯度的 a-t 圖)</span>
+            <div class="flex gap-3 text-xs font-mono">
+                <span class="text-red-400">■ X</span>
+                <span class="text-green-400">■ Y</span>
+                <span class="text-blue-400">■ Z</span>
+            </div>
+        </div>
+        <div class="relative flex-1 w-full bg-gray-900 rounded-xl overflow-hidden border border-gray-700">
+            <canvas id="graph-canvas"></canvas>
+            <!-- 座標軸標籤 -->
+            <div class="absolute top-2 left-2 text-[10px] text-gray-500">+20 m/s²</div>
+            <div class="absolute top-1/2 left-2 transform -translate-y-1/2 text-[10px] text-gray-500">0</div>
+            <div class="absolute bottom-2 left-2 text-[10px] text-gray-500">-20 m/s²</div>
+        </div>
+    </section>
+
+    <!-- JavaScript 物理邏輯與繪圖 -->
+    <script>
+        // --- 狀態變數 ---
+        let isRunning = false;
+        let isSimulating = false;
+        let simInterval = null;
+        let time = 0;
+
+        // 當前加速度數值
+        let currentData = { x: 0, y: 0, z: 0 };
+
+        // 歷史資料 (用於繪圖)
+        const MAX_HISTORY = 150; // 畫面呈現的資料點數量
+        const historyData = {
+            x: Array(MAX_HISTORY).fill(0),
+            y: Array(MAX_HISTORY).fill(0),
+            z: Array(MAX_HISTORY).fill(0)
+        };
+
+        // --- DOM 元素取得 ---
+        const btnStart = document.getElementById('btn-start');
+        const btnSimulate = document.getElementById('btn-simulate');
+        const statusDisplay = document.getElementById('status-display');
+        const elX = document.getElementById('val-x');
+        const elY = document.getElementById('val-y');
+        const elZ = document.getElementById('val-z');
+        const elMag = document.getElementById('val-mag');
+        const canvas = document.getElementById('graph-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- 初始化 Canvas ---
+        function resizeCanvas() {
+            // 設定內部解析度以匹配顯示大小，避免模糊
+            canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        // 確保初始載入時有正確尺寸
+        setTimeout(resizeCanvas, 100);
+
+        // --- 感測器事件處理 ---
+        function handleMotion(event) {
+            // 使用 accelerationIncludingGravity 可以展現 1g (9.8 m/s^2) 的現象
+            let acc = event.accelerationIncludingGravity;
+            
+            // 防錯機制：若無包含重力的資料，降級使用純加速度
+            if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
+                acc = event.acceleration;
+            }
+
+            if (acc && acc.x !== null) {
+                // 依據不同裝置可能需要進行反向處理，這裡先直接呈現原值
+                currentData.x = acc.x;
+                currentData.y = acc.y;
+                currentData.z = acc.z;
+            }
+        }
+
+        // --- 啟動真實感測器 ---
+        async function startSensor() {
+            stopSimulation();
+
+            // iOS 13+ 需要取得使用者授權
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        window.addEventListener('devicemotion', handleMotion);
+                        isRunning = true;
+                        statusDisplay.textContent = "感測器運作中 (iOS)";
+                        statusDisplay.className = "px-4 py-2 rounded-lg bg-blue-900/50 text-sm font-mono text-blue-300 w-full md:w-auto text-center border border-blue-500";
+                    } else {
+                        statusDisplay.textContent = "授權被拒絕";
+                        statusDisplay.className = "px-4 py-2 rounded-lg bg-red-900/50 text-sm font-mono text-red-300 w-full md:w-auto text-center border border-red-500";
+                    }
+                } catch (error) {
+                    console.error(error);
+                    statusDisplay.textContent = "授權發生錯誤";
+                }
+            } else {
+                // Android 或非 iOS 13+ 裝置
+                window.addEventListener('devicemotion', handleMotion);
+                isRunning = true;
+                statusDisplay.textContent = "感測器運作中 (Android/PC)";
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-blue-900/50 text-sm font-mono text-blue-300 w-full md:w-auto text-center border border-blue-500";
+            }
+        }
+
+        // --- 電腦模擬模式 (產生簡諧運動與重力資料) ---
+        function toggleSimulation() {
+            if (isSimulating) {
+                stopSimulation();
+                statusDisplay.textContent = "模擬已停止";
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-gray-700/50 text-sm font-mono text-gray-300 w-full md:w-auto text-center border border-gray-600";
+            } else {
+                // 停止真實感測器
+                window.removeEventListener('devicemotion', handleMotion);
+                isRunning = false;
+                
+                isSimulating = true;
+                btnSimulate.textContent = "停止模擬";
+                btnSimulate.classList.replace('bg-emerald-600', 'bg-red-600');
+                btnSimulate.classList.replace('hover:bg-emerald-500', 'hover:bg-red-500');
+                
+                statusDisplay.textContent = "模擬模式運作中";
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-emerald-900/50 text-sm font-mono text-emerald-300 w-full md:w-auto text-center border border-emerald-500";
+
+                simInterval = setInterval(() => {
+                    time += 0.05;
+                    // 模擬手機在手中輕微搖晃，加上 Z 軸的 9.8 重力
+                    currentData.x = Math.sin(time * 2) * 2 + (Math.random() - 0.5);
+                    currentData.y = Math.cos(time * 1.5) * 3 + (Math.random() - 0.5);
+                    currentData.z = 9.8 + Math.sin(time * 5) * 0.5 + (Math.random() - 0.5) * 0.2;
+                }, 50); // 50ms 更新率 (20Hz)
+            }
+        }
+
+        function stopSimulation() {
+            isSimulating = false;
+            clearInterval(simInterval);
+            btnSimulate.textContent = "電腦模擬測試";
+            btnSimulate.classList.replace('bg-red-600', 'bg-emerald-600');
+            btnSimulate.classList.replace('hover:bg-red-500', 'hover:bg-emerald-500');
+        }
+
+        // --- 數值與圖表更新迴圈 (60fps) ---
+        function updateLoop() {
+            // 1. 更新數值顯示
+            elX.textContent = currentData.x.toFixed(2);
+            elY.textContent = currentData.y.toFixed(2);
+            elZ.textContent = currentData.z.toFixed(2);
+            
+            // 計算總合 (純量)
+            const mag = Math.sqrt(
+                Math.pow(currentData.x, 2) + 
+                Math.pow(currentData.y, 2) + 
+                Math.pow(currentData.z, 2)
+            );
+            elMag.textContent = mag.toFixed(2);
+
+            // 2. 更新歷史陣列 (將新資料推入，舊資料擠出)
+            historyData.x.push(currentData.x);
+            historyData.y.push(currentData.y);
+            historyData.z.push(currentData.z);
+            
+            historyData.x.shift();
+            historyData.y.shift();
+            historyData.z.shift();
+
+            // 3. 繪製圖表
+            drawGraph();
+
+            // 請求下一幀
+            requestAnimationFrame(updateLoop);
+        }
+
+        // --- 繪圖邏輯 ---
+        function drawGraph() {
+            if (!ctx) return;
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // 清空畫布
+            ctx.clearRect(0, 0, width, height);
+
+            // 繪製格線與中心軸
+            ctx.strokeStyle = 'rgba(75, 85, 99, 0.3)'; // gray-600
+            ctx.lineWidth = 1 * window.devicePixelRatio;
+            
+            // 中心線 (0 m/s^2)
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+
+            // +9.8 和 -9.8 的參考線 (虛線)
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            const y98 = mapToY(9.8, height);
+            ctx.beginPath(); ctx.moveTo(0, y98); ctx.lineTo(width, y98); ctx.stroke();
+            const yMinus98 = mapToY(-9.8, height);
+            ctx.beginPath(); ctx.moveTo(0, yMinus98); ctx.lineTo(width, yMinus98); ctx.stroke();
+            ctx.setLineDash([]); // 恢復實線
+
+            // 繪製三條數據線
+            drawLine(historyData.x, '#f87171', width, height); // red-400
+            drawLine(historyData.y, '#4ade80', width, height); // green-400
+            drawLine(historyData.z, '#60a5fa', width, height); // blue-400
+        }
+
+        // 將物理數值對應到 Canvas Y 座標 (設定範圍為 -20 到 20)
+        function mapToY(value, height) {
+            const MAX_G_RANGE = 20; 
+            // 限制繪圖範圍避免破圖
+            const clampedValue = Math.max(-MAX_G_RANGE, Math.min(MAX_G_RANGE, value));
+            // 轉換：+20在頂部(0)，0在中間(height/2)，-20在底部(height)
+            return height / 2 - (clampedValue / MAX_G_RANGE) * (height / 2);
+        }
+
+        function drawLine(dataArray, color, width, height) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5 * window.devicePixelRatio;
+            ctx.lineJoin = 'round';
+
+            const stepX = width / (MAX_HISTORY - 1);
+
+            for (let i = 0; i < MAX_HISTORY; i++) {
+                const x = i * stepX;
+                const y = mapToY(dataArray[i], height);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // --- 事件綁定 ---
+        btnStart.addEventListener('click', startSensor);
+        btnSimulate.addEventListener('click', toggleSimulation);
+
+        // 啟動繪圖與更新迴圈
+        requestAnimationFrame(updateLoop);
+
+    </script>
+</body>
+</html>
