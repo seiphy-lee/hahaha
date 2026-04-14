@@ -55,7 +55,7 @@
 
         <div class="text-sm text-gray-400 leading-relaxed border-t border-gray-700 pt-3">
             <strong class="text-gray-200">物理小提醒：</strong>
-            靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">9.8 m/s²</span> 的數值。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。
+            靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">±9.8 m/s²</span> 的數值（正負號取決於手機系統）。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。
         </div>
     </section>
 
@@ -94,7 +94,7 @@
     <!-- 圖表區 -->
     <section class="glass-panel rounded-2xl flex-1 min-h-[300px] relative overflow-hidden p-2 flex flex-col shadow-lg">
         <div class="flex justify-between items-center px-2 mb-2">
-            <span class="text-sm font-bold text-gray-300">實時波形圖 (v-t 梯度的 a-t 圖)</span>
+            <span class="text-sm font-bold text-gray-300">實時加速度波形圖 (a-t 圖)</span>
             <div class="flex gap-3 text-xs font-mono">
                 <span class="text-red-400">■ X</span>
                 <span class="text-green-400">■ Y</span>
@@ -102,11 +102,11 @@
             </div>
         </div>
         <div class="relative flex-1 w-full bg-gray-900 rounded-xl overflow-hidden border border-gray-700">
-            <canvas id="graph-canvas"></canvas>
+            <canvas id="graph-canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
             <!-- 座標軸標籤 -->
-            <div class="absolute top-2 left-2 text-[10px] text-gray-500">+20 m/s²</div>
-            <div class="absolute top-1/2 left-2 transform -translate-y-1/2 text-[10px] text-gray-500">0</div>
-            <div class="absolute bottom-2 left-2 text-[10px] text-gray-500">-20 m/s²</div>
+            <div class="absolute top-2 left-2 text-[10px] text-gray-500 pointer-events-none">+20 m/s²</div>
+            <div class="absolute top-1/2 left-2 transform -translate-y-1/2 text-[10px] text-gray-500 pointer-events-none">0</div>
+            <div class="absolute bottom-2 left-2 text-[10px] text-gray-500 pointer-events-none">-20 m/s²</div>
         </div>
     </section>
 
@@ -142,9 +142,10 @@
 
         // --- 初始化 Canvas ---
         function resizeCanvas() {
-            // 設定內部解析度以匹配顯示大小，避免模糊
-            canvas.width = canvas.clientWidth * window.devicePixelRatio;
-            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            // 設定內部解析度以匹配父層顯示大小，避免 Safari 高度塌陷
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth * window.devicePixelRatio;
+            canvas.height = parent.clientHeight * window.devicePixelRatio;
         }
         window.addEventListener('resize', resizeCanvas);
         // 確保初始載入時有正確尺寸
