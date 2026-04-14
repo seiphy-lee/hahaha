@@ -27,22 +27,39 @@
             width: 0px;
             background: transparent;
         }
+        /* 分頁過渡效果 */
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col p-4 md:p-8">
 
     <!-- 標題區塊 -->
-    <header class="text-center mb-6">
+    <header class="text-center mb-4">
         <h1 class="text-2xl md:text-3xl font-bold text-blue-400 mb-2">📱 手機三軸加速度測量儀</h1>
         <p class="text-sm md:text-base text-gray-400">高中物理：運動學與等效原理實作演示</p>
     </header>
 
+    <!-- 分頁導覽 -->
+    <nav class="flex justify-center gap-2 mb-6">
+        <button id="tab-with-g" class="tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-800 text-blue-400 font-bold border-b-2 border-blue-500 shadow-lg">
+            包含重力 (測量支撐力)
+        </button>
+        <button id="tab-without-g" class="tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-900 text-gray-500 font-bold border-b-2 border-transparent hover:text-gray-300">
+            不含重力 (純線性加速度)
+        </button>
+    </nav>
+
     <!-- 控制面板與狀態 -->
     <section class="glass-panel rounded-2xl p-4 md:p-6 mb-6 shadow-lg">
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-            <div class="flex gap-2 w-full md:w-auto">
+            <div class="flex flex-wrap gap-2 w-full md:w-auto">
                 <button id="btn-start" class="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-blue-900/50">
                     啟動感測器
+                </button>
+                <button id="btn-stop" class="hidden flex-1 md:flex-none bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-red-900/50">
+                    停止測量
                 </button>
                 <button id="btn-simulate" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-emerald-900/50">
                     電腦模擬測試
@@ -53,7 +70,7 @@
             </div>
         </div>
 
-        <div class="text-sm text-gray-400 leading-relaxed border-t border-gray-700 pt-3">
+        <div class="text-sm text-gray-400 leading-relaxed border-t border-gray-700 pt-3 min-h-[4rem]" id="physics-tip">
             <strong class="text-gray-200">物理小提醒：</strong>
             靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">±9.8 m/s²</span> 的數值（正負號取決於手機系統）。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。
         </div>
@@ -85,7 +102,7 @@
         <!-- 總合 |a| -->
         <div class="glass-panel rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1 bg-white"></div>
-            <span class="text-gray-400 text-sm font-bold mb-1">總加速度 |a|</span>
+            <span class="text-gray-400 text-sm font-bold mb-1" id="mag-label">總加速度 |a|</span>
             <span class="text-2xl md:text-3xl font-mono font-bold text-white" id="val-mag">0.00</span>
             <span class="text-xs text-gray-500 mt-1">m/s²</span>
         </div>
@@ -117,6 +134,7 @@
         let isSimulating = false;
         let simInterval = null;
         let time = 0;
+        let currentMode = 'withGravity'; // 'withGravity' 或 'withoutGravity'
 
         // 當前加速度數值
         let currentData = { x: 0, y: 0, z: 0 };
@@ -131,12 +149,19 @@
 
         // --- DOM 元素取得 ---
         const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
         const btnSimulate = document.getElementById('btn-simulate');
         const statusDisplay = document.getElementById('status-display');
         const elX = document.getElementById('val-x');
         const elY = document.getElementById('val-y');
         const elZ = document.getElementById('val-z');
         const elMag = document.getElementById('val-mag');
+        const magLabel = document.getElementById('mag-label');
+        const physicsTip = document.getElementById('physics-tip');
+        
+        const tabWithG = document.getElementById('tab-with-g');
+        const tabWithoutG = document.getElementById('tab-without-g');
+
         const canvas = document.getElementById('graph-canvas');
         const ctx = canvas.getContext('2d');
 
@@ -151,89 +176,142 @@
         // 確保初始載入時有正確尺寸
         setTimeout(resizeCanvas, 100);
 
+        // --- 分頁切換邏輯 ---
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // 清除圖表歷史資料避免跳動
+            historyData.x.fill(0);
+            historyData.y.fill(0);
+            historyData.z.fill(0);
+            currentData = { x: 0, y: 0, z: 0 };
+
+            if (mode === 'withGravity') {
+                // UI 樣式更新
+                tabWithG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-800 text-blue-400 font-bold border-b-2 border-blue-500 shadow-lg";
+                tabWithoutG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-900 text-gray-500 font-bold border-b-2 border-transparent hover:text-gray-300";
+                magLabel.textContent = "總加速度 |a|";
+                physicsTip.innerHTML = `<strong class="text-gray-200">物理小提醒：</strong> 靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">±9.8 m/s²</span> 的數值（正負號取決於手機系統）。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。`;
+            } else {
+                // UI 樣式更新
+                tabWithoutG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-800 text-emerald-400 font-bold border-b-2 border-emerald-500 shadow-lg";
+                tabWithG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-900 text-gray-500 font-bold border-b-2 border-transparent hover:text-gray-300";
+                magLabel.textContent = "淨加速度 |a|";
+                physicsTip.innerHTML = `<strong class="text-gray-200">物理小提醒：</strong> 靜止放置於水平桌面時，三軸數值皆應趨近於 <span class="text-emerald-300 font-mono">0 m/s²</span>。此模式利用手機內部演算法扣除了重力影響，只測量手機實際產生的「線性加速度」。`;
+            }
+        }
+
+        tabWithG.addEventListener('click', () => setMode('withGravity'));
+        tabWithoutG.addEventListener('click', () => setMode('withoutGravity'));
+
         // --- 感測器事件處理 ---
         function handleMotion(event) {
-            // 使用 accelerationIncludingGravity 可以展現 1g (9.8 m/s^2) 的現象
-            let acc = event.accelerationIncludingGravity;
+            // 根據當前分頁模式選擇資料來源
+            let acc = currentMode === 'withGravity' ? event.accelerationIncludingGravity : event.acceleration;
             
-            // 防錯機制：若無包含重力的資料，降級使用純加速度
+            // 防錯機制：如果請求不含重力的資料但設備不支援，嘗試降級或維持0
             if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
-                acc = event.acceleration;
+                // 如果是 withGravity 失敗，拿純加速度代替 (非常少見)
+                // 如果是 withoutGravity 失敗，很多舊手機確實不支援純線性加速度
+                acc = currentMode === 'withGravity' ? event.acceleration : {x:0, y:0, z:0};
             }
 
             if (acc && acc.x !== null) {
-                // 依據不同裝置可能需要進行反向處理，這裡先直接呈現原值
                 currentData.x = acc.x;
                 currentData.y = acc.y;
                 currentData.z = acc.z;
             }
         }
 
-        // --- 啟動真實感測器 ---
+        // --- 啟動與停止測量 ---
         async function startSensor() {
-            stopSimulation();
+            stopMeasurement(); // 先確保之前的都停掉
 
             // iOS 13+ 需要取得使用者授權
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
                     const permissionState = await DeviceMotionEvent.requestPermission();
                     if (permissionState === 'granted') {
-                        window.addEventListener('devicemotion', handleMotion);
-                        isRunning = true;
-                        statusDisplay.textContent = "感測器運作中 (iOS)";
-                        statusDisplay.className = "px-4 py-2 rounded-lg bg-blue-900/50 text-sm font-mono text-blue-300 w-full md:w-auto text-center border border-blue-500";
+                        startListening();
                     } else {
-                        statusDisplay.textContent = "授權被拒絕";
-                        statusDisplay.className = "px-4 py-2 rounded-lg bg-red-900/50 text-sm font-mono text-red-300 w-full md:w-auto text-center border border-red-500";
+                        updateStatus("授權被拒絕", "red");
                     }
                 } catch (error) {
                     console.error(error);
-                    statusDisplay.textContent = "授權發生錯誤";
+                    updateStatus("授權發生錯誤", "red");
                 }
             } else {
                 // Android 或非 iOS 13+ 裝置
-                window.addEventListener('devicemotion', handleMotion);
-                isRunning = true;
-                statusDisplay.textContent = "感測器運作中 (Android/PC)";
+                startListening();
+            }
+        }
+
+        function startListening() {
+            window.addEventListener('devicemotion', handleMotion);
+            isRunning = true;
+            
+            btnStart.classList.add('hidden');
+            btnSimulate.classList.add('hidden');
+            btnStop.classList.remove('hidden');
+
+            updateStatus("感測器運作中", "blue");
+        }
+
+        function stopMeasurement() {
+            // 停止真實感測器
+            window.removeEventListener('devicemotion', handleMotion);
+            isRunning = false;
+
+            // 停止模擬
+            isSimulating = false;
+            clearInterval(simInterval);
+
+            // 恢復 UI 按鈕狀態
+            btnStart.classList.remove('hidden');
+            btnSimulate.classList.remove('hidden');
+            btnStop.classList.add('hidden');
+            btnSimulate.textContent = "電腦模擬測試";
+            btnSimulate.className = "flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-emerald-900/50";
+
+            updateStatus("已停止測量", "gray");
+            
+            // 歸零顯示
+            currentData = { x: 0, y: 0, z: 0 };
+        }
+
+        function updateStatus(text, colorTheme) {
+            statusDisplay.textContent = text;
+            if (colorTheme === "blue") {
                 statusDisplay.className = "px-4 py-2 rounded-lg bg-blue-900/50 text-sm font-mono text-blue-300 w-full md:w-auto text-center border border-blue-500";
+            } else if (colorTheme === "emerald") {
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-emerald-900/50 text-sm font-mono text-emerald-300 w-full md:w-auto text-center border border-emerald-500";
+            } else if (colorTheme === "red") {
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-red-900/50 text-sm font-mono text-red-300 w-full md:w-auto text-center border border-red-500";
+            } else {
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-gray-700/50 text-sm font-mono text-gray-300 w-full md:w-auto text-center border border-gray-600";
             }
         }
 
         // --- 電腦模擬模式 (產生簡諧運動與重力資料) ---
         function toggleSimulation() {
-            if (isSimulating) {
-                stopSimulation();
-                statusDisplay.textContent = "模擬已停止";
-                statusDisplay.className = "px-4 py-2 rounded-lg bg-gray-700/50 text-sm font-mono text-gray-300 w-full md:w-auto text-center border border-gray-600";
-            } else {
-                // 停止真實感測器
-                window.removeEventListener('devicemotion', handleMotion);
-                isRunning = false;
-                
-                isSimulating = true;
-                btnSimulate.textContent = "停止模擬";
-                btnSimulate.classList.replace('bg-emerald-600', 'bg-red-600');
-                btnSimulate.classList.replace('hover:bg-emerald-500', 'hover:bg-red-500');
-                
-                statusDisplay.textContent = "模擬模式運作中";
-                statusDisplay.className = "px-4 py-2 rounded-lg bg-emerald-900/50 text-sm font-mono text-emerald-300 w-full md:w-auto text-center border border-emerald-500";
+            stopMeasurement(); // 先停止所有正在進行的測量
+            
+            isSimulating = true;
+            btnStart.classList.add('hidden');
+            btnStop.classList.remove('hidden');
+            
+            updateStatus("模擬模式運作中", "emerald");
 
-                simInterval = setInterval(() => {
-                    time += 0.05;
-                    // 模擬手機在手中輕微搖晃，加上 Z 軸的 9.8 重力
-                    currentData.x = Math.sin(time * 2) * 2 + (Math.random() - 0.5);
-                    currentData.y = Math.cos(time * 1.5) * 3 + (Math.random() - 0.5);
-                    currentData.z = 9.8 + Math.sin(time * 5) * 0.5 + (Math.random() - 0.5) * 0.2;
-                }, 50); // 50ms 更新率 (20Hz)
-            }
-        }
-
-        function stopSimulation() {
-            isSimulating = false;
-            clearInterval(simInterval);
-            btnSimulate.textContent = "電腦模擬測試";
-            btnSimulate.classList.replace('bg-red-600', 'bg-emerald-600');
-            btnSimulate.classList.replace('hover:bg-red-500', 'hover:bg-emerald-500');
+            simInterval = setInterval(() => {
+                time += 0.05;
+                // X, Y 軸輕微搖晃
+                currentData.x = Math.sin(time * 2) * 2 + (Math.random() - 0.5);
+                currentData.y = Math.cos(time * 1.5) * 3 + (Math.random() - 0.5);
+                
+                // Z 軸根據當前分頁模式決定要不要加上 9.8
+                const baseZ = currentMode === 'withGravity' ? 9.8 : 0;
+                currentData.z = baseZ + Math.sin(time * 5) * 0.5 + (Math.random() - 0.5) * 0.2;
+            }, 50); // 50ms 更新率 (20Hz)
         }
 
         // --- 數值與圖表更新迴圈 (60fps) ---
@@ -286,14 +364,16 @@
             ctx.lineTo(width, height / 2);
             ctx.stroke();
 
-            // +9.8 和 -9.8 的參考線 (虛線)
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            const y98 = mapToY(9.8, height);
-            ctx.beginPath(); ctx.moveTo(0, y98); ctx.lineTo(width, y98); ctx.stroke();
-            const yMinus98 = mapToY(-9.8, height);
-            ctx.beginPath(); ctx.moveTo(0, yMinus98); ctx.lineTo(width, yMinus98); ctx.stroke();
-            ctx.setLineDash([]); // 恢復實線
+            // +9.8 和 -9.8 的參考線 (虛線) - 只有在包含重力模式時顯示
+            if (currentMode === 'withGravity') {
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                const y98 = mapToY(9.8, height);
+                ctx.beginPath(); ctx.moveTo(0, y98); ctx.lineTo(width, y98); ctx.stroke();
+                const yMinus98 = mapToY(-9.8, height);
+                ctx.beginPath(); ctx.moveTo(0, yMinus98); ctx.lineTo(width, yMinus98); ctx.stroke();
+                ctx.setLineDash([]); // 恢復實線
+            }
 
             // 繪製三條數據線
             drawLine(historyData.x, '#f87171', width, height); // red-400
@@ -333,6 +413,7 @@
 
         // --- 事件綁定 ---
         btnStart.addEventListener('click', startSensor);
+        btnStop.addEventListener('click', stopMeasurement);
         btnSimulate.addEventListener('click', toggleSimulation);
 
         // 啟動繪圖與更新迴圈
