@@ -61,6 +61,9 @@
                 <button id="btn-stop" class="hidden flex-1 md:flex-none bg-red-600 hover:bg-red-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-red-900/50">
                     停止測量
                 </button>
+                <button id="btn-auto-trigger" class="hidden flex-1 md:flex-none bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-purple-900/50">
+                    碰撞實驗(自動觸發)
+                </button>
                 <button id="btn-simulate" class="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-emerald-900/50">
                     電腦模擬測試
                 </button>
@@ -136,6 +139,10 @@
         let time = 0;
         let currentMode = 'withGravity'; // 'withGravity' 或 'withoutGravity'
 
+        // 自動觸發實驗狀態
+        let autoTriggerMode = false;
+        let experimentState = 'idle'; // 'idle', 'standby', 'recording'
+
         // 當前加速度數值
         let currentData = { x: 0, y: 0, z: 0 };
 
@@ -150,6 +157,7 @@
         // --- DOM 元素取得 ---
         const btnStart = document.getElementById('btn-start');
         const btnStop = document.getElementById('btn-stop');
+        const btnAutoTrigger = document.getElementById('btn-auto-trigger');
         const btnSimulate = document.getElementById('btn-simulate');
         const statusDisplay = document.getElementById('status-display');
         const elX = document.getElementById('val-x');
@@ -187,12 +195,14 @@
             currentData = { x: 0, y: 0, z: 0 };
 
             if (mode === 'withGravity') {
+                btnAutoTrigger.classList.add('hidden');
                 // UI 樣式更新
                 tabWithG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-800 text-blue-400 font-bold border-b-2 border-blue-500 shadow-lg";
                 tabWithoutG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-900 text-gray-500 font-bold border-b-2 border-transparent hover:text-gray-300";
                 magLabel.textContent = "總加速度 |a|";
                 physicsTip.innerHTML = `<strong class="text-gray-200">物理小提醒：</strong> 靜止放置於水平桌面時，Z 軸會測量到約 <span class="text-blue-300 font-mono">±9.8 m/s²</span> 的數值（正負號取決於手機系統）。這是因為加速度計實際上測量的是抵抗重力使其不致下墜的「支撐力」所產生的等效加速度。`;
             } else {
+                btnAutoTrigger.classList.remove('hidden');
                 // UI 樣式更新
                 tabWithoutG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-800 text-emerald-400 font-bold border-b-2 border-emerald-500 shadow-lg";
                 tabWithG.className = "tab-btn px-4 py-2 md:px-6 md:py-3 rounded-t-xl bg-gray-900 text-gray-500 font-bold border-b-2 border-transparent hover:text-gray-300";
@@ -220,6 +230,37 @@
                 currentData.x = acc.x;
                 currentData.y = acc.y;
                 currentData.z = acc.z;
+
+                // 處理自動觸發邏輯
+                if (autoTriggerMode) {
+                    const mag = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+                    
+                    if (experimentState === 'standby') {
+                        // 啟動閾值：當淨加速度 > 2.0 m/s^2 時開始記錄圖表
+                        if (mag > 2.0) {
+                            experimentState = 'recording';
+                            updateStatus("紀錄中！等待碰撞...", "red");
+                        }
+                    } else if (experimentState === 'recording') {
+                        // 結束閾值：當淨加速度 > 15.0 m/s^2 時視為碰撞，結束記錄
+                        if (mag > 15.0) {
+                            experimentState = 'idle';
+                            autoTriggerMode = false;
+                            
+                            // 停止監聽，保留圖表最後的碰撞波形
+                            window.removeEventListener('devicemotion', handleMotion);
+                            isRunning = false;
+                            
+                            updateStatus("測量結束！碰撞已記錄", "purple");
+                            
+                            // 恢復按鈕
+                            btnStart.classList.remove('hidden');
+                            btnSimulate.classList.remove('hidden');
+                            btnAutoTrigger.classList.remove('hidden');
+                            btnStop.classList.add('hidden');
+                        }
+                    }
+                }
             }
         }
 
@@ -252,15 +293,59 @@
             
             btnStart.classList.add('hidden');
             btnSimulate.classList.add('hidden');
+            if (currentMode === 'withoutGravity') btnAutoTrigger.classList.add('hidden');
             btnStop.classList.remove('hidden');
 
             updateStatus("感測器運作中", "blue");
+        }
+
+        // --- 自動觸發實驗 ---
+        async function startAutoTriggerExperiment() {
+            stopMeasurement(); // 先確保之前的都停掉
+            
+            autoTriggerMode = true;
+            experimentState = 'standby';
+
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        setupAutoTrigger();
+                    } else {
+                        updateStatus("授權被拒絕", "red");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    updateStatus("授權發生錯誤", "red");
+                }
+            } else {
+                setupAutoTrigger();
+            }
+        }
+
+        function setupAutoTrigger() {
+            window.addEventListener('devicemotion', handleMotion);
+            isRunning = true;
+            
+            btnStart.classList.add('hidden');
+            btnSimulate.classList.add('hidden');
+            btnAutoTrigger.classList.add('hidden');
+            btnStop.classList.remove('hidden');
+
+            // 清空舊圖表
+            historyData.x.fill(0);
+            historyData.y.fill(0);
+            historyData.z.fill(0);
+
+            updateStatus("等待發車 (推動產生 a>2.0 觸發)", "purple");
         }
 
         function stopMeasurement() {
             // 停止真實感測器
             window.removeEventListener('devicemotion', handleMotion);
             isRunning = false;
+            autoTriggerMode = false;
+            experimentState = 'idle';
 
             // 停止模擬
             isSimulating = false;
@@ -269,6 +354,9 @@
             // 恢復 UI 按鈕狀態
             btnStart.classList.remove('hidden');
             btnSimulate.classList.remove('hidden');
+            if (currentMode === 'withoutGravity') {
+                btnAutoTrigger.classList.remove('hidden');
+            }
             btnStop.classList.add('hidden');
             btnSimulate.textContent = "電腦模擬測試";
             btnSimulate.className = "flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition duration-200 active:scale-95 shadow-md shadow-emerald-900/50";
@@ -285,6 +373,8 @@
                 statusDisplay.className = "px-4 py-2 rounded-lg bg-blue-900/50 text-sm font-mono text-blue-300 w-full md:w-auto text-center border border-blue-500";
             } else if (colorTheme === "emerald") {
                 statusDisplay.className = "px-4 py-2 rounded-lg bg-emerald-900/50 text-sm font-mono text-emerald-300 w-full md:w-auto text-center border border-emerald-500";
+            } else if (colorTheme === "purple") {
+                statusDisplay.className = "px-4 py-2 rounded-lg bg-purple-900/50 text-sm font-mono text-purple-300 w-full md:w-auto text-center border border-purple-500";
             } else if (colorTheme === "red") {
                 statusDisplay.className = "px-4 py-2 rounded-lg bg-red-900/50 text-sm font-mono text-red-300 w-full md:w-auto text-center border border-red-500";
             } else {
@@ -330,13 +420,20 @@
             elMag.textContent = mag.toFixed(2);
 
             // 2. 更新歷史陣列 (將新資料推入，舊資料擠出)
-            historyData.x.push(currentData.x);
-            historyData.y.push(currentData.y);
-            historyData.z.push(currentData.z);
-            
-            historyData.x.shift();
-            historyData.y.shift();
-            historyData.z.shift();
+            // 在自動模式下，只有 recording 狀態才推進歷史資料畫圖；一般模式則是 isRunning 就畫
+            const shouldRecord = isSimulating || 
+                                 (isRunning && !autoTriggerMode) || 
+                                 (autoTriggerMode && experimentState === 'recording');
+
+            if (shouldRecord) {
+                historyData.x.push(currentData.x);
+                historyData.y.push(currentData.y);
+                historyData.z.push(currentData.z);
+                
+                historyData.x.shift();
+                historyData.y.shift();
+                historyData.z.shift();
+            }
 
             // 3. 繪製圖表
             drawGraph();
@@ -415,6 +512,7 @@
         btnStart.addEventListener('click', startSensor);
         btnStop.addEventListener('click', stopMeasurement);
         btnSimulate.addEventListener('click', toggleSimulation);
+        btnAutoTrigger.addEventListener('click', startAutoTriggerExperiment);
 
         // 啟動繪圖與更新迴圈
         requestAnimationFrame(updateLoop);
