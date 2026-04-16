@@ -104,8 +104,17 @@
         // 滑鼠/觸控事件處理
         function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            let clientX, clientY;
+            
+            // 判斷是 touch 事件還是 mouse 事件
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
             // 處理 canvas CSS 縮放
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
@@ -115,28 +124,41 @@
             };
         }
 
-        canvas.addEventListener('pointerdown', (e) => {
+        function handleStart(e) {
+            e.preventDefault(); // 防止螢幕跟著滑動或選取
             const pos = getPointerPos(e);
-            // 檢查是否點擊到磁鐵
-            if (pos.x > magnet.x - magnet.width/2 - 10 && pos.x < magnet.x + magnet.width/2 + 10 &&
-                pos.y > magnet.y - magnet.height/2 - 10 && pos.y < magnet.y + magnet.height/2 + 10) {
+            
+            // 擴大點擊判定範圍 (容錯率提升從 10 增加到 40)，讓手機更好點
+            if (pos.x > magnet.x - magnet.width/2 - 40 && pos.x < magnet.x + magnet.width/2 + 40 &&
+                pos.y > magnet.y - magnet.height/2 - 40 && pos.y < magnet.y + magnet.height/2 + 40) {
                 magnet.isDragging = true;
             }
-        });
+        }
 
-        canvas.addEventListener('pointermove', (e) => {
+        function handleMove(e) {
             if (magnet.isDragging) {
+                e.preventDefault(); // 拖曳時確保不捲動螢幕
                 const pos = getPointerPos(e);
                 magnet.x = pos.x;
                 magnet.y = pos.y;
                 updateSimulation();
             }
-        });
+        }
 
-        const stopDrag = () => { magnet.isDragging = false; };
-        canvas.addEventListener('pointerup', stopDrag);
-        canvas.addEventListener('pointercancel', stopDrag);
-        canvas.addEventListener('pointerout', stopDrag);
+        function handleEnd(e) {
+            magnet.isDragging = false;
+        }
+
+        // 電腦版：綁定 Mouse 事件
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        // 手機版：綁定 Touch 事件 (使用 passive: false 確保可以 preventDefault)
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+        canvas.addEventListener('touchcancel', handleEnd);
 
         // 物理計算：計算磁偶極子在感測器位置產生的磁場
         function calculateMagneticField() {
