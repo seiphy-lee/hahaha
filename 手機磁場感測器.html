@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手機磁場感測器模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            touch-action: none; /* 防止在畫布上滑動時觸發頁面捲動 */
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #1e293b; /* Slate 800 */
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .data-card {
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            box-shadow:  5px 5px 10px #060911, -5px -5px 10px #182543;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-4 font-sans">
+
+    <div class="w-full max-w-md mx-auto flex flex-col gap-4">
+        
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-2xl font-bold text-blue-400 mb-1">🧲 磁場感測器模擬</h1>
+            <p class="text-sm text-slate-400">高中物理：霍爾效應與磁偶極場</p>
+        </div>
+
+        <!-- 數據顯示區 -->
+        <div class="data-card p-5 rounded-2xl border border-slate-700">
+            <div class="flex justify-between items-end mb-4">
+                <span class="text-sm text-slate-400">總磁場強度 |B|</span>
+                <span class="text-3xl font-mono font-bold text-emerald-400" id="b-total">45.0</span>
+                <span class="text-sm text-slate-400">µT</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                <div class="bg-slate-800 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-xs text-red-400 mb-1">X 軸 (左右)</div>
+                    <div class="font-mono text-lg" id="b-x">0.0</div>
+                </div>
+                <div class="bg-slate-800 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-xs text-green-400 mb-1">Y 軸 (上下)</div>
+                    <div class="font-mono text-lg" id="b-y">45.0</div>
+                </div>
+                <div class="bg-slate-800 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-xs text-blue-400 mb-1">Z 軸 (垂直)</div>
+                    <div class="font-mono text-lg" id="b-z">-21.0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 互動畫布區 -->
+        <div class="relative w-full">
+            <div class="absolute top-2 left-2 text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded pointer-events-none">
+                👇 拖曳磁鐵觀察磁場變化
+            </div>
+            <canvas id="simCanvas" width="350" height="400" class="w-full h-auto"></canvas>
+        </div>
+
+        <!-- 原理說明 -->
+        <div class="bg-slate-800 p-4 rounded-xl text-sm text-slate-300 leading-relaxed border border-slate-700">
+            <p class="mb-2"><strong class="text-blue-300">👨‍🏫 老師解說：</strong></p>
+            <p class="mb-2">手機內部配備了微小的三軸霍爾感測器（模擬圖中手機頂部的黃點）。在這個模擬中，我們將地球磁場簡化為穩定的背景值（約 45 µT 指向北方/Y軸）。</p>
+            <p>當你拖動條形磁鐵時，程式會根據<strong>磁偶極子公式</strong>計算出磁鐵在感測器位置產生的附加磁場：$B \propto \frac{1}{r^3}$，距離越近，磁場變化越劇烈！紅色箭頭代表感測器測量到的合成磁場向量。</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 取得 UI 元素
+        const elBx = document.getElementById('b-x');
+        const elBy = document.getElementById('b-y');
+        const elBz = document.getElementById('b-z');
+        const elBtotal = document.getElementById('b-total');
+
+        // 畫布設定
+        let width = canvas.width;
+        let height = canvas.height;
+
+        // 模擬參數
+        const EARTH_B = { x: 0, y: 35, z: -25 }; // 背景地磁場 (微特斯拉 µT)
+        const SENSOR_POS = { x: width / 2, y: height / 2 - 60 }; // 感測器位於虛擬手機上方
+        
+        // 磁鐵狀態
+        let magnet = {
+            x: width / 2 + 80,
+            y: height / 2 + 80,
+            width: 30,
+            height: 80,
+            moment: 3000000, // 磁矩常數 (用於模擬計算)
+            isDragging: false
+        };
+
+        // 滑鼠/觸控事件處理
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            // 處理 canvas CSS 縮放
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            const pos = getPointerPos(e);
+            // 檢查是否點擊到磁鐵
+            if (pos.x > magnet.x - magnet.width/2 - 10 && pos.x < magnet.x + magnet.width/2 + 10 &&
+                pos.y > magnet.y - magnet.height/2 - 10 && pos.y < magnet.y + magnet.height/2 + 10) {
+                magnet.isDragging = true;
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (magnet.isDragging) {
+                const pos = getPointerPos(e);
+                magnet.x = pos.x;
+                magnet.y = pos.y;
+                updateSimulation();
+            }
+        });
+
+        const stopDrag = () => { magnet.isDragging = false; };
+        canvas.addEventListener('pointerup', stopDrag);
+        canvas.addEventListener('pointercancel', stopDrag);
+        canvas.addEventListener('pointerout', stopDrag);
+
+        // 物理計算：計算磁偶極子在感測器位置產生的磁場
+        function calculateMagneticField() {
+            // 向量 r：從磁鐵指向感測器 (注意 canvas 的 Y 軸是向下的)
+            // 為了符合物理直覺，我們將坐標系轉換：中點為原點，向上為 +y，向右為 +x
+            const dx = SENSOR_POS.x - magnet.x;
+            const dy = -(SENSOR_POS.y - magnet.y); // Y軸反轉
+            
+            const r2 = dx*dx + dy*dy;
+            const r = Math.sqrt(r2);
+            
+            // 避免除以零 (距離太近時限制最大值)
+            const minR = 25; 
+            const effR = Math.max(r, minR);
+            const effR5 = Math.pow(effR, 5);
+
+            // 假設磁鐵的 N 極朝上 (在我們轉換後的坐標系中，m_y = M, m_x = 0)
+            // 磁偶極公式: B = (mu0 / 4pi) * [ 3(m dot r)r/r^5 - m/r^3 ]
+            // 簡化常數 k = (mu0 / 4pi) * M = magnet.moment
+            const k = magnet.moment;
+            const mx = 0;
+            const my = 1; // 單位向量
+
+            const m_dot_r = mx * dx + my * dy; // 內積 = dy
+
+            // 計算各分量
+            let bx_mag = k * (3 * m_dot_r * dx) / effR5;
+            let by_mag = k * (3 * m_dot_r * dy - effR * effR) / effR5;
+            let bz_mag = 0; // 簡單的 2D 模擬，Z軸變化不明顯，可加入微小擾動
+
+            // 加上背景地磁場
+            const totalBx = bx_mag + EARTH_B.x;
+            const totalBy = by_mag + EARTH_B.y;
+            const totalBz = bz_mag + EARTH_B.z;
+
+            return { x: totalBx, y: totalBy, z: totalBz };
+        }
+
+        // 繪製畫面與更新數據
+        function updateSimulation() {
+            // 1. 計算磁場
+            const B = calculateMagneticField();
+            const bTotal = Math.sqrt(B.x*B.x + B.y*B.y + B.z*B.z);
+
+            // 2. 更新 UI 文字
+            elBx.innerText = B.x.toFixed(1);
+            elBy.innerText = B.y.toFixed(1);
+            elBz.innerText = B.z.toFixed(1);
+            elBtotal.innerText = bTotal.toFixed(1);
+
+            // 3. 清除畫布
+            ctx.clearRect(0, 0, width, height);
+
+            // 繪製網格背景
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 1;
+            for(let i=0; i<width; i+=20) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke(); }
+            for(let i=0; i<height; i+=20) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); }
+
+            // 4. 繪製虛擬手機
+            const phoneW = 140;
+            const phoneH = 280;
+            const phoneX = width/2 - phoneW/2;
+            const phoneY = height/2 - phoneH/2;
+            
+            // 手機外殼
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(phoneX, phoneY, phoneW, phoneH, 16);
+            ctx.fill();
+            ctx.stroke();
+
+            // 手機螢幕
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(phoneX + 6, phoneY + 6, phoneW - 12, phoneH - 12, 10);
+            ctx.fill();
+
+            // 感測器晶片位置 (Top center/left)
+            ctx.fillStyle = '#fbbf24'; // Amber 400
+            ctx.beginPath();
+            ctx.arc(SENSOR_POS.x, SENSOR_POS.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0; // reset
+
+            // 感測器標示
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Hall Sensor', SENSOR_POS.x, SENSOR_POS.y - 12);
+
+            // 5. 繪製磁場向量箭頭 (於感測器位置)
+            // 將磁場向量縮放以便顯示
+            const arrowScale = 0.8;
+            const endX = SENSOR_POS.x + B.x * arrowScale;
+            // 注意：數值上的 +y 是朝上，但在 Canvas 中朝上是 -y，所以要反轉 B.y
+            const endY = SENSOR_POS.y - B.y * arrowScale; 
+
+            drawArrow(ctx, SENSOR_POS.x, SENSOR_POS.y, endX, endY, '#ef4444', 3);
+
+            // 6. 繪製條形磁鐵
+            const mHalfW = magnet.width / 2;
+            const mHalfH = magnet.height / 2;
+            
+            // N 極 (紅色，上半部)
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(magnet.x - mHalfW, magnet.y - mHalfH, magnet.width, magnet.height/2);
+            // S 極 (藍色，下半部)
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(magnet.x - mHalfW, magnet.y, magnet.width, magnet.height/2);
+            
+            // 磁鐵邊框
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(magnet.x - mHalfW, magnet.y - mHalfH, magnet.width, magnet.height);
+
+            // 標示 N/S
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('N', magnet.x, magnet.y - mHalfH/2);
+            ctx.fillText('S', magnet.x, magnet.y + mHalfH/2);
+        }
+
+        // 畫箭頭的輔助函數
+        function drawArrow(ctx, fromx, fromy, tox, toy, color, width) {
+            const headlen = 10; // 箭頭長度
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        // 初始化第一次渲染
+        updateSimulation();
+
+    </script>
+</body>
+</html>
