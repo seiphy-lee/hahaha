@@ -66,10 +66,10 @@
         <!-- 分頁導覽列 -->
         <div class="mb-6 flex space-x-6 border-b border-slate-200">
             <button id="tabMulti" class="tab-btn pb-2 px-2 text-lg font-bold text-blue-600 border-b-4 border-blue-600">
-                多分子模擬 (巨觀與微觀)
+                多分子模擬
             </button>
             <button id="tabSingle" class="tab-btn pb-2 px-2 text-lg font-bold text-slate-400 hover:text-slate-600 border-b-4 border-transparent">
-                單一分子模擬 (微觀特寫)
+                單一分子模擬
             </button>
         </div>
 
@@ -140,6 +140,19 @@
                     </div>
                 </div>
 
+                <!-- 單分子模式：水平來回計時區塊 (置於系統監控上方) -->
+                <div id="stopwatchContainer" class="hidden bg-rose-50 p-5 rounded-xl border border-rose-200 shadow-sm mt-auto">
+                    <div class="flex justify-between items-center">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="stopwatchToggle" class="form-checkbox h-5 w-5 text-rose-600 rounded">
+                            <span class="ml-2 text-rose-800 font-extrabold text-lg tracking-wide">啟用水平來回計時</span>
+                        </label>
+                        <div class="font-mono" id="stopwatchDisplay">
+                            <span class="text-slate-400 text-lg">-- ms</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-slate-50 p-5 rounded-xl border border-slate-200 mt-auto">
                     <h3 class="font-bold text-slate-700 mb-3 border-b pb-2">系統狀態監控</h3>
                     <div class="space-y-2 font-mono text-sm">
@@ -203,6 +216,15 @@
         const multiModeControls = document.getElementById('multiModeControls');
         const singleModeControls = document.getElementById('singleModeControls');
         
+        // 碼表相關 UI 元素與變數
+        const stopwatchContainer = document.getElementById('stopwatchContainer');
+        const stopwatchToggle = document.getElementById('stopwatchToggle');
+        const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+        let stopwatchEnabled = false;
+        let lastHitWall = null;        // 記錄最後撞擊的牆面 ('left' 或 'right')
+        let roundTripStartTime = 0;    // 記錄週期起始時間
+        let lastPeriod = 0;            // 記錄上一次完整的來回時間
+        
         // 分頁相關 UI 元素
         const tabMulti = document.getElementById('tabMulti');
         const tabSingle = document.getElementById('tabSingle');
@@ -225,6 +247,22 @@
         let outletOpen = false;
         let frameCount = 0;
         let currentMode = 'multi'; // 'multi' 或 'single'
+
+        // --- 輔助函數：處理單分子撞牆碼表邏輯 ---
+        function handleWallHit(side) {
+            if (currentMode !== 'single' || !stopwatchEnabled) return;
+
+            if (lastHitWall === null) {
+                // 首次撞牆，設定起始牆面並開始計時
+                lastHitWall = side;
+                roundTripStartTime = performance.now();
+            } else if (lastHitWall === side) {
+                // 回到起始牆面，完成一次來回，結算時間並歸零重新計時
+                const now = performance.now();
+                lastPeriod = now - roundTripStartTime;
+                roundTripStartTime = now;
+            }
+        }
 
         // --- 粒子類別 ---
         class Particle {
@@ -351,39 +389,42 @@
                 const valveTop = height/2 - VALVE_SIZE/2;
                 const valveBottom = height/2 + VALVE_SIZE/2;
 
-                // 上下邊界碰撞檢測
-                if (this.y - this.radius < 0) {
-                    this.y = this.radius;
-                    this.vy *= -1;
-                } else if (this.y + this.radius > height) {
-                    this.y = height - this.radius;
-                    this.vy *= -1;
+                // 上下邊界碰撞檢測 (9為內側視覺白框厚度)
+                if (this.y - this.radius < 9) {
+                    this.y = this.radius + 9;
+                    this.vy = Math.abs(this.vy);
+                } else if (this.y + this.radius > height - 9) {
+                    this.y = height - this.radius - 9;
+                    this.vy = -Math.abs(this.vy);
                 }
 
                 // 左邊界檢測
-                if (this.x - this.radius < 0) {
+                if (this.x - this.radius < 9) {
                     if (currentMode === 'multi' && inletOpen && this.y > valveTop && this.y < valveBottom) {
                         // 讓氣體可以自然飛入，若不慎往左飛出則標記刪除
                         if (this.x + this.radius < 0 && this.vx < 0) {
                             this.markedForDeletion = true;
                         }
                     } else {
-                        this.x = this.radius;
+                        // 撞牆反彈：確保座標正好貼齊邊界 9 進行完美反彈
+                        this.x = this.radius + 9;
                         this.vx = Math.abs(this.vx);
+                        handleWallHit('left');
                     }
                 }
 
                 // 右邊界檢測
-                if (this.x + this.radius > width) {
+                if (this.x + this.radius > width - 9) {
                     if (currentMode === 'multi' && outletOpen && this.y > valveTop && this.y < valveBottom) {
                         // 完全飛出畫面後才進行刪除 (視覺效果更真實)
                         if (this.x - this.radius > width && this.vx > 0) {
                             this.markedForDeletion = true;
                         }
                     } else {
-                        // 撞牆反彈
-                        this.x = width - this.radius;
+                        // 撞牆反彈：確保座標正好貼齊邊界 width - 9 進行完美反彈
+                        this.x = width - this.radius - 9;
                         this.vx = -Math.abs(this.vx);
+                        handleWallHit('right');
                     }
                 }
             }
@@ -397,17 +438,26 @@
                 tabSingle.className = "tab-btn pb-2 px-2 text-lg font-bold text-slate-400 hover:text-slate-600 border-b-4 border-transparent";
                 
                 valveControls.classList.remove('hidden');
+                stopwatchContainer.classList.add('hidden'); // 隱藏計時區塊
                 countRow.classList.remove('hidden');
                 multiModeControls.classList.remove('hidden');
                 singleModeControls.classList.add('hidden');
                 modeDescription.innerHTML = "根據氣體動力論 $\\bar{K} = \\frac{3}{2}kT$，氣體分子的平均動能與絕對溫度成正比。調整下方溫度，觀察眾多分子互相碰撞與運動的劇烈程度變化。";
                 speedLabel.innerHTML = "理論方均根速率 $(v_{rms})$：";
                 
+                // 關閉碼表以免背景干擾
+                stopwatchEnabled = false;
+                stopwatchToggle.checked = false;
+                lastHitWall = null;
+                lastPeriod = 0;
+                stopwatchDisplay.innerHTML = `<span class="text-slate-400 text-lg">-- ms</span>`;
+                
             } else if (mode === 'single') {
                 tabSingle.className = "tab-btn pb-2 px-2 text-lg font-bold text-blue-600 border-b-4 border-blue-600";
                 tabMulti.className = "tab-btn pb-2 px-2 text-lg font-bold text-slate-400 hover:text-slate-600 border-b-4 border-transparent";
                 
                 valveControls.classList.add('hidden');
+                stopwatchContainer.classList.remove('hidden'); // 顯示計時區塊
                 countRow.classList.add('hidden');
                 multiModeControls.classList.add('hidden');
                 singleModeControls.classList.remove('hidden');
@@ -422,6 +472,11 @@
                 outletStatus.innerText = "關閉";
                 inletStatus.className = "ml-3 text-sm font-bold text-slate-600";
                 outletStatus.className = "ml-3 text-sm font-bold text-slate-600";
+                
+                // 重置碼表UI狀態
+                stopwatchDisplay.innerHTML = `<span class="text-slate-400 text-lg">-- ms</span>`;
+                lastHitWall = null;
+                lastPeriod = 0;
             }
             
             if (window.MathJax && window.MathJax.typesetPromise) {
@@ -433,6 +488,19 @@
 
         tabMulti.addEventListener('click', () => setMode('multi'));
         tabSingle.addEventListener('click', () => setMode('single'));
+
+        // 碼表開關邏輯
+        stopwatchToggle.addEventListener('change', (e) => {
+            stopwatchEnabled = e.target.checked;
+            if (!stopwatchEnabled) {
+                stopwatchDisplay.innerHTML = `<span class="text-slate-400 text-lg">-- ms</span>`;
+                lastHitWall = null;
+                lastPeriod = 0;
+            } else {
+                stopwatchDisplay.innerHTML = `<span class="text-slate-500 text-lg">等待碰撞...</span>`;
+                lastHitWall = null; // 重置狀態準備偵測下一次碰撞
+            }
+        });
 
         // --- 輔助函數 ---
 
@@ -521,7 +589,7 @@
             const valveTop = height/2 - VALVE_SIZE/2;
             const valveBottom = height/2 + VALVE_SIZE/2;
 
-            // 畫出容器厚灰色邊界 (完全由 Canvas 控制繪製以確保能斷開)
+            // 畫出容器厚灰色邊界
             ctx.strokeStyle = '#cbd5e1'; // 對應 Tailwind 的 slate-300
             ctx.lineWidth = 8;
             ctx.beginPath();
@@ -593,7 +661,8 @@
             const showArrows = showArrowsCheckbox.checked;
             particles.forEach(p => p.draw(ctx, showArrows));
 
-            // 繪製閘門的指示細節
+            // 繪製閘門的指示細節 (僅在多分子模式且閘門開啟時繪製)
+            // 完全移除單分子模式下的灰色方塊！
             if (currentMode === 'multi') {
                 ctx.font = 'bold 20px sans-serif';
                 // 進氣閘門
@@ -602,9 +671,6 @@
                     ctx.fillRect(0, valveTop, 10, VALVE_SIZE);
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.fillText("→", 12, height/2 + 6);
-                } else {
-                    ctx.fillStyle = '#64748b'; // 深灰色實體門
-                    ctx.fillRect(0, valveTop, 9, VALVE_SIZE);
                 }
 
                 // 排氣閘門
@@ -613,18 +679,10 @@
                     ctx.fillRect(width - 10, valveTop, 10, VALVE_SIZE);
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                     ctx.fillText("→", width - 28, height/2 + 6);
-                } else {
-                    ctx.fillStyle = '#64748b'; // 深灰色實體門
-                    ctx.fillRect(width - 9, valveTop, 9, VALVE_SIZE);
                 }
-            } else {
-                // 單分子模式下，強制畫上緊閉的灰色實體門
-                ctx.fillStyle = '#64748b';
-                ctx.fillRect(0, valveTop, 9, VALVE_SIZE);
-                ctx.fillRect(width - 9, valveTop, 9, VALVE_SIZE);
             }
 
-            // 更新 UI 數據
+            // 更新 UI 數據與即時碼表
             if (currentMode === 'multi') {
                 countDisplay.innerText = particles.length;
                 const vrms = getSpeedForTemp(currentTemp);
@@ -634,6 +692,23 @@
                     const p = particles[0];
                     const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
                     vrmsDisplay.innerText = speed.toFixed(2) + " 單位";
+                }
+                
+                // 即時碼表渲染邏輯
+                if (stopwatchEnabled) {
+                    if (lastHitWall === null) {
+                        stopwatchDisplay.innerHTML = `<span class="text-slate-500 text-lg">等待碰撞...</span>`;
+                    } else {
+                        const now = performance.now();
+                        const runningTime = now - roundTripStartTime;
+                        
+                        if (lastPeriod > 0) {
+                            // 將上回時間以紅色、放大字體顯示
+                            stopwatchDisplay.innerHTML = `<span class="text-red-600 font-bold text-2xl mr-4">上回: ${lastPeriod.toFixed(0)} ms</span><span class="text-slate-600 text-lg">${runningTime.toFixed(0)} ms</span>`;
+                        } else {
+                            stopwatchDisplay.innerHTML = `<span class="text-slate-700 text-lg">${runningTime.toFixed(0)} ms</span>`;
+                        }
+                    }
                 }
             }
 
