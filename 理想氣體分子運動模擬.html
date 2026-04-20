@@ -77,7 +77,8 @@
             <!-- 左側：動畫畫布 -->
             <div class="flex-shrink-0 flex flex-col items-center">
                 <h2 id="canvasTitle" class="text-xl font-bold mb-4 text-slate-700 text-center">容器微觀模擬</h2>
-                <div class="relative rounded-lg overflow-hidden shadow-inner border-4 border-slate-300" style="width: 500px; height: 500px;">
+                <!-- 移除了 HTML border-slate-300，改由 Canvas 內部繪製邊界 -->
+                <div class="relative rounded-lg overflow-hidden shadow-inner" style="width: 500px; height: 500px;">
                     <canvas id="simCanvas" width="500" height="500" class="block bg-slate-100"></canvas>
                 </div>
                 <p class="mt-4 text-sm text-slate-500 font-medium tracking-wide">▲ 氣體分子的動能與絕對溫度成正比</p>
@@ -307,7 +308,6 @@
 
                 // 畫速度主箭頭
                 if (showArrows) {
-                    // 單一分子模式時，向量長度放大為 15，比原先的 6 倍增長了 2.5 倍
                     const arrowScale = currentMode === 'single' ? 15 : 4; 
                     const toX = this.x + this.vx * arrowScale;
                     const toY = this.y + this.vy * arrowScale;
@@ -319,7 +319,6 @@
 
                 // 畫速度分量箭頭 (僅限單一分子模式開啟時)
                 if (currentMode === 'single' && showComponents) {
-                    // 分量長度同步放大為 15
                     const arrowScale = 15;
                     const toX = this.x + this.vx * arrowScale;
                     const toY = this.y + this.vy * arrowScale;
@@ -329,7 +328,7 @@
                     // Y分量 (綠色)
                     drawArrow(this.x, this.y, this.x, toY, 'rgba(34, 197, 94, 0.8)', 2.5, 10);
                     
-                    // 畫虛線輔助線以構成矩形，幫助視覺建立向量合成感
+                    // 畫虛線輔助線以構成矩形
                     if (Math.abs(this.vx) > 0.1 && Math.abs(this.vy) > 0.1) {
                         ctx.beginPath();
                         ctx.setLineDash([3, 3]);
@@ -340,7 +339,7 @@
                         ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
                         ctx.lineWidth = 1.5;
                         ctx.stroke();
-                        ctx.setLineDash([]); // 繪製完畢重設為實線
+                        ctx.setLineDash([]);
                     }
                 }
             }
@@ -349,7 +348,10 @@
                 this.x += this.vx;
                 this.y += this.vy;
 
-                // 邊界碰撞檢測
+                const valveTop = height/2 - VALVE_SIZE/2;
+                const valveBottom = height/2 + VALVE_SIZE/2;
+
+                // 上下邊界碰撞檢測
                 if (this.y - this.radius < 0) {
                     this.y = this.radius;
                     this.vy *= -1;
@@ -358,22 +360,30 @@
                     this.vy *= -1;
                 }
 
+                // 左邊界檢測
                 if (this.x - this.radius < 0) {
-                    this.x = this.radius;
-                    this.vx *= -1;
+                    if (currentMode === 'multi' && inletOpen && this.y > valveTop && this.y < valveBottom) {
+                        // 讓氣體可以自然飛入，若不慎往左飛出則標記刪除
+                        if (this.x + this.radius < 0 && this.vx < 0) {
+                            this.markedForDeletion = true;
+                        }
+                    } else {
+                        this.x = this.radius;
+                        this.vx = Math.abs(this.vx);
+                    }
                 }
 
+                // 右邊界檢測
                 if (this.x + this.radius > width) {
-                    const valveTop = height/2 - VALVE_SIZE/2;
-                    const valveBottom = height/2 + VALVE_SIZE/2;
-                    
-                    // 只有在多分子模式且排氣閘門開啟時，才允許粒子逸散
                     if (currentMode === 'multi' && outletOpen && this.y > valveTop && this.y < valveBottom) {
-                        this.markedForDeletion = true;
+                        // 完全飛出畫面後才進行刪除 (視覺效果更真實)
+                        if (this.x - this.radius > width && this.vx > 0) {
+                            this.markedForDeletion = true;
+                        }
                     } else {
                         // 撞牆反彈
                         this.x = width - this.radius;
-                        this.vx *= -1;
+                        this.vx = -Math.abs(this.vx);
                     }
                 }
             }
@@ -383,11 +393,9 @@
         function setMode(mode) {
             currentMode = mode;
             if (mode === 'multi') {
-                // 更新按鈕樣式
                 tabMulti.className = "tab-btn pb-2 px-2 text-lg font-bold text-blue-600 border-b-4 border-blue-600";
                 tabSingle.className = "tab-btn pb-2 px-2 text-lg font-bold text-slate-400 hover:text-slate-600 border-b-4 border-transparent";
                 
-                // 顯示多分子專用 UI
                 valveControls.classList.remove('hidden');
                 countRow.classList.remove('hidden');
                 multiModeControls.classList.remove('hidden');
@@ -396,11 +404,9 @@
                 speedLabel.innerHTML = "理論方均根速率 $(v_{rms})$：";
                 
             } else if (mode === 'single') {
-                // 更新按鈕樣式
                 tabSingle.className = "tab-btn pb-2 px-2 text-lg font-bold text-blue-600 border-b-4 border-blue-600";
                 tabMulti.className = "tab-btn pb-2 px-2 text-lg font-bold text-slate-400 hover:text-slate-600 border-b-4 border-transparent";
                 
-                // 隱藏閘門與數量 (強制重置閘門狀態)
                 valveControls.classList.add('hidden');
                 countRow.classList.add('hidden');
                 multiModeControls.classList.add('hidden');
@@ -418,12 +424,10 @@
                 outletStatus.className = "ml-3 text-sm font-bold text-slate-600";
             }
             
-            // 如果 MathJax 載入了，要求其重新渲染剛替換的公式文字
             if (window.MathJax && window.MathJax.typesetPromise) {
                 window.MathJax.typesetPromise([modeDescription, speedLabel]).catch((err) => console.log(err.message));
             }
             
-            // 重置模擬
             init();
         }
 
@@ -447,7 +451,6 @@
         }
 
         function handleCollisions() {
-            // 單一分子模式不需要計算碰撞
             if (currentMode === 'single') return;
 
             for (let i = 0; i < particles.length; i++) {
@@ -501,7 +504,6 @@
             const targetSpeed = getSpeedForTemp(currentTemp);
             
             for (let i = 0; i < initialCount; i++) {
-                // 初始位置盡量靠近中間，避免一開始就卡在牆上
                 const x = width / 2 + (Math.random() * 100 - 50);
                 const y = height / 2 + (Math.random() * 100 - 50);
                 particles.push(new Particle(x, y, targetSpeed, currentMode === 'single'));
@@ -519,39 +521,63 @@
             const valveTop = height/2 - VALVE_SIZE/2;
             const valveBottom = height/2 + VALVE_SIZE/2;
 
-            // 畫出容器邊界 (實作缺口)
-            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-            ctx.lineWidth = 4;
+            // 畫出容器厚灰色邊界 (完全由 Canvas 控制繪製以確保能斷開)
+            ctx.strokeStyle = '#cbd5e1'; // 對應 Tailwind 的 slate-300
+            ctx.lineWidth = 8;
             ctx.beginPath();
             
             // 上下邊界
-            ctx.moveTo(2, 2); ctx.lineTo(width-2, 2);
-            ctx.moveTo(2, height-2); ctx.lineTo(width-2, height-2);
+            ctx.moveTo(4, 4); ctx.lineTo(width-4, 4);
+            ctx.moveTo(4, height-4); ctx.lineTo(width-4, height-4);
             
             // 左邊界
             if (currentMode === 'multi' && inletOpen) {
-                // 開啟進氣閘門時，左側產生缺口
-                ctx.moveTo(2, 2); ctx.lineTo(2, valveTop);
-                ctx.moveTo(2, valveBottom); ctx.lineTo(2, height-2);
+                ctx.moveTo(4, 4); ctx.lineTo(4, valveTop);
+                ctx.moveTo(4, valveBottom); ctx.lineTo(4, height-4);
             } else {
-                ctx.moveTo(2, 2); ctx.lineTo(2, height-2);
+                ctx.moveTo(4, 4); ctx.lineTo(4, height-4);
             }
 
             // 右邊界
             if (currentMode === 'multi' && outletOpen) {
-                // 開啟排氣閘門時，右側產生缺口
-                ctx.moveTo(width-2, 2); ctx.lineTo(width-2, valveTop);
-                ctx.moveTo(width-2, valveBottom); ctx.lineTo(width-2, height-2);
+                ctx.moveTo(width-4, 4); ctx.lineTo(width-4, valveTop);
+                ctx.moveTo(width-4, valveBottom); ctx.lineTo(width-4, height-4);
             } else {
-                ctx.moveTo(width-2, 2); ctx.lineTo(width-2, height-2);
+                ctx.moveTo(width-4, 4); ctx.lineTo(width-4, height-4);
             }
             ctx.stroke();
 
-            // 處理進氣 (僅限多分子模式且閘門開啟)
+            // 畫出內層的細白框
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            // 上下白框
+            ctx.moveTo(9, 9); ctx.lineTo(width-9, 9);
+            ctx.moveTo(9, height-9); ctx.lineTo(width-9, height-9);
+            
+            // 左白框
+            if (currentMode === 'multi' && inletOpen) {
+                ctx.moveTo(9, 9); ctx.lineTo(9, valveTop);
+                ctx.moveTo(9, valveBottom); ctx.lineTo(9, height-9);
+            } else {
+                ctx.moveTo(9, 9); ctx.lineTo(9, height-9);
+            }
+
+            // 右白框
+            if (currentMode === 'multi' && outletOpen) {
+                ctx.moveTo(width-9, 9); ctx.lineTo(width-9, valveTop);
+                ctx.moveTo(width-9, valveBottom); ctx.lineTo(width-9, height-9);
+            } else {
+                ctx.moveTo(width-9, 9); ctx.lineTo(width-9, height-9);
+            }
+            ctx.stroke();
+
+            // 處理進氣 (從畫面最左側外飛入)
             if (currentMode === 'multi' && inletOpen && frameCount % 8 === 0 && particles.length < 200) {
                 const targetSpeed = getSpeedForTemp(currentTemp);
                 const startY = height/2 + (Math.random() - 0.5) * (VALVE_SIZE - PARTICLE_RADIUS*2);
-                let p = new Particle(PARTICLE_RADIUS * 2, startY, targetSpeed, false);
+                let p = new Particle(-PARTICLE_RADIUS * 2, startY, targetSpeed, false);
                 p.vx = Math.abs(p.vx);
                 if (p.vx < 0.5) p.vx = 1.0; 
                 particles.push(p);
@@ -567,26 +593,35 @@
             const showArrows = showArrowsCheckbox.checked;
             particles.forEach(p => p.draw(ctx, showArrows));
 
-            // 繪製閘門視覺效果 (僅多分子模式)
+            // 繪製閘門的指示細節
             if (currentMode === 'multi') {
                 ctx.font = 'bold 20px sans-serif';
                 // 進氣閘門
                 if (inletOpen) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                    ctx.fillText("→", 10, height/2 + 6);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.fillRect(0, valveTop, 10, VALVE_SIZE);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillText("→", 12, height/2 + 6);
                 } else {
-                    ctx.fillStyle = '#64748b'; // 深灰色門板
-                    ctx.fillRect(0, valveTop, 6, VALVE_SIZE);
+                    ctx.fillStyle = '#64748b'; // 深灰色實體門
+                    ctx.fillRect(0, valveTop, 9, VALVE_SIZE);
                 }
 
                 // 排氣閘門
                 if (outletOpen) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                    ctx.fillText("→", width - 30, height/2 + 6);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.fillRect(width - 10, valveTop, 10, VALVE_SIZE);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillText("→", width - 28, height/2 + 6);
                 } else {
-                    ctx.fillStyle = '#64748b'; // 深灰色門板
-                    ctx.fillRect(width - 6, valveTop, 6, VALVE_SIZE);
+                    ctx.fillStyle = '#64748b'; // 深灰色實體門
+                    ctx.fillRect(width - 9, valveTop, 9, VALVE_SIZE);
                 }
+            } else {
+                // 單分子模式下，強制畫上緊閉的灰色實體門
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(0, valveTop, 9, VALVE_SIZE);
+                ctx.fillRect(width - 9, valveTop, 9, VALVE_SIZE);
             }
 
             // 更新 UI 數據
@@ -595,7 +630,6 @@
                 const vrms = getSpeedForTemp(currentTemp);
                 vrmsDisplay.innerText = vrms.toFixed(2) + " 單位";
             } else {
-                // 單一分子模式顯示其當前速率
                 if (particles.length > 0) {
                     const p = particles[0];
                     const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
@@ -612,9 +646,7 @@
             const newTemp = parseInt(e.target.value);
             tempDisplay.innerText = newTemp;
             
-            // 動能與溫度成正比，調整粒子速率
             const scaleFactor = Math.sqrt(newTemp / currentTemp);
-            
             particles.forEach(p => {
                 p.vx *= scaleFactor;
                 p.vy *= scaleFactor;
