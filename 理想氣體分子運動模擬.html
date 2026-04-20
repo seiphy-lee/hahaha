@@ -307,25 +307,27 @@
 
                 // 畫速度主箭頭
                 if (showArrows) {
-                    const arrowScale = currentMode === 'single' ? 6 : 4; 
+                    // 單一分子模式時，向量長度放大為 15，比原先的 6 倍增長了 2.5 倍
+                    const arrowScale = currentMode === 'single' ? 15 : 4; 
                     const toX = this.x + this.vx * arrowScale;
                     const toY = this.y + this.vy * arrowScale;
-                    const headlen = currentMode === 'single' ? 8 : 5;
-                    const arrowWidth = currentMode === 'single' ? 2.5 : 1.5;
+                    const headlen = currentMode === 'single' ? 12 : 5;
+                    const arrowWidth = currentMode === 'single' ? 3 : 1.5;
                     
                     drawArrow(this.x, this.y, toX, toY, 'rgba(71, 85, 105, 0.9)', arrowWidth, headlen);
                 }
 
                 // 畫速度分量箭頭 (僅限單一分子模式開啟時)
                 if (currentMode === 'single' && showComponents) {
-                    const arrowScale = 6;
+                    // 分量長度同步放大為 15
+                    const arrowScale = 15;
                     const toX = this.x + this.vx * arrowScale;
                     const toY = this.y + this.vy * arrowScale;
                     
                     // X分量 (藍色)
-                    drawArrow(this.x, this.y, toX, this.y, 'rgba(59, 130, 246, 0.8)', 2, 6);
+                    drawArrow(this.x, this.y, toX, this.y, 'rgba(59, 130, 246, 0.8)', 2.5, 10);
                     // Y分量 (綠色)
-                    drawArrow(this.x, this.y, this.x, toY, 'rgba(34, 197, 94, 0.8)', 2, 6);
+                    drawArrow(this.x, this.y, this.x, toY, 'rgba(34, 197, 94, 0.8)', 2.5, 10);
                     
                     // 畫虛線輔助線以構成矩形，幫助視覺建立向量合成感
                     if (Math.abs(this.vx) > 0.1 && Math.abs(this.vy) > 0.1) {
@@ -336,7 +338,7 @@
                         ctx.moveTo(this.x, toY);
                         ctx.lineTo(toX, toY);
                         ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
-                        ctx.lineWidth = 1;
+                        ctx.lineWidth = 1.5;
                         ctx.stroke();
                         ctx.setLineDash([]); // 繪製完畢重設為實線
                     }
@@ -514,10 +516,36 @@
             ctx.fillStyle = getBackgroundColor(currentTemp);
             ctx.fillRect(0, 0, width, height);
 
-            // 畫出容器邊界
-            ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            const valveTop = height/2 - VALVE_SIZE/2;
+            const valveBottom = height/2 + VALVE_SIZE/2;
+
+            // 畫出容器邊界 (實作缺口)
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
             ctx.lineWidth = 4;
-            ctx.strokeRect(2, 2, width-4, height-4);
+            ctx.beginPath();
+            
+            // 上下邊界
+            ctx.moveTo(2, 2); ctx.lineTo(width-2, 2);
+            ctx.moveTo(2, height-2); ctx.lineTo(width-2, height-2);
+            
+            // 左邊界
+            if (currentMode === 'multi' && inletOpen) {
+                // 開啟進氣閘門時，左側產生缺口
+                ctx.moveTo(2, 2); ctx.lineTo(2, valveTop);
+                ctx.moveTo(2, valveBottom); ctx.lineTo(2, height-2);
+            } else {
+                ctx.moveTo(2, 2); ctx.lineTo(2, height-2);
+            }
+
+            // 右邊界
+            if (currentMode === 'multi' && outletOpen) {
+                // 開啟排氣閘門時，右側產生缺口
+                ctx.moveTo(width-2, 2); ctx.lineTo(width-2, valveTop);
+                ctx.moveTo(width-2, valveBottom); ctx.lineTo(width-2, height-2);
+            } else {
+                ctx.moveTo(width-2, 2); ctx.lineTo(width-2, height-2);
+            }
+            ctx.stroke();
 
             // 處理進氣 (僅限多分子模式且閘門開啟)
             if (currentMode === 'multi' && inletOpen && frameCount % 8 === 0 && particles.length < 200) {
@@ -541,35 +569,24 @@
 
             // 繪製閘門視覺效果 (僅多分子模式)
             if (currentMode === 'multi') {
-                const valveTop = height/2 - VALVE_SIZE/2;
-                
+                ctx.font = 'bold 20px sans-serif';
                 // 進氣閘門
                 if (inletOpen) {
-                    ctx.fillStyle = '#68D391';
-                    ctx.fillRect(0, valveTop, 8, VALVE_SIZE);
-                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                    ctx.fillText("→", 10, height/2 + 5);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.fillText("→", 10, height/2 + 6);
                 } else {
-                    ctx.fillStyle = '#94a3b8';
-                    ctx.fillRect(0, valveTop, 4, VALVE_SIZE);
+                    ctx.fillStyle = '#64748b'; // 深灰色門板
+                    ctx.fillRect(0, valveTop, 6, VALVE_SIZE);
                 }
 
                 // 排氣閘門
                 if (outletOpen) {
-                    ctx.fillStyle = '#FC8181';
-                    ctx.fillRect(width - 8, valveTop, 8, VALVE_SIZE);
-                    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-                    ctx.fillText("→", width - 20, height/2 + 5);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.fillText("→", width - 30, height/2 + 6);
                 } else {
-                    ctx.fillStyle = '#94a3b8'; 
-                    ctx.fillRect(width - 4, valveTop, 4, VALVE_SIZE);
+                    ctx.fillStyle = '#64748b'; // 深灰色門板
+                    ctx.fillRect(width - 6, valveTop, 6, VALVE_SIZE);
                 }
-            } else {
-                // 單一分子模式：完全封閉的牆壁
-                const valveTop = height/2 - VALVE_SIZE/2;
-                ctx.fillStyle = '#94a3b8';
-                ctx.fillRect(0, valveTop, 4, VALVE_SIZE);
-                ctx.fillRect(width - 4, valveTop, 4, VALVE_SIZE);
             }
 
             // 更新 UI 數據
