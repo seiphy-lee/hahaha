@@ -22,13 +22,11 @@
     <div id="canvasContainer" class="flex-1 relative bg-[#f0f4f8]">
         <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full block"></canvas>
         
-        <!-- 即時數據顯示浮水印 (已移至右上角，並縮小為0.8倍) -->
+        <!-- 即時數據顯示浮水印 -->
         <div class="absolute top-6 right-6 bg-white/90 backdrop-blur p-5 rounded-xl shadow-lg pointer-events-none text-[26px] font-mono leading-relaxed border border-red-100">
-            <div class="font-bold text-red-800 border-b-2 border-red-200 pb-2 mb-2 text-[29px]">即時物理量</div>
+            <div class="font-bold text-red-800 border-b-2 border-red-200 pb-2 mb-2 text-[29px]">即時正向力</div>
             <div>狀態: <span id="lblMode" class="text-blue-600 font-bold">斜坡下滑</span></div>
-            <div>速度 <span class="math-font">v</span> : <span id="lblV">0.00</span> m/s</div>
-            <div>正向力 <span class="math-font">N</span> : <span id="lblN">0.00</span> N</div>
-            <div>向心加速 <span class="math-font">a<sub>c</sub></span> : <span id="lblAc">0.00</span> m/s²</div>
+            <div>正向力 <span class="math-font">N</span> : <span id="lblN">0.00</span> <span class="math-font">mg</span></div>
         </div>
     </div>
 
@@ -36,7 +34,8 @@
     <div class="w-full md:w-96 bg-white border-l border-gray-200 p-6 flex flex-col gap-5 overflow-y-auto shadow-[-4px_0_20px_rgba(0,0,0,0.05)] z-10 relative">
         <div>
             <h1 class="text-2xl font-bold text-gray-800 mb-1">雲霄飛車軌道模擬</h1>
-            <p class="text-sm text-gray-500">質量 m=1kg, 半徑 R=2m, g=9.8m/s²</p>
+            <h2 class="text-[19px] text-[#0000FF] font-bold mb-2">台中二中阿發老師設計</h2>
+            <p class="text-sm text-gray-500">質量 m=1kg, g=9.8m/s²</p>
         </div>
 
         <!-- 題目解析框 -->
@@ -47,34 +46,36 @@
             <p class="mb-1">由力學能守恆，推導最低點 P 的速度與加速度：</p>
             <p class="math-font text-center mb-1">½mv<sub>P</sub>² = ½mv<sub>M</sub>² + mg(2R)</p>
             <p class="math-font text-center mb-2 text-red-700 font-bold">v<sub>P</sub>² = 5gR  ⇒  a<sub>c</sub> = v<sub>P</sub>² / R = 5g</p>
-            <p class="text-xs text-gray-500 mt-2 border-t pt-2">結論：釋放高度至少需 <span class="math-font">H = 2.5R = 5m</span>，最低點加速度為 <span class="math-font">49 m/s² (5g)</span>。</p>
+            <p class="text-xs text-gray-500 mt-2 border-t pt-2">結論：釋放高度至少需 <span class="math-font text-red-600 font-bold">H = 2.5R</span>，最低點加速度為 <span class="math-font font-bold">5g</span>。</p>
         </div>
 
         <!-- 控制滑桿 -->
         <div class="flex flex-col gap-2 mt-2">
             <label class="font-semibold text-base flex justify-between">
                 <span>釋放高度 <span class="math-font text-red-600 font-bold">H</span></span>
-                <span id="hDisplay" class="text-red-600 font-bold">5.0 m</span>
+                <span id="hDisplay" class="text-red-600 font-bold text-lg">2.5 <span class="math-font">R</span></span>
             </label>
-            <input type="range" id="hSlider" min="0" max="7" step="0.1" value="5.0" class="w-full cursor-pointer h-2 bg-gray-200 rounded-lg appearance-none">
-            <div class="flex justify-between text-xs text-gray-400 font-bold">
-                <span>0</span>
-                <span>2.5R (臨界)</span>
-                <span>7m</span>
+            <input type="range" id="hSlider" min="0" max="3.5" step="0.1" value="2.5" class="w-full cursor-pointer h-2 bg-gray-200 rounded-lg appearance-none">
+            <div class="relative text-xs text-gray-400 font-bold mt-1">
+                <span class="absolute left-0">0</span>
+                <!-- 2.5R 位於 3.5R 的比例約 71.4% 處 -->
+                <span class="absolute" style="left: 71.4%; transform: translateX(-50%);">2.5R (臨界)</span>
+                <span class="absolute right-0">3.5R</span>
             </div>
+            <div class="h-3"></div> <!-- 避免絕對定位標籤重疊的佔位用 -->
         </div>
 
         <!-- 預設按鈕 -->
         <div class="flex flex-col gap-2">
             <span class="font-semibold text-sm text-gray-700">快速預設情境：</span>
-            <button onclick="setH(2.0)" class="px-3 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-100 rounded text-left transition-colors font-medium">
-                1. 能量不足 (擺盪) <br><span class="text-xs text-gray-500 font-normal">H < R (例如 2.0m)</span>
+            <button onclick="setK(1.0)" class="px-3 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-100 rounded text-left transition-colors font-medium">
+                1. 能量不足 (擺盪) <br><span class="text-xs text-gray-500 font-normal math-font">H &le; R (例如 1.0R)</span>
             </button>
-            <button onclick="setH(3.5)" class="px-3 py-2 text-sm bg-white border border-orange-300 hover:bg-orange-50 rounded text-left transition-colors font-medium">
-                2. 越過半圓但脫軌 (拋體) <br><span class="text-xs text-orange-500 font-normal">R < H < 2.5R (例如 3.5m)</span>
+            <button onclick="setK(1.8)" class="px-3 py-2 text-sm bg-white border border-orange-300 hover:bg-orange-50 rounded text-left transition-colors font-medium">
+                2. 越過半圓但脫軌 (拋體) <br><span class="text-xs text-orange-500 font-normal math-font">R &lt; H &lt; 2.5R (例如 1.8R)</span>
             </button>
-            <button onclick="setH(5.001)" class="px-3 py-2 text-sm bg-white border border-red-300 hover:bg-red-50 rounded text-left transition-colors font-medium shadow-sm">
-                3. 完美臨界越過 M 點 <br><span class="text-xs text-red-600 font-normal">H = 2.5R (5.0m)</span>
+            <button onclick="setK(2.5)" class="px-3 py-2 text-sm bg-white border border-red-300 hover:bg-red-50 rounded text-left transition-colors font-medium shadow-sm">
+                3. 完美臨界越過 M 點 <br><span class="text-xs text-red-600 font-normal math-font">H = 2.5R</span>
             </button>
         </div>
 
@@ -86,7 +87,7 @@
             </label>
             <label class="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" id="slowMotion" class="rounded text-red-600 focus:ring-red-500 w-5 h-5">
-                <span class="text-sm text-gray-700 font-bold">慢動作 (1/4 倍速)</span>
+                <span class="text-sm text-gray-700 font-bold">慢動作 (1/10 倍速)</span>
             </label>
         </div>
 
@@ -110,7 +111,7 @@
         const m = 1.0;      
         const slopeEndX = -3.0; // 斜坡結束，接到平地的 X 座標
         
-        let initialH = 5.0; // 初始釋放高度
+        let initialH = 5.0; // 初始釋放高度 (真實公尺)
         let isRunning = false;
         let animationId = null;
 
@@ -145,7 +146,8 @@
             theta: 0,       
             omega: 0,       
             mode: 'SLOPE',  
-            N: 0            
+            N: 0,
+            totalE: 0 // 儲存總力學能，確保物理模擬不失真
         };
 
         let pathHistory = [];
@@ -161,14 +163,15 @@
         
         function updateUI() {
             let val = parseFloat(hSlider.value);
-            hDisplay.innerText = val === 5.001 ? "5.0 m" : val.toFixed(1) + ' m';
-            initialH = val;
+            hDisplay.innerHTML = val.toFixed(1) + ' <span class="math-font">R</span>';
+            initialH = val * R; // 將 R 的倍數轉換為實際運算的公尺高度
+            
             if (!isRunning && ball.mode === 'SLOPE' && ball.vs === 0) {
                 resetSim(); 
             }
         }
 
-        window.setH = function(val) {
+        window.setK = function(val) {
             hSlider.value = val;
             updateUI();
             resetSim();
@@ -197,7 +200,8 @@
                 vx: 0, vy: 0,
                 theta: 0, omega: 0,
                 mode: 'SLOPE',
-                N: m * g * Math.cos(Math.PI / 4)
+                N: m * g * Math.cos(Math.PI / 4),
+                totalE: m * g * initialH // 重置時鎖定初始總能量
             };
             pathHistory = [];
             stepCount = 0;
@@ -211,7 +215,7 @@
         const dt = timeStep / subSteps;
 
         function physicsStep() {
-            let currentDt = slowMotion.checked ? dt / 4 : dt;
+            let currentDt = slowMotion.checked ? dt / 10 : dt;
             const slopeAngle = Math.PI / 4; 
 
             for (let i = 0; i < subSteps; i++) {
@@ -230,7 +234,8 @@
                         ball.mode = 'HORIZ';
                         ball.x = slopeEndX;
                         ball.y = 0;
-                        ball.vx = Math.abs(ball.vs); 
+                        // 強制套用能量守恆修正速度，消弭軌道轉折的積分誤差
+                        ball.vx = Math.sqrt(2 * ball.totalE / m); 
                         ball.vy = 0;
                         ball.N = m * g;
                     }
@@ -242,25 +247,38 @@
                     if (ball.x >= 0 && ball.vx > 0) {
                         ball.mode = 'CIRCLE';
                         ball.theta = 0;
-                        ball.omega = ball.vx / R;
+                        // 確保進入圓周時能量完全精準
+                        ball.omega = Math.sqrt(2 * ball.totalE / m) / R; 
                         ball.x = 0; 
                         ball.y = 0;
                     } else if (ball.x <= slopeEndX && ball.vx < 0) {
                         ball.mode = 'SLOPE';
                         ball.x = slopeEndX;
                         ball.y = 0;
-                        ball.vs = Math.abs(ball.vx); 
+                        ball.vs = Math.sqrt(2 * ball.totalE / m); 
                     }
                 } 
                 else if (ball.mode === 'CIRCLE') {
+                    // 先計算切線加速度以判斷角速度「方向」
                     let alpha = -(g / R) * Math.sin(ball.theta);
-                    ball.omega += alpha * currentDt;
+                    let next_omega = ball.omega + alpha * currentDt;
                     ball.theta += ball.omega * currentDt;
 
-                    ball.N = m * (ball.omega * ball.omega * R + g * Math.cos(ball.theta));
+                    // 使用嚴格的力學能守恆計算「大小」，徹底消滅積分飄移
+                    let current_y = R * (1 - Math.cos(ball.theta));
+                    let v_bottom_sq = 2 * ball.totalE / m;
+                    let exact_v_sq = v_bottom_sq - 2 * g * current_y;
+
+                    if (exact_v_sq < 0) exact_v_sq = 0; // 防止浮點數微小穿透造成負根號
+
+                    // 結合方向與絕對大小
+                    ball.omega = (next_omega >= 0 ? 1 : -1) * Math.sqrt(exact_v_sq) / R;
+
+                    // 利用絕對精準的速率平方計算正向力 N
+                    ball.N = m * (exact_v_sq / R + g * Math.cos(ball.theta));
 
                     ball.x = R * Math.sin(ball.theta);
-                    ball.y = R * (1 - Math.cos(ball.theta));
+                    ball.y = current_y;
                     ball.vx = ball.omega * R * Math.cos(ball.theta);
                     ball.vy = ball.omega * R * Math.sin(ball.theta);
 
@@ -273,7 +291,8 @@
                         ball.vy = 0;
                         ball.N = m * g;
                     } 
-                    else if (ball.N <= 0 && Math.cos(ball.theta) < 0) {
+                    // 脫軌條件：N為負且球在水平面上方 (cos < 0)。加入 1e-4 的容差吸收浮點數誤差
+                    else if (ball.N <= -1e-4 && Math.cos(ball.theta) <= -1e-4) {
                         ball.mode = 'FREE';
                         ball.N = 0;
                     }
@@ -302,10 +321,11 @@
                     }
                 }
 
-                let pathFreq = slowMotion.checked ? 30 : 5;
+                // 增加軌跡長度，讓完整的圓周都能被清楚看到
+                let pathFreq = slowMotion.checked ? 50 : 5;
                 if (stepCount++ % pathFreq === 0) {
                     pathHistory.push({ x: ball.x, y: ball.y });
-                    if (pathHistory.length > 250) pathHistory.shift();
+                    if (pathHistory.length > 800) pathHistory.shift();
                 }
             }
         }
@@ -339,31 +359,14 @@
             const ballRadius = 16;
             const trackOffset = ballRadius + 2; 
 
-            // ===== 數學參數計算 (用於完美的彎曲與無縫銜接) =====
+            // ===== 數學參數計算 =====
             const T = trackOffset;
-            const arcRadius = 150; // 加大圓角半徑，讓彎道更明顯平滑
-            const rb = arcRadius - T; // 球體中心運行的虛擬軌道半徑
+            const arcRadius = 0.6 * scale; // 改用相對比例，避免小螢幕時圓角干擾圓周軌道
             
-            // 轉角幾何中心點 (計算完美切換點)
-            const x_c = toScreenX(slopeEndX) + rb * (Math.SQRT2 - 1);
-            const y_c = toScreenY(0) - rb;
-            
-            // 定義球體進入平滑區的起始與結束 X 坐標
-            const tangentSlopeX = x_c - rb / Math.SQRT2;
-            const tangentGroundX = x_c;
-
             let bx = toScreenX(ball.x);
             let by = toScreenY(ball.y);
 
-            // 【黑科技渲染】讓球體在交界區完美順著彎道曲線走，解決卡軌道問題
-            if (bx >= tangentSlopeX && bx <= tangentGroundX) {
-                const dx = bx - x_c;
-                if (rb * rb >= dx * dx) {
-                    by = y_c + Math.sqrt(rb * rb - dx * dx);
-                }
-            }
-
-            // ================= 1. 畫軌道 (雙層紅色金屬質感 + 幾何平滑轉角) =================
+            // ================= 1. 畫軌道 (雙層紅色金屬質感) =================
             function drawTrackPath() {
                 const startX = toScreenX(slopeEndX - 8);
                 const startY = toScreenY(8);
@@ -376,7 +379,7 @@
 
                 ctx.beginPath();
                 ctx.moveTo(trackSlopeStartX, trackSlopeStartY);
-                // 產生更大的平滑角
+                // 產生平滑角
                 ctx.arcTo(trackCornerX, trackCornerY, toScreenX(0), toScreenY(0) + T, arcRadius);
                 ctx.lineTo(toScreenX(0), toScreenY(0) + T);
                 // 完整的圓周軌道 (從底端 Math.PI/2 起繞 360 度)
@@ -409,7 +412,7 @@
             
             if(ball.mode === 'SLOPE' && !isRunning) {
                 ctx.beginPath(); 
-                ctx.moveTo(bx, by); // 跟隨修正後的 Y 坐標
+                ctx.moveTo(bx, by);
                 ctx.lineTo(toScreenX(slopeEndX), by); 
                 ctx.stroke();
                 
@@ -438,18 +441,12 @@
             ctx.fillText("M", toScreenX(0) - 20, toScreenY(2*R) - trackOffset - 15);
             ctx.textAlign = 'left';
 
-            // ================= 3. 畫軌跡 =================
+            // ================= 3. 畫軌跡 (還原真實物理軌跡) =================
             if (pathHistory.length > 1) {
                 ctx.beginPath();
                 for (let i = 0; i < pathHistory.length; i++) {
                     let p_bx = toScreenX(pathHistory[i].x);
                     let p_by = toScreenY(pathHistory[i].y);
-                    
-                    // 軌跡也一併套用視覺平滑過濾，讓線條完美弧形
-                    if (p_bx >= tangentSlopeX && p_bx <= tangentGroundX) {
-                        const dx = p_bx - x_c;
-                        if (rb * rb >= dx * dx) p_by = y_c + Math.sqrt(rb * rb - dx * dx);
-                    }
                     
                     if (i === 0) ctx.moveTo(p_bx, p_by);
                     else ctx.lineTo(p_bx, p_by);
@@ -477,16 +474,7 @@
 
                 let vMag = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
                 if (vMag > 0.1) {
-                    let vx_vis = ball.vx;
-                    let vy_vis = ball.vy;
-                    // 在彎道過渡時，視覺修正向量方向以完美切線
-                    if (bx >= tangentSlopeX && bx <= tangentGroundX && ball.mode !== 'CIRCLE') {
-                        const nx_c = (x_c - bx) / rb;
-                        const ny_c = (by - y_c) / rb;
-                        vx_vis = vMag * ny_c;
-                        vy_vis = vMag * nx_c;
-                    }
-                    drawArrow(bx, by, bx + vx_vis * vScale, by - vy_vis * vScale, '#16a34a', 4);
+                    drawArrow(bx, by, bx + ball.vx * vScale, by - ball.vy * vScale, '#16a34a', 4);
                 }
 
                 drawArrow(bx, by, bx, by + m * g * fScale, '#94a3b8', 3);
@@ -498,10 +486,6 @@
                     } else if (ball.mode === 'CIRCLE') {
                         nx = -Math.sin(ball.theta);
                         ny = Math.cos(ball.theta);
-                    } else if (bx >= tangentSlopeX && bx <= tangentGroundX) {
-                        // 在底部圓角區，修正正向力向量指向圓角圓心
-                        nx = (x_c - bx) / rb;
-                        ny = (by - y_c) / rb;
                     } else if (ball.mode === 'SLOPE') {
                         nx = Math.sin(Math.PI/4);
                         ny = Math.cos(Math.PI/4);
@@ -532,22 +516,8 @@
             lblMode.innerText = modeName[ball.mode];
             lblMode.className = `font-bold ${modeColors[ball.mode]}`;
             
-            let currentV = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
-            document.getElementById('lblV').innerText = currentV.toFixed(2);
-            document.getElementById('lblN').innerText = Math.max(0, ball.N).toFixed(2);
-            
-            let ac = 0;
-            if (ball.mode === 'CIRCLE') {
-                ac = (currentV * currentV) / R;
-            }
-            
-            const acElement = document.getElementById('lblAc');
-            acElement.innerText = ac.toFixed(2);
-            if (ac >= 48.9) {
-                acElement.className = "text-red-600 font-bold";
-            } else {
-                acElement.className = "";
-            }
+            let nInMg = Math.max(0, ball.N) / (m * g);
+            document.getElementById('lblN').innerText = nInMg.toFixed(2);
         }
 
         function loop() {
