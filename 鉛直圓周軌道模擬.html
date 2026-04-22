@@ -14,6 +14,12 @@
         input[type=range], input[type=checkbox] {
             accent-color: #f97316;
         }
+        /* 根號上方的橫線樣式 */
+        .sqrt-line {
+            border-top: 1.5px solid currentColor;
+            padding-top: 1px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 h-screen w-screen overflow-hidden flex flex-col md:flex-row m-0 p-0">
@@ -22,7 +28,7 @@
     <div id="canvasContainer" class="flex-1 relative bg-[#f5ece5]">
         <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full block"></canvas>
         
-        <!-- 即時數據顯示浮水印 (字體放大 2.5 倍) -->
+        <!-- 即時數據顯示浮水印 -->
         <div class="absolute top-6 left-6 bg-white/85 backdrop-blur p-6 rounded-xl shadow-md pointer-events-none text-[35px] font-mono leading-relaxed border border-gray-200">
             <div class="font-bold text-gray-700 border-b pb-4 mb-4 text-[40px]">即時物理量</div>
             <div>模式: <span id="lblMode" class="text-blue-600 font-bold">水平直線</span></div>
@@ -36,34 +42,38 @@
     <div class="w-full md:w-80 bg-white border-l border-gray-200 p-6 flex flex-col gap-6 overflow-y-auto shadow-[-4px_0_20px_rgba(0,0,0,0.05)] z-10 relative">
         <div>
             <h1 class="text-xl font-bold text-gray-800 mb-1">鉛直軌道運動模擬</h1>
+            <h2 class="text-[16px] text-[#0000FF] font-bold mb-2">台中二中阿發老師設計</h2>
             <p class="text-xs text-gray-500">質量 m=1kg, 半徑 R=2m, g=9.8m/s²</p>
         </div>
 
         <!-- 控制滑桿 -->
         <div class="flex flex-col gap-2">
-            <label class="font-semibold text-sm flex justify-between">
-                <span>初始速度 <span class="math-font text-orange-500 font-bold">v<sub>0</sub></span></span>
-                <span id="v0Display" class="text-orange-600 font-bold">8.0 m/s</span>
+            <label class="font-semibold text-sm flex justify-between items-center">
+                <span>初始速度</span>
+                <span id="v0Display" class="text-orange-600 font-bold text-lg">
+                    <span class="math-font">v<sub>0</sub> = &radic;<span class="sqrt-line"><span id="kValue">3.8</span>gR</span></span>
+                </span>
             </label>
-            <input type="range" id="v0Slider" min="0" max="12" step="0.1" value="8.0" class="w-full cursor-pointer">
+            <input type="range" id="v0Slider" min="0" max="8" step="0.1" value="3.8" class="w-full cursor-pointer">
             <div class="flex justify-between text-xs text-gray-400">
                 <span>0</span>
-                <span>臨界值</span>
-                <span>12</span>
+                <span>&radic;(2gR)</span>
+                <span>&radic;(5gR)</span>
+                <span>&radic;(8gR)</span>
             </div>
         </div>
 
         <!-- 預設按鈕 (老師教學好幫手) -->
         <div class="flex flex-col gap-2">
             <span class="font-semibold text-sm text-gray-700">快速預設情境：</span>
-            <button onclick="setV0(5.0)" class="px-3 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-100 rounded text-left transition-colors">
-                1. 無法到達 Q 點 (擺盪) <br><span class="text-xs text-gray-500">v₀ < √(2gR) ≈ 6.26 m/s</span>
+            <button onclick="setK(1.5)" class="px-3 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-100 rounded text-left transition-colors">
+                1. 無法到達 Q 點 (擺盪) <br><span class="text-xs text-gray-500 math-font">v<sub>0</sub> &lt; &radic;(2gR)</span>
             </button>
-            <button onclick="setV0(8.0)" class="px-3 py-2 text-sm bg-white border border-orange-300 hover:bg-orange-50 rounded text-left transition-colors">
-                2. 越過 Q 點但脫軌 (拋體) <br><span class="text-xs text-orange-500">6.26 < v₀ < √(5gR) ≈ 9.9 m/s</span>
+            <button onclick="setK(3.8)" class="px-3 py-2 text-sm bg-white border border-orange-300 hover:bg-orange-50 rounded text-left transition-colors">
+                2. 越過 Q 點但脫軌 (拋體) <br><span class="text-xs text-orange-500 math-font">&radic;(2gR) &lt; v<sub>0</sub> &lt; &radic;(5gR)</span>
             </button>
-            <button onclick="setV0(10.5)" class="px-3 py-2 text-sm bg-white border border-green-300 hover:bg-green-50 rounded text-left transition-colors">
-                3. 完整越過 M 點 (圓周) <br><span class="text-xs text-green-500">v₀ ≥ √(5gR) ≈ 9.9 m/s</span>
+            <button onclick="setK(5.3)" class="px-3 py-2 text-sm bg-white border border-green-300 hover:bg-green-50 rounded text-left transition-colors">
+                3. 完整越過 M 點 (圓周) <br><span class="text-xs text-green-500 math-font">v<sub>0</sub> &ge; &radic;(5gR)</span>
             </button>
         </div>
 
@@ -101,13 +111,13 @@
         const g = 9.8;      // 重力加速度 (m/s^2)
         const R = 2.0;      // 軌道半徑 (m)
         const m = 1.0;      // 物體質量 (kg)
-        const startX = -8.0;// 起始位置 (m) (往左移，創造更長的跑道)
+        const startX = -8.0;// 起始位置 (m) 
         
-        let v0 = 8.0;       // 初始速度
+        let v0 = Math.sqrt(3.8 * g * R); // 初始速度 (以 k=3.8 為預設)
         let isRunning = false;
         let animationId = null;
 
-        // --- 繪圖比例與座標轉換 (支援動態縮放) ---
+        // --- 繪圖比例與座標轉換 ---
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
         const container = document.getElementById('canvasContainer');
@@ -117,20 +127,14 @@
         let originY = 0;
 
         function resizeCanvas() {
-            // 讓 canvas 的內部解析度對齊其實際的 CSS 大小
             canvas.width = container.clientWidth;
             canvas.height = container.clientHeight;
             
-            // 動態計算縮放比例，容納加長後的軌道寬度 (約12m)
             scale = Math.min(canvas.width / 12, canvas.height / 6);
-            
-            // 動態置中原點 P 
-            // X 軸：讓半圓軌道靠最右邊 (保留 R=2m 以及 Q 點標籤的空間約 3m)
             originX = canvas.width - (3.0 * scale); 
-            // Y 軸：放在畫面偏下 (80%) 的位置，留空間給上方的圓周軌道
             originY = canvas.height * 0.8; 
 
-            if (!isRunning) draw(); // 視窗縮放時即時重繪
+            if (!isRunning) draw(); 
         }
 
         window.addEventListener('resize', resizeCanvas);
@@ -155,7 +159,7 @@
 
         // --- DOM 元素 ---
         const v0Slider = document.getElementById('v0Slider');
-        const v0Display = document.getElementById('v0Display');
+        const kValueDisplay = document.getElementById('kValue');
         const btnPlay = document.getElementById('btnPlay');
         const btnReset = document.getElementById('btnReset');
         const showVectors = document.getElementById('showVectors');
@@ -164,15 +168,17 @@
         
         // UI 更新函式
         function updateUI() {
-            v0Display.innerText = parseFloat(v0Slider.value).toFixed(1) + ' m/s';
-            v0 = parseFloat(v0Slider.value);
+            let k = parseFloat(v0Slider.value);
+            kValueDisplay.innerText = k.toFixed(1);
+            v0 = Math.sqrt(k * g * R);
+            
             if (!isRunning && ball.mode === 'HORIZ' && ball.x === startX) {
                 ball.vx = v0;
                 draw();
             }
         }
 
-        window.setV0 = function(val) {
+        window.setK = function(val) {
             v0Slider.value = val;
             updateUI();
             resetSim();
@@ -219,7 +225,6 @@
         const dt = timeStep / subSteps;
 
         function physicsStep() {
-            // 如果勾選慢動作，讓物理運算的時間步縮減為 1/5
             let currentDt = slowMotion.checked ? dt / 5 : dt;
 
             for (let i = 0; i < subSteps; i++) {
@@ -280,7 +285,6 @@
                     }
                 }
 
-                // 慢動作時降低記錄軌跡點的頻率，確保視覺上軌跡點疏密一致
                 let pathFrequency = slowMotion.checked ? 25 : 5;
                 if (stepCount++ % pathFrequency === 0) {
                     pathHistory.push({ x: ball.x, y: ball.y });
@@ -322,7 +326,6 @@
             ctx.strokeStyle = '#334155';
             ctx.lineWidth = 4;
             ctx.beginPath();
-            // 稍微多往左延伸一點起點地平線
             ctx.moveTo(toScreenX(startX - 1.5), toScreenY(0) + trackOffset);
             ctx.lineTo(toScreenX(R * 3), toScreenY(0) + trackOffset);
             ctx.stroke();
@@ -341,21 +344,19 @@
             ctx.beginPath(); ctx.moveTo(toScreenX(0), toScreenY(R)); ctx.lineTo(toScreenX(R) + trackOffset, toScreenY(R)); ctx.stroke();
             ctx.setLineDash([]); 
 
-            // 畫 R 的箭頭與標示
             const cX = toScreenX(0);
             const edgeX = toScreenX(R) + trackOffset;
-            const arrowY = toScreenY(R) - 20; // 將箭頭放在虛線上方 20px
+            const arrowY = toScreenY(R) - 20; 
 
-            drawArrow(cX + (edgeX - cX)/2, arrowY, cX, arrowY, '#475569', 1.5);      // 左箭頭(精準指到圓心C)
-            drawArrow(cX + (edgeX - cX)/2, arrowY, edgeX, arrowY, '#475569', 1.5);  // 右箭頭(精準指到軌道邊緣)
+            drawArrow(cX + (edgeX - cX)/2, arrowY, cX, arrowY, '#475569', 1.5);      
+            drawArrow(cX + (edgeX - cX)/2, arrowY, edgeX, arrowY, '#475569', 1.5);  
 
             ctx.fillStyle = '#0f172a';
             ctx.font = "italic 20px 'Times New Roman', serif";
             ctx.textAlign = 'center';
             ctx.fillText("R", cX + (edgeX - cX)/2, arrowY - 8);
-            ctx.textAlign = 'left'; // 恢復預設
+            ctx.textAlign = 'left'; 
 
-            // 文字標籤
             ctx.fillStyle = '#0f172a';
             ctx.font = "italic bold 22px 'Times New Roman', serif";
             ctx.fillText("O", toScreenX(startX + 0.2), toScreenY(0) + trackOffset + 25);
