@@ -699,17 +699,6 @@
                 await setDoc(myScoreDocRef, { votes: myAllVotes });
                 
                 window.closeConfirmModal();
-
-        window.confirmSubmitGrade = async () => {
-            const grade = pendingSubmitGrade;
-            let myAllVotes = globalScores[currentUserLabel] || {};
-            myAllVotes[grade] = pendingSubmitVotes;
-
-            try {
-                const myScoreDocRef = doc(scoresCollectionRef, currentUserLabel);
-                await setDoc(myScoreDocRef, { votes: myAllVotes });
-                
-                window.closeConfirmModal();
                 
                 // ★ 老師的修復點：先檢查 status 元件還存不存在畫面上 ★
                 const status = document.getElementById('save-status-' + grade);
