@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>選書計分即時連動系統 (Firebase版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+    <div id="loading-screen" class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-4"></div>
+        <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
+    </div>
+
+    <!-- 加入 px-2 讓手機兩側有安全邊距 -->
+    <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
+
+        <!-- ==========================================
+             1. 登入版面
+             ========================================== -->
+        <div id="login-section" class="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-md mx-auto mt-4 sm:mt-10">
+            <h1 class="text-xl sm:text-2xl font-bold text-center mb-2 text-blue-600">☁️ 選書計分系統</h1>
+            <p class="text-center text-gray-500 mb-6 text-xs sm:text-sm">Firebase 即時連線版</p>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇身分：</label>
+                <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                        <input type="radio" name="role" value="admin" class="mr-2 w-4 h-4" checked onchange="window.toggleLoginRole()"> 管理者
+                    </label>
+                    <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                        <input type="radio" name="role" value="committee" class="mr-2 w-4 h-4" onchange="window.toggleLoginRole()"> 選書委員
+                    </label>
+                </div>
+            </div>
+
+            <div id="committee-select-group" class="mb-6 hidden">
+                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇您的姓名：</label>
+                <select id="committee-dropdown" class="w-full border p-3 rounded bg-gray-50 text-base">
+                    <option value="">載入名單中...</option>
+                </select>
+            </div>
+
+            <button onclick="window.handleLogin()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md">
+                登入系統
+            </button>
+        </div>
+
+        <!-- ==========================================
+             2. 管理者版面
+             ========================================== -->
+        <div id="admin-section" class="hidden">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2">👨‍💼 管理者控制台</h1>
+                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">登出</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+                <!-- 委員名單管理 -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-blue-400 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3">👥 1. 委員名單管理</h3>
+                    <div class="flex flex-col gap-2 mb-4">
+                        <textarea id="new-committee-name" rows="3" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50"></textarea>
+                        <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm">批次新增名單</button>
+                    </div>
+                    <h4 class="text-xs font-bold text-gray-500 mb-1">目前名單：</h4>
+                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
+                </div>
+
+                <!-- 排序模式與說明 -->
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-purple-400">
+                    <h3 class="text-base sm:text-lg font-bold mb-3">⚙️ 2. 計分模式設定</h3>
+                    <div class="space-y-3 mb-4 border-b pb-4">
+                        <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input type="radio" name="sortMode" value="score" class="mr-3 w-4 h-4" onchange="window.updateSortMode(this.value)"> 
+                            <span class="font-medium text-sm sm:text-base">分數制 <span class="text-xs text-gray-500 hidden sm:inline">(總分越高越好)</span></span>
+                        </label>
+                        <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                            <input type="radio" name="sortMode" value="rank" class="mr-3 w-4 h-4" onchange="window.updateSortMode(this.value)"> 
+                            <span class="font-medium text-sm sm:text-base">名次制 <span class="text-xs text-gray-500 hidden sm:inline">(數字越小越好)</span></span>
+                        </label>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded border border-purple-100">
+                        <label class="block text-xs sm:text-sm font-bold text-purple-800 mb-1">💡 計分範圍說明：</label>
+                        <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">請在下方的<span class="font-bold text-blue-600">「年級與書單管理」</span>中，針對每個年級設定專屬的評分範圍！</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 書單與年級管理 -->
+            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-yellow-400 mb-6">
+                <h3 class="text-base sm:text-lg font-bold mb-4">📚 3. 年級與書單版本管理</h3>
+                
+                <div class="flex flex-col sm:flex-row gap-2 mb-6 p-3 sm:p-4 bg-gray-50 rounded border">
+                    <input type="text" id="new-grade-name" placeholder="例如：高一、國一、專業群科..." class="border p-2 rounded flex-grow text-sm sm:text-base">
+                    <button onclick="window.addGrade()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded font-bold transition w-full sm:w-auto shadow-sm">➕ 新增年級</button>
+                </div>
+
+                <div id="admin-grades-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                    <!-- JavaScript 會動態產生年級區塊 -->
+                </div>
+            </div>
+
+            <!-- 即時計分結果 -->
+            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-green-400">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-base sm:text-lg font-bold text-green-800">🏆 4. 結算榜單 (雲端連動)</h3>
+                        <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded animate-pulse">● Live</span>
+                    </div>
+                    <button onclick="window.downloadExcel()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow text-sm transition flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        下載 Excel 報表
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="ranking-container">
+                    <!-- 名次結果會動態顯示在這裡 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             3. 選書委員版面
+             ========================================== -->
+        <div id="committee-section" class="hidden">
+             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-green-800 border-l-4 border-green-500 pl-2">🧑‍🏫 歡迎，<span id="current-committee-name"></span> 委員</h1>
+                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">登出</button>
+            </div>
+            
+            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                <h2 class="text-lg sm:text-xl font-bold mb-3">📖 本期選書評分表</h2>
+                <p id="voting-instruction" class="text-sm sm:text-base text-blue-700 font-bold mb-6 bg-blue-50 p-3 sm:p-4 rounded border border-blue-200 shadow-sm leading-relaxed">
+                    <!-- 提示文字動態產生 -->
+                </p>
+                
+                <div id="voting-area" class="space-y-6">
+                    <!-- 委員的評分表動態產生在這裡 -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 彈出式確認視窗 (Modal - RWD 優化) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white p-5 sm:p-6 rounded-lg shadow-2xl max-w-sm w-full mx-auto transform transition-all">
+            <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-4 border-b pb-2">送出評分確認</h3>
+            <div id="confirm-modal-content" class="mb-6 text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- 評分明細 -->
+            </div>
+            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+                <button onclick="window.closeConfirmModal()" class="w-full sm:w-auto px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition font-medium border">取消修改</button>
+                <button onclick="window.confirmSubmitGrade()" class="w-full sm:w-auto px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded transition font-bold shadow-md">確定送出</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         Firebase 與 JavaScript 邏輯區
+         ========================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ★ 老師已經幫你把原本的英文字母 l 改成數字的 1 了！ ★
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
+            authDomain: "school-book-system-864cb.firebaseapp.com",
+            projectId: "school-book-system-864cb",
+            storageBucket: "school-book-system-864cb.firebasestorage.app",
+            messagingSenderId: "996605263028",
+            appId: "1:996605263028:web:0cb6c0a481512ca4d8ebe1"
+        };
+        
+        const appId = 'school-book-system-2026';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const configDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'appConfig', 'main');
+        const scoresCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+
+        let globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {} };
+        let globalScores = {}; 
+        let currentRole = null;
+        let currentUserLabel = null;
+        
+        let pendingSubmitGrade = '';
+        let pendingSubmitVotes = {};
+
+        const initAuth = async () => {
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("登入失敗：", error);
+                
+                let errorMsg = "無法登入資料庫！\n\n";
+                if (error.code === 'auth/operation-not-allowed') {
+                    errorMsg += "🚨 錯誤：您尚未在 Firebase 後台啟用「匿名 (Anonymous)」登入功能！請回 Firebase 控制台開啟。";
+                } else if (error.code === 'auth/api-key-not-valid') {
+                    errorMsg += "🚨 錯誤：API Key 無效！請確認您的 apiKey 沒有複製錯誤或漏字。";
+                } else {
+                    errorMsg += "錯誤代碼：" + error.code;
+                }
+                alert(errorMsg);
+                
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                setupRealtimeListeners();
+            }
+        });
+
+        initAuth();
+
+        function setupRealtimeListeners() {
+            onSnapshot(configDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    globalConfig = docSnap.data();
+                    if (!globalConfig.gradeRanges) globalConfig.gradeRanges = {};
+                } else {
+                    setDoc(configDocRef, globalConfig);
+                }
+                updateUI();
+            }, (error) => {
+                console.error("監聽設定失敗:", error);
+                if(error.code === 'permission-denied') {
+                    alert("🚨 權限被拒絕！請確認您已將 Firebase Firestore 的規則改為允許讀寫 (request.auth != null)。");
+                }
+            });
+
+            onSnapshot(scoresCollectionRef, (snapshot) => {
+                globalScores = {};
+                snapshot.forEach(doc => {
+                    globalScores[doc.id] = doc.data().votes || {};
+                });
+                updateUI();
+            }, (error) => console.error("監聽分數失敗:", error));
+        }
+
+        function updateUI() {
+            const dropdown = document.getElementById('committee-dropdown');
+            const currentSelected = dropdown.value;
+            dropdown.innerHTML = globalConfig.committees.length === 0 
+                ? '<option value="">請等待管理者建立名單...</option>' 
+                : '<option value="">-- 請選擇您的姓名 --</option>';
+            
+            globalConfig.committees.forEach(name => {
+                dropdown.innerHTML += `<option value="${name}" ${name === currentSelected ? 'selected' : ''}>${name}</option>`;
+            });
+
+            const list = document.getElementById('committee-list');
+            list.innerHTML = globalConfig.committees.map(name => {
+                return `<li class="border-b border-gray-100 py-2 last:border-0 text-sm text-gray-700 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}</li>`;
+            }).join('');
+
+            const radios = document.getElementsByName('sortMode');
+            radios.forEach(radio => {
+                radio.checked = (radio.value === globalConfig.sortMode);
+            });
+
+            renderAdminGradesAndBooks();
+
+            if (currentRole === 'admin') renderLiveRanking();
+            if (currentRole === 'committee' && currentUserLabel) renderVotingArea();
+        }
+
+        function renderAdminGradesAndBooks() {
+            const container = document.getElementById('admin-grades-container');
+            container.innerHTML = '';
+            const defaultPublishers = ['龍騰', '翰林', '南一', '全華', '泰宇', '三民'];
+
+            globalConfig.grades.forEach(grade => {
+                const books = globalConfig.books[grade] || [];
+                const defaultMax = books.length > 0 ? books.length : 5;
+                const range = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
+                
+                const pubButtonsHTML = defaultPublishers.map(pub => {
+                    const isAdded = books.includes(pub);
+                    const btnClass = isAdded 
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                        : 'bg-blue-50 hover:bg-blue-200 text-blue-700 border border-blue-200 cursor-pointer';
+                    return `<button ${isAdded ? 'disabled' : `onclick="window.addBook('${grade}', '${pub}')"`} 
+                            class="text-xs sm:text-sm px-2 py-1 rounded transition ${btnClass}">${pub}</button>`;
+                }).join('');
+
+                let committeeStatusHTML = `<div class="mt-3 bg-white p-2 rounded border border-gray-200">
+                    <h4 class="text-xs font-bold text-gray-600 mb-2 border-b pb-1">👀 委員投票狀態 (共 ${globalConfig.committees.length} 人)</h4>
+                    <ul class="max-h-24 overflow-y-auto space-y-1">`;
+                
+                if(globalConfig.committees.length === 0) {
+                    committeeStatusHTML += `<li class="text-xs text-gray-400 text-center py-1">尚無名單</li>`;
+                } else {
+                    globalConfig.committees.forEach(name => {
+                        const userVotesForThisGrade = globalScores[name] && globalScores[name][grade];
+                        const hasVoted = userVotesForThisGrade && Object.keys(userVotesForThisGrade).length > 0;
+                        const badge = hasVoted 
+                            ? `<span class="text-green-600 text-[10px] border border-green-200 bg-green-50 px-1 rounded font-bold">✅ 已投</span>` 
+                            : `<span class="text-red-500 text-[10px] border border-red-200 bg-red-50 px-1 rounded font-bold">⏳ 未投</span>`;
+                        committeeStatusHTML += `<li class="flex justify-between items-center text-xs py-0.5 border-b border-gray-50 last:border-0"><span class="text-gray-700 truncate w-20" title="${name}">${name}</span>${badge}</li>`;
+                    });
+                }
+                committeeStatusHTML += `</ul></div>`;
+
+                let html = `
+                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
+                        <div class="bg-yellow-200 font-bold p-2 text-center border-b text-yellow-900 text-sm sm:text-base">
+                            <span>${grade}</span>
+                        </div>
+                        <div class="p-3 sm:p-4 flex-grow flex flex-col bg-gray-50">
+                            <div class="flex flex-wrap gap-1 sm:gap-2 mb-3">
+                                ${pubButtonsHTML}
+                            </div>
+                            <div class="flex gap-1 sm:gap-2 mb-3">
+                                <input type="text" id="new-book-${grade}" class="border p-1.5 w-full text-xs sm:text-sm rounded shadow-inner" placeholder="輸入其他版本">
+                                <button onclick="window.addBook('${grade}')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 text-sm rounded font-bold transition shadow-sm">+</button>
+                            </div>
+                            
+                            <div class="bg-white p-2 rounded border border-gray-200 mb-3 flex-grow">
+                                <h4 class="text-xs font-bold text-gray-500 mb-1 border-b pb-1">已選入版本：</h4>
+                                <ul class="text-xs sm:text-sm list-inside list-disc text-gray-700 space-y-1 pl-1">
+                                    ${books.map(b => `<li>${b}</li>`).join('')}
+                                    ${books.length === 0 ? '<li class="text-gray-400 list-none text-center italic text-xs py-2">尚未加入任何版本</li>' : ''}
+                                </ul>
+                            </div>
+
+                            <div class="bg-yellow-100 p-2 sm:p-3 rounded border border-yellow-300">
+                                <label class="block text-xs font-bold text-yellow-800 mb-2">🎯 此年級計分範圍：</label>
+                                <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="range-min-${grade}" value="${range.min}" class="border p-1 w-12 sm:w-14 text-center rounded text-sm shadow-inner" onchange="window.updateGradeRange('${grade}')">
+                                        <span class="text-sm font-bold text-yellow-700">~</span>
+                                        <input type="number" id="range-max-${grade}" value="${range.max}" class="border p-1 w-12 sm:w-14 text-center rounded text-sm shadow-inner" onchange="window.updateGradeRange('${grade}')">
+                                    </div>
+                                    <button onclick="window.updateGradeRange('${grade}')" class="text-xs bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 transition shadow-sm w-full sm:w-auto mt-1 sm:mt-0 font-bold">更新</button>
+                                </div>
+                            </div>
+
+                            ${committeeStatusHTML}
+                        </div>
+                    </div>`;
+                container.innerHTML += html;
+            });
+
+            if(globalConfig.grades.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 col-span-1 md:col-span-2 xl:col-span-3 text-center bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300">目前還沒有年級，請在上方輸入並新增。</p>';
+            }
+        }
+
+        function renderLiveRanking() {
+            const container = document.getElementById('ranking-container');
+            container.innerHTML = '';
+            
+            const mode = globalConfig.sortMode; 
+            const modeText = mode === 'score' ? '(總分制)' : '(名次制)';
+
+            globalConfig.grades.forEach(grade => {
+                let totalScores = {};
+                const books = globalConfig.books[grade] || [];
+                books.forEach(book => totalScores[book] = 0);
+
+                for (let committeeName in globalScores) {
+                    let committeeVotes = globalScores[committeeName][grade] || {};
+                    for (let book in committeeVotes) {
+                        if (totalScores[book] !== undefined) {
+                            totalScores[book] += parseInt(committeeVotes[book]) || 0;
+                        }
+                    }
+                }
+
+                let sortedBooks = Object.keys(totalScores).map(book => {
+                    return { name: book, score: totalScores[book] };
+                }).sort((a, b) => {
+                    if (mode === 'score') return b.score - a.score;
+                    let scoreA = a.score === 0 ? 9999 : a.score;
+                    let scoreB = b.score === 0 ? 9999 : b.score;
+                    return scoreA - scoreB;
+                });
+
+                let html = `
+                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col">
+                        <div class="bg-green-100 font-bold p-2 sm:p-3 text-center border-b text-green-800 text-sm sm:text-base">${grade} ${modeText}榜單</div>
+                        <div class="p-3 sm:p-4 space-y-3 bg-gray-50 flex-grow">`;
+                
+                if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-500 text-center py-4">尚無書籍</p>`;
+                else {
+                    sortedBooks.forEach((item, index) => {
+                        let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `<span class="inline-block w-5 text-center text-xs text-gray-400 font-bold">${index+1}.</span>`;
+                        let displayScore = item.score === 0 ? '-' : item.score;
+                        let unit = mode === 'score' ? '分' : '名次加總';
+                        let rowBg = index === 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-100';
+                        
+                        html += `
+                            <div class="flex justify-between items-center border rounded p-2 sm:p-3 shadow-sm ${rowBg}">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span class="shrink-0 text-sm sm:text-base">${medal}</span>
+                                    <span class="font-bold text-gray-800 text-sm sm:text-base truncate">${item.name}</span>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="font-black text-red-500 text-base sm:text-lg">${displayScore}</span>
+                                    <span class="text-[10px] sm:text-xs text-gray-500 ml-1 hidden sm:inline">${unit}</span>
+                                </div>
+                            </div>`;
+                    });
+                }
+                html += `</div></div>`;
+                container.innerHTML += html;
+            });
+        }
+
+        function renderVotingArea() {
+            const votingArea = document.getElementById('voting-area');
+            const instruction = document.getElementById('voting-instruction');
+            votingArea.innerHTML = ''; 
+
+            const mode = globalConfig.sortMode;
+
+            if(mode === 'score') {
+                instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-red-500 font-black">分數越高越推薦</span>）。`;
+            } else {
+                instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-red-500 font-black">數字越小越推薦</span>）。`;
+            }
+
+            const myVotes = globalScores[currentUserLabel] || {};
+
+            globalConfig.grades.forEach(grade => {
+                const books = globalConfig.books[grade] || [];
+                if (books.length === 0) return;
+
+                const defaultMax = books.length > 0 ? books.length : 5;
+                const rangeObj = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
+                const min = rangeObj.min;
+                const max = rangeObj.max;
+
+                const userVotesForThisGrade = myVotes[grade] || {};
+                const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
+
+                let html = `<div class="border p-3 sm:p-5 rounded-xl bg-gray-50 shadow-sm relative">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-blue-200 pb-3 gap-2">
+                                    <h3 class="font-black text-blue-800 text-lg sm:text-xl">${grade} 選書</h3>
+                                    <span class="text-xs sm:text-sm font-bold text-white bg-blue-500 px-3 py-1 rounded-full shadow-inner inline-block w-max">此區範圍: ${min} ~ ${max}</span>
+                                </div>
+                                <div class="space-y-4">`;
+                
+                books.forEach(book => {
+                    let currentScore = (myVotes[grade] && myVotes[grade][book] !== undefined) ? myVotes[grade][book] : min;
+                    if(currentScore > max) currentScore = max;
+                    if(currentScore < min) currentScore = min;
+                    
+                    const disabledAttr = hasVoted ? 'disabled' : '';
+                    const sliderClass = hasVoted 
+                        ? 'cursor-not-allowed opacity-40 grayscale' 
+                        : 'cursor-pointer accent-blue-600';
+                    const boxClass = hasVoted ? 'bg-gray-100' : 'bg-white hover:border-blue-400';
+
+                    html += `
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 sm:p-4 rounded-lg border border-gray-200 transition shadow-sm gap-3 sm:gap-4 ${boxClass}">
+                            <span class="text-gray-800 font-bold text-base sm:text-lg border-b sm:border-0 pb-2 sm:pb-0">${book}</span>
+                            
+                            <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-2/3 justify-between sm:justify-end">
+                                <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${min}</span>
+                                
+                                <input type="range" min="${min}" max="${max}" step="1" 
+                                       class="score-input-${grade} w-full max-w-xs h-3 sm:h-4 bg-gray-200 rounded-lg appearance-none ${sliderClass}" 
+                                       data-book="${book}" value="${currentScore}" ${disabledAttr}
+                                       oninput="if(!${hasVoted}) this.parentNode.querySelector('.score-display').innerText = this.value">
+                                
+                                <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${max}</span>
+                                
+                                <div class="w-12 sm:w-16 text-center shrink-0">
+                                    <span class="score-display font-black text-blue-700 text-lg sm:text-xl bg-blue-50 px-2 sm:px-3 py-1 rounded border border-blue-200 shadow-inner block ${hasVoted ? 'opacity-50' : ''}">${currentScore}</span>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+                
+                html += `</div>`;
+
+                if (hasVoted) {
+                    html += `<div class="mt-6 border-t border-gray-300 pt-5 flex justify-center">
+                                <p class="text-green-700 font-bold text-sm sm:text-base bg-green-100 px-6 py-2.5 rounded-lg border border-green-300 shadow-sm flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                    您已完成本年級評分，結果已鎖定。
+                                </p>
+                             </div>`;
+                } else {
+                    html += `<div class="mt-6 border-t border-gray-300 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
+                                <p id="save-status-${grade}" class="text-sm text-green-600 font-bold hidden transition-opacity order-2 sm:order-1">✅ ${grade} 已同步至雲端！</p>
+                                <button onclick="window.showConfirmModal('${grade}')" class="w-full sm:w-auto sm:ml-auto px-6 bg-green-500 hover:bg-green-600 text-white font-bold py-3 sm:py-2 rounded-lg shadow-md transition duration-200 flex items-center justify-center gap-2 order-1 sm:order-2 text-base sm:text-sm">
+                                    💾 送出 ${grade} 評分
+                                </button>
+                             </div>`;
+                }
+                
+                html += `</div>`;
+                votingArea.innerHTML += html;
+            });
+
+            if (votingArea.innerHTML === '') {
+                votingArea.innerHTML = '<p class="text-red-500 font-bold p-6 bg-red-50 rounded-lg text-center border-2 border-dashed border-red-200">⚠️ 管理員尚未建立任何年級的書單，暫時無法評分。</p>';
+            }
+        }
+
+        // ==========================================
+        // 互動功能
+        // ==========================================
+        window.toggleLoginRole = () => {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const dropdown = document.getElementById('committee-select-group');
+            if(role === 'committee') dropdown.classList.remove('hidden');
+            else dropdown.classList.add('hidden');
+        };
+
+        window.handleLogin = () => {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            currentRole = role;
+
+            document.getElementById('login-section').classList.add('hidden');
+
+            if(role === 'admin') {
+                document.getElementById('admin-section').classList.remove('hidden');
+                updateUI();
+            } else if (role === 'committee') {
+                const name = document.getElementById('committee-dropdown').value;
+                if(!name) {
+                    alert('請先選擇您的姓名！');
+                    document.getElementById('login-section').classList.remove('hidden');
+                    return;
+                }
+                currentUserLabel = name;
+                document.getElementById('current-committee-name').innerText = name;
+                document.getElementById('committee-section').classList.remove('hidden');
+                updateUI();
+            }
+        };
+
+        window.logout = () => {
+            currentRole = null;
+            currentUserLabel = null;
+            document.getElementById('admin-section').classList.add('hidden');
+            document.getElementById('committee-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+            window.scrollTo(0, 0); 
+        };
+
+        async function saveConfigToCloud() {
+            try {
+                await setDoc(configDocRef, globalConfig);
+            } catch(e) {
+                console.error("更新設定失敗", e);
+                alert("儲存失敗，請檢查網路連線。");
+            }
+        }
+
+        window.addCommittee = () => {
+            const input = document.getElementById('new-committee-name');
+            const rawText = input.value;
+            const names = rawText.split(/[\n,，]+/);
+            let hasNewName = false;
+
+            names.forEach(name => {
+                const cleanName = name.trim();
+                if(cleanName && !globalConfig.committees.includes(cleanName)) {
+                    globalConfig.committees.push(cleanName);
+                    hasNewName = true;
+                }
+            });
+
+            if(hasNewName) {
+                saveConfigToCloud(); 
+                input.value = '';
+            }
+        };
+
+        window.addGrade = () => {
+            const input = document.getElementById('new-grade-name');
+            const grade = input.value.trim();
+            if(grade && !globalConfig.grades.includes(grade)) {
+                globalConfig.grades.push(grade);
+                if(!globalConfig.books[grade]) globalConfig.books[grade] = [];
+                saveConfigToCloud();
+                input.value = '';
+            }
+        };
+
+        window.addBook = (grade, predefinedBook = null) => {
+            let bookName = predefinedBook;
+            if (!bookName) {
+                const input = document.getElementById('new-book-' + grade);
+                bookName = input.value.trim();
+                input.value = '';
+            }
+
+            if(bookName && !globalConfig.books[grade].includes(bookName)) {
+                globalConfig.books[grade].push(bookName);
+                saveConfigToCloud();
+            }
+        };
+
+        window.updateSortMode = (mode) => {
+            globalConfig.sortMode = mode;
+            saveConfigToCloud();
+        };
+
+        window.updateGradeRange = (grade) => {
+            if (!globalConfig.gradeRanges) globalConfig.gradeRanges = {};
+            const minVal = parseInt(document.getElementById(`range-min-${grade}`).value);
+            const maxVal = parseInt(document.getElementById(`range-max-${grade}`).value);
+            
+            if (!isNaN(minVal) && !isNaN(maxVal)) {
+                globalConfig.gradeRanges[grade] = { min: minVal, max: maxVal };
+                saveConfigToCloud();
+                
+                const updateBtn = document.querySelector(`#range-max-${grade}`).nextElementSibling;
+                const originalText = updateBtn.innerText;
+                updateBtn.innerText = "完成!";
+                updateBtn.classList.replace('bg-blue-500', 'bg-green-500');
+                updateBtn.classList.replace('hover:bg-blue-600', 'hover:bg-green-600');
+                
+                setTimeout(() => {
+                    updateBtn.innerText = originalText;
+                    updateBtn.classList.replace('bg-green-500', 'bg-blue-500');
+                    updateBtn.classList.replace('hover:bg-green-600', 'hover:bg-blue-600');
+                }, 1500);
+            }
+        };
+
+        window.showConfirmModal = (grade) => {
+            pendingSubmitGrade = grade;
+            pendingSubmitVotes = {};
+            
+            const inputs = document.querySelectorAll('.score-input-' + grade);
+            const contentDiv = document.getElementById('confirm-modal-content');
+            
+            let modalHtml = `<p class="font-bold text-gray-800 mb-3 text-sm sm:text-base">您即將送出【<span class="text-blue-600">${grade}</span>】的評分：</p>
+                             <ul class="bg-gray-50 p-3 rounded-lg border text-sm space-y-2">`;
+            
+            inputs.forEach(input => {
+                const book = input.getAttribute('data-book');
+                const score = parseInt(input.value);
+                pendingSubmitVotes[book] = score; 
+                modalHtml += `<li class="flex justify-between items-center border-b border-gray-200 pb-2 last:border-0 last:pb-0">
+                                <span class="font-medium text-gray-700">${book}</span> 
+                                <span class="text-blue-600 font-black text-lg bg-blue-50 px-2 rounded">${score}</span>
+                              </li>`;
+            });
+            
+            modalHtml += `</ul><p class="text-xs text-red-500 mt-4 leading-relaxed">* 請再次確認分數/名次，點擊「確定送出」後將即時同步給管理員。</p>`;
+            contentDiv.innerHTML = modalHtml;
+            
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        };
+
+        window.closeConfirmModal = () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            pendingSubmitGrade = '';
+            pendingSubmitVotes = {};
+        };
+
+        window.confirmSubmitGrade = async () => {
+            const grade = pendingSubmitGrade;
+            let myAllVotes = globalScores[currentUserLabel] || {};
+            myAllVotes[grade] = pendingSubmitVotes;
+
+            try {
+                const myScoreDocRef = doc(scoresCollectionRef, currentUserLabel);
+                await setDoc(myScoreDocRef, { votes: myAllVotes });
+                
+                window.closeConfirmModal();
+                const status = document.getElementById('save-status-' + grade);
+                status.classList.remove('hidden');
+                setTimeout(() => status.classList.add('hidden'), 3000); 
+            } catch(e) {
+                console.error("送出分數失敗", e);
+                alert("送出分數失敗，請稍後再試。");
+            }
+        };
+
+        window.downloadExcel = () => {
+            const wb = XLSX.utils.book_new();
+            const mode = globalConfig.sortMode; 
+            const scoreLabel = mode === 'score' ? '總分' : '名次加總';
+
+            let gradeResults = {};
+            let maxRows = 0; 
+
+            globalConfig.grades.forEach(grade => {
+                let totalScores = {};
+                const books = globalConfig.books[grade] || [];
+                books.forEach(book => totalScores[book] = 0);
+
+                for (let committeeName in globalScores) {
+                    let committeeVotes = globalScores[committeeName][grade] || {};
+                    for (let book in committeeVotes) {
+                        if (totalScores[book] !== undefined) {
+                            totalScores[book] += parseInt(committeeVotes[book]) || 0;
+                        }
+                    }
+                }
+
+                let sortedBooks = Object.keys(totalScores).map(book => {
+                    return { name: book, score: totalScores[book] };
+                }).sort((a, b) => {
+                    if (mode === 'score') return b.score - a.score;
+                    let scoreA = a.score === 0 ? 9999 : a.score;
+                    let scoreB = b.score === 0 ? 9999 : b.score;
+                    return scoreA - scoreB;
+                });
+
+                gradeResults[grade] = {
+                    sorted: sortedBooks,
+                    totals: totalScores
+                };
+                if (sortedBooks.length > maxRows) maxRows = sortedBooks.length;
+            });
+
+            // ==========================================
+            // 工作表一：排名總表 
+            // ==========================================
+            let summaryAoA = []; 
+            let headerRow = [];
+
+            globalConfig.grades.forEach((grade, index) => {
+                headerRow.push("年級", "排名", "出版商/版本");
+                if (index < globalConfig.grades.length - 1) headerRow.push(""); 
+            });
+            summaryAoA.push(headerRow);
+
+            for (let i = 0; i < maxRows; i++) {
+                let dataRow = [];
+                globalConfig.grades.forEach((grade, index) => {
+                    let sortedBooks = gradeResults[grade].sorted;
+                    if (i < sortedBooks.length) {
+                        dataRow.push(grade, i + 1, sortedBooks[i].name); 
+                    } else {
+                        dataRow.push("", "", ""); 
+                    }
+                    if (index < globalConfig.grades.length - 1) dataRow.push(""); 
+                });
+                summaryAoA.push(dataRow);
+            }
+
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryAoA);
+
+            let colWidths = [];
+            globalConfig.grades.forEach((grade, index) => {
+                colWidths.push({ wch: 8 });  
+                colWidths.push({ wch: 6 });  
+                colWidths.push({ wch: 12 }); 
+                if (index < globalConfig.grades.length - 1) colWidths.push({ wch: 2 }); 
+            });
+            summarySheet['!cols'] = colWidths;
+
+            const range = XLSX.utils.decode_range(summarySheet['!ref']);
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+                    if (!summarySheet[cellAddress]) continue;
+
+                    let fontStyle = {};
+                    let isStyled = false;
+
+                    if (R === 0 && summarySheet[cellAddress].v !== "") {
+                        fontStyle = { color: { rgb: "00B050" }, bold: true };
+                        isStyled = true;
+                    }
+                    else if (R === 1 && summarySheet[cellAddress].v !== "") {
+                        fontStyle = { color: { rgb: "0000FF" }, bold: true };
+                        isStyled = true;
+                    }
+
+                    summarySheet[cellAddress].s = {
+                        font: isStyled ? fontStyle : {},
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            top: { style: "thin", color: { auto: 1 } },
+                            bottom: { style: "thin", color: { auto: 1 } },
+                            left: { style: "thin", color: { auto: 1 } },
+                            right: { style: "thin", color: { auto: 1 } }
+                        }
+                    };
+                    
+                    if (summarySheet[cellAddress].v === "") {
+                        summarySheet[cellAddress].s = {};
+                    }
+                }
+            }
+
+            XLSX.utils.book_append_sheet(wb, summarySheet, "🏆 排名總表");
+
+            // ==========================================
+            // 工作表二...N：各年級投票明細表
+            // ==========================================
+            globalConfig.grades.forEach(grade => {
+                let detailData = [];
+                const books = globalConfig.books[grade] || [];
+                if (books.length === 0) return; 
+
+                globalConfig.committees.forEach(committeeName => {
+                    let row = { "委員姓名": committeeName };
+                    let committeeVotes = globalScores[committeeName] && globalScores[committeeName][grade] ? globalScores[committeeName][grade] : {};
+                    books.forEach(book => {
+                        let score = committeeVotes[book];
+                        row[book] = score !== undefined ? score : '未評';
+                    });
+                    detailData.push(row);
+                });
+
+                let totals = gradeResults[grade].totals;
+                
+                let summaryRow = { "委員姓名": `【${scoreLabel}】` };
+                books.forEach(book => {
+                    summaryRow[book] = totals[book] === 0 ? '-' : totals[book];
+                });
+                detailData.push(summaryRow);
+
+                let rankRow = { "委員姓名": "【最終排名】" };
+                books.forEach(book => {
+                    let rank = gradeResults[grade].sorted.findIndex(b => b.name === book) + 1;
+                    rankRow[book] = totals[book] === 0 ? '-' : rank;
+                });
+                detailData.push(rankRow);
+
+                const detailSheet = XLSX.utils.json_to_sheet(detailData);
+                
+                const detailRange = XLSX.utils.decode_range(detailSheet['!ref']);
+                for (let R = detailRange.s.r; R <= detailRange.e.r; ++R) {
+                    for (let C = detailRange.s.c; C <= detailRange.e.c; ++C) {
+                        const cellAdd = XLSX.utils.encode_cell({ r: R, c: C });
+                        if(detailSheet[cellAdd]) {
+                            detailSheet[cellAdd].s = { alignment: { horizontal: "center", vertical: "center" } };
+                        }
+                    }
+                }
+
+                XLSX.utils.book_append_sheet(wb, detailSheet, `${grade} 明細`);
+            });
+
+            XLSX.writeFile(wb, "選書計分結果_報表.xlsx");
+        };
+
+    </script>
+</body>
+</html>
