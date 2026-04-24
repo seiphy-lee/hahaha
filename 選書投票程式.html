@@ -36,6 +36,12 @@
                 </div>
             </div>
 
+            <!-- ★ 新增：管理者密碼輸入框 ★ -->
+            <div id="admin-password-group" class="mb-6">
+                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請輸入管理者密碼 (4位數)：</label>
+                <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest">
+            </div>
+
             <div id="committee-select-group" class="mb-6 hidden">
                 <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇您的姓名：</label>
                 <select id="committee-dropdown" class="w-full border p-3 rounded bg-gray-50 text-base">
@@ -168,7 +174,7 @@
 
         // ★ 老師已經幫你把原本的英文字母 l 改成數字的 1 了！ ★
         const firebaseConfig = {
-            apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
+            apiKey: "AIzaSyAnaaI0LKyq6DxLDmMC1dhbLePXHAtGvjU",
             authDomain: "school-book-system-864cb.firebaseapp.com",
             projectId: "school-book-system-864cb",
             storageBucket: "school-book-system-864cb.firebasestorage.app",
@@ -518,28 +524,46 @@
         window.toggleLoginRole = () => {
             const role = document.querySelector('input[name="role"]:checked').value;
             const dropdown = document.getElementById('committee-select-group');
-            if(role === 'committee') dropdown.classList.remove('hidden');
-            else dropdown.classList.add('hidden');
+            // ★ 新增：取得密碼輸入框元素 ★
+            const passwordGroup = document.getElementById('admin-password-group');
+            
+            if(role === 'committee') {
+                dropdown.classList.remove('hidden');
+                // ★ 新增：選書委員不需要輸入密碼 ★
+                passwordGroup.classList.add('hidden');
+            } else {
+                dropdown.classList.add('hidden');
+                // ★ 新增：管理者需要輸入密碼 ★
+                passwordGroup.classList.remove('hidden');
+            }
         };
 
         window.handleLogin = () => {
             const role = document.querySelector('input[name="role"]:checked').value;
             currentRole = role;
 
-            document.getElementById('login-section').classList.add('hidden');
-
             if(role === 'admin') {
+                // ★ 新增：管理者密碼驗證邏輯 ★
+                const passwordInput = document.getElementById('admin-password');
+                const password = passwordInput.value;
+                if (password !== '1910') {
+                    alert('密碼錯誤！請重新輸入。');
+                    passwordInput.value = ''; // 清空密碼欄位
+                    return; // 阻止登入
+                }
+                
+                document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('admin-section').classList.remove('hidden');
                 updateUI();
             } else if (role === 'committee') {
                 const name = document.getElementById('committee-dropdown').value;
                 if(!name) {
                     alert('請先選擇您的姓名！');
-                    document.getElementById('login-section').classList.remove('hidden');
                     return;
                 }
                 currentUserLabel = name;
                 document.getElementById('current-committee-name').innerText = name;
+                document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('committee-section').classList.remove('hidden');
                 updateUI();
             }
@@ -548,6 +572,8 @@
         window.logout = () => {
             currentRole = null;
             currentUserLabel = null;
+            // ★ 新增：登出時清空密碼欄位 ★
+            document.getElementById('admin-password').value = '';
             document.getElementById('admin-section').classList.add('hidden');
             document.getElementById('committee-section').classList.add('hidden');
             document.getElementById('login-section').classList.remove('hidden');
