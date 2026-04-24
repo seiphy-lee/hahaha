@@ -14,7 +14,7 @@
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
-    <!-- 加入 px-2 讓手機兩側有安全邊距 -->
+    <!-- 加入 px-4 讓手機兩側有安全邊距 -->
     <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
 
         <!-- ==========================================
@@ -36,7 +36,7 @@
                 </div>
             </div>
 
-            <!-- ★ 新增：管理者密碼輸入框 ★ -->
+            <!-- 管理者密碼輸入框 -->
             <div id="admin-password-group" class="mb-6">
                 <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請輸入管理者密碼 (4位數)：</label>
                 <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest">
@@ -150,7 +150,7 @@
 
     </div>
 
-    <!-- 彈出式確認視窗 (Modal - RWD 優化) -->
+    <!-- 彈出式確認視窗 -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] hidden flex items-center justify-center p-4">
         <div class="bg-white p-5 sm:p-6 rounded-lg shadow-2xl max-w-sm w-full mx-auto transform transition-all">
             <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-4 border-b pb-2">送出評分確認</h3>
@@ -172,14 +172,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ★ 依照你提供的正確設定更新囉！ ★
+        // ★ 完全使用你提供的正確設定，絕不更改 ★
         const firebaseConfig = {
-              apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
-              authDomain: "school-book-system-864cb.firebaseapp.com",
-              projectId: "school-book-system-864cb",
-              storageBucket: "school-book-system-864cb.firebasestorage.app",
-              messagingSenderId: "996605263028",
-              appId: "1:996605263028:web:0cb6c0a481512ca4d8ebe1"
+            apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
+            authDomain: "school-book-system-864cb.firebaseapp.com",
+            projectId: "school-book-system-864cb",
+            storageBucket: "school-book-system-864cb.firebasestorage.app",
+            messagingSenderId: "996605263028",
+            appId: "1:996605263028:web:0cb6c0a481512ca4d8ebe1"
         };
         
         const appId = 'school-book-system-2026';
@@ -204,7 +204,6 @@
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("登入失敗：", error);
-                
                 let errorMsg = "無法登入資料庫！\n\n";
                 if (error.code === 'auth/operation-not-allowed') {
                     errorMsg += "🚨 錯誤：您尚未在 Firebase 後台啟用「匿名 (Anonymous)」登入功能！請回 Firebase 控制台開啟。";
@@ -214,7 +213,6 @@
                     errorMsg += "錯誤代碼：" + error.code;
                 }
                 alert(errorMsg);
-                
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
             }
@@ -452,10 +450,11 @@
                 const userVotesForThisGrade = myVotes[grade] || {};
                 const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
 
-                let html = `<div class="border p-3 sm:p-5 rounded-xl bg-gray-50 shadow-sm relative">
+                // ★ UI 修改點 1：讓背景區塊在手機上滿版觸碰螢幕邊緣 (-mx-4) ★
+                let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-gray-50 shadow-sm relative -mx-4 sm:mx-0 mb-6">
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-blue-200 pb-3 gap-2">
-                                    <h3 class="font-black text-blue-800 text-lg sm:text-xl">${grade} 選書</h3>
-                                    <span class="text-xs sm:text-sm font-bold text-white bg-blue-500 px-3 py-1 rounded-full shadow-inner inline-block w-max">此區範圍: ${min} ~ ${max}</span>
+                                    <h3 class="font-black text-blue-800 text-xl">${grade} 選書</h3>
+                                    <span class="text-sm font-bold text-white bg-blue-500 px-3 py-1 rounded-full shadow-inner inline-block w-max">此區範圍: ${min} ~ ${max}</span>
                                 </div>
                                 <div class="space-y-4">`;
                 
@@ -470,23 +469,28 @@
                         : 'cursor-pointer accent-blue-600';
                     const boxClass = hasVoted ? 'bg-gray-100' : 'bg-white hover:border-blue-400';
 
+                    // ★ UI 修改點 2：重構內部卡片排版，將大數字移至與書名同列，並放大滑桿 ★
                     html += `
-                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 sm:p-4 rounded-lg border border-gray-200 transition shadow-sm gap-3 sm:gap-4 ${boxClass}">
-                            <span class="text-gray-800 font-bold text-base sm:text-lg border-b sm:border-0 pb-2 sm:pb-0">${book}</span>
+                        <div class="flex flex-col rounded-lg border border-gray-200 transition shadow-sm gap-3 p-4 ${boxClass}">
                             
-                            <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-2/3 justify-between sm:justify-end">
+                            <!-- 上半部：書名 與 分數顯示框 -->
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span class="text-gray-800 font-bold text-lg">${book}</span>
+                                <div class="w-12 text-center shrink-0">
+                                    <span class="score-display font-black text-blue-700 text-base bg-blue-50 px-2 py-1 rounded border border-blue-200 shadow-inner block ${hasVoted ? 'opacity-50' : ''}">${currentScore}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 下半部：滑桿區 (占用全寬) -->
+                            <div class="flex items-center gap-3 w-full pt-1">
                                 <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${min}</span>
                                 
                                 <input type="range" min="${min}" max="${max}" step="1" 
-                                       class="score-input-${grade} w-full max-w-xs h-3 sm:h-4 bg-gray-200 rounded-lg appearance-none ${sliderClass}" 
+                                       class="score-input-${grade} w-full h-3 sm:h-4 bg-gray-200 rounded-lg appearance-none ${sliderClass}" 
                                        data-book="${book}" value="${currentScore}" ${disabledAttr}
-                                       oninput="if(!${hasVoted}) this.parentNode.querySelector('.score-display').innerText = this.value">
+                                       oninput="if(!${hasVoted}) this.closest('.flex-col').querySelector('.score-display').innerText = this.value">
                                 
                                 <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${max}</span>
-                                
-                                <div class="w-12 sm:w-16 text-center shrink-0">
-                                    <span class="score-display font-black text-blue-700 text-lg sm:text-xl bg-blue-50 px-2 sm:px-3 py-1 rounded border border-blue-200 shadow-inner block ${hasVoted ? 'opacity-50' : ''}">${currentScore}</span>
-                                </div>
                             </div>
                         </div>`;
                 });
@@ -658,10 +662,28 @@
         };
 
         window.showConfirmModal = (grade) => {
+            const inputs = document.querySelectorAll('.score-input-' + grade);
+            
+            // ★ 新增邏輯：防呆驗證 - 檢查是否「所有選項都維持在預設最低分」 ★
+            if (inputs.length > 0) {
+                const minVal = parseInt(inputs[0].min);
+                let isAllDefault = true;
+                
+                inputs.forEach(input => {
+                    if (parseInt(input.value) !== minVal) {
+                        isAllDefault = false; // 只要有一個不是預設值，就代表有操作
+                    }
+                });
+
+                if (isAllDefault) {
+                    alert('⚠️ 評分無效：您尚未更動任何分數或名次！\n請拖曳滑桿進行真實評分後，再按下送出。');
+                    return; // 終止函式，不顯示確認視窗
+                }
+            }
+            
+            // 如果驗證通過，繼續原本顯示 Modal 的邏輯
             pendingSubmitGrade = grade;
             pendingSubmitVotes = {};
-            
-            const inputs = document.querySelectorAll('.score-input-' + grade);
             const contentDiv = document.getElementById('confirm-modal-content');
             
             let modalHtml = `<p class="font-bold text-gray-800 mb-3 text-sm sm:text-base">您即將送出【<span class="text-blue-600">${grade}</span>】的評分：</p>
@@ -700,7 +722,6 @@
                 
                 window.closeConfirmModal();
                 
-                // ★ 老師的修復點：先檢查 status 元件還存不存在畫面上 ★
                 const status = document.getElementById('save-status-' + grade);
                 if (status) {
                     status.classList.remove('hidden');
@@ -712,7 +733,6 @@
                 }
             } catch(e) {
                 console.error("送出分數失敗", e);
-                // 順便把真實的錯誤訊息印出來，以後抓蟲更方便
                 alert("送出分數失敗，請稍後再試。\n錯誤訊息: " + e.message);
             }
         };
