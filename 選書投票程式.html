@@ -699,12 +699,32 @@
                 await setDoc(myScoreDocRef, { votes: myAllVotes });
                 
                 window.closeConfirmModal();
+
+        window.confirmSubmitGrade = async () => {
+            const grade = pendingSubmitGrade;
+            let myAllVotes = globalScores[currentUserLabel] || {};
+            myAllVotes[grade] = pendingSubmitVotes;
+
+            try {
+                const myScoreDocRef = doc(scoresCollectionRef, currentUserLabel);
+                await setDoc(myScoreDocRef, { votes: myAllVotes });
+                
+                window.closeConfirmModal();
+                
+                // ★ 老師的修復點：先檢查 status 元件還存不存在畫面上 ★
                 const status = document.getElementById('save-status-' + grade);
-                status.classList.remove('hidden');
-                setTimeout(() => status.classList.add('hidden'), 3000); 
+                if (status) {
+                    status.classList.remove('hidden');
+                    setTimeout(() => {
+                        if (document.getElementById('save-status-' + grade)) {
+                            document.getElementById('save-status-' + grade).classList.add('hidden');
+                        }
+                    }, 3000); 
+                }
             } catch(e) {
                 console.error("送出分數失敗", e);
-                alert("送出分數失敗，請稍後再試。");
+                // 順便把真實的錯誤訊息印出來，以後抓蟲更方便
+                alert("送出分數失敗，請稍後再試。\n錯誤訊息: " + e.message);
             }
         };
 
