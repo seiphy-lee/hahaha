@@ -21,7 +21,7 @@
              1. 登入版面
              ========================================== -->
         <div id="login-section" class="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-md mx-auto mt-4 sm:mt-10">
-            <h1 class="text-xl sm:text-2xl font-bold text-center mb-2 text-blue-600">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
+            <h1 class="text-[16px] sm:text-[19.2px] font-bold text-center mb-2 text-blue-600 leading-snug">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
             <p class="text-center text-gray-500 mb-6 text-xs sm:text-sm">Firebase 即時連線版</p>
             
             <div class="mb-4">
@@ -179,7 +179,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
-        // ★ 修改點 2：在 import 中引入 Firebase 的 deleteDoc 功能 ★
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ★ 完全使用你提供的正確設定，絕不更改 ★
@@ -460,7 +459,6 @@
                 const userVotesForThisGrade = myVotes[grade] || {};
                 const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
 
-                // ★ UI 修改點 1：讓背景區塊在手機上滿版觸碰螢幕邊緣 (-mx-4) ★
                 let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-gray-50 shadow-sm relative -mx-4 sm:mx-0 mb-6">
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-blue-200 pb-3 gap-2">
                                     <h3 class="font-black text-blue-800 text-xl">${grade} 選書</h3>
@@ -479,7 +477,6 @@
                         : 'cursor-pointer accent-blue-600';
                     const boxClass = hasVoted ? 'bg-gray-100' : 'bg-white hover:border-blue-400';
 
-                    // ★ UI 修改點 2：重構內部卡片排版，將大數字移至與書名同列，並放大滑桿 ★
                     html += `
                         <div class="flex flex-col rounded-lg border border-gray-200 transition shadow-sm gap-3 p-4 ${boxClass}">
                             
@@ -674,24 +671,22 @@
         window.showConfirmModal = (grade) => {
             const inputs = document.querySelectorAll('.score-input-' + grade);
             
-            // ★ 新增邏輯：防呆驗證 - 檢查是否「所有選項都維持在預設最低分」 ★
             if (inputs.length > 0) {
                 const minVal = parseInt(inputs[0].min);
                 let isAllDefault = true;
                 
                 inputs.forEach(input => {
                     if (parseInt(input.value) !== minVal) {
-                        isAllDefault = false; // 只要有一個不是預設值，就代表有操作
+                        isAllDefault = false; 
                     }
                 });
 
                 if (isAllDefault) {
                     alert('⚠️ 評分無效：您尚未更動任何分數或名次！\n請拖曳滑桿進行真實評分後，再按下送出。');
-                    return; // 終止函式，不顯示確認視窗
+                    return; 
                 }
             }
             
-            // 如果驗證通過，繼續原本顯示 Modal 的邏輯
             pendingSubmitGrade = grade;
             pendingSubmitVotes = {};
             const contentDiv = document.getElementById('confirm-modal-content');
@@ -721,14 +716,11 @@
             pendingSubmitVotes = {};
         };
 
-        // ★ 修改點 3：加入清除所有資料的核心邏輯 ★
         window.clearAllData = async () => {
-            // 第一道防護：普通確認視窗
             if (!confirm('⚠️ 警告：您確定要「清除所有資料」嗎？\n\n所有的年級、版本、委員名單以及「所有的投票紀錄」都將被永久刪除且無法復原！')) {
                 return;
             }
             
-            // 第二道防護：輸入文字驗證
             const checkText = prompt('這是一個破壞性操作。如果您確定，請輸入「確認清除」：');
             if (checkText !== '確認清除') {
                 alert('已取消清除操作。');
@@ -736,7 +728,6 @@
             }
 
             try {
-                // 1. 利用迴圈，逐一刪除所有委員的分數紀錄
                 const deletePromises = [];
                 for (let committeeName in globalScores) {
                     const scoreDocRef = doc(scoresCollectionRef, committeeName);
@@ -744,7 +735,6 @@
                 }
                 await Promise.all(deletePromises);
 
-                // 2. 將主設定檔重置為最初的空白狀態
                 globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {} };
                 await setDoc(configDocRef, globalConfig);
 
