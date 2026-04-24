@@ -172,9 +172,9 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ★ 老師已經幫你把原本的英文字母 l 改成數字的 1 了！ ★
+        // ★ 依照你提供的正確設定更新囉！ ★
         const firebaseConfig = {
-            apiKey: "AIzaSyAnaaI0LKyq6DxLDmMC1dhbLePXHAtGvjU",
+            apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
             authDomain: "school-book-system-864cb.firebaseapp.com",
             projectId: "school-book-system-864cb",
             storageBucket: "school-book-system-864cb.firebasestorage.app",
@@ -524,16 +524,13 @@
         window.toggleLoginRole = () => {
             const role = document.querySelector('input[name="role"]:checked').value;
             const dropdown = document.getElementById('committee-select-group');
-            // ★ 新增：取得密碼輸入框元素 ★
             const passwordGroup = document.getElementById('admin-password-group');
             
             if(role === 'committee') {
                 dropdown.classList.remove('hidden');
-                // ★ 新增：選書委員不需要輸入密碼 ★
                 passwordGroup.classList.add('hidden');
             } else {
                 dropdown.classList.add('hidden');
-                // ★ 新增：管理者需要輸入密碼 ★
                 passwordGroup.classList.remove('hidden');
             }
         };
@@ -543,13 +540,12 @@
             currentRole = role;
 
             if(role === 'admin') {
-                // ★ 新增：管理者密碼驗證邏輯 ★
                 const passwordInput = document.getElementById('admin-password');
                 const password = passwordInput.value;
                 if (password !== '1910') {
                     alert('密碼錯誤！請重新輸入。');
-                    passwordInput.value = ''; // 清空密碼欄位
-                    return; // 阻止登入
+                    passwordInput.value = ''; 
+                    return; 
                 }
                 
                 document.getElementById('login-section').classList.add('hidden');
@@ -572,7 +568,6 @@
         window.logout = () => {
             currentRole = null;
             currentUserLabel = null;
-            // ★ 新增：登出時清空密碼欄位 ★
             document.getElementById('admin-password').value = '';
             document.getElementById('admin-section').classList.add('hidden');
             document.getElementById('committee-section').classList.add('hidden');
