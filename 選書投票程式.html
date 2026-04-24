@@ -60,7 +60,15 @@
         <div id="admin-section" class="hidden">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
                 <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2">👨‍💼 管理者控制台</h1>
-                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">登出</button>
+                
+                <!-- ★ 修改點 1：將原本單一個登出按鈕，改為包含「清除資料」與「登出」的按鈕群組 ★ -->
+                <div class="flex w-full sm:w-auto gap-2">
+                    <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm sm:text-base">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        清除所有資料
+                    </button>
+                    <button onclick="window.logout()" class="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow font-bold transition text-sm sm:text-base">登出</button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
@@ -170,7 +178,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // ★ 修改點 2：在 import 中引入 Firebase 的 deleteDoc 功能 ★
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ★ 完全使用你提供的正確設定，絕不更改 ★
         const firebaseConfig = {
@@ -709,6 +719,40 @@
             document.getElementById('confirm-modal').classList.add('hidden');
             pendingSubmitGrade = '';
             pendingSubmitVotes = {};
+        };
+
+        // ★ 修改點 3：加入清除所有資料的核心邏輯 ★
+        window.clearAllData = async () => {
+            // 第一道防護：普通確認視窗
+            if (!confirm('⚠️ 警告：您確定要「清除所有資料」嗎？\n\n所有的年級、版本、委員名單以及「所有的投票紀錄」都將被永久刪除且無法復原！')) {
+                return;
+            }
+            
+            // 第二道防護：輸入文字驗證
+            const checkText = prompt('這是一個破壞性操作。如果您確定，請輸入「確認清除」：');
+            if (checkText !== '確認清除') {
+                alert('已取消清除操作。');
+                return;
+            }
+
+            try {
+                // 1. 利用迴圈，逐一刪除所有委員的分數紀錄
+                const deletePromises = [];
+                for (let committeeName in globalScores) {
+                    const scoreDocRef = doc(scoresCollectionRef, committeeName);
+                    deletePromises.push(deleteDoc(scoreDocRef));
+                }
+                await Promise.all(deletePromises);
+
+                // 2. 將主設定檔重置為最初的空白狀態
+                globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {} };
+                await setDoc(configDocRef, globalConfig);
+
+                alert('✅ 所有資料已成功清除！系統已重置為初始狀態。');
+            } catch (e) {
+                console.error("清除資料失敗", e);
+                alert("清除資料失敗，請稍後再試。\n錯誤訊息: " + e.message);
+            }
         };
 
         window.confirmSubmitGrade = async () => {
