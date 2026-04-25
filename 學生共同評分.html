@@ -143,6 +143,27 @@
                 return () => unsub();
             }, [user, sessionId]);
 
+            // 輔助函式：主動解除學生名字的綁定
+            const handleUnbindStudent = async () => {
+                if (user && sessionId && sessionData?.studentMappings?.[user.uid]) {
+                    const update = {};
+                    update[`studentMappings.${user.uid}`] = firebase.firestore.FieldValue.delete();
+                    try { await db.collection('sessions').doc(sessionId).update(update); } catch(e) { console.error(e); }
+                }
+            };
+
+            const handleLeaveClass = async () => {
+                await handleUnbindStudent();
+                setRole(null); 
+                setSessionId(null); 
+                window.history.pushState({}, '', window.location.pathname);
+            };
+
+            const handleSignOut = async () => {
+                await handleUnbindStudent();
+                auth.signOut();
+            };
+
             const handleLogin = async () => {
                 try {
                     setErrorMsg(null);
@@ -247,8 +268,8 @@
                         </button>
                         
                         <div className="mt-8 flex gap-4 text-sm">
-                            <button onClick={() => {setSessionId(null); window.history.pushState({}, '', window.location.pathname);}} className="text-gray-500 underline">更換教室</button>
-                            <button onClick={() => auth.signOut()} className="text-gray-500 underline">登出帳號</button>
+                            <button onClick={handleLeaveClass} className="text-gray-500 underline">更換教室</button>
+                            <button onClick={handleSignOut} className="text-gray-500 underline">登出帳號</button>
                         </div>
 
                         {showTeacherAuth && (
@@ -277,8 +298,8 @@
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
-                            <button onClick={()=>{setRole(null); setSessionId(null); window.history.pushState({}, '', window.location.pathname);}} title="離開教室" className="text-gray-500 hover:text-red-500"><Icons.Home /></button>
-                            <button onClick={()=>auth.signOut()} title="登出" className="text-gray-500 hover:text-red-500"><Icons.LogOut /></button>
+                            <button onClick={handleLeaveClass} title="離開教室" className="text-gray-500 hover:text-red-500"><Icons.Home /></button>
+                            <button onClick={handleSignOut} title="登出" className="text-gray-500 hover:text-red-500"><Icons.LogOut /></button>
                         </div>
                     </header>
                     <main className="max-w-5xl mx-auto p-4 mt-2">
@@ -361,13 +382,22 @@
             };
 
             const handleRemoveStudent = async (nameToRemove) => {
-                if(!confirm(`確定要刪除學生 "${nameToRemove}" 嗎？`)) return;
-                const newStudents = (session.students || []).filter(s => s !== nameToRemove);
-                const newMappings = { ...session.studentMappings };
-                for (const uid in newMappings) {
-                    if (newMappings[uid] === nameToRemove) delete newMappings[uid];
+                const isBound = Object.values(session.studentMappings || {}).includes(nameToRemove);
+                
+                if (isBound) {
+                    // 如果學生是在線(綁定)狀態，只解除綁定，不從全班名單刪除
+                    if(!confirm(`學生 "${nameToRemove}" 目前顯示為線上綁定狀態。\n確定要「解除綁定」將他踢出嗎？\n(解除後姓名仍會保留在名單中，他可以重新登入)`)) return;
+                    const newMappings = { ...session.studentMappings };
+                    for (const uid in newMappings) {
+                        if (newMappings[uid] === nameToRemove) delete newMappings[uid];
+                    }
+                    await updateSession({ studentMappings: newMappings });
+                } else {
+                    // 如果學生已經離線，直接從名單中徹底移除
+                    if(!confirm(`確定要將學生 "${nameToRemove}" 從名單中「徹底刪除」嗎？`)) return;
+                    const newStudents = (session.students || []).filter(s => s !== nameToRemove);
+                    await updateSession({ students: newStudents });
                 }
-                await updateSession({ students: newStudents, studentMappings: newMappings });
             };
 
             const handleClearStudents = async () => {
@@ -419,11 +449,11 @@
             const shareLink = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(sessionId)}`;
 
             return (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-fade-in">
                     <div className="flex bg-white rounded-lg p-1 shadow-sm overflow-x-auto">
                         {[{id: 'control', label: '控制台'}, {id: 'setup', label: '名單設定'}, {id: 'criteria', label: '評分標準'}, {id: 'monitor', label: '監控與修正'}, {id: 'results', label: '結果統計'}]
                         .map(t => (
-                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-blue-50 text-blue-700' : 'text-gray-500'}`}>
+                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}>
                                 {t.label}
                             </button>
                         ))}
@@ -493,7 +523,7 @@
                                         const isRegistered = Object.values(session.studentMappings||{}).includes(s);
                                         return (
                                             <span key={s} className={`text-sm px-2 py-1 rounded-md border flex items-center gap-1 shadow-sm ${isRegistered ? 'bg-green-100 text-green-800 border-green-200 font-bold' : 'bg-white text-gray-600 border-gray-200'}`}>
-                                                {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500"><Icons.X /></button>
+                                                {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500" title={isRegistered ? "強制解除綁定" : "刪除此學生"}><Icons.X /></button>
                                             </span>
                                         );
                                     })}
