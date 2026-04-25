@@ -14,7 +14,6 @@
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
-    <!-- 加入 px-4 讓手機兩側有安全邊距 -->
     <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
 
         <!-- ==========================================
@@ -36,7 +35,6 @@
                 </div>
             </div>
 
-            <!-- 管理者密碼輸入框 -->
             <div id="admin-password-group" class="mb-6">
                 <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請輸入管理者密碼 (4位數)：</label>
                 <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest">
@@ -55,13 +53,14 @@
         </div>
 
         <!-- ==========================================
-             2. 管理者版面
+             2. 管理者版面 (全新分頁模式)
              ========================================== -->
         <div id="admin-section" class="hidden">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
-                <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2">👨‍💼 管理者控制台</h1>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
+                <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2 flex items-center">
+                    👨‍💼 管理者控制台
+                </h1>
                 
-                <!-- ★ 修改點 1：將原本單一個登出按鈕，改為包含「清除資料」與「登出」的按鈕群組 ★ -->
                 <div class="flex w-full sm:w-auto gap-2">
                     <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm sm:text-base">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -71,66 +70,94 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 委員名單管理 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-blue-400 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3">👥 1. 委員名單管理</h3>
+            <!-- 分頁導覽列 (Tabs Navigation) -->
+            <div class="border-b border-gray-200 mb-6 bg-white rounded-t-lg px-2 pt-2 shadow-sm">
+                <nav class="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
+                    <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-blue-500 text-blue-600 transition">
+                        1. 基本設定
+                    </button>
+                    <button onclick="window.switchAdminTab('tab-books')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                        2. 書單管理
+                    </button>
+                    <button onclick="window.switchAdminTab('tab-details')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                        3. 投票明細
+                    </button>
+                    <button onclick="window.switchAdminTab('tab-ranking')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                        4. 結算榜單
+                    </button>
+                </nav>
+            </div>
+
+            <!-- [分頁 1] 基本設定 -->
+            <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-600">👥</span> 委員名單管理</h3>
                     <div class="flex flex-col gap-2 mb-4">
-                        <textarea id="new-committee-name" rows="3" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50"></textarea>
+                        <textarea id="new-committee-name" rows="3" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
                         <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm">批次新增名單</button>
                     </div>
                     <h4 class="text-xs font-bold text-gray-500 mb-1">目前名單：</h4>
-                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
+                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
                 </div>
 
-                <!-- 排序模式與說明 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-purple-400">
-                    <h3 class="text-base sm:text-lg font-bold mb-3">⚙️ 2. 計分模式設定</h3>
-                    <div class="space-y-3 mb-4 border-b pb-4">
-                        <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                            <input type="radio" name="sortMode" value="score" class="mr-3 w-4 h-4" onchange="window.updateSortMode(this.value)"> 
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-purple-500">⚙️</span> 計分模式設定</h3>
+                    <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
+                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
+                            <input type="radio" name="sortMode" value="score" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateSortMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">分數制 <span class="text-xs text-gray-500 hidden sm:inline">(總分越高越好)</span></span>
                         </label>
-                        <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                            <input type="radio" name="sortMode" value="rank" class="mr-3 w-4 h-4" onchange="window.updateSortMode(this.value)"> 
+                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
+                            <input type="radio" name="sortMode" value="rank" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateSortMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">名次制 <span class="text-xs text-gray-500 hidden sm:inline">(數字越小越好)</span></span>
                         </label>
                     </div>
-                    <div class="bg-purple-50 p-3 rounded border border-purple-100">
-                        <label class="block text-xs sm:text-sm font-bold text-purple-800 mb-1">💡 計分範圍說明：</label>
-                        <p class="text-xs sm:text-sm text-gray-700 leading-relaxed">請在下方的<span class="font-bold text-blue-600">「年級與書單管理」</span>中，針對每個年級設定專屬的評分範圍！</p>
+                    <div class="bg-purple-50 p-4 rounded border border-purple-100 flex-grow">
+                        <label class="block text-sm font-bold text-purple-800 mb-2 flex items-center gap-1">💡 計分範圍說明：</label>
+                        <p class="text-sm text-gray-700 leading-relaxed">請在「書單管理」分頁中，針對每個年級設定專屬的評分範圍！</p>
                     </div>
                 </div>
             </div>
 
-            <!-- 書單與年級管理 -->
-            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-yellow-400 mb-6">
-                <h3 class="text-base sm:text-lg font-bold mb-4">📚 3. 年級與書單版本管理</h3>
-                
-                <div class="flex flex-col sm:flex-row gap-2 mb-6 p-3 sm:p-4 bg-gray-50 rounded border">
-                    <input type="text" id="new-grade-name" placeholder="例如：高一、國一、專業群科..." class="border p-2 rounded flex-grow text-sm sm:text-base">
-                    <button onclick="window.addGrade()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded font-bold transition w-full sm:w-auto shadow-sm">➕ 新增年級</button>
-                </div>
+            <!-- [分頁 2] 書單管理 -->
+            <div id="tab-books" class="admin-tab-content hidden mb-6">
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-yellow-500">📚</span> 年級與書單版本管理</h3>
+                    
+                    <div class="flex flex-col sm:flex-row gap-2 mb-6 p-3 sm:p-4 bg-gray-50 rounded border border-gray-200">
+                        <input type="text" id="new-grade-name" placeholder="例如：高一、國一、專業群科..." class="border p-2 rounded flex-grow text-sm sm:text-base focus:ring-2 focus:ring-yellow-400 outline-none">
+                        <button onclick="window.addGrade()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-5 py-2 rounded font-bold transition w-full sm:w-auto shadow-sm">➕ 新增年級</button>
+                    </div>
 
-                <div id="admin-grades-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                    <!-- JavaScript 會動態產生年級區塊 -->
+                    <div id="admin-grades-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                        <!-- JavaScript 會動態產生年級區塊 -->
+                    </div>
                 </div>
             </div>
 
-            <!-- 即時計分結果 -->
-            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md border-t-4 border-green-400">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
-                    <div class="flex items-center gap-2">
-                        <h3 class="text-base sm:text-lg font-bold text-green-800">🏆 4. 結算榜單 (雲端連動)</h3>
-                        <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded animate-pulse">● Live</span>
-                    </div>
-                    <button onclick="window.downloadExcel()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded shadow text-sm transition flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        下載 Excel 報表
-                    </button>
+            <!-- [分頁 3] 投票明細 (新增的分頁) -->
+            <div id="tab-details" class="admin-tab-content hidden mb-6">
+                <div id="voting-details-container" class="space-y-6">
+                    <!-- 投票明細表格動態產生在這裡 -->
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="ranking-container">
-                    <!-- 名次結果會動態顯示在這裡 -->
+            </div>
+
+            <!-- [分頁 4] 結算榜單 -->
+            <div id="tab-ranking" class="admin-tab-content hidden mb-6">
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 border-b pb-4">
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base sm:text-lg font-bold text-green-800 flex items-center gap-2">🏆 結算榜單 (雲端連動)</h3>
+                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded animate-pulse">● Live</span>
+                        </div>
+                        <button onclick="window.downloadExcel()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-5 rounded shadow text-sm transition flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            下載 Excel 報表
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="ranking-container">
+                        <!-- 名次結果會動態顯示在這裡 -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -178,10 +205,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ★ 完全使用你提供的正確設定，絕不更改 ★
+        // ★ 一字不漏：確保金鑰正確 ★
         const firebaseConfig = {
             apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
             authDomain: "school-book-system-864cb.firebaseapp.com",
@@ -283,11 +309,39 @@
                 radio.checked = (radio.value === globalConfig.sortMode);
             });
 
-            renderAdminGradesAndBooks();
-
-            if (currentRole === 'admin') renderLiveRanking();
-            if (currentRole === 'committee' && currentUserLabel) renderVotingArea();
+            if (currentRole === 'admin') {
+                renderAdminGradesAndBooks();
+                renderVotingDetails(); // ★ 新增渲染第三分頁：投票明細
+                renderLiveRanking();
+            }
+            if (currentRole === 'committee' && currentUserLabel) {
+                renderVotingArea();
+            }
         }
+
+        // ==========================================
+        // 分頁切換功能 (Tab Switcher)
+        // ==========================================
+        window.switchAdminTab = (tabId) => {
+            // 隱藏所有分頁內容
+            const contents = document.querySelectorAll('.admin-tab-content');
+            contents.forEach(el => el.classList.add('hidden'));
+            
+            // 重置所有按鈕樣式
+            const btns = document.querySelectorAll('.admin-tab-btn');
+            btns.forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600', 'font-bold');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // 顯示目標分頁並切換按鈕樣式
+            document.getElementById(tabId).classList.remove('hidden');
+            const activeBtn = document.querySelector(`button[onclick="window.switchAdminTab('${tabId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-gray-500');
+                activeBtn.classList.add('border-blue-500', 'text-blue-600', 'font-bold');
+            }
+        };
 
         function renderAdminGradesAndBooks() {
             const container = document.getElementById('admin-grades-container');
@@ -371,6 +425,94 @@
             }
         }
 
+        // ==========================================
+        // ★ 新增功能：渲染第三分頁的「投票明細」 ★
+        // ==========================================
+        function renderVotingDetails() {
+            const container = document.getElementById('voting-details-container');
+            container.innerHTML = '';
+            
+            const mode = globalConfig.sortMode; 
+            const scoreLabel = mode === 'score' ? '分數加總' : '名次加總';
+
+            globalConfig.grades.forEach(grade => {
+                const books = globalConfig.books[grade] || [];
+                if (books.length === 0) return;
+
+                // 1. 計算總分與排名
+                let totalScores = {};
+                books.forEach(b => totalScores[b] = 0);
+
+                for (let committeeName in globalScores) {
+                    let committeeVotes = globalScores[committeeName][grade] || {};
+                    for (let book in committeeVotes) {
+                        if (totalScores[book] !== undefined) {
+                            totalScores[book] += parseInt(committeeVotes[book]) || 0;
+                        }
+                    }
+                }
+
+                let sortedBooks = Object.keys(totalScores).map(b => ({ name: b, score: totalScores[b] })).sort((a,b) => {
+                    if (mode === 'score') return b.score - a.score;
+                    let scoreA = a.score === 0 ? 9999 : a.score;
+                    let scoreB = b.score === 0 ? 9999 : b.score;
+                    return scoreA - scoreB;
+                });
+
+                // 2. 建立表格 HTML
+                let html = `
+                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <h3 class="text-base sm:text-lg font-bold mb-4 text-blue-800 flex items-center gap-2">📊 ${grade} 成績明細</h3>
+                        <div class="overflow-x-auto rounded border border-gray-200">
+                            <table class="w-full text-sm text-center border-collapse min-w-max">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 border-b">
+                                        <th class="p-2 border-r font-bold sticky left-0 bg-gray-100 z-10 w-24">委員姓名</th>`;
+                books.forEach(b => {
+                    html += `<th class="p-2 font-bold border-r last:border-0 min-w-[5rem]">${b}</th>`;
+                });
+                html += `           </tr>
+                                </thead>
+                                <tbody>`;
+                
+                // 3. 填入每位委員的成績
+                globalConfig.committees.forEach(c => {
+                    let v = globalScores[c] && globalScores[c][grade] ? globalScores[c][grade] : {};
+                    html += `<tr class="border-b hover:bg-gray-50 transition bg-white">
+                                <td class="p-2 border-r font-medium sticky left-0 bg-white z-10">${c}</td>`;
+                    books.forEach(b => {
+                        let s = v[b] !== undefined ? `<span class="font-bold text-gray-800">${v[b]}</span>` : `<span class="text-gray-400">未評</span>`;
+                        html += `<td class="p-2 border-r last:border-0">${s}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+
+                // 4. 填入底部加總與排名
+                html += `       <tr class="bg-yellow-50 font-bold text-gray-800 border-b">
+                                    <td class="p-2 border-r sticky left-0 bg-yellow-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">${scoreLabel}</td>`;
+                books.forEach(b => {
+                    html += `<td class="p-2 border-r last:border-0">${totalScores[b] === 0 ? '-' : totalScores[b]}</td>`;
+                });
+                html += `       </tr>
+                                <tr class="bg-green-50 font-bold text-gray-800">
+                                    <td class="p-2 border-r sticky left-0 bg-green-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">最終排名</td>`;
+                books.forEach(b => {
+                    let rank = sortedBooks.findIndex(item => item.name === b) + 1;
+                    html += `<td class="p-2 border-r last:border-0">${totalScores[b] === 0 ? '-' : rank}</td>`;
+                });
+                html += `       </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                container.innerHTML += html;
+            });
+
+            if (container.innerHTML === '') {
+                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed">尚無成績明細，請先至「書單管理」建立年級與書單。</p>';
+            }
+        }
+
         function renderLiveRanking() {
             const container = document.getElementById('ranking-container');
             container.innerHTML = '';
@@ -402,7 +544,7 @@
                 });
 
                 let html = `
-                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col">
+                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border-gray-200">
                         <div class="bg-green-100 font-bold p-2 sm:p-3 text-center border-b text-green-800 text-sm sm:text-base">${grade} ${modeText}榜單</div>
                         <div class="p-3 sm:p-4 space-y-3 bg-gray-50 flex-grow">`;
                 
@@ -480,7 +622,6 @@
                     html += `
                         <div class="flex flex-col rounded-lg border border-gray-200 transition shadow-sm gap-3 p-4 ${boxClass}">
                             
-                            <!-- 上半部：書名 與 分數顯示框 -->
                             <div class="flex justify-between items-center border-b border-gray-100 pb-2">
                                 <span class="text-gray-800 font-bold text-lg">${book}</span>
                                 <div class="w-12 text-center shrink-0">
@@ -488,7 +629,6 @@
                                 </div>
                             </div>
                             
-                            <!-- 下半部：滑桿區 (占用全寬) -->
                             <div class="flex items-center gap-3 w-full pt-1">
                                 <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${min}</span>
                                 
@@ -561,6 +701,9 @@
                 
                 document.getElementById('login-section').classList.add('hidden');
                 document.getElementById('admin-section').classList.remove('hidden');
+                
+                // 預設開啟第一個分頁
+                window.switchAdminTab('tab-setup');
                 updateUI();
             } else if (role === 'committee') {
                 const name = document.getElementById('committee-dropdown').value;
