@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>選書計分即時連動系統 (Firebase版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
@@ -92,7 +93,7 @@
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- ★ 修改：智慧型科別設定區塊 ★ -->
+                <!-- 智慧型科別設定區塊 -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 科別設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
@@ -279,7 +280,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // ★ 一字不漏：確保金鑰正確 ★
         const firebaseConfig = {
             apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
             authDomain: "school-book-system-864cb.firebaseapp.com",
@@ -381,7 +381,6 @@
                 return `<li class="border-b border-gray-100 py-2 last:border-0 text-sm text-gray-700 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}</li>`;
             }).join('');
 
-            // ★ 更新科別設定區塊的顯示邏輯 ★
             const subjectSelect = document.getElementById('subject-select');
             const customInput = document.getElementById('custom-subject-input');
             
@@ -394,13 +393,11 @@
                 customInput.classList.remove('hidden');
             }
 
-            // 更新計分模式
             const radios = document.getElementsByName('sortMode');
             radios.forEach(radio => {
                 radio.checked = (radio.value === globalConfig.sortMode);
             });
             
-            // 更新記名模式
             const anonRadios = document.getElementsByName('isAnonymous');
             anonRadios.forEach(radio => {
                 radio.checked = (radio.value === String(!!globalConfig.isAnonymous));
@@ -419,7 +416,6 @@
                 renderLiveRanking();
             }
             if (currentRole === 'committee' && currentUserLabel) {
-                // 委員畫面上方顯示科別
                 document.getElementById('committee-subject-title').innerText = `(${globalConfig.subject}科)`;
                 renderVotingArea();
             }
@@ -496,9 +492,18 @@
                             
                             <div class="bg-white p-2 rounded border border-gray-200 mb-3 flex-grow">
                                 <h4 class="text-xs font-bold text-gray-500 mb-1 border-b pb-1">已選入版本：</h4>
-                                <ul class="text-xs sm:text-sm list-inside list-disc text-gray-700 space-y-1 pl-1">
-                                    ${books.map(b => `<li>${b}</li>`).join('')}
-                                    ${books.length === 0 ? '<li class="text-gray-400 list-none text-center italic text-xs py-2">尚未加入任何版本</li>' : ''}
+                                <!-- ★ 修改點：加入了紅色的刪除按鈕 ★ -->
+                                <ul class="text-xs sm:text-sm text-gray-700 space-y-1 mt-1">
+                                    ${books.map(b => `
+                                        <li class="flex justify-between items-center py-1 border-b border-gray-50 last:border-0 px-1 hover:bg-gray-100 rounded transition">
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-1 h-1 bg-gray-500 rounded-full"></span>
+                                                <span>${b}</span>
+                                            </div>
+                                            <button onclick="window.removeBook('${grade}', '${b}')" class="text-red-500 hover:text-white hover:bg-red-500 rounded w-5 h-5 flex items-center justify-center font-bold transition text-xs" title="刪除此版本">✕</button>
+                                        </li>
+                                    `).join('')}
+                                    ${books.length === 0 ? '<li class="text-gray-400 text-center italic text-xs py-2 border border-dashed border-gray-200 rounded">尚未加入任何版本</li>' : ''}
                                 </ul>
                             </div>
 
@@ -868,7 +873,6 @@
             }
         }
 
-        // ★ 新增：處理下拉選單切換邏輯 ★
         window.handleSubjectChange = () => {
             const val = document.getElementById('subject-select').value;
             const customInput = document.getElementById('custom-subject-input');
@@ -880,7 +884,6 @@
             }
         };
 
-        // ★ 修改：儲存科別設定邏輯 ★
         window.updateSubject = () => {
             const selectVal = document.getElementById('subject-select').value;
             let val = '';
@@ -946,6 +949,14 @@
 
             if(bookName && !globalConfig.books[grade].includes(bookName)) {
                 globalConfig.books[grade].push(bookName);
+                saveConfigToCloud();
+            }
+        };
+
+        // ★ 新增：刪除書籍版本的邏輯 ★
+        window.removeBook = (grade, bookName) => {
+            if(confirm(`確定要刪除「${bookName}」嗎？\n(注意：這只會從表單中移除選項，但不會刪除已經收到的成績)`)) {
+                globalConfig.books[grade] = globalConfig.books[grade].filter(b => b !== bookName);
                 saveConfigToCloud();
             }
         };
@@ -1107,8 +1118,10 @@
             }
         };
 
-        window.downloadExcel = () => {
-            const wb = XLSX.utils.book_new();
+        // ==========================================
+        // ★ 全新升級：使用 ExcelJS 完美控制所有格式與列印設定 ★
+        // ==========================================
+        window.downloadExcel = async () => {
             const mode = globalConfig.sortMode; 
             const scoreLabel = mode === 'score' ? '總分' : '名次加總';
             const subjectName = globalConfig.subject || '未命名';
@@ -1155,22 +1168,50 @@
                 if (sortedBooks.length > maxRows) maxRows = sortedBooks.length;
             });
 
-            // ==========================================
-            // 工作表一：排名總表 (全面客製化)
-            // ==========================================
-            let summaryAoA = []; 
+            // 建立 ExcelJS 工作簿
+            const workbook = new ExcelJS.Workbook();
+            
+            // 工作表一：排名總表
+            const summarySheet = workbook.addWorksheet('🏆 排名總表');
+            
+            // ★ 強制設定橫向列印與邊界 (獨立屬性宣告以確保軟體能正確讀取) ★
+            summarySheet.pageSetup.paperSize = 9; // A4
+            summarySheet.pageSetup.orientation = 'landscape'; // 強制橫向
+            summarySheet.pageSetup.fitToPage = true; // 縮放至一頁寬
+            summarySheet.pageSetup.fitToWidth = 1;
+            summarySheet.pageSetup.fitToHeight = 0;
+            summarySheet.pageSetup.margins = {
+                left: 1.3 / 2.54, right: 1.3 / 2.54, 
+                top: 1.4 / 2.54, bottom: 1.4 / 2.54,
+                header: 0.3 / 2.54, footer: 0.3 / 2.54
+            };
 
-            let titleRow = new Array(totalCols).fill("");
-            titleRow[0] = `${subjectName}科選書結果一覽表`;
-            summaryAoA.push(titleRow);
+            // 第 1 列：大標題
+            summarySheet.mergeCells(1, 1, 1, totalCols);
+            const titleCell = summarySheet.getCell(1, 1);
+            titleCell.value = `${subjectName}科選書結果一覽表`;
+            titleCell.font = { size: 20, bold: true };
+            titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+            summarySheet.getRow(1).height = 40; // 列高 40
 
-            let headerRow = [];
+            // 第 2 列：表頭
+            let headerData = [];
             globalConfig.grades.forEach((grade, index) => {
-                headerRow.push("年級", "排名", "版本"); 
-                if (index < globalConfig.grades.length - 1) headerRow.push(""); 
+                headerData.push("年級", "排名", "版本"); 
+                if (index < globalConfig.grades.length - 1) headerData.push(""); 
             });
-            summaryAoA.push(headerRow);
+            const headerRow = summarySheet.addRow(headerData);
+            headerRow.eachCell((cell, colNumber) => {
+                if (cell.value) {
+                    cell.font = { color: { argb: 'FF00B050' }, bold: true }; // 綠色
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.border = {
+                        top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+                    };
+                }
+            });
 
+            // 第 3 列開始：成績資料
             for (let i = 0; i < maxRows; i++) {
                 let dataRow = [];
                 globalConfig.grades.forEach((grade, index) => {
@@ -1183,149 +1224,126 @@
                     }
                     if (index < globalConfig.grades.length - 1) dataRow.push(""); 
                 });
-                summaryAoA.push(dataRow);
+                const row = summarySheet.addRow(dataRow);
+                
+                // 設定資料格樣式
+                globalConfig.grades.forEach((grade, index) => {
+                    let sortedBooks = gradeResults[grade].sorted;
+                    if (i < sortedBooks.length) {
+                        let isFirstPlace = sortedBooks[i].rank === 1 && sortedBooks[i].score !== 0;
+                        let colStart = index * 4 + 1;
+                        for (let c = colStart; c < colStart + 3; c++) {
+                            let cell = row.getCell(c);
+                            cell.font = isFirstPlace ? { color: { argb: 'FF0000FF' }, bold: true } : {}; // 第一名藍色
+                            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                            cell.border = {
+                                top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
+                            };
+                        }
+                    }
+                });
             }
 
-            summaryAoA.push(new Array(totalCols).fill(""));
+            // 空一列
+            summarySheet.addRow([]);
 
-            const signatureRowIdx = summaryAoA.length; 
-            let sigRow = new Array(totalCols).fill("");
-            sigRow[0] = "選書委員簽名欄";
-            summaryAoA.push(sigRow);
-
-            const summarySheet = XLSX.utils.aoa_to_sheet(summaryAoA);
-
-            summarySheet['!pageSetup'] = { orientation: 'landscape' };
-            summarySheet['!margins'] = { left: 1.3, right: 1.3, top: 1.4, bottom: 1.4, header: 0.3, footer: 0.3 };
-
-            summarySheet['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }, 
-                { s: { r: signatureRowIdx, c: 0 }, e: { r: signatureRowIdx, c: totalCols - 1 } } 
-            ];
-
-            summarySheet['!rows'] = [];
-            summarySheet['!rows'][0] = { hpt: 40 }; 
-            summarySheet['!rows'][signatureRowIdx] = { hpt: 200 }; 
-
-            let colWidths = [];
-            globalConfig.grades.forEach((grade, index) => {
-                colWidths.push({ wch: 9 });  
-                colWidths.push({ wch: 9 });  
-                colWidths.push({ wch: 9 }); 
-                if (index < globalConfig.grades.length - 1) colWidths.push({ wch: 2 }); 
-            });
-            summarySheet['!cols'] = colWidths;
-
-            const thinBorder = {
-                top: { style: "thin", color: { auto: 1 } },
-                bottom: { style: "thin", color: { auto: 1 } },
-                left: { style: "thin", color: { auto: 1 } },
-                right: { style: "thin", color: { auto: 1 } }
+            // 簽名欄
+            const sigRowIdx = summarySheet.rowCount + 1;
+            summarySheet.mergeCells(sigRowIdx, 1, sigRowIdx, totalCols);
+            const sigCell = summarySheet.getCell(sigRowIdx, 1);
+            sigCell.value = "選書委員簽名欄";
+            sigCell.font = { size: 14 };
+            sigCell.alignment = { vertical: 'top', horizontal: 'left' };
+            sigCell.border = {
+                top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
             };
+            summarySheet.getRow(sigRowIdx).height = 150; // ExcelJS 列高 150 約等於原本設定的視覺 200
 
-            const range = XLSX.utils.decode_range(summarySheet['!ref']);
-            for (let R = range.s.r; R <= range.e.r; ++R) {
-                for (let C = range.s.c; C <= range.e.c; ++C) {
-                    const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-                    
-                    if (R === signatureRowIdx && !summarySheet[cellAddress]) {
-                        summarySheet[cellAddress] = { v: "", t: "s" };
-                    }
-                    if (!summarySheet[cellAddress]) continue;
-
-                    let cell = summarySheet[cellAddress];
-
-                    if (R === 0) {
-                        if (C === 0) {
-                            cell.s = {
-                                font: { sz: 20, bold: true },
-                                alignment: { vertical: "center", horizontal: "center" }
-                            };
-                        }
-                    } else if (R === 1) {
-                        if (cell.v !== "") {
-                            cell.s = {
-                                font: { color: { rgb: "00B050" }, bold: true },
-                                alignment: { horizontal: "center", vertical: "center" },
-                                border: thinBorder
-                            };
-                        }
-                    } else if (R > 1 && R < signatureRowIdx - 1) {
-                        if (cell.v !== "") {
-                            let rankCol = Math.floor(C / 4) * 4 + 1;
-                            let rankCell = summarySheet[XLSX.utils.encode_cell({ r: R, c: rankCol })];
-                            let isFirstPlace = rankCell && rankCell.v === 1;
-
-                            cell.s = {
-                                font: isFirstPlace ? { color: { rgb: "0000FF" }, bold: true } : {},
-                                alignment: { horizontal: "center", vertical: "center" },
-                                border: thinBorder
-                            };
-                        }
-                    } else if (R === signatureRowIdx) {
-                        cell.s = {
-                            font: { sz: 14 },
-                            alignment: { vertical: "top", horizontal: "left" },
-                            border: thinBorder
-                        };
-                    }
+            // 欄寬設定
+            for (let c = 1; c <= totalCols; c++) {
+                if (c % 4 === 0) {
+                    summarySheet.getColumn(c).width = 3; // 空白間隔
+                } else {
+                    summarySheet.getColumn(c).width = 11; // ExcelJS 的 width 單位略不同，11 約為預設寬度 9 左右
                 }
             }
-
-            XLSX.utils.book_append_sheet(wb, summarySheet, "🏆 排名總表");
 
             // ==========================================
             // 工作表二...N：各年級投票明細表 (若為記名投票才輸出)
             // ==========================================
             if (!globalConfig.isAnonymous) {
                 globalConfig.grades.forEach(grade => {
-                    let detailData = [];
                     const books = globalConfig.books[grade] || [];
                     if (books.length === 0) return; 
 
+                    const detailSheet = workbook.addWorksheet(`${grade} 明細`);
+                    
+                    // ★ 明細表也強制設定橫向列印 ★
+                    detailSheet.pageSetup.paperSize = 9; 
+                    detailSheet.pageSetup.orientation = 'landscape'; 
+                    detailSheet.pageSetup.fitToPage = true;
+                    detailSheet.pageSetup.fitToWidth = 1;
+                    detailSheet.pageSetup.fitToHeight = 0;
+
+                    let headers = ["委員姓名", ...books];
+                    const hr = detailSheet.addRow(headers);
+                    hr.eachCell(c => {
+                        c.font = { bold: true };
+                        c.alignment = { vertical: 'middle', horizontal: 'center' };
+                        c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                    });
+
                     globalConfig.committees.forEach(committeeName => {
-                        let row = { "委員姓名": committeeName };
+                        let rowData = [committeeName];
                         let committeeVotes = globalScores[committeeName] && globalScores[committeeName][grade] ? globalScores[committeeName][grade] : {};
                         books.forEach(book => {
                             let score = committeeVotes[book];
-                            row[book] = score !== undefined ? score : '未評';
+                            rowData.push(score !== undefined ? score : '未評');
                         });
-                        detailData.push(row);
+                        const r = detailSheet.addRow(rowData);
+                        r.eachCell(c => {
+                            c.alignment = { vertical: 'middle', horizontal: 'center' };
+                            c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                        });
                     });
 
                     let totals = gradeResults[grade].totals;
                     
-                    let summaryRow = { "委員姓名": `【${scoreLabel}】` };
+                    let summaryRowData = [`【${scoreLabel}】`];
                     books.forEach(book => {
-                        summaryRow[book] = totals[book] === 0 ? '-' : totals[book];
+                        summaryRowData.push(totals[book] === 0 ? '-' : totals[book]);
                     });
-                    detailData.push(summaryRow);
+                    const sr = detailSheet.addRow(summaryRowData);
+                    sr.eachCell(c => {
+                        c.font = { bold: true };
+                        c.alignment = { vertical: 'middle', horizontal: 'center' };
+                        c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                    });
 
-                    let rankRow = { "委員姓名": "【最終排名】" };
+                    let rankRowData = ["【最終排名】"];
                     books.forEach(book => {
                         let bookObj = gradeResults[grade].sorted.find(b => b.name === book);
                         let rank = (bookObj && bookObj.score !== 0) ? bookObj.rank : '-';
-                        rankRow[book] = totals[book] === 0 ? '-' : rank;
+                        rankRowData.push(rank);
                     });
-                    detailData.push(rankRow);
+                    const rr = detailSheet.addRow(rankRowData);
+                    rr.eachCell((c, colIdx) => {
+                        c.font = { bold: true };
+                        if (colIdx > 1) c.font.color = { argb: 'FFFF0000' };
+                        c.alignment = { vertical: 'middle', horizontal: 'center' };
+                        c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+                    });
 
-                    const detailSheet = XLSX.utils.json_to_sheet(detailData);
-                    
-                    const detailRange = XLSX.utils.decode_range(detailSheet['!ref']);
-                    for (let R = detailRange.s.r; R <= detailRange.e.r; ++R) {
-                        for (let C = detailRange.s.c; C <= detailRange.e.c; ++C) {
-                            const cellAdd = XLSX.utils.encode_cell({ r: R, c: C });
-                            if(detailSheet[cellAdd]) {
-                                detailSheet[cellAdd].s = { alignment: { horizontal: "center", vertical: "center" } };
-                            }
-                        }
+                    detailSheet.getColumn(1).width = 15;
+                    for(let i = 2; i <= books.length + 1; i++) {
+                        detailSheet.getColumn(i).width = 12;
                     }
-
-                    XLSX.utils.book_append_sheet(wb, detailSheet, `${grade} 明細`);
                 });
             }
 
-            XLSX.writeFile(wb, `${subjectName}科選書結果_報表.xlsx`);
+            // 輸出 Excel 檔案
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `${subjectName}科選書結果_報表.xlsx`);
         };
 
     </script>
