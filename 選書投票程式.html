@@ -15,44 +15,76 @@
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
-    <!-- 加入 px-4 讓手機兩側有安全邊距 -->
     <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
 
         <!-- ==========================================
-             1. 登入版面
+             1. 登入版面 (全新智慧分流介面)
              ========================================== -->
         <div id="login-section" class="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-md mx-auto mt-4 sm:mt-10">
             <h1 class="text-[16px] sm:text-[19.2px] font-bold text-center mb-2 text-blue-600 leading-snug">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
             <p class="text-center text-gray-500 mb-6 text-xs sm:text-sm">Firebase 即時連線版</p>
-            
-            <div class="mb-4">
-                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇身分：</label>
-                <div class="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input type="radio" name="role" value="admin" class="mr-2 w-4 h-4" checked onchange="window.toggleLoginRole()"> 管理者
-                    </label>
-                    <label class="flex items-center p-2 border rounded hover:bg-gray-50 cursor-pointer">
-                        <input type="radio" name="role" value="committee" class="mr-2 w-4 h-4" onchange="window.toggleLoginRole()"> 選書委員
-                    </label>
+
+            <!-- 視圖 A：管理者專用登入區 (主網址進入時顯示) -->
+            <div id="admin-login-view" class="hidden">
+                <div class="mb-5 border-b border-gray-200 pb-5">
+                    <label class="block text-blue-800 font-bold mb-2 text-sm sm:text-base">請輸入暱稱或學校名稱：</label>
+                    <div class="flex flex-col gap-3 mt-2">
+                        <!-- ★ 修改：徹底移除會讓人混淆的「台中二中」等單位提示文字 ★ -->
+                        <input type="text" id="login-school-input" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800 placeholder-blue-300" placeholder="請輸入暱稱或學校名稱" oninput="window.checkTenantInputs()">
+                        
+                        <select id="login-subject-select" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800" onchange="window.checkTenantInputs()">
+                            <option value="">-- 請選擇科別 --</option>
+                            <option value="國文">國文</option>
+                            <option value="英文">英文</option>
+                            <option value="數學">數學</option>
+                            <option value="物理">物理</option>
+                            <option value="化學">化學</option>
+                            <option value="生物">生物</option>
+                            <option value="地球科學">地球科學</option>
+                            <option value="地理">地理</option>
+                            <option value="歷史">歷史</option>
+                            <option value="公民">公民</option>
+                            <option value="音樂">音樂</option>
+                            <option value="體育">體育</option>
+                            <option value="家政">家政</option>
+                            <option value="美術">美術</option>
+                            <option value="資訊">資訊</option>
+                            <option value="custom" class="font-bold text-pink-600">✍️ 自訂其他科別...</option>
+                        </select>
+                        <input type="text" id="login-custom-subject-input" class="hidden border p-3 rounded w-full bg-white focus:ring-2 focus:ring-blue-400 outline-none transition" placeholder="請輸入自訂科別" oninput="window.checkTenantInputs()">
+                    </div>
                 </div>
+
+                <div class="mb-6">
+                    <!-- ★ 修改：同步修正密碼上方的提示文字 ★ -->
+                    <label id="admin-password-label" class="block text-gray-700 font-bold mb-2 text-sm sm:text-base transition-colors duration-300">請先填寫上方「暱稱或學校名稱」與「科別」</label>
+                    <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest focus:ring-2 focus:ring-blue-400 outline-none transition" disabled>
+                </div>
+
+                <button id="admin-login-btn" onclick="window.handleAdminLogin()" class="w-full bg-gray-400 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md cursor-not-allowed" disabled>
+                    請先完成上方設定
+                </button>
             </div>
 
-            <!-- 管理者密碼輸入框 -->
-            <div id="admin-password-group" class="mb-6">
-                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請輸入管理者密碼 (4位數)：</label>
-                <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest">
+            <!-- 視圖 B：選書委員專用登入區 (專屬連結進入時顯示) -->
+            <div id="committee-login-view" class="hidden">
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-center shadow-inner">
+                    <p class="text-gray-600 text-sm font-bold">目前進入的評分空間為</p>
+                    <p class="text-xl sm:text-2xl font-black text-blue-800 mt-1">【<span id="committee-login-subject-display"></span>】</p>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇您的姓名：</label>
+                    <select id="committee-dropdown" class="w-full border p-3 rounded bg-white text-base focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition">
+                        <option value="">載入名單中...</option>
+                    </select>
+                </div>
+
+                <button onclick="window.handleCommitteeLogin()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md flex items-center justify-center gap-2">
+                    進入評分系統 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                </button>
             </div>
 
-            <div id="committee-select-group" class="mb-6 hidden">
-                <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇您的姓名：</label>
-                <select id="committee-dropdown" class="w-full border p-3 rounded bg-gray-50 text-base">
-                    <option value="">載入名單中...</option>
-                </select>
-            </div>
-
-            <button onclick="window.handleLogin()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md">
-                登入系統
-            </button>
         </div>
 
         <!-- ==========================================
@@ -61,15 +93,19 @@
         <div id="admin-section" class="hidden">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
                 <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2 flex items-center">
-                    👨‍💼 管理者控制台
+                    👨‍💼 管理者控制台 <span id="admin-subject-title" class="ml-2 text-base sm:text-lg text-gray-500 truncate max-w-[150px] sm:max-w-xs"></span>
                 </h1>
                 
-                <div class="flex w-full sm:w-auto gap-2">
-                    <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white py-2 px-4 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm sm:text-base">
+                <div class="flex flex-wrap w-full sm:w-auto gap-2">
+                    <button onclick="window.copyVotingLink()" class="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                        複製專屬連結
+                    </button>
+                    <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         清除所有資料
                     </button>
-                    <button onclick="window.logout()" class="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow font-bold transition text-sm sm:text-base">登出</button>
+                    <button onclick="window.logout()" class="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded shadow font-bold transition text-sm">登出</button>
                 </div>
             </div>
 
@@ -93,34 +129,17 @@
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 智慧型科別設定區塊 -->
+                <!-- 報表標題設定區塊 (保留自訂標題功能) -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 科別設定</h3>
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
-                        <label class="text-sm font-bold text-gray-700">請選擇或輸入本次選書的科別：</label>
+                        <label class="text-sm font-bold text-gray-700">您可以自訂匯出 Excel 時的大標題：</label>
                         <div class="flex flex-col sm:flex-row gap-2 mt-2">
-                            <select id="subject-select" class="border p-2 rounded w-full sm:w-auto flex-grow text-base bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition" onchange="window.handleSubjectChange()">
-                                <option value="國文">國文</option>
-                                <option value="英文">英文</option>
-                                <option value="數學">數學</option>
-                                <option value="物理">物理</option>
-                                <option value="化學">化學</option>
-                                <option value="生物">生物</option>
-                                <option value="地球科學">地球科學</option>
-                                <option value="地理">地理</option>
-                                <option value="歷史">歷史</option>
-                                <option value="公民">公民</option>
-                                <option value="音樂">音樂</option>
-                                <option value="體育">體育</option>
-                                <option value="家政">家政</option>
-                                <option value="美術">美術</option>
-                                <option value="資訊">資訊</option>
-                                <option value="custom" class="font-bold text-blue-600">✍️ 自訂其他科別...</option>
-                            </select>
-                            <input type="text" id="custom-subject-input" class="hidden border p-2 rounded w-full sm:w-auto flex-grow text-base bg-white focus:ring-2 focus:ring-blue-400 outline-none transition" placeholder="請輸入自訂科別">
-                            <button onclick="window.updateSubject()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded font-bold transition shadow-sm whitespace-nowrap">儲存</button>
+                            <input type="text" id="admin-subject-display-input" class="border p-2 rounded w-full flex-grow text-base bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition">
+                            <button onclick="window.updateSubjectDisplay()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded font-bold transition shadow-sm whitespace-nowrap">儲存標題</button>
                         </div>
-                        <p id="subject-save-status" class="text-sm text-green-600 font-bold hidden mt-2">✅ 科別已更新！</p>
+                        <p class="text-xs text-gray-500 mt-1">※ 預設為「單位 + 科別」，更改僅影響報表顯示名稱，不影響連結。</p>
+                        <p id="subject-save-status" class="text-sm text-green-600 font-bold hidden mt-2">✅ 標題已更新！</p>
                     </div>
                 </div>
 
@@ -223,11 +242,11 @@
         <div id="committee-section" class="hidden">
              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
                 <h1 class="text-xl sm:text-2xl font-bold text-green-800 border-l-4 border-green-500 pl-2">🧑‍🏫 歡迎，<span id="current-committee-name"></span> 委員</h1>
-                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">登出</button>
+                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">返回</button>
             </div>
             
             <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                <h2 class="text-lg sm:text-xl font-bold mb-3">📖 本期選書評分表 <span id="committee-subject-title" class="text-blue-600 font-black ml-2"></span></h2>
+                <h2 class="text-lg sm:text-xl font-bold mb-3">📖 本期選書評分表 <span id="committee-subject-title" class="text-blue-600 font-black ml-2 text-base"></span></h2>
                 <p id="voting-instruction" class="text-sm sm:text-base text-blue-700 font-bold mb-6 bg-blue-50 p-3 sm:p-4 rounded border border-blue-200 shadow-sm leading-relaxed">
                     <!-- 提示文字動態產生 -->
                 </p>
@@ -278,7 +297,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAnaaIOLKyq6DxLDmMCldhbLePXHAtGvjU",
@@ -289,16 +308,24 @@
             appId: "1:996605263028:web:0cb6c0a481512ca4d8ebe1"
         };
         
-        const appId = 'school-book-system-2026';
+        const baseAppId = 'school-book-system-2026';
+        
+        // ★ 解析網址參數 (多租戶隔離機制) ★
+        let currentSchool = new URLSearchParams(window.location.search).get('school') || ''; 
+        let currentDept = new URLSearchParams(window.location.search).get('dept') || ''; 
+        
+        let activeAppId = baseAppId;
+        
+        let configDocRef = null;
+        let scoresCollectionRef = null;
+        let unsubscribeConfig = null;
+        let unsubscribeScores = null;
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const configDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'appConfig', 'main');
-        const scoresCollectionRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
-
-        let globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: '國文' };
+        let globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: '', adminPassword: '' };
         let globalScores = {}; 
         let currentRole = null;
         let currentUserLabel = null;
@@ -306,7 +333,6 @@
         let pendingSubmitGrade = '';
         let pendingSubmitVotes = {};
 
-        // 預設科別清單
         const predefinedSubjects = ['國文', '英文', '數學', '物理', '化學', '生物', '地球科學', '地理', '歷史', '公民', '音樂', '體育', '家政', '美術', '資訊'];
 
         const initAuth = async () => {
@@ -314,84 +340,163 @@
                 await signInAnonymously(auth);
             } catch (error) {
                 console.error("登入失敗：", error);
-                let errorMsg = "無法登入資料庫！\n\n";
-                if (error.code === 'auth/operation-not-allowed') {
-                    errorMsg += "🚨 錯誤：您尚未在 Firebase 後台啟用「匿名 (Anonymous)」登入功能！請回 Firebase 控制台開啟。";
-                } else if (error.code === 'auth/api-key-not-valid') {
-                    errorMsg += "🚨 錯誤：API Key 無效！請確認您的 apiKey 沒有複製錯誤或漏字。";
-                } else {
-                    errorMsg += "錯誤代碼：" + error.code;
-                }
-                alert(errorMsg);
+                alert("無法登入資料庫！\n請確認您的 apiKey 沒有複製錯誤或漏字。");
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
             }
         };
 
-        onAuthStateChanged(auth, (user) => {
+        // ★ 智慧分流邏輯 ★
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
+                if (currentSchool && currentDept) {
+                    // 【委員模式】網址有帶參數，直接進入委員登入區塊
+                    document.getElementById('admin-login-view').classList.add('hidden');
+                    document.getElementById('committee-login-view').classList.remove('hidden');
+                    document.getElementById('committee-login-subject-display').innerText = `${currentSchool} - ${currentDept}`;
+                    
+                    await loadTenantConfig(currentSchool, currentDept);
+                } else {
+                    // 【管理員模式】網址無參數，進入管理員登入區塊
+                    document.getElementById('admin-login-view').classList.remove('hidden');
+                    document.getElementById('committee-login-view').classList.add('hidden');
+                }
+
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                setupRealtimeListeners();
             }
         });
 
         initAuth();
 
+        // ★ 管理員在首頁動態檢查並鎖定資料夾 ★
+        window.checkTenantInputs = async () => {
+            const schoolInput = document.getElementById('login-school-input').value.trim();
+            const select = document.getElementById('login-subject-select').value;
+            const custom = document.getElementById('login-custom-subject-input');
+
+            if (select === 'custom') {
+                custom.classList.remove('hidden');
+            } else {
+                custom.classList.add('hidden');
+            }
+
+            let deptVal = select === 'custom' ? custom.value.trim() : select;
+
+            const pwdInput = document.getElementById('admin-password');
+            const btn = document.getElementById('admin-login-btn');
+            const pwdLabel = document.getElementById('admin-password-label');
+
+            if (schoolInput && deptVal) {
+                // 當兩個欄位都填寫時，才載入資料庫
+                if (currentSchool !== schoolInput || currentDept !== deptVal) {
+                    currentSchool = schoolInput;
+                    currentDept = deptVal;
+                    await loadTenantConfig(currentSchool, currentDept);
+                }
+            } else {
+                // 資料不齊全，鎖住密碼框
+                pwdInput.disabled = true;
+                pwdInput.value = '';
+                pwdInput.classList.replace('bg-white', 'bg-gray-50');
+                btn.disabled = true;
+                btn.innerText = '請先完成上方設定';
+                btn.classList.replace('bg-blue-500', 'bg-gray-400');
+                btn.classList.replace('hover:bg-blue-600', 'cursor-not-allowed');
+                // ★ 修改：JavaScript 裡面的提示文字也要同步更新 ★
+                pwdLabel.innerText = '請先填寫上方「暱稱或學校名稱」與「科別」';
+                pwdLabel.classList.remove('text-red-600');
+            }
+        };
+
+        async function loadTenantConfig(school, dept) {
+            // 將單位與科別組合成絕對獨立的資料夾名稱
+            activeAppId = baseAppId + '-' + encodeURIComponent(school + '-' + dept);
+            configDocRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'appConfig', 'main');
+            scoresCollectionRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'scores');
+
+            try {
+                const docSnap = await getDoc(configDocRef);
+                if (docSnap.exists()) {
+                    globalConfig = docSnap.data();
+                    if (!globalConfig.subject) globalConfig.subject = `${school} ${dept}`;
+                    if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
+                } else {
+                    globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: `${school} ${dept}`, adminPassword: '' };
+                }
+                
+                // 動態更新密碼框的 UI
+                const pwdInput = document.getElementById('admin-password');
+                const btn = document.getElementById('admin-login-btn');
+                const pwdLabel = document.getElementById('admin-password-label');
+                
+                if (pwdInput && btn && pwdLabel) {
+                    pwdInput.disabled = false;
+                    pwdInput.classList.replace('bg-gray-50', 'bg-white');
+                    btn.disabled = false;
+                    btn.innerText = '管理者登入';
+                    btn.classList.replace('bg-gray-400', 'bg-blue-500');
+                    btn.classList.replace('cursor-not-allowed', 'hover:bg-blue-600');
+
+                    if (globalConfig.adminPassword) {
+                        pwdLabel.innerHTML = '請輸入管理者密碼 (4位數)：';
+                        pwdLabel.classList.remove('text-red-600');
+                    } else {
+                        pwdLabel.innerHTML = '⚠️ 首次建立此空間，請設定專屬密碼 (4位數)：';
+                        pwdLabel.classList.add('text-red-600');
+                    }
+                }
+
+                // 載入委員名單給委員登入選單
+                const dropdown = document.getElementById('committee-dropdown');
+                if (dropdown) {
+                    dropdown.innerHTML = '<option value="">-- 請選擇您的姓名 --</option>';
+                    if (globalConfig.committees && globalConfig.committees.length > 0) {
+                        globalConfig.committees.forEach(name => {
+                            dropdown.innerHTML += `<option value="${name}">${name}</option>`;
+                        });
+                    } else {
+                        dropdown.innerHTML = '<option value="">請等待管理者建立名單...</option>';
+                    }
+                }
+            } catch (e) {
+                console.error("載入科別設定失敗", e);
+            }
+        }
+
         function setupRealtimeListeners() {
-            onSnapshot(configDocRef, (docSnap) => {
+            unsubscribeConfig = onSnapshot(configDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     globalConfig = docSnap.data();
                     if (!globalConfig.gradeRanges) globalConfig.gradeRanges = {};
                     if (globalConfig.isAnonymous === undefined) globalConfig.isAnonymous = false;
-                    if (globalConfig.subject === undefined) globalConfig.subject = '國文';
+                    if (globalConfig.subject === undefined) globalConfig.subject = `${currentSchool} ${currentDept}`;
+                    if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
                 } else {
                     setDoc(configDocRef, globalConfig);
                 }
                 updateUI();
-            }, (error) => {
-                console.error("監聽設定失敗:", error);
-                if(error.code === 'permission-denied') {
-                    alert("🚨 權限被拒絕！請確認您已將 Firebase Firestore 的規則改為允許讀寫 (request.auth != null)。");
-                }
             });
 
-            onSnapshot(scoresCollectionRef, (snapshot) => {
+            unsubscribeScores = onSnapshot(scoresCollectionRef, (snapshot) => {
                 globalScores = {};
                 snapshot.forEach(doc => {
                     globalScores[doc.id] = doc.data().votes || {};
                 });
                 updateUI();
-            }, (error) => console.error("監聽分數失敗:", error));
+            });
         }
 
         function updateUI() {
-            const dropdown = document.getElementById('committee-dropdown');
-            const currentSelected = dropdown.value;
-            dropdown.innerHTML = globalConfig.committees.length === 0 
-                ? '<option value="">請等待管理者建立名單...</option>' 
-                : '<option value="">-- 請選擇您的姓名 --</option>';
-            
-            globalConfig.committees.forEach(name => {
-                dropdown.innerHTML += `<option value="${name}" ${name === currentSelected ? 'selected' : ''}>${name}</option>`;
-            });
-
             const list = document.getElementById('committee-list');
-            list.innerHTML = globalConfig.committees.map(name => {
-                return `<li class="border-b border-gray-100 py-2 last:border-0 text-sm text-gray-700 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}</li>`;
-            }).join('');
-
-            const subjectSelect = document.getElementById('subject-select');
-            const customInput = document.getElementById('custom-subject-input');
-            
-            if (predefinedSubjects.includes(globalConfig.subject)) {
-                subjectSelect.value = globalConfig.subject;
-                customInput.classList.add('hidden');
-            } else {
-                subjectSelect.value = 'custom';
-                customInput.value = globalConfig.subject;
-                customInput.classList.remove('hidden');
+            if(list) {
+                list.innerHTML = (globalConfig.committees || []).map(name => {
+                    return `<li class="border-b border-gray-100 py-2 last:border-0 text-sm text-gray-700 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}</li>`;
+                }).join('');
             }
+
+            const displayInput = document.getElementById('admin-subject-display-input');
+            if (displayInput) displayInput.value = globalConfig.subject;
 
             const radios = document.getElementsByName('sortMode');
             radios.forEach(radio => {
@@ -411,12 +516,13 @@
             });
 
             if (currentRole === 'admin') {
+                document.getElementById('admin-subject-title').innerText = `- ${currentSchool} ${currentDept}`;
                 renderAdminGradesAndBooks();
                 renderVotingDetails(); 
                 renderLiveRanking();
             }
             if (currentRole === 'committee' && currentUserLabel) {
-                document.getElementById('committee-subject-title').innerText = `(${globalConfig.subject}科)`;
+                document.getElementById('committee-subject-title').innerText = `(${currentSchool} ${currentDept})`;
                 renderVotingArea();
             }
         }
@@ -443,8 +549,9 @@
             const container = document.getElementById('admin-grades-container');
             container.innerHTML = '';
             const defaultPublishers = ['龍騰', '翰林', '南一', '全華', '泰宇', '三民'];
+            const committees = globalConfig.committees || [];
 
-            globalConfig.grades.forEach(grade => {
+            (globalConfig.grades || []).forEach(grade => {
                 const books = globalConfig.books[grade] || [];
                 const defaultMax = books.length > 0 ? books.length : 5;
                 const range = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
@@ -459,13 +566,13 @@
                 }).join('');
 
                 let committeeStatusHTML = `<div class="mt-3 bg-white p-2 rounded border border-gray-200">
-                    <h4 class="text-xs font-bold text-gray-600 mb-2 border-b pb-1">👀 委員投票狀態 (共 ${globalConfig.committees.length} 人)</h4>
+                    <h4 class="text-xs font-bold text-gray-600 mb-2 border-b pb-1">👀 委員投票狀態 (共 ${committees.length} 人)</h4>
                     <ul class="max-h-24 overflow-y-auto space-y-1">`;
                 
-                if(globalConfig.committees.length === 0) {
+                if(committees.length === 0) {
                     committeeStatusHTML += `<li class="text-xs text-gray-400 text-center py-1">尚無名單</li>`;
                 } else {
-                    globalConfig.committees.forEach(name => {
+                    committees.forEach(name => {
                         const userVotesForThisGrade = globalScores[name] && globalScores[name][grade];
                         const hasVoted = userVotesForThisGrade && Object.keys(userVotesForThisGrade).length > 0;
                         const badge = hasVoted 
@@ -492,7 +599,6 @@
                             
                             <div class="bg-white p-2 rounded border border-gray-200 mb-3 flex-grow">
                                 <h4 class="text-xs font-bold text-gray-500 mb-1 border-b pb-1">已選入版本：</h4>
-                                <!-- ★ 修改點：加入了紅色的刪除按鈕 ★ -->
                                 <ul class="text-xs sm:text-sm text-gray-700 space-y-1 mt-1">
                                     ${books.map(b => `
                                         <li class="flex justify-between items-center py-1 border-b border-gray-50 last:border-0 px-1 hover:bg-gray-100 rounded transition">
@@ -525,7 +631,7 @@
                 container.innerHTML += html;
             });
 
-            if(globalConfig.grades.length === 0) {
+            if((globalConfig.grades || []).length === 0) {
                 container.innerHTML = '<p class="text-gray-500 col-span-1 md:col-span-2 xl:col-span-3 text-center bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300">目前還沒有年級，請在上方輸入並新增。</p>';
             }
         }
@@ -550,8 +656,9 @@
             container.innerHTML = '';
             const mode = globalConfig.sortMode; 
             const scoreLabel = mode === 'score' ? '分數加總' : '名次加總';
+            const committees = globalConfig.committees || [];
 
-            globalConfig.grades.forEach(grade => {
+            (globalConfig.grades || []).forEach(grade => {
                 const books = globalConfig.books[grade] || [];
                 if (books.length === 0) return;
 
@@ -597,7 +704,7 @@
                                 </thead>
                                 <tbody>`;
                 
-                globalConfig.committees.forEach(c => {
+                committees.forEach(c => {
                     let v = globalScores[c] && globalScores[c][grade] ? globalScores[c][grade] : {};
                     html += `<tr class="border-b hover:bg-gray-50 transition bg-white">
                                 <td class="p-2 border-r font-medium sticky left-0 bg-white z-10">${c}</td>`;
@@ -641,7 +748,7 @@
             const mode = globalConfig.sortMode; 
             const modeText = mode === 'score' ? '(總分制)' : '(名次制)';
 
-            globalConfig.grades.forEach(grade => {
+            (globalConfig.grades || []).forEach(grade => {
                 let totalScores = {};
                 const books = globalConfig.books[grade] || [];
                 books.forEach(book => totalScores[book] = 0);
@@ -725,7 +832,7 @@
 
             const myVotes = globalScores[currentUserLabel] || {};
 
-            globalConfig.grades.forEach(grade => {
+            (globalConfig.grades || []).forEach(grade => {
                 const books = globalConfig.books[grade] || [];
                 if (books.length === 0) return;
 
@@ -806,62 +913,87 @@
         }
 
         // ==========================================
-        // 互動功能
+        // ★ 分流身分登入功能邏輯 ★
         // ==========================================
-        window.toggleLoginRole = () => {
-            const role = document.querySelector('input[name="role"]:checked').value;
-            const dropdown = document.getElementById('committee-select-group');
-            const passwordGroup = document.getElementById('admin-password-group');
-            
-            if(role === 'committee') {
-                dropdown.classList.remove('hidden');
-                passwordGroup.classList.add('hidden');
-            } else {
-                dropdown.classList.add('hidden');
-                passwordGroup.classList.remove('hidden');
+        window.handleAdminLogin = async () => {
+            const passwordInput = document.getElementById('admin-password');
+            const password = passwordInput.value;
+
+            if (!/^\d{4}$/.test(password)) {
+                alert('密碼格式錯誤！請輸入 4 位數字。');
+                return;
             }
-        };
 
-        window.handleLogin = () => {
-            const role = document.querySelector('input[name="role"]:checked').value;
-            currentRole = role;
-
-            if(role === 'admin') {
-                const passwordInput = document.getElementById('admin-password');
-                const password = passwordInput.value;
-                if (password !== '1910') {
-                    alert('密碼錯誤！請重新輸入。');
+            if (!globalConfig.adminPassword) {
+                // 第一次登入，設定新密碼
+                if (confirm(`確定要將【${currentSchool} ${currentDept}】的管理者密碼設定為「${password}」嗎？\n請牢記此密碼，設定後將無法更改！`)) {
+                    globalConfig.adminPassword = password;
+                    await saveConfigToCloud();
+                    alert('✅ 密碼設定成功！');
+                } else {
+                    return;
+                }
+            } else {
+                // 非第一次登入，驗證密碼
+                if (password !== globalConfig.adminPassword) {
+                    alert('❌ 密碼錯誤！請重新輸入。');
                     passwordInput.value = ''; 
                     return; 
                 }
-                
-                document.getElementById('login-section').classList.add('hidden');
-                document.getElementById('admin-section').classList.remove('hidden');
-                
-                window.switchAdminTab('tab-setup');
-                updateUI();
-            } else if (role === 'committee') {
-                const name = document.getElementById('committee-dropdown').value;
-                if(!name) {
-                    alert('請先選擇您的姓名！');
-                    return;
-                }
-                currentUserLabel = name;
-                document.getElementById('current-committee-name').innerText = name;
-                document.getElementById('login-section').classList.add('hidden');
-                document.getElementById('committee-section').classList.remove('hidden');
-                updateUI();
             }
+            
+            currentRole = 'admin';
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('admin-section').classList.remove('hidden');
+            
+            window.switchAdminTab('tab-setup');
+            setupRealtimeListeners();
+        };
+
+        window.handleCommitteeLogin = () => {
+            const name = document.getElementById('committee-dropdown').value;
+            if(!name) {
+                alert('請先選擇您的姓名！');
+                return;
+            }
+            
+            currentRole = 'committee';
+            currentUserLabel = name;
+            document.getElementById('current-committee-name').innerText = name;
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('committee-section').classList.remove('hidden');
+            
+            setupRealtimeListeners();
         };
 
         window.logout = () => {
             currentRole = null;
             currentUserLabel = null;
-            document.getElementById('admin-password').value = '';
-            document.getElementById('admin-section').classList.add('hidden');
-            document.getElementById('committee-section').classList.add('hidden');
-            document.getElementById('login-section').classList.remove('hidden');
-            window.scrollTo(0, 0); 
+            if(unsubscribeConfig) unsubscribeConfig();
+            if(unsubscribeScores) unsubscribeScores();
+
+            window.location.reload(); 
+        };
+
+        window.copyVotingLink = () => {
+            if (!currentSchool || !currentDept) return;
+            const url = new URL(window.location.href);
+            // 寫入雙參數，完美產生專屬委員連結
+            url.searchParams.set('school', currentSchool);
+            url.searchParams.set('dept', currentDept);
+            const fullLink = url.toString();
+
+            const tempInput = document.createElement("input");
+            tempInput.value = fullLink;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand("copy");
+                alert(`✅ 複製成功！\n\n專屬連結：\n${fullLink}\n\n請將此連結傳給【${currentSchool} ${currentDept}】的選書委員，他們點擊後將會自動進入專屬投票畫面！`);
+            } catch (err) {
+                alert(`無法自動複製，請手動複製以下網址：\n\n${fullLink}`);
+            }
+            document.body.removeChild(tempInput);
         };
 
         async function saveConfigToCloud() {
@@ -873,31 +1005,8 @@
             }
         }
 
-        window.handleSubjectChange = () => {
-            const val = document.getElementById('subject-select').value;
-            const customInput = document.getElementById('custom-subject-input');
-            if (val === 'custom') {
-                customInput.classList.remove('hidden');
-                customInput.focus();
-            } else {
-                customInput.classList.add('hidden');
-            }
-        };
-
-        window.updateSubject = () => {
-            const selectVal = document.getElementById('subject-select').value;
-            let val = '';
-            
-            if (selectVal === 'custom') {
-                val = document.getElementById('custom-subject-input').value.trim();
-                if(!val) {
-                    alert('請輸入自訂科別名稱！');
-                    return;
-                }
-            } else {
-                val = selectVal;
-            }
-
+        window.updateSubjectDisplay = () => {
+            const val = document.getElementById('admin-subject-display-input').value.trim();
             if (val) {
                 globalConfig.subject = val;
                 saveConfigToCloud();
@@ -913,6 +1022,8 @@
             const rawText = input.value;
             const names = rawText.split(/[\n,，]+/);
             let hasNewName = false;
+
+            if (!globalConfig.committees) globalConfig.committees = [];
 
             names.forEach(name => {
                 const cleanName = name.trim();
@@ -931,6 +1042,10 @@
         window.addGrade = () => {
             const input = document.getElementById('new-grade-name');
             const grade = input.value.trim();
+            
+            if (!globalConfig.grades) globalConfig.grades = [];
+            if (!globalConfig.books) globalConfig.books = {};
+
             if(grade && !globalConfig.grades.includes(grade)) {
                 globalConfig.grades.push(grade);
                 if(!globalConfig.books[grade]) globalConfig.books[grade] = [];
@@ -953,7 +1068,6 @@
             }
         };
 
-        // ★ 新增：刪除書籍版本的邏輯 ★
         window.removeBook = (grade, bookName) => {
             if(confirm(`確定要刪除「${bookName}」嗎？\n(注意：這只會從表單中移除選項，但不會刪除已經收到的成績)`)) {
                 globalConfig.books[grade] = globalConfig.books[grade].filter(b => b !== bookName);
@@ -1082,7 +1196,8 @@
                 }
                 await Promise.all(deletePromises);
 
-                globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: '國文' };
+                const currentPassword = globalConfig.adminPassword || '';
+                globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: `${currentSchool} ${currentDept}`, adminPassword: currentPassword };
                 await setDoc(configDocRef, globalConfig);
 
                 alert('✅ 所有資料已成功清除！系統已重置為初始狀態。');
@@ -1118,19 +1233,16 @@
             }
         };
 
-        // ==========================================
-        // ★ 全新升級：使用 ExcelJS 完美控制所有格式與列印設定 ★
-        // ==========================================
         window.downloadExcel = async () => {
             const mode = globalConfig.sortMode; 
             const scoreLabel = mode === 'score' ? '總分' : '名次加總';
-            const subjectName = globalConfig.subject || '未命名';
+            const subjectName = globalConfig.subject || `${currentSchool} ${currentDept}`;
 
             let gradeResults = {};
             let maxRows = 0; 
-            const totalCols = Math.max(11, globalConfig.grades.length * 4 - 1); 
+            const totalCols = Math.max(11, (globalConfig.grades || []).length * 4 - 1); 
 
-            globalConfig.grades.forEach(grade => {
+            (globalConfig.grades || []).forEach(grade => {
                 let totalScores = {};
                 const books = globalConfig.books[grade] || [];
                 books.forEach(book => totalScores[book] = 0);
@@ -1168,16 +1280,13 @@
                 if (sortedBooks.length > maxRows) maxRows = sortedBooks.length;
             });
 
-            // 建立 ExcelJS 工作簿
             const workbook = new ExcelJS.Workbook();
             
-            // 工作表一：排名總表
             const summarySheet = workbook.addWorksheet('🏆 排名總表');
             
-            // ★ 強制設定橫向列印與邊界 (獨立屬性宣告以確保軟體能正確讀取) ★
-            summarySheet.pageSetup.paperSize = 9; // A4
-            summarySheet.pageSetup.orientation = 'landscape'; // 強制橫向
-            summarySheet.pageSetup.fitToPage = true; // 縮放至一頁寬
+            summarySheet.pageSetup.paperSize = 9; 
+            summarySheet.pageSetup.orientation = 'landscape'; 
+            summarySheet.pageSetup.fitToPage = true; 
             summarySheet.pageSetup.fitToWidth = 1;
             summarySheet.pageSetup.fitToHeight = 0;
             summarySheet.pageSetup.margins = {
@@ -1186,24 +1295,22 @@
                 header: 0.3 / 2.54, footer: 0.3 / 2.54
             };
 
-            // 第 1 列：大標題
             summarySheet.mergeCells(1, 1, 1, totalCols);
             const titleCell = summarySheet.getCell(1, 1);
             titleCell.value = `${subjectName}科選書結果一覽表`;
             titleCell.font = { size: 20, bold: true };
             titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-            summarySheet.getRow(1).height = 40; // 列高 40
+            summarySheet.getRow(1).height = 40; 
 
-            // 第 2 列：表頭
             let headerData = [];
-            globalConfig.grades.forEach((grade, index) => {
+            (globalConfig.grades || []).forEach((grade, index) => {
                 headerData.push("年級", "排名", "版本"); 
                 if (index < globalConfig.grades.length - 1) headerData.push(""); 
             });
             const headerRow = summarySheet.addRow(headerData);
             headerRow.eachCell((cell, colNumber) => {
                 if (cell.value) {
-                    cell.font = { color: { argb: 'FF00B050' }, bold: true }; // 綠色
+                    cell.font = { color: { argb: 'FF00B050' }, bold: true }; 
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     cell.border = {
                         top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
@@ -1211,10 +1318,9 @@
                 }
             });
 
-            // 第 3 列開始：成績資料
             for (let i = 0; i < maxRows; i++) {
                 let dataRow = [];
-                globalConfig.grades.forEach((grade, index) => {
+                (globalConfig.grades || []).forEach((grade, index) => {
                     let sortedBooks = gradeResults[grade].sorted;
                     if (i < sortedBooks.length) {
                         let displayRank = sortedBooks[i].score === 0 ? '-' : sortedBooks[i].rank;
@@ -1226,15 +1332,14 @@
                 });
                 const row = summarySheet.addRow(dataRow);
                 
-                // 設定資料格樣式
-                globalConfig.grades.forEach((grade, index) => {
+                (globalConfig.grades || []).forEach((grade, index) => {
                     let sortedBooks = gradeResults[grade].sorted;
                     if (i < sortedBooks.length) {
                         let isFirstPlace = sortedBooks[i].rank === 1 && sortedBooks[i].score !== 0;
                         let colStart = index * 4 + 1;
                         for (let c = colStart; c < colStart + 3; c++) {
                             let cell = row.getCell(c);
-                            cell.font = isFirstPlace ? { color: { argb: 'FF0000FF' }, bold: true } : {}; // 第一名藍色
+                            cell.font = isFirstPlace ? { color: { argb: 'FF0000FF' }, bold: true } : {}; 
                             cell.alignment = { vertical: 'middle', horizontal: 'center' };
                             cell.border = {
                                 top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
@@ -1244,10 +1349,8 @@
                 });
             }
 
-            // 空一列
             summarySheet.addRow([]);
 
-            // 簽名欄
             const sigRowIdx = summarySheet.rowCount + 1;
             summarySheet.mergeCells(sigRowIdx, 1, sigRowIdx, totalCols);
             const sigCell = summarySheet.getCell(sigRowIdx, 1);
@@ -1257,28 +1360,23 @@
             sigCell.border = {
                 top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'}
             };
-            summarySheet.getRow(sigRowIdx).height = 150; // ExcelJS 列高 150 約等於原本設定的視覺 200
+            summarySheet.getRow(sigRowIdx).height = 150; 
 
-            // 欄寬設定
             for (let c = 1; c <= totalCols; c++) {
                 if (c % 4 === 0) {
-                    summarySheet.getColumn(c).width = 3; // 空白間隔
+                    summarySheet.getColumn(c).width = 3; 
                 } else {
-                    summarySheet.getColumn(c).width = 11; // ExcelJS 的 width 單位略不同，11 約為預設寬度 9 左右
+                    summarySheet.getColumn(c).width = 11; 
                 }
             }
 
-            // ==========================================
-            // 工作表二...N：各年級投票明細表 (若為記名投票才輸出)
-            // ==========================================
             if (!globalConfig.isAnonymous) {
-                globalConfig.grades.forEach(grade => {
+                (globalConfig.grades || []).forEach(grade => {
                     const books = globalConfig.books[grade] || [];
                     if (books.length === 0) return; 
 
                     const detailSheet = workbook.addWorksheet(`${grade} 明細`);
                     
-                    // ★ 明細表也強制設定橫向列印 ★
                     detailSheet.pageSetup.paperSize = 9; 
                     detailSheet.pageSetup.orientation = 'landscape'; 
                     detailSheet.pageSetup.fitToPage = true;
@@ -1293,7 +1391,7 @@
                         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
                     });
 
-                    globalConfig.committees.forEach(committeeName => {
+                    (globalConfig.committees || []).forEach(committeeName => {
                         let rowData = [committeeName];
                         let committeeVotes = globalScores[committeeName] && globalScores[committeeName][grade] ? globalScores[committeeName][grade] : {};
                         books.forEach(book => {
@@ -1341,7 +1439,6 @@
                 });
             }
 
-            // 輸出 Excel 檔案
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `${subjectName}科選書結果_報表.xlsx`);
         };
