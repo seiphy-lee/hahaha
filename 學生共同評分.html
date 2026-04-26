@@ -180,8 +180,8 @@
             const verifyTeacher = async () => {
                 if (!teacherPwdInput) return;
                 if (isSettingUpPwd) {
-                    if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,}$/.test(teacherPwdInput)) {
-                        setErrorMsg("密碼需至少4碼且含英數字"); return;
+                    if (!/^\d{4}$/.test(teacherPwdInput)) {
+                        setErrorMsg("密碼格式錯誤！請設定 4 位數字密碼"); return;
                     }
                     await db.collection('sessions').doc(sessionId).set({ teacherPassword: teacherPwdInput }, { merge: true });
                 } else {
@@ -276,8 +276,8 @@
                             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                                 <div className="bg-white p-6 rounded-xl w-full max-w-sm animate-fade-in">
                                     <h3 className="text-xl font-bold mb-4 flex gap-2 items-center"><Icons.Lock /> {isSettingUpPwd ? "設定管理密碼" : "輸入管理密碼"}</h3>
-                                    {isSettingUpPwd && <p className="text-xs text-blue-600 mb-2">首次使用本教室請設定密碼 (至少4碼英數)</p>}
-                                    <input type="password" value={teacherPwdInput} onChange={e=>setTeacherPwdInput(e.target.value)} className="w-full border p-2 rounded mb-2" placeholder="密碼" />
+                                    {isSettingUpPwd && <p className="text-xs text-blue-600 mb-2">首次使用本教室請設定密碼 (4位數字)</p>}
+                                    <input type="password" maxLength="4" value={teacherPwdInput} onChange={e=>setTeacherPwdInput(e.target.value)} className="w-full border p-2 rounded mb-2 text-center tracking-widest text-lg" placeholder="****" />
                                     {errorMsg && <p className="text-red-500 text-sm mb-2">{errorMsg}</p>}
                                     <div className="flex gap-2 mt-4">
                                         <button onClick={()=>setShowTeacherAuth(false)} className="flex-1 bg-gray-100 py-2 rounded font-bold">取消</button>
