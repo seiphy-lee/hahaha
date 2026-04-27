@@ -595,10 +595,10 @@
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border border-gray-100 shadow-inner">
                                     {(session.students||[]).map(s => {
-                                        // 在設定清單中，我們還是顯示學生的「綁定紀錄」
-                                        const isRegistered = Object.values(session.studentMappings||{}).includes(s);
+                                        // 修改：在名單設定中也統一使用「onlineStudents」來判斷綠燈顯示
+                                        const isOnline = Object.values(session.onlineStudents||{}).includes(s);
                                         return (
-                                            <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isRegistered ? 'bg-green-100 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200'}`}>
+                                            <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isOnline ? 'bg-green-100 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200'}`}>
                                                 {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500 ml-1"><Icons.X /></button>
                                             </span>
                                         );
