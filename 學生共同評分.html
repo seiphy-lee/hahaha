@@ -289,12 +289,12 @@
             if (!isStudentMode && !role) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200 p-4">
-                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in border-t-4 border-gray-800">
-                            <div className="flex justify-center text-gray-800 mb-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in border-t-4 border-blue-600">
+                            <div className="flex justify-center text-blue-600 mb-4">
                                 <Icons.Key />
                             </div>
-                            <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">老師專屬控制台</h1>
-                            <p className="text-gray-500 text-center mb-8 text-sm">請輸入教室暱稱與密碼以進行管理</p>
+                            <h1 className="text-2xl font-bold text-center mb-2 text-blue-600">老師專屬控制台</h1>
+                            <p className="text-blue-600 font-bold text-center mb-8 text-lg">台中二中 阿發老師設計</p>
                             
                             <div className="space-y-4">
                                 <div>
@@ -304,7 +304,7 @@
                                         value={inputRoomName} 
                                         onChange={e => setInputRoomName(e.target.value)} 
                                         className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-gray-800 transition-colors" 
-                                        placeholder="例如：阿發老師" 
+                                        placeholder="例如：台中二中 101" 
                                     />
                                 </div>
                                 <div>
@@ -892,7 +892,7 @@
             return (
                 <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-8 animate-fade-in border-t-4 border-indigo-500">
                     <div className="border-b border-gray-100 pb-6 text-center">
-                        <div className="inline-block bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold mb-4 border border-gray-200 shadow-sm">評分者：{registeredName}</div>
+                        <div className="inline-block bg-gray-100 text-gray-600 px-5 py-2 rounded-full text-2xl font-bold mb-4 border border-gray-200 shadow-sm">評分者：{registeredName}</div>
                         <h2 className="text-2xl md:text-3xl font-black text-gray-800">目前報告：<span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg ml-2 border border-indigo-100 shadow-sm">{currentGroup?.name}</span></h2>
                     </div>
                     
