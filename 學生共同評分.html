@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v4.0 (極簡分流版)</title>
+    <title>課堂共同評分系統 v4.0 (多教室回歸版)</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -85,11 +85,13 @@
             BarChart3: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>,
             LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
             AlertCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+            Key: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
             Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
             X: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
             Trash2: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>,
-            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+            Home: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         };
 
         // --- 3. Main App ---
@@ -97,50 +99,51 @@
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [sessionId, setSessionId] = React.useState(() => {
-                return new URLSearchParams(window.location.search).get('room');
+                const params = new URLSearchParams(window.location.search);
+                return params.get('room');
             });
-            const [role, setRole] = React.useState(() => {
-                // 如果網址有帶 room，表示一定是學生從專屬連結進來
-                return new URLSearchParams(window.location.search).get('room') ? 'student' : null;
-            }); 
+            const [role, setRole] = React.useState(null); 
             const [sessionData, setSessionData] = React.useState(null);
+            const [errorMsg, setErrorMsg] = React.useState(null);
+            
+            const [showTeacherAuth, setShowTeacherAuth] = React.useState(false);
+            const [teacherPwdInput, setTeacherPwdInput] = React.useState('');
+            const [isSettingUpPwd, setIsSettingUpPwd] = React.useState(false);
 
-            // 1. 【重點修正】全面恢復背景匿名登入 (符合 Firebase Rules: request.auth != null)
             React.useEffect(() => {
-                const initAuth = async () => {
-                    try {
-                        await auth.signInAnonymously();
-                    } catch (error) {
-                        console.error("登入失敗：", error);
-                        alert("無法連線至認證伺服器，請檢查網路。");
-                    }
-                };
-                initAuth();
-
-                const unsub = auth.onAuthStateChanged(u => {
+                const unsubscribe = auth.onAuthStateChanged(u => {
                     setUser(u);
                     setLoading(false);
                 });
-                return () => unsub();
+                return () => unsubscribe();
             }, []);
 
-            // 2. 監聽教室資料
             React.useEffect(() => {
-                if (!sessionId || !user) return;
+                if (!user || !sessionId) return;
                 const unsub = db.collection('sessions').doc(sessionId).onSnapshot(docSnap => {
                     if (docSnap.exists) {
                         setSessionData(docSnap.data());
                     } else {
-                        // 只有學生透過連結進入時才需要顯示「找不到教室」
-                        if (role === 'student') setSessionData({ notFound: true });
+                        const initialData = {
+                            status: 'setup',
+                            currentGroupId: null,
+                            showResults: false,
+                            criteria: DEFAULT_CRITERIA,
+                            groups: [],
+                            students: [],
+                            studentMappings: {}, 
+                            teacherPassword: null
+                        };
+                        db.collection('sessions').doc(sessionId).set(initialData);
                     }
                 }, err => {
-                    console.error("讀取資料失敗:", err);
+                    console.error(err);
+                    setErrorMsg("無法讀取資料，請確認資料庫權限 (Test Mode) 或網路連線。");
                 });
                 return () => unsub();
-            }, [sessionId, role, user]);
+            }, [user, sessionId]);
 
-            // 輔助函式：主動解除學生名字的綁定 (修復登出還在線上的 Bug)
+            // 輔助函式：主動解除學生名字的綁定
             const handleUnbindStudent = async () => {
                 if (user && sessionId && sessionData?.studentMappings?.[user.uid]) {
                     const update = {};
@@ -149,195 +152,164 @@
                 }
             };
 
-            const handleLogout = async () => {
-                if (role === 'student') {
-                    await handleUnbindStudent();
-                }
-                // 重新整理網頁，徹底清除狀態並回到首頁 (若為學生網址會重新跑學生流程)
-                window.location.href = window.location.pathname + window.location.search;
+            const handleLeaveClass = async () => {
+                await handleUnbindStudent();
+                setRole(null); 
+                setSessionId(null); 
+                window.history.pushState({}, '', window.location.pathname);
             };
 
-            if (loading) return <div className="h-screen flex items-center justify-center font-bold text-gray-500">系統連線中...</div>;
-
-            // =========================================================================
-            // 路由 1：學生專屬入口 (只要 Role 是 student)
-            // =========================================================================
-            if (role === 'student') {
-                if (!sessionData) return <div className="h-screen flex items-center justify-center font-bold text-gray-500">載入教室資料中...</div>;
-                
-                // 防呆：教室代碼錯誤
-                if (sessionData.notFound) {
-                    return (
-                        <div className="h-screen flex flex-col items-center justify-center bg-gray-50 animate-fade-in p-4 text-center">
-                            <div className="text-red-500 mb-4"><Icons.AlertCircle /></div>
-                            <h2 className="text-xl font-bold text-red-500 mb-6">找不到此教室，請確認老師提供的網址是否完整。</h2>
-                        </div>
-                    );
-                }
-                
-                const registeredName = sessionData.studentMappings?.[user.uid] || "";
-                return (
-                    <div className="min-h-screen bg-gray-50 pb-10 animate-fade-in">
-                        <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
-                            <div className="flex items-center gap-2 text-blue-600 font-bold text-xl md:text-2xl">
-                                <Icons.Award /> 共同評分 <span className="hidden md:inline text-sm text-gray-400 font-normal">| {sessionData.teacherName} - {sessionData.className}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                {registeredName && <span className="text-sm text-gray-600 font-bold bg-green-100 text-green-800 border border-green-200 px-3 py-1 rounded-full shadow-sm">🧑‍🎓 {registeredName}</span>}
-                                <button onClick={handleLogout} title="登出/重選姓名" className="text-gray-500 hover:text-red-500 flex items-center gap-1"><Icons.LogOut /><span className="hidden md:inline text-sm">登出</span></button>
-                            </div>
-                        </header>
-                        <main className="max-w-5xl mx-auto p-4 mt-2">
-                            <StudentView session={sessionData} sessionId={sessionId} user={user} registeredName={registeredName} />
-                        </main>
-                    </div>
-                );
-            }
-
-            // =========================================================================
-            // 路由 2：老師控制台介面
-            // =========================================================================
-            if (role === 'teacher') {
-                if (!sessionData || sessionData.notFound) return <div className="h-screen flex items-center justify-center font-bold text-gray-500">載入教室資料中...</div>;
-                return (
-                    <div className="min-h-screen bg-gray-50 pb-10 animate-fade-in">
-                        <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
-                            <div className="flex items-center gap-2 text-blue-600 font-bold text-xl md:text-2xl">
-                                <Icons.Award /> 控制台 <span className="hidden md:inline text-sm text-gray-400 font-normal">| {sessionData.teacherName} - {sessionData.className}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-600 font-bold hidden sm:inline">👨‍🏫 {sessionData.teacherName} 老師</span>
-                                <button onClick={() => window.location.href = window.location.pathname} title="離開並返回首頁" className="text-gray-500 hover:text-red-500 flex items-center gap-1"><Icons.LogOut /><span className="hidden md:inline text-sm">登出</span></button>
-                            </div>
-                        </header>
-                        <main className="max-w-5xl mx-auto p-4 mt-2">
-                            <TeacherDashboard session={sessionData} sessionId={sessionId} />
-                        </main>
-                    </div>
-                );
-            }
-
-            // =========================================================================
-            // 路由 3：老師登入介面 (預設首頁)
-            // =========================================================================
-            return <TeacherLoginView onLoginSuccess={(sid) => { setSessionId(sid); setRole('teacher'); }} />;
-        }
-
-        // --- 4. 老師登入視圖 (首頁專屬) ---
-        function TeacherLoginView({ onLoginSuccess }) {
-            const [school, setSchool] = React.useState('');
-            const [dept, setDept] = React.useState('');
-            const [password, setPassword] = React.useState('');
-            const [errorMsg, setErrorMsg] = React.useState('');
-            const [isChecking, setIsChecking] = React.useState(false);
-
-            const isFormComplete = school.trim() !== '' && dept.trim() !== '';
+            const handleSignOut = async () => {
+                await handleUnbindStudent();
+                auth.signOut();
+            };
 
             const handleLogin = async () => {
-                if (!isFormComplete) return;
-                if (!/^\d{4}$/.test(password)) {
-                    setErrorMsg("密碼格式錯誤！請設定或輸入 4 位數字。");
-                    return;
-                }
-                
-                setIsChecking(true);
-                const sid = `${school.trim()}_${dept.trim()}`;
-                
                 try {
-                    const docRef = db.collection('sessions').doc(sid);
-                    const docSnap = await docRef.get();
-                    
-                    if (docSnap.exists) {
-                        const data = docSnap.data();
-                        if (data.teacherPassword === password) {
-                            onLoginSuccess(sid);
-                        } else {
-                            setErrorMsg("❌ 密碼錯誤！這間教室已經被建立，請輸入正確的 4 位數字密碼。");
-                            setPassword('');
-                        }
+                    setErrorMsg(null);
+                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+                } catch (e) {
+                    if (e.code === 'auth/unauthorized-domain') {
+                        setErrorMsg(`網域未授權！請新增此網址到 Firebase Console: ${window.location.hostname}`);
                     } else {
-                        if (confirm(`確定要將【${school} - ${dept}】的管理者密碼設定為「${password}」嗎？\n請務必牢記此密碼，設定後將無法更改！`)) {
-                            const initialData = {
-                                status: 'setup',
-                                currentGroupId: null,
-                                showResults: false,
-                                criteria: DEFAULT_CRITERIA,
-                                groups: [],
-                                students: [],
-                                studentMappings: {}, 
-                                teacherPassword: password,
-                                teacherName: school.trim(),
-                                className: dept.trim()
-                            };
-                            await docRef.set(initialData);
-                            onLoginSuccess(sid);
-                        }
+                        setErrorMsg(`登入錯誤: ${e.message}`);
                     }
-                } catch(e) {
-                    setErrorMsg("連線錯誤: " + e.message);
-                } finally {
-                    setIsChecking(false);
                 }
             };
 
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-blue-50 p-4">
-                    <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-md text-center animate-fade-in border-t-4 border-blue-500">
-                        <div className="flex justify-center text-blue-500 mb-4"><Icons.Award /></div>
-                        <h1 className="text-xl sm:text-2xl font-bold mb-2 text-blue-800 leading-snug">課堂共同評分系統</h1>
-                        <p className="text-gray-500 mb-6 text-sm">老師控制台 (阿發老師設計)</p>
+            const verifyTeacher = async () => {
+                if (!teacherPwdInput) return;
+                if (isSettingUpPwd) {
+                    if (!/^\d{4}$/.test(teacherPwdInput)) {
+                        setErrorMsg("密碼格式錯誤！請設定 4 位數字密碼"); return;
+                    }
+                    await db.collection('sessions').doc(sessionId).set({ teacherPassword: teacherPwdInput }, { merge: true });
+                } else {
+                    if (teacherPwdInput !== sessionData?.teacherPassword) {
+                        setErrorMsg("密碼錯誤"); return;
+                    }
+                }
+                setRole('teacher');
+                setShowTeacherAuth(false);
+            };
 
-                        <div className="mb-5 border-b border-gray-200 pb-5 text-left">
-                            <label className="block text-blue-800 font-bold mb-2 text-sm sm:text-base">👨‍🏫 請設定或輸入教室資訊：</label>
-                            <div className="flex flex-col gap-3 mt-2">
-                                <input 
-                                    type="text" 
-                                    value={school}
-                                    onChange={e => {setSchool(e.target.value); setErrorMsg('');}}
-                                    className="border p-3 rounded-lg w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800 placeholder-blue-300" 
-                                    placeholder="您的名稱 (例如：王小明老師)" 
-                                />
-                                <input 
-                                    type="text" 
-                                    value={dept}
-                                    onChange={e => {setDept(e.target.value); setErrorMsg('');}}
-                                    className="border p-3 rounded-lg w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800 placeholder-blue-300" 
-                                    placeholder="班級名稱 (例如：高一1班)" 
-                                />
-                            </div>
+            if (loading) return <div className="h-screen flex items-center justify-center">系統載入中...</div>;
+
+            // 畫面 1：Google 登入 (回歸 v3.5 原汁原味)
+            if (!user) {
+                return (
+                    <div className="h-screen flex items-center justify-center bg-gray-100 p-4">
+                        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center border-t-4 border-blue-500">
+                            <Icons.Award />
+                            <h1 className="text-2xl font-bold mt-4 mb-2">課堂共同評分系統 v4.0</h1>
+                            <p className="text-gray-500 mb-6">請使用您的 Google 帳號登入系統</p>
+                            {errorMsg && <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm text-left whitespace-pre-wrap">{errorMsg}</div>}
+                            <button onClick={handleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-bold shadow-md transition transform hover:-translate-y-0.5">
+                                <Icons.User /> Google 登入
+                            </button>
                         </div>
+                    </div>
+                );
+            }
 
-                        <div className="mb-6 text-left">
-                            <label className={`block font-bold mb-2 text-sm sm:text-base transition-colors duration-300 ${isFormComplete ? 'text-gray-700' : 'text-red-500'}`}>
-                                {isFormComplete ? '請設定或輸入專屬密碼 (4位數字)：' : '⚠️ 請先填寫上方資訊'}
-                            </label>
-                            <input 
-                                type="password" 
-                                maxLength="4" 
-                                placeholder="****" 
-                                value={password}
-                                onChange={e => {setPassword(e.target.value); setErrorMsg('');}}
-                                disabled={!isFormComplete || isChecking}
-                                className={`w-full border p-3 rounded-lg text-base text-center tracking-widest focus:ring-2 focus:ring-blue-400 outline-none transition ${isFormComplete ? 'bg-white' : 'bg-gray-50'}`} 
-                            />
-                            {errorMsg && <p className="text-red-500 text-sm mt-2 font-bold">{errorMsg}</p>}
+            // 畫面 2：輸入教室代碼 (多房間機制核心)
+            if (!sessionId) {
+                return (
+                    <div className="h-screen flex items-center justify-center bg-blue-50 p-4">
+                        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center animate-fade-in border-t-4 border-blue-400">
+                            <div className="flex justify-center text-blue-500 mb-4"><Icons.Home /></div>
+                            <h2 className="text-2xl font-bold mb-2">請輸入教室代碼</h2>
+                            <p className="text-gray-500 mb-6 text-sm">老師可自訂新代碼，學生請輸入老師給的代碼</p>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                const code = e.target.roomCode.value.trim();
+                                if(code) {
+                                    setSessionId(code);
+                                    window.history.pushState({}, '', `?room=${encodeURIComponent(code)}`);
+                                }
+                            }} className="space-y-4">
+                                <input 
+                                    name="roomCode"
+                                    type="text" 
+                                    className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-blue-500 text-center font-bold text-xl" 
+                                    placeholder="例如：207 或 math_class" 
+                                    required
+                                />
+                                <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold shadow-md hover:bg-blue-700 transition">
+                                    進入教室
+                                </button>
+                            </form>
                         </div>
+                    </div>
+                );
+            }
 
-                        <button 
-                            onClick={handleLogin}
-                            disabled={!isFormComplete || isChecking}
-                            className={`w-full font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md ${isFormComplete ? 'bg-blue-600 hover:bg-blue-700 text-white transform hover:-translate-y-0.5' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                        >
-                            {isChecking ? '資料連線中...' : (isFormComplete ? '進入控制台 / 建立教室' : '請先完成上方設定')}
+            // 畫面 3：選擇身分 (回歸 v3.5 原汁原味)
+            if (!role) {
+                return (
+                    <div className="h-screen flex flex-col items-center justify-center bg-gray-50 p-4 gap-4">
+                        <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded shadow text-sm font-bold text-gray-600 flex items-center gap-2">
+                            <Icons.Home /> 教室：{sessionId}
+                        </div>
+                        <h2 className="text-xl font-bold mb-4">請選擇您的身份</h2>
+                        <button onClick={() => setRole('student')} className="w-64 p-6 bg-white border-2 border-transparent hover:border-blue-500 rounded-xl shadow transition text-center transform hover:-translate-y-1">
+                            <div className="flex justify-center text-blue-500 mb-2"><Icons.Users /></div>
+                            <span className="font-bold text-lg">我是學生</span>
+                        </button>
+                        <button onClick={() => {
+                            if (!sessionData?.teacherPassword) setIsSettingUpPwd(true);
+                            else setIsSettingUpPwd(false);
+                            setShowTeacherAuth(true);
+                            setTeacherPwdInput('');
+                            setErrorMsg(null);
+                        }} className="w-64 p-6 bg-white border-2 border-transparent hover:border-purple-500 rounded-xl shadow transition text-center transform hover:-translate-y-1">
+                            <div className="flex justify-center text-purple-500 mb-2"><Icons.Key /></div>
+                            <span className="font-bold text-lg">我是老師</span>
                         </button>
                         
-                        <p className="mt-6 text-xs text-gray-400">學生請直接點擊老師提供的「專屬網址」進入，不需在此登入。</p>
+                        <div className="mt-8 flex gap-4 text-sm">
+                            <button onClick={handleLeaveClass} className="text-gray-500 underline">更換教室</button>
+                            <button onClick={handleSignOut} className="text-gray-500 underline">登出帳號</button>
+                        </div>
+
+                        {showTeacherAuth && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white p-6 rounded-xl w-full max-w-sm animate-fade-in">
+                                    <h3 className="text-xl font-bold mb-4 flex gap-2 items-center"><Icons.Lock /> {isSettingUpPwd ? "設定管理密碼" : "輸入管理密碼"}</h3>
+                                    {isSettingUpPwd && <p className="text-xs text-blue-600 mb-2">首次使用本教室請設定密碼 (4位數字)</p>}
+                                    <input type="password" maxLength="4" value={teacherPwdInput} onChange={e=>setTeacherPwdInput(e.target.value)} className="w-full border p-2 rounded mb-2 text-center tracking-widest text-lg" placeholder="****" />
+                                    {errorMsg && <p className="text-red-500 text-sm mb-2">{errorMsg}</p>}
+                                    <div className="flex gap-2 mt-4">
+                                        <button onClick={()=>setShowTeacherAuth(false)} className="flex-1 bg-gray-100 py-2 rounded font-bold">取消</button>
+                                        <button onClick={verifyTeacher} className="flex-1 bg-purple-600 text-white py-2 rounded font-bold shadow-md hover:bg-purple-700">確認</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50 pb-10 animate-fade-in">
+                    <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-blue-600 font-bold text-xl md:text-2xl">
+                            <Icons.Award /> 學生共同評分系統 <span className="hidden md:inline text-sm text-gray-400 font-normal">| 教室: {sessionId}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-gray-600 truncate max-w-[100px]">{user.displayName}</span>
+                            <button onClick={handleLeaveClass} title="離開教室" className="text-gray-500 hover:text-red-500"><Icons.Home /></button>
+                            <button onClick={handleSignOut} title="登出" className="text-gray-500 hover:text-red-500"><Icons.LogOut /></button>
+                        </div>
+                    </header>
+                    <main className="max-w-5xl mx-auto p-4 mt-2">
+                        {role === 'teacher' ? <TeacherDashboard session={sessionData} sessionId={sessionId} /> : <StudentView session={sessionData} sessionId={sessionId} user={user} />}
+                    </main>
                 </div>
             );
         }
 
-        // --- 5. Teacher Dashboard ---
+        // --- Teacher Dashboard ---
         function TeacherDashboard({ session, sessionId }) {
             const [activeTab, setActiveTab] = React.useState('control'); 
             const [votes, setVotes] = React.useState([]);
@@ -365,6 +337,8 @@
             }, [sessionId]);
 
             const updateSession = (data) => db.collection('sessions').doc(sessionId).set(data, { merge: true });
+
+            if (!session) return <div className="p-10 text-center text-gray-500">正在讀取資料...</div>;
 
             const handleBatchGroups = async () => {
                 const list = batchGroups.split('\n').map(s=>s.trim()).filter(s=>s);
@@ -411,13 +385,15 @@
                 const isBound = Object.values(session.studentMappings || {}).includes(nameToRemove);
                 
                 if (isBound) {
-                    if(!confirm(`學生 "${nameToRemove}" 目前顯示為線上狀態。\n確定要「解除綁定」將他踢出嗎？\n(解除後姓名仍會保留在名單中，他可以重新選擇)`)) return;
+                    // 如果學生是在線(綁定)狀態，只解除綁定，不從全班名單刪除
+                    if(!confirm(`學生 "${nameToRemove}" 目前顯示為線上綁定狀態。\n確定要「解除綁定」將他踢出嗎？\n(解除後姓名仍會保留在名單中，他可以重新登入)`)) return;
                     const newMappings = { ...session.studentMappings };
                     for (const uid in newMappings) {
                         if (newMappings[uid] === nameToRemove) delete newMappings[uid];
                     }
                     await updateSession({ studentMappings: newMappings });
                 } else {
+                    // 如果學生已經離線，直接從名單中徹底移除
                     if(!confirm(`確定要將學生 "${nameToRemove}" 從名單中「徹底刪除」嗎？`)) return;
                     const newStudents = (session.students || []).filter(s => s !== nameToRemove);
                     await updateSession({ students: newStudents });
@@ -504,7 +480,7 @@
                                     <input type="text" readOnly value={shareLink} className="flex-1 p-2 rounded border bg-white text-sm text-gray-600 font-mono shadow-inner" />
                                     <button onClick={() => {
                                         navigator.clipboard.writeText(shareLink);
-                                        alert("網址已複製！貼給學生，他們點擊後即可選擇名單進入教室。");
+                                        alert("網址已複製！貼給學生，他們點擊後登入即可選擇名單。");
                                     }} className="bg-blue-600 text-white px-4 rounded font-bold hover:bg-blue-700 shadow-sm">複製網址</button>
                                 </div>
                             </div>
@@ -752,7 +728,7 @@
             );
         }
 
-        // --- 6. 學生畫面 (下拉選單綁定) ---
+        // --- 7. 學生畫面 (下拉選單綁定) ---
         function StudentView({ session, sessionId, user }) {
             const [selectedName, setSelectedName] = React.useState('');
             const [scores, setScores] = React.useState({});
@@ -778,7 +754,7 @@
             const handleRegister = async () => {
                 if (!selectedName) return;
                 const isTaken = Object.values(session.studentMappings || {}).includes(selectedName);
-                if (isTaken) { alert("此姓名已經被其他同學登入綁定了！\n\n如果您選錯了，請聯絡老師幫您重置。"); return; }
+                if (isTaken) { alert("此姓名已經被其他同學的帳號綁定了！如果選錯請聯絡老師重置。"); return; }
                 const update = {};
                 update[`studentMappings.${user.uid}`] = selectedName;
                 await db.collection('sessions').doc(sessionId).update(update);
@@ -795,7 +771,7 @@
                 } catch(e) { alert("送出失敗，請檢查網路"); } finally { setSubmitting(false); }
             };
 
-            // 學生剛進來：顯示下拉選單讓學生挑選名字
+            // 如果還沒綁定完成，顯示下拉選單讓學生挑選名字 (回歸你的要求)
             if (!registeredName) {
                 const availableStudents = (session.students || []).filter(name => !Object.values(session.studentMappings || {}).includes(name));
                 return (
@@ -871,7 +847,7 @@
             );
         }
 
-        // --- 7. Results Board ---
+        // --- 8. Results Board ---
         function ResultsBoard({ session, sessionId, groups, criteria, isAdmin }) {
             const [results, setResults] = React.useState([]);
             const [allVotes, setAllVotes] = React.useState([]);
