@@ -203,6 +203,7 @@
                             groups: [],
                             students: [],
                             studentMappings: {}, 
+                            onlineStudents: {}, // 新增：用來記錄即時上線狀態
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         await roomRef.set(initialData);
@@ -235,7 +236,17 @@
             };
 
             const handleLogout = async () => {
-                // 移除「登出時刪除綁定」的邏輯，讓學生下次登入仍保持原來的身分，防止換身分評分的漏洞
+                // 如果是學生登出，僅移除「即時上線狀態」，保留「身分綁定紀錄(studentMappings)」防弊
+                if (role === 'student' && user && currentRoom) {
+                    try {
+                        const update = {};
+                        update[`onlineStudents.${user.uid}`] = firebase.firestore.FieldValue.delete();
+                        await db.collection('sessions').doc(currentRoom).update(update);
+                    } catch (error) {
+                        console.error("清除學生上線狀態失敗:", error);
+                    }
+                }
+
                 auth.signOut();
                 if (isStudentMode) {
                     setUser(null);
@@ -446,7 +457,8 @@
 
             const handleClearStudents = async () => {
                 if(!confirm("警告：確定要清空所有學生名單嗎？這將導致所有學生需重新登入綁定。")) return;
-                await updateSession({ students: [], studentMappings: {} });
+                // 同時清空綁定紀錄(studentMappings)與即時上線狀態(onlineStudents)
+                await updateSession({ students: [], studentMappings: {}, onlineStudents: {} });
             };
 
             const handleClearGroups = async () => {
@@ -486,7 +498,8 @@
                 alert('連結已複製！請將此連結提供給學生進入教室。');
             };
 
-            const loggedInCount = Object.keys(session.studentMappings || {}).length;
+            // 老師監控介面：以「即時上線狀態 (onlineStudents)」來判斷綠燈亮起人數
+            const loggedInCount = Object.keys(session.onlineStudents || {}).length;
             const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId && !v.isDeleted);
             
             const allTotals = (session.students || []).map(studentName => {
@@ -537,7 +550,7 @@
                             
                             <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                                 <div>
-                                    <p className="text-gray-500 text-xs font-bold uppercase">目前已綁定學生</p>
+                                    <p className="text-gray-500 text-xs font-bold uppercase">目前已上線學生</p>
                                     <p className="text-2xl font-bold text-gray-800">{loggedInCount} <span className="text-sm text-gray-400">/ {(session.students||[]).length}</span></p>
                                 </div>
                                 {session.currentGroupId && (
@@ -582,6 +595,7 @@
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border border-gray-100 shadow-inner">
                                     {(session.students||[]).map(s => {
+                                        // 在設定清單中，我們還是顯示學生的「綁定紀錄」
                                         const isRegistered = Object.values(session.studentMappings||{}).includes(s);
                                         return (
                                             <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isRegistered ? 'bg-green-100 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200'}`}>
@@ -670,7 +684,9 @@
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
                                                 {(session.students||[]).map(studentName => {
-                                                    const isBound = Object.values(session.studentMappings||{}).includes(studentName);
+                                                    // 在監控區，改用 onlineStudents 來判斷綠燈是否亮起，確保準確顯示目前在線上的人
+                                                    const isOnline = Object.values(session.onlineStudents||{}).includes(studentName);
+                                                    
                                                     const currentGroup = session.currentGroupId;
                                                     const currentVote = currentGroup ? votes.find(v => v.groupId === currentGroup && v.userName === studentName && !v.isDeleted) : null;
                                                     const totalVoted = votes.filter(v => v.userName === studentName && !v.isDeleted).length;
@@ -688,7 +704,7 @@
                                                     return (
                                                         <tr key={studentName} className="hover:bg-gray-50 transition-colors">
                                                             <td className="p-4 font-bold text-gray-800">{studentName}</td>
-                                                            <td className="p-4">{isBound ? <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-bold border border-green-200">線上</span> : <span className="text-gray-400 text-xs border border-gray-200 px-3 py-1 rounded-full">未登入</span>}</td>
+                                                            <td className="p-4">{isOnline ? <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-bold border border-green-200">線上</span> : <span className="text-gray-400 text-xs border border-gray-200 px-3 py-1 rounded-full">未登入</span>}</td>
                                                             <td className="p-4">
                                                                 {!currentGroup ? <span className="text-gray-400">-</span> : 
                                                                  currentVote ? <span className="text-green-600 font-bold flex items-center gap-1"><Icons.CheckCircle/>已完成</span> : <span className="text-red-500 font-bold animate-pulse">未評分</span>}
@@ -792,7 +808,36 @@
             const [scores, setScores] = React.useState({});
             const [submitting, setSubmitting] = React.useState(false);
 
+            // 確保學生無法重新綁定，一直使用最初選擇的姓名
             const registeredName = session?.studentMappings?.[user.uid];
+
+            // 新增：處理上線狀態 (綠燈機制)
+            React.useEffect(() => {
+                if (registeredName && user && roomName) {
+                    const setOnline = async () => {
+                        try {
+                            await db.collection('sessions').doc(roomName).update({
+                                [`onlineStudents.${user.uid}`]: registeredName
+                            });
+                        } catch (e) { console.error("更新上線狀態失敗", e); }
+                    };
+                    setOnline();
+
+                    // 當學生關閉瀏覽器分頁或離開時，將其設為離線
+                    const handleOffline = () => {
+                        db.collection('sessions').doc(roomName).update({
+                            [`onlineStudents.${user.uid}`]: firebase.firestore.FieldValue.delete()
+                        }).catch(e => console.error(e));
+                    };
+                    
+                    window.addEventListener('beforeunload', handleOffline);
+
+                    return () => {
+                        window.removeEventListener('beforeunload', handleOffline);
+                        handleOffline(); // 元件卸載時也視為離線
+                    };
+                }
+            }, [registeredName, user, roomName]);
 
             React.useEffect(() => {
                 if (registeredName && session?.currentGroupId) {
