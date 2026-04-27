@@ -255,11 +255,7 @@
                 const sid = `${school.trim()}_${dept.trim()}`;
                 
                 try {
-                    // 老師走匿名驗證即可，不需綁定 Google，方便快速開房間
-                    if (!auth.currentUser) {
-                        await auth.signInAnonymously();
-                    }
-
+                    // 【已徹底移除】不再使用 auth.signInAnonymously()
                     const docRef = db.collection('sessions').doc(sid);
                     const docSnap = await docRef.get();
                     
@@ -290,7 +286,11 @@
                         }
                     }
                 } catch(e) {
-                    setErrorMsg("連線錯誤: " + e.message);
+                    if (e.code === 'permission-denied') {
+                        setErrorMsg("資料庫權限不足！請確認 Firebase 後台 Firestore 的 Rules 已經設定為 test mode (allow read, write: if true;)。");
+                    } else {
+                        setErrorMsg("連線錯誤: " + e.message);
+                    }
                 } finally {
                     setIsChecking(false);
                 }
