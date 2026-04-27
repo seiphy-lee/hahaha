@@ -171,7 +171,7 @@
             // --- 老師登入/建立房間邏輯 ---
             const handleTeacherAuth = async () => {
                 if (!inputRoomName.trim() || !inputPassword.trim()) {
-                    setErrorMsg("請輸入老師暱稱與房間密碼！");
+                    setErrorMsg("請輸入班級代號或暱稱與管理密碼！");
                     return;
                 }
                 setIsLoggingIn(true);
@@ -180,7 +180,17 @@
                 try {
                     // 若尚未登入，先以匿名方式取得資料庫讀寫權限
                     if (!user) {
-                        await auth.signInAnonymously();
+                        try {
+                            await auth.signInAnonymously();
+                        } catch (authErr) {
+                            if (authErr.code === 'auth/admin-restricted-operation') {
+                                throw new Error("Firebase 安全設定阻擋：請至 Firebase 控制台 -> Authentication -> Settings -> User actions，將「Enable create (sign-up)」打勾開啟。");
+                            } else if (authErr.code === 'auth/operation-not-allowed') {
+                                throw new Error("Firebase 尚未啟用匿名登入：請至 Firebase 控制台 -> Authentication -> Sign-in method，啟用「Anonymous (匿名)」。");
+                            } else {
+                                throw authErr;
+                            }
+                        }
                     }
                     
                     const roomID = inputRoomName.trim();
@@ -672,7 +682,7 @@
                                     </div>
                                     <div className="overflow-x-auto max-h-96">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-white text-gray-500 uppercase sticky top-0 shadow-sm">
+                                            <thead className="bg-white text-gray-500 uppercase sticky top-0 z-10 shadow-sm">
                                                 <tr>
                                                     <th className="p-4 font-bold">姓名</th>
                                                     <th className="p-4 font-bold">登入狀態</th>
