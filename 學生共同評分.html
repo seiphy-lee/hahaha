@@ -298,7 +298,7 @@
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">老師暱稱 (房間名稱)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">請輸入班級代號或暱稱</label>
                                     <input 
                                         type="text" 
                                         value={inputRoomName} 
@@ -349,7 +349,7 @@
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-indigo-700 font-bold text-xl md:text-2xl truncate">
-                            <Icons.Award /> {currentRoom} 老師的共同評分
+                            <Icons.Award /> 學生共同評分系統(台中二中 阿發老師設計)
                         </div>
                         <div className="flex items-center gap-3">
                             {role === 'student' && user?.displayName && (
