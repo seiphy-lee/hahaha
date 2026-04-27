@@ -235,17 +235,7 @@
             };
 
             const handleLogout = async () => {
-                // 如果是學生登出，將他的名字從已綁定的名單中移除
-                if (role === 'student' && user && currentRoom) {
-                    try {
-                        const update = {};
-                        update[`studentMappings.${user.uid}`] = firebase.firestore.FieldValue.delete();
-                        await db.collection('sessions').doc(currentRoom).update(update);
-                    } catch (error) {
-                        console.error("清除學生綁定狀態失敗:", error);
-                    }
-                }
-
+                // 移除「登出時刪除綁定」的邏輯，讓學生下次登入仍保持原來的身分，防止換身分評分的漏洞
                 auth.signOut();
                 if (isStudentMode) {
                     setUser(null);
@@ -293,8 +283,9 @@
                             <div className="flex justify-center text-blue-600 mb-4">
                                 <Icons.Key />
                             </div>
-                            <h1 className="text-2xl font-bold text-center mb-2 text-blue-600">老師專屬控制台</h1>
-                            <p className="text-blue-600 font-bold text-center mb-8 text-lg">台中二中 阿發老師設計</p>
+                            <h1 className="text-3xl font-black text-center mb-2 text-blue-600">學生共同評分系統</h1>
+                            <p className="text-blue-600 font-bold text-center mb-6 text-lg">台中二中 阿發老師設計</p>
+                            <h2 className="text-xl font-bold text-center mb-8 text-gray-700">資料設定控制台</h2>
                             
                             <div className="space-y-4">
                                 <div>
