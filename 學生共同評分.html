@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>課堂共同評分系統 v4.0 (多教室支援版)</title>
+    <title>課堂共同評分系統 v4.5 (師生分流版)</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 React 和 ReactDOM -->
@@ -49,7 +49,7 @@
     </script>
 
     <script type="text/babel">
-        // --- 1. Firebase Config & Init (維持您原本的設定) ---
+        // --- 1. Firebase Config & Init ---
         const firebaseConfig = {
            apiKey: "AIzaSyAmqdU3AimELr5sa9FIFd_eb5zbM0nCFkI",
            authDomain: "evaluate-each-other-5d4bf.firebaseapp.com",
@@ -90,20 +90,25 @@
             X: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
             ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
             Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-            LogOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Link: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         };
 
         // --- 3. Main App ---
         function App() {
+            // 解析網址列參數 ?room=XXX 來決定是否為學生模式
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialRoom = urlParams.get('room');
+            const isStudentMode = !!initialRoom;
+
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             
-            // 全新登入狀態管理
-            const [currentRoom, setCurrentRoom] = React.useState(null);
+            // 系統狀態
+            const [currentRoom, setCurrentRoom] = React.useState(initialRoom);
             const [role, setRole] = React.useState(null); // 'teacher' 或 'student'
             const [sessionData, setSessionData] = React.useState(null);
             
-            // 登入表單狀態
+            // 登入表單狀態 (僅老師需要)
             const [inputRoomName, setInputRoomName] = React.useState('');
             const [inputPassword, setInputPassword] = React.useState('');
             const [errorMsg, setErrorMsg] = React.useState(null);
@@ -112,31 +117,46 @@
             // App 載入時，監聽登入狀態
             React.useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(u => {
-                    setUser(u);
+                    if (isStudentMode) {
+                        // 學生模式：必須是使用 Google (非匿名) 登入
+                        if (u && !u.isAnonymous) {
+                            setUser(u);
+                        } else {
+                            setUser(null);
+                        }
+                    } else {
+                        // 老師模式：接收所有登入狀態 (包含匿名)
+                        setUser(u);
+                    }
                     setLoading(false);
                 });
                 return () => unsubscribe();
-            }, []);
+            }, [isStudentMode]);
 
-            // Google 登入處理
-            const handleGoogleLogin = async () => {
-                try {
-                    setErrorMsg(null);
-                    setLoading(true);
-                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
-                } catch (e) {
-                    if (e.code === 'auth/unauthorized-domain') {
-                        setErrorMsg(`網域未授權！請新增此網址到 Firebase Console: ${window.location.hostname}`);
-                    } else {
-                        setErrorMsg(`登入錯誤: ${e.message}`);
-                    }
-                    setLoading(false);
+            // 當學生登入 Google 後，驗證該教室是否存在
+            React.useEffect(() => {
+                let isMounted = true;
+                if (isStudentMode && user && !user.isAnonymous && !role && currentRoom) {
+                    db.collection('sessions').doc(currentRoom).get().then(docSnap => {
+                        if (!isMounted) return;
+                        if (docSnap.exists) {
+                            setRole('student');
+                            setErrorMsg(null);
+                        } else {
+                            setErrorMsg(`找不到名為「${currentRoom}」的教室，請確認老師提供的連結是否正確！`);
+                            // 找不到教室則登出，以免卡在錯誤狀態
+                            auth.signOut();
+                        }
+                    }).catch(e => {
+                        if (isMounted) setErrorMsg("連線錯誤: " + e.message);
+                    });
                 }
-            };
+                return () => { isMounted = false; };
+            }, [isStudentMode, user, role, currentRoom]);
 
             // 監聽特定房間 (currentRoom) 的資料變化
             React.useEffect(() => {
-                if (!currentRoom) return;
+                if (!currentRoom || !role) return;
                 
                 const unsub = db.collection('sessions').doc(currentRoom).onSnapshot(docSnap => {
                     if (docSnap.exists) {
@@ -146,9 +166,9 @@
                     console.error("監聽房間資料失敗", err);
                 });
                 return () => unsub();
-            }, [currentRoom]);
+            }, [currentRoom, role]);
 
-            // --- 老師登入邏輯 ---
+            // --- 老師登入/建立房間邏輯 ---
             const handleTeacherAuth = async () => {
                 if (!inputRoomName.trim() || !inputPassword.trim()) {
                     setErrorMsg("請輸入老師暱稱與房間密碼！");
@@ -157,8 +177,13 @@
                 setIsLoggingIn(true);
                 setErrorMsg(null);
                 
-                const roomID = inputRoomName.trim();
                 try {
+                    // 若尚未登入，先以匿名方式取得資料庫讀寫權限
+                    if (!user) {
+                        await auth.signInAnonymously();
+                    }
+                    
+                    const roomID = inputRoomName.trim();
                     const roomRef = db.collection('sessions').doc(roomID);
                     const docSnap = await roomRef.get();
 
@@ -192,67 +217,56 @@
                 }
             };
 
-            // --- 學生登入邏輯 ---
-            const handleStudentAuth = async () => {
-                if (!inputRoomName.trim() || !inputPassword.trim()) {
-                    setErrorMsg("請輸入老師暱稱與房間密碼！");
-                    return;
-                }
-                setIsLoggingIn(true);
-                setErrorMsg(null);
-                
-                const roomID = inputRoomName.trim();
+            // --- 學生 Google 登入處理 ---
+            const handleGoogleLogin = async () => {
                 try {
-                    const roomRef = db.collection('sessions').doc(roomID);
-                    const docSnap = await roomRef.get();
-
-                    if (!docSnap.exists) {
-                        throw new Error("找不到此教室！請確認老師是否已經建立。");
-                    }
-                    
-                    if (docSnap.data().roomPassword !== inputPassword) {
-                        throw new Error("房間密碼錯誤！請向老師確認。");
-                    }
-                    
-                    setCurrentRoom(roomID);
-                    setRole('student');
+                    setErrorMsg(null);
+                    setLoading(true);
+                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+                    // 登入成功後，上方 useEffect 會自動進行教室驗證
                 } catch (e) {
-                    setErrorMsg(e.message);
-                } finally {
-                    setIsLoggingIn(false);
+                    if (e.code === 'auth/unauthorized-domain') {
+                        setErrorMsg(`網域未授權！請新增此網址到 Firebase Console: ${window.location.hostname}`);
+                    } else {
+                        setErrorMsg(`登入錯誤: ${e.message}`);
+                    }
+                    setLoading(false);
                 }
             };
 
-            // 離開教室 (回到登入頁)
-            const handleLeaveRoom = () => {
-                setCurrentRoom(null);
-                setRole(null);
-                setSessionData(null);
-                setErrorMsg(null);
-                setInputPassword(''); // 清除密碼，保留暱稱方便下次輸入
+            const handleLogout = () => {
+                auth.signOut();
+                if (isStudentMode) {
+                    setUser(null);
+                    setRole(null);
+                    setSessionData(null);
+                } else {
+                    window.location.reload(); // 老師直接重整畫面最乾淨
+                }
             };
 
             if (loading) return <div className="h-screen flex items-center justify-center font-bold text-gray-500">載入系統中...</div>;
 
-            // --- Google 登入畫面 ---
-            if (!user) {
+            // --- 學生專屬登入畫面 (網址帶有 ?room 參數) ---
+            if (isStudentMode && !role) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in text-center">
-                            <div className="flex justify-center text-blue-600 mb-4">
-                                <Icons.Award />
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in text-center border-t-4 border-indigo-500">
+                            <div className="flex justify-center text-indigo-600 mb-4 scale-125">
+                                <Icons.Users />
                             </div>
-                            <h1 className="text-2xl font-bold mb-2 text-gray-800">課堂共同評分系統</h1>
-                            <p className="text-gray-500 mb-6 text-sm">為了確保評分公平性，請先使用 Google 帳號登入</p>
+                            <h1 className="text-xl font-bold mb-2 text-gray-800">準備進入教室</h1>
+                            <h2 className="text-2xl font-black text-indigo-700 mb-4">{currentRoom} 老師</h2>
+                            <p className="text-gray-500 mb-6 text-sm">為了確保評分公平性，請使用您的 Google 帳號登入</p>
                             
                             {errorMsg && (
-                                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 mb-4 text-left">
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 mb-4 text-left border border-red-100">
                                     <div className="mt-0.5"><Icons.X /></div>
                                     {errorMsg}
                                 </div>
                             )}
 
-                            <button onClick={handleGoogleLogin} className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 font-bold transition shadow-md">
+                            <button onClick={handleGoogleLogin} className="w-full py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center justify-center gap-2 font-bold transition shadow-lg active:scale-95">
                                 <Icons.User /> Google 帳號登入
                             </button>
                         </div>
@@ -260,16 +274,16 @@
                 );
             }
 
-            // --- 房間登入畫面 ---
-            if (!currentRoom || !role) {
+            // --- 老師專屬登入畫面 (網址沒有 ?room 參數) ---
+            if (!isStudentMode && !role) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in">
-                            <div className="flex justify-center text-blue-600 mb-4">
-                                <Icons.Award />
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-200 p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in border-t-4 border-gray-800">
+                            <div className="flex justify-center text-gray-800 mb-4">
+                                <Icons.Key />
                             </div>
-                            <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">課堂共同評分系統</h1>
-                            <p className="text-gray-500 text-center mb-8 text-sm">請輸入教室資訊進入評分系統</p>
+                            <h1 className="text-2xl font-bold text-center mb-2 text-gray-800">老師專屬控制台</h1>
+                            <p className="text-gray-500 text-center mb-8 text-sm">請輸入教室暱稱與密碼以進行管理</p>
                             
                             <div className="space-y-4">
                                 <div>
@@ -278,46 +292,40 @@
                                         type="text" 
                                         value={inputRoomName} 
                                         onChange={e => setInputRoomName(e.target.value)} 
-                                        className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" 
+                                        className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-gray-800 transition-colors" 
                                         placeholder="例如：阿發老師" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">房間密碼</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">管理密碼</label>
                                     <input 
                                         type="password" 
                                         value={inputPassword} 
                                         onChange={e => setInputPassword(e.target.value)} 
-                                        className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-blue-500 transition-colors" 
+                                        className="w-full border-2 border-gray-200 p-3 rounded-lg focus:outline-none focus:border-gray-800 transition-colors" 
                                         placeholder="請輸入密碼" 
+                                        onKeyDown={e => e.key === 'Enter' && handleTeacherAuth()}
                                     />
                                 </div>
                                 
                                 {errorMsg && (
-                                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2">
+                                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 border border-red-100">
                                         <div className="mt-0.5"><Icons.X /></div>
                                         {errorMsg}
                                     </div>
                                 )}
                                 
-                                <div className="flex gap-3 pt-4">
-                                    <button 
-                                        onClick={handleStudentAuth} 
-                                        disabled={isLoggingIn}
-                                        className="flex-1 py-3 bg-blue-100 text-blue-700 rounded-lg font-bold hover:bg-blue-200 flex items-center justify-center gap-2 transition disabled:opacity-50"
-                                    >
-                                        <Icons.Users /> 學生加入
-                                    </button>
+                                <div className="pt-4">
                                     <button 
                                         onClick={handleTeacherAuth} 
                                         disabled={isLoggingIn}
-                                        className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 flex items-center justify-center gap-2 transition disabled:opacity-50"
+                                        className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 flex items-center justify-center gap-2 transition disabled:opacity-50 shadow-lg active:scale-95"
                                     >
-                                        <Icons.Key /> 老師進入
+                                        <Icons.Award /> 進入 / 建立教室
                                     </button>
                                 </div>
                                 <p className="text-xs text-gray-400 text-center mt-4">
-                                    提示：老師若為首次使用，系統將自動以此暱稱及密碼為您建立新教室。
+                                    提示：若為首次使用，系統將自動以此暱稱及密碼為您建立新教室。
                                 </p>
                             </div>
                         </div>
@@ -325,21 +333,23 @@
                 );
             }
 
-            // --- 進入系統後的版面 ---
+            // --- 進入系統後的版面 (老師或學生) ---
             return (
                 <div className="min-h-screen bg-gray-50 pb-10">
                     <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-blue-600 font-bold text-xl md:text-2xl truncate">
-                            <Icons.Award /> 共同評分 - {currentRoom}老師的教室
+                        <div className="flex items-center gap-2 text-indigo-700 font-bold text-xl md:text-2xl truncate">
+                            <Icons.Award /> {currentRoom} 老師的共同評分
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full hidden md:inline-block">
-                                {user.displayName || '已登入'} | {role === 'teacher' ? '管理員' : '學生'}
+                            {role === 'student' && user?.displayName && (
+                                <span className="text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full hidden md:inline-block border border-gray-200">
+                                    {user.displayName}
+                                </span>
+                            )}
+                            <span className={`text-sm font-bold px-3 py-1 rounded-full hidden md:inline-block ${role === 'teacher' ? 'bg-gray-800 text-white' : 'bg-indigo-100 text-indigo-700'}`}>
+                                {role === 'teacher' ? '管理員' : '學生'}
                             </span>
-                            <button onClick={handleLeaveRoom} className="text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded flex items-center gap-1 font-bold text-sm transition border border-indigo-200">
-                                <Icons.ArrowLeft /> 換教室
-                            </button>
-                            <button onClick={() => { handleLeaveRoom(); auth.signOut(); }} className="text-red-500 hover:bg-red-50 px-3 py-1 rounded flex items-center gap-1 font-bold text-sm transition">
+                            <button onClick={handleLogout} className="text-red-500 hover:bg-red-50 px-3 py-1 rounded flex items-center gap-1 font-bold text-sm transition border border-red-100">
                                 <Icons.LogOut /> 登出
                             </button>
                         </div>
@@ -462,6 +472,18 @@
                 }
             };
 
+            // 產生學生專屬邀請連結
+            const shareLink = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomName)}`;
+            const handleCopyLink = () => {
+                const el = document.createElement('textarea');
+                el.value = shareLink;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                alert('連結已複製！請將此連結提供給學生進入教室。');
+            };
+
             const loggedInCount = Object.keys(session.studentMappings || {}).length;
             const currentGroupVotes = votes.filter(v => v.groupId === session.currentGroupId && !v.isDeleted);
             
@@ -488,42 +510,58 @@
                     <div className="flex bg-white rounded-lg p-1 shadow-sm overflow-x-auto">
                         {[{id: 'control', label: '控制台'}, {id: 'setup', label: '名單設定'}, {id: 'criteria', label: '評分標準'}, {id: 'monitor', label: '監控與修正'}, {id: 'results', label: '結果統計'}]
                         .map(t => (
-                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>
                                 {t.label}
                             </button>
                         ))}
                     </div>
 
                     {activeTab === 'control' && (
-                        <div className="bg-white rounded-xl shadow p-6 space-y-6">
-                            <div className="flex justify-between items-center bg-indigo-50 p-4 rounded-lg">
+                        <div className="bg-white rounded-xl shadow p-6 space-y-6 animate-fade-in">
+                            
+                            {/* --- 新增：邀請學生專屬連結區塊 --- */}
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+                                <h3 className="font-bold text-lg text-indigo-800 mb-2 flex items-center gap-2">
+                                    <Icons.Link /> 邀請學生加入評分
+                                </h3>
+                                <p className="text-sm text-indigo-600 mb-3 font-medium">請複製下方專屬連結提供給學生。學生點擊後將會直接被引導至您的教室：</p>
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <input type="text" readOnly value={shareLink} className="flex-1 p-3 rounded-lg border border-indigo-200 bg-white text-gray-700 outline-none text-sm font-mono shadow-inner" />
+                                    <button onClick={handleCopyLink} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 transition shadow whitespace-nowrap active:scale-95">
+                                        複製連結
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                                 <div>
-                                    <p className="text-indigo-500 text-xs font-bold uppercase">目前登入學生</p>
-                                    <p className="text-2xl font-bold text-indigo-700">{loggedInCount} <span className="text-sm text-indigo-400">/ {(session.students||[]).length}</span></p>
+                                    <p className="text-gray-500 text-xs font-bold uppercase">目前已綁定學生</p>
+                                    <p className="text-2xl font-bold text-gray-800">{loggedInCount} <span className="text-sm text-gray-400">/ {(session.students||[]).length}</span></p>
                                 </div>
                                 {session.currentGroupId && (
                                     <div>
-                                        <p className="text-green-600 text-xs font-bold uppercase text-right">評分進度</p>
+                                        <p className="text-green-600 text-xs font-bold uppercase text-right">當前評分進度</p>
                                         <p className="text-2xl font-bold text-green-700 text-right">{currentGroupVotes.length} <span className="text-sm text-green-500">人已評</span></p>
                                     </div>
                                 )}
                             </div>
-                            <h3 className="font-bold text-lg border-b pb-2">報告流程控制</h3>
+                            
+                            <h3 className="font-bold text-lg border-b pb-2 text-gray-800">報告流程控制</h3>
                             <div className="space-y-3">
-                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center border-2 border-dashed rounded-lg">尚未設定組別，請前往「名單設定」新增。</p>}
+                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center border-2 border-dashed rounded-lg bg-gray-50">尚未設定組別，請前往「名單設定」新增。</p>}
                                 {(groups||[]).map(g => (
-                                    <div key={g.id} className={`flex justify-between items-center p-4 border rounded-lg transition-colors ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-200' : 'hover:bg-gray-50'}`}>
+                                    <div key={g.id} className={`flex justify-between items-center p-4 border rounded-xl transition-colors ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-200' : 'hover:bg-gray-50 border-gray-200'}`}>
                                         <span className={`font-bold text-lg ${session.currentGroupId === g.id ? 'text-green-800' : 'text-gray-700'}`}>{g.name}</span>
                                         {session.currentGroupId === g.id ? (
-                                            <button onClick={()=>updateSession({currentGroupId: null})} className="px-5 py-2 bg-white border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-sm">停止評分</button>
+                                            <button onClick={()=>updateSession({currentGroupId: null})} className="px-5 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-sm active:scale-95">停止評分</button>
                                         ) : (
-                                            <button onClick={()=>updateSession({currentGroupId: g.id, showResults: false})} disabled={!!session.currentGroupId} className={`px-5 py-2 rounded-lg font-bold transition-colors shadow-sm ${session.currentGroupId ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>開始評分</button>
+                                            <button onClick={()=>updateSession({currentGroupId: g.id, showResults: false})} disabled={!!session.currentGroupId} className={`px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm active:scale-95 ${session.currentGroupId ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-800 text-white hover:bg-gray-900'}`}>開始評分</button>
                                         )}
                                     </div>
                                 ))}
                             </div>
                             <div className="pt-4 border-t">
-                                <button onClick={()=>updateSession({showResults: !session.showResults})} className={`w-full py-4 rounded-xl font-bold text-lg transition-colors shadow ${session.showResults ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-gray-800 text-white hover:bg-gray-900'}`}>
+                                <button onClick={()=>updateSession({showResults: !session.showResults})} className={`w-full py-4 rounded-xl font-bold text-lg transition-colors shadow-md ${session.showResults ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-300' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                                     {session.showResults ? '隱藏排行榜' : '公佈排行榜 (學生可見)'}
                                 </button>
                             </div>
@@ -531,20 +569,20 @@
                     )}
 
                     {activeTab === 'setup' && (
-                        <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid md:grid-cols-2 gap-6 animate-fade-in">
                             <div className="bg-white rounded-xl shadow p-6">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Users/> 學生名單管理</h3>
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800"><Icons.Users/> 學生名單管理</h3>
                                 <p className="text-xs text-gray-500 mb-2">請貼上全班姓名，一行一個名字</p>
-                                <textarea className="w-full h-40 border p-3 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="王小明&#10;李大華..." value={batchStudents} onChange={e=>setBatchStudents(e.target.value)}></textarea>
+                                <textarea className="w-full h-40 border-2 border-gray-100 p-3 rounded-lg text-sm mb-2 focus:border-gray-400 focus:outline-none transition-colors bg-gray-50" placeholder="王小明&#10;李大華..." value={batchStudents} onChange={e=>setBatchStudents(e.target.value)}></textarea>
                                 <div className="flex gap-2">
-                                    <button onClick={handleBatchStudents} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition">更新名單</button>
-                                    <button onClick={handleClearStudents} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100 transition"><Icons.Trash /></button>
+                                    <button onClick={handleBatchStudents} className="flex-1 py-2 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900 transition active:scale-95">更新名單</button>
+                                    <button onClick={handleClearStudents} className="px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg font-bold hover:bg-red-100 transition"><Icons.Trash /></button>
                                 </div>
-                                <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border">
+                                <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border border-gray-100 shadow-inner">
                                     {(session.students||[]).map(s => {
                                         const isRegistered = Object.values(session.studentMappings||{}).includes(s);
                                         return (
-                                            <span key={s} className={`text-xs px-2 py-1 rounded border flex items-center gap-1 ${isRegistered ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-gray-600'}`}>
+                                            <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isRegistered ? 'bg-green-100 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200'}`}>
                                                 {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500 ml-1"><Icons.X /></button>
                                             </span>
                                         );
@@ -552,21 +590,21 @@
                                 </div>
                             </div>
                             <div className="bg-white rounded-xl shadow p-6">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Icons.Award/> 分組名單管理</h3>
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800"><Icons.Award/> 分組名單管理</h3>
                                 <div className="mb-4 flex gap-2">
-                                    <input type="text" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} className="border p-2 rounded-lg flex-1 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="單筆新增組名" />
-                                    <button onClick={addSingleGroup} className="bg-gray-100 px-4 rounded-lg font-bold hover:bg-gray-200 transition text-gray-700">新增</button>
+                                    <input type="text" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} className="border-2 border-gray-100 p-2 rounded-lg flex-1 focus:border-gray-400 focus:outline-none bg-gray-50" placeholder="單筆新增組名" />
+                                    <button onClick={addSingleGroup} className="bg-gray-200 px-4 rounded-lg font-bold hover:bg-gray-300 transition text-gray-700 active:scale-95">新增</button>
                                 </div>
                                 <p className="text-xs text-gray-500 mb-2">或 批次貼上組別名稱，一行一個</p>
-                                <textarea className="w-full h-32 border p-3 rounded-lg text-sm mb-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="第一組...&#10;第二組..." value={batchGroups} onChange={e=>setBatchGroups(e.target.value)}></textarea>
+                                <textarea className="w-full h-32 border-2 border-gray-100 p-3 rounded-lg text-sm mb-2 focus:border-gray-400 focus:outline-none transition-colors bg-gray-50" placeholder="第一組...&#10;第二組..." value={batchGroups} onChange={e=>setBatchGroups(e.target.value)}></textarea>
                                 <div className="flex gap-2">
-                                    <button onClick={handleBatchGroups} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition">批次新增</button>
-                                    <button onClick={handleClearGroups} className="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100 transition"><Icons.Trash /></button>
+                                    <button onClick={handleBatchGroups} className="flex-1 py-2 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900 transition active:scale-95">批次新增</button>
+                                    <button onClick={handleClearGroups} className="px-4 py-2 bg-red-50 text-red-600 border border-red-100 rounded-lg font-bold hover:bg-red-100 transition"><Icons.Trash /></button>
                                 </div>
-                                <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto space-y-2 mt-4 border">
+                                <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto space-y-2 mt-4 border border-gray-100 shadow-inner">
                                     {(groups||[]).map((g,i) => (
-                                        <div key={g.id} className="text-sm bg-white p-2 rounded border flex justify-between items-center hover:border-indigo-200 transition">
-                                            <span className="font-medium text-gray-700">{i+1}. {g.name}</span>
+                                        <div key={g.id} className="text-sm bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center hover:border-gray-400 transition shadow-sm">
+                                            <span className="font-bold text-gray-700">{i+1}. {g.name}</span>
                                             <button onClick={async()=>{ if(confirm("刪除?")) await updateSession({ groups: session.groups.filter(x=>x.id!==g.id) }); }} className="text-gray-400 hover:text-red-500 p-1"><Icons.Trash2 /></button>
                                         </div>
                                     ))}
@@ -576,32 +614,32 @@
                     )}
 
                     {activeTab === 'criteria' && (
-                        <div className="bg-white rounded-xl shadow p-6">
+                        <div className="bg-white rounded-xl shadow p-6 animate-fade-in">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-lg">評分標準設定</h3>
-                                <button onClick={handleResetVotes} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-gray-800">評分標準設定</h3>
+                                <button onClick={handleResetVotes} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors flex items-center gap-2 active:scale-95">
                                     <Icons.Trash /> 清空所有評分紀錄
                                 </button>
                             </div>
-                            <div className="flex gap-4 mb-6 items-end bg-indigo-50 p-4 rounded-xl">
+                            <div className="flex gap-4 mb-6 items-end bg-gray-50 border border-gray-200 p-4 rounded-xl">
                                 <div className="flex-1">
-                                    <label className="text-xs font-bold text-indigo-700 mb-1 block">項目名稱</label>
-                                    <input type="text" value={newCriName} onChange={e=>setNewCriName(e.target.value)} className="w-full border-none p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-400 shadow-sm" placeholder="例如：創新程度" />
+                                    <label className="text-xs font-bold text-gray-600 mb-1 block">項目名稱</label>
+                                    <input type="text" value={newCriName} onChange={e=>setNewCriName(e.target.value)} className="w-full border-2 border-gray-200 p-2.5 rounded-lg focus:border-gray-400 outline-none transition" placeholder="例如：創新程度" />
                                 </div>
                                 <div className="w-24">
-                                    <label className="text-xs font-bold text-indigo-700 mb-1 block">最高分</label>
-                                    <input type="number" value={newCriMax} onChange={e=>setNewCriMax(e.target.value)} className="w-full border-none p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-400 shadow-sm" />
+                                    <label className="text-xs font-bold text-gray-600 mb-1 block">最高分</label>
+                                    <input type="number" value={newCriMax} onChange={e=>setNewCriMax(e.target.value)} className="w-full border-2 border-gray-200 p-2.5 rounded-lg focus:border-gray-400 outline-none transition" />
                                 </div>
-                                <button onClick={addCriteria} className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm hover:bg-indigo-700 transition">新增</button>
+                                <button onClick={addCriteria} className="bg-gray-800 text-white px-6 py-2.5 rounded-lg font-bold shadow-sm hover:bg-gray-900 transition active:scale-95 border-2 border-gray-800">新增</button>
                             </div>
                             <div className="space-y-3">
                                 {(session.criteria||[]).map(c => (
-                                    <div key={c.id} className="flex justify-between items-center p-4 border border-gray-100 rounded-xl bg-white shadow-sm hover:border-indigo-100 transition">
+                                    <div key={c.id} className="flex justify-between items-center p-4 border-2 border-gray-100 rounded-xl bg-white shadow-sm hover:border-gray-300 transition">
                                         <div className="flex items-center gap-4">
                                             <span className="font-bold text-lg text-gray-800">{c.name}</span>
-                                            <span className="text-xs bg-gray-100 px-3 py-1 rounded-full text-gray-600 font-medium">配分：0 ~ {c.max} 分</span>
+                                            <span className="text-xs bg-gray-100 px-3 py-1 rounded-full text-gray-600 font-bold border border-gray-200">配分：0 ~ {c.max} 分</span>
                                         </div>
-                                        <button onClick={()=>removeCriteria(c.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded transition"><Icons.Trash2/></button>
+                                        <button onClick={()=>removeCriteria(c.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition"><Icons.Trash2/></button>
                                     </div>
                                 ))}
                             </div>
@@ -609,16 +647,16 @@
                     )}
 
                     {activeTab === 'monitor' && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 animate-fade-in">
                             {!monitorGroupId ? (
                                 <>
-                                <div className="bg-white rounded-xl shadow overflow-hidden">
-                                    <div className="p-6 border-b">
-                                        <h3 className="font-bold text-lg flex items-center gap-2"><Icons.Users/> 全班狀態監控</h3>
+                                <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-100">
+                                    <div className="p-6 border-b bg-gray-50">
+                                        <h3 className="font-bold text-lg flex items-center gap-2 text-gray-800"><Icons.Users/> 全班狀態監控</h3>
                                     </div>
                                     <div className="overflow-x-auto max-h-96">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50 text-gray-600 uppercase sticky top-0 shadow-sm">
+                                            <thead className="bg-white text-gray-500 uppercase sticky top-0 shadow-sm">
                                                 <tr>
                                                     <th className="p-4 font-bold">姓名</th>
                                                     <th className="p-4 font-bold">登入狀態</th>
@@ -647,7 +685,7 @@
 
                                                     return (
                                                         <tr key={studentName} className="hover:bg-gray-50 transition-colors">
-                                                            <td className="p-4 font-medium text-gray-800">{studentName}</td>
+                                                            <td className="p-4 font-bold text-gray-800">{studentName}</td>
                                                             <td className="p-4">{isBound ? <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-bold border border-green-200">線上</span> : <span className="text-gray-400 text-xs border border-gray-200 px-3 py-1 rounded-full">未登入</span>}</td>
                                                             <td className="p-4">
                                                                 {!currentGroup ? <span className="text-gray-400">-</span> : 
@@ -659,7 +697,7 @@
                                                                     <button onClick={()=>deleteVote(currentVote.id)} className="text-gray-400 hover:text-red-600 p-2 bg-gray-50 rounded-lg hover:bg-red-50 transition" title="標記為不採計"><Icons.Trash2/></button>
                                                                 )}
                                                             </td>
-                                                            <td className="p-4 text-gray-400 font-mono">{totalVoted} 組</td>
+                                                            <td className="p-4 text-gray-400 font-mono font-medium">{totalVoted} 組</td>
                                                         </tr>
                                                     )
                                                 })}
@@ -667,15 +705,15 @@
                                         </table>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-xl shadow p-6">
+                                <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
                                     <h3 className="font-bold text-lg mb-4 text-gray-800">各組評分檢核 (點選查看明細)</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                         {(groups||[]).map(g => {
                                             const count = votes.filter(v => v.groupId === g.id && !v.isDeleted).length;
                                             return (
-                                                <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition text-left group">
-                                                    <div className="font-bold text-gray-800 group-hover:text-indigo-700">{g.name}</div>
-                                                    <div className="text-sm text-gray-500 mt-1">有效評分: <span className="font-bold text-indigo-600">{count}</span> 筆</div>
+                                                <button key={g.id} onClick={()=>setMonitorGroupId(g.id)} className="p-4 border-2 border-gray-100 rounded-xl hover:border-gray-800 hover:shadow-md transition text-left group bg-gray-50">
+                                                    <div className="font-bold text-gray-800 text-lg group-hover:text-gray-900">{g.name}</div>
+                                                    <div className="text-sm text-gray-500 mt-2 font-medium">有效評分: <span className="font-bold text-gray-800 bg-white px-2 py-1 rounded border shadow-sm ml-1">{count}</span></div>
                                                 </button>
                                             )
                                         })}
@@ -683,26 +721,26 @@
                                 </div>
                                 </>
                             ) : (
-                                <div className="bg-white rounded-xl shadow overflow-hidden">
-                                    <div className="p-6 border-b flex items-center gap-4">
-                                        <button onClick={() => setMonitorGroupId(null)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-lg flex items-center gap-1 transition">
-                                            <Icons.ArrowLeft /> 返回
+                                <div className="bg-white rounded-xl shadow overflow-hidden animate-fade-in border border-gray-100">
+                                    <div className="p-6 border-b flex items-center gap-4 bg-gray-50">
+                                        <button onClick={() => setMonitorGroupId(null)} className="text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 p-2 px-4 rounded-lg flex items-center gap-2 font-bold transition shadow-sm active:scale-95">
+                                            <Icons.ArrowLeft /> 返回清單
                                         </button>
-                                        <h2 className="text-xl font-bold text-indigo-800">
+                                        <h2 className="text-xl font-black text-gray-800">
                                             {groups.find(g => g.id === monitorGroupId)?.name} - 評分明細
                                         </h2>
                                     </div>
                                     
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-50 text-gray-600 uppercase">
+                                            <thead className="bg-white text-gray-500 uppercase border-b border-gray-200">
                                                 <tr>
-                                                    <th className="p-4">評分學生</th>
-                                                    <th className="p-4 text-right">給出的總分</th>
+                                                    <th className="p-4 font-bold">評分學生</th>
+                                                    <th className="p-4 text-right font-bold">總分</th>
                                                     {(session.criteria||[]).map(c => (
-                                                        <th key={c.id} className="p-4 text-right hidden md:table-cell">{c.name}</th>
+                                                        <th key={c.id} className="p-4 text-right hidden md:table-cell font-bold">{c.name}</th>
                                                     ))}
-                                                    <th className="p-4 text-center">操作</th>
+                                                    <th className="p-4 text-center font-bold">操作</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
@@ -717,12 +755,12 @@
                                                     .map(v => (
                                                         <tr key={v.id} className="hover:bg-gray-50 transition">
                                                             <td className="p-4 font-bold text-gray-800">{v.userName}</td>
-                                                            <td className="p-4 text-right font-bold text-indigo-600 text-lg">{v.total}</td>
+                                                            <td className="p-4 text-right font-black text-indigo-600 text-xl">{v.total}</td>
                                                             {(session.criteria||[]).map(c => (
-                                                                <td key={c.id} className="p-4 text-right text-gray-500 hidden md:table-cell font-mono">{v.scores[c.id]}</td>
+                                                                <td key={c.id} className="p-4 text-right text-gray-500 hidden md:table-cell font-mono font-medium">{v.scores[c.id]}</td>
                                                             ))}
                                                             <td className="p-4 text-center">
-                                                                <button onClick={() => deleteVote(v.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition" title="標記為不採計">
+                                                                <button onClick={() => deleteVote(v.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition" title="標記為不採計">
                                                                     <Icons.Trash2 />
                                                                 </button>
                                                             </td>
@@ -730,7 +768,7 @@
                                                     ))
                                                 }
                                                 {votes.filter(v => v.groupId === monitorGroupId && !v.isDeleted).length === 0 && (
-                                                    <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400">尚無有效評分紀錄</td></tr>
+                                                    <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400 font-bold">尚無有效評分紀錄</td></tr>
                                                 )}
                                             </tbody>
                                         </table>
@@ -767,7 +805,7 @@
                 }
             }, [session?.currentGroupId, user.uid, registeredName, roomName]);
 
-            if (!session) return <div className="h-screen flex items-center justify-center text-gray-500">連結教室中...</div>;
+            if (!session) return <div className="h-screen flex items-center justify-center text-gray-500 font-bold">連結教室中...</div>;
 
             const handleRegister = async () => {
                 if (!selectedName) return;
@@ -799,70 +837,70 @@
                 const availableStudents = (session.students || []).filter(name => !Object.values(session.studentMappings || {}).includes(name));
                 return (
                     <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center mt-10 animate-fade-in border-t-4 border-indigo-500">
-                        <div className="flex justify-center text-indigo-500 mb-4"><Icons.User /></div>
+                        <div className="flex justify-center text-indigo-500 mb-4 scale-110"><Icons.User /></div>
                         <h2 className="text-2xl font-bold mb-2 text-gray-800">歡迎進入教室</h2>
-                        <p className="text-gray-500 mb-6 text-sm">請從名單中選擇你的名字</p>
+                        <p className="text-gray-500 mb-6 text-sm font-medium">請從名單中選擇你的名字進行綁定</p>
                         
                         {(session.students||[]).length === 0 ? (
-                            <div className="text-center text-red-500 bg-red-50 p-4 rounded-lg font-bold border border-red-100">
+                            <div className="text-center text-amber-600 bg-amber-50 p-4 rounded-lg font-bold border border-amber-200">
                                 老師尚未建立學生名單，請稍候...
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <select className="w-full p-4 border-2 border-gray-200 rounded-xl bg-gray-50 focus:border-indigo-500 focus:bg-white transition-colors outline-none font-medium text-gray-700" value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
+                                <select className="w-full p-4 border-2 border-gray-200 rounded-xl bg-gray-50 focus:border-indigo-500 focus:bg-white transition-colors outline-none font-bold text-gray-700 shadow-sm" value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
                                     <option value="">-- 請選擇你的姓名 --</option>
                                     {availableStudents.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <button onClick={handleRegister} disabled={!selectedName} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all">確認，我是這位學生</button>
+                                <button onClick={handleRegister} disabled={!selectedName} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95 text-lg">確認，我是這位學生</button>
                             </div>
                         )}
                     </div>
                 );
             }
 
-            if (session.showResults) return <ResultsBoard session={session} roomName={roomName} groups={session.groups} criteria={session.criteria} isAdmin={false} />;
+            if (session.showResults) return <div className="animate-fade-in"><ResultsBoard session={session} roomName={roomName} groups={session.groups} criteria={session.criteria} isAdmin={false} /></div>;
 
             if (!session.currentGroupId) return (
                 <div className="max-w-lg mx-auto text-center py-20 bg-white rounded-2xl shadow-lg border border-gray-100 mt-10 animate-fade-in">
-                    <div className="text-indigo-600 font-bold mb-4 text-xl">哈囉，{registeredName}</div>
+                    <div className="inline-block bg-indigo-50 text-indigo-700 px-4 py-1 rounded-full font-bold mb-6 border border-indigo-100 shadow-sm">哈囉，{registeredName}</div>
                     <div className="text-gray-200 flex justify-center mb-6 scale-150"><Icons.Lock /></div>
-                    <h2 className="font-bold text-2xl text-gray-800">等待老師開放評分...</h2>
-                    <p className="text-gray-400 mt-2">請留意講台上的指示</p>
+                    <h2 className="font-black text-3xl text-gray-800 tracking-wide">等待老師開放評分...</h2>
+                    <p className="text-gray-500 mt-3 font-medium">請留意講台上的指示</p>
                 </div>
             );
 
             if (hasVoted) return (
-                <div className="max-w-lg mx-auto text-center py-20 bg-green-50 rounded-2xl shadow border border-green-100 mt-10 animate-fade-in">
+                <div className="max-w-lg mx-auto text-center py-20 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow border border-green-100 mt-10 animate-fade-in">
                     <div className="text-green-500 flex justify-center mb-6 scale-150"><Icons.CheckCircle /></div>
-                    <h2 className="font-bold text-2xl text-green-800">評分已成功送出！</h2>
-                    <p className="text-green-600 mt-3 font-medium">請休息一下，等待下一組報告。</p>
+                    <h2 className="font-black text-3xl text-green-800 tracking-wide">評分已成功送出！</h2>
+                    <p className="text-green-600 mt-3 font-bold">請休息一下，等待下一組報告。</p>
                 </div>
             );
 
             const currentGroup = session.groups.find(g => g.id === session.currentGroupId);
             return (
                 <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-6 md:p-8 space-y-8 animate-fade-in border-t-4 border-indigo-500">
-                    <div className="border-b pb-4 text-center">
-                        <div className="inline-block bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold mb-3">評分者：{registeredName}</div>
-                        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">目前報告：<span className="text-indigo-600">{currentGroup?.name}</span></h2>
+                    <div className="border-b border-gray-100 pb-6 text-center">
+                        <div className="inline-block bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold mb-4 border border-gray-200 shadow-sm">評分者：{registeredName}</div>
+                        <h2 className="text-2xl md:text-3xl font-black text-gray-800">目前報告：<span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg ml-2 border border-indigo-100 shadow-sm">{currentGroup?.name}</span></h2>
                     </div>
                     
                     <div className="space-y-6">
                         {session.criteria.map(c => (
-                            <div key={c.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                <div className="flex justify-between items-center mb-4">
-                                    <label className="font-bold text-lg text-gray-700">{c.name}</label>
-                                    <span className="text-sm font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-lg">配分：{c.max}</span>
+                            <div key={c.id} className="bg-gray-50 p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition">
+                                <div className="flex justify-between items-center mb-5">
+                                    <label className="font-black text-xl text-gray-800">{c.name}</label>
+                                    <span className="text-sm font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200">最高：{c.max}</span>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <input type="range" min="0" max={c.max} step="1" value={scores[c.id] || 0} onChange={e => setScores({...scores, [c.id]: parseInt(e.target.value)})} className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
-                                    <div className="w-16 h-14 flex items-center justify-center bg-white text-indigo-700 font-black text-2xl rounded-xl border-2 border-indigo-100 shadow-sm">{scores[c.id] || 0}</div>
+                                <div className="flex items-center gap-5">
+                                    <input type="range" min="0" max={c.max} step="1" value={scores[c.id] || 0} onChange={e => setScores({...scores, [c.id]: parseInt(e.target.value)})} className="w-full h-4 bg-gray-200 rounded-full appearance-none cursor-pointer accent-indigo-600 shadow-inner" />
+                                    <div className="w-20 h-16 flex items-center justify-center bg-white text-indigo-700 font-black text-3xl rounded-xl border-2 border-indigo-200 shadow-sm">{scores[c.id] || 0}</div>
                                 </div>
                             </div>
                         ))}
                     </div>
                     
-                    <button onClick={submitVote} disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all active:scale-95 disabled:bg-gray-400 disabled:transform-none">
+                    <button onClick={submitVote} disabled={submitting} className="w-full py-5 bg-indigo-600 text-white rounded-xl font-black text-xl shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all active:scale-95 disabled:bg-gray-400 disabled:shadow-none disabled:transform-none border-b-4 border-indigo-800 active:border-b-0">
                         {submitting ? '資料傳送中...' : '確認送出分數'}
                     </button>
                 </div>
@@ -1009,11 +1047,11 @@
             return (
                 <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-gray-100">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                        <h2 className="text-2xl font-bold flex items-center gap-2 text-indigo-900"><Icons.BarChart3 /> 最終排行榜</h2>
+                        <h2 className="text-2xl font-black flex items-center gap-2 text-indigo-900"><Icons.BarChart3 /> 最終排行榜</h2>
                         {isAdmin && (
                             <button 
                                 onClick={handleExportExcel}
-                                className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md transition-colors"
+                                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-md transition-colors active:scale-95 border-b-4 border-green-800 active:border-b-0"
                             >
                                 <Icons.Download /> 匯出 Excel 報表
                             </button>
@@ -1022,10 +1060,10 @@
 
                     <div className="space-y-4">
                         {results.map((g, i) => (
-                            <div key={g.id} className={`flex justify-between items-center p-5 rounded-2xl transition-all shadow-sm ${i === 0 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300 transform scale-105 shadow-md' : 'border border-gray-100 bg-white hover:border-indigo-100'}`}>
+                            <div key={g.id} className={`flex justify-between items-center p-5 rounded-2xl transition-all shadow-sm ${i === 0 ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300 transform scale-105 shadow-md' : 'border border-gray-100 bg-white hover:border-gray-300 hover:shadow-md'}`}>
                                 <div className="flex items-center gap-5">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white shadow ${i===0?'bg-yellow-400':i===1?'bg-gray-400':i===2?'bg-orange-400':'bg-gray-200 text-gray-500'}`}>{i+1}</div>
-                                    <span className={`text-xl ${i===0 ? 'font-black text-gray-900' : 'font-bold text-gray-700'}`}>{g.name}</span>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white shadow ${i===0?'bg-yellow-400':i===1?'bg-gray-400':i===2?'bg-orange-400':'bg-gray-300 text-gray-600'}`}>{i+1}</div>
+                                    <span className={`text-xl ${i===0 ? 'font-black text-gray-900' : 'font-bold text-gray-800'}`}>{g.name}</span>
                                 </div>
                                 <div className="text-right">
                                     <span className={`text-4xl font-black block ${i===0 ? 'text-yellow-600' : 'text-indigo-600'}`}>{g.avg}</span>
@@ -1034,7 +1072,7 @@
                             </div>
                         ))}
                     </div>
-                    {!isAdmin && <div className="mt-8 text-center text-gray-400 text-sm font-bold bg-gray-50 py-3 rounded-lg">結果僅在老師公佈後顯示，若無資料代表尚未開放。</div>}
+                    {!isAdmin && <div className="mt-8 text-center text-gray-500 text-sm font-bold bg-gray-50 border border-gray-200 py-3 rounded-lg shadow-inner">結果僅在老師公佈後顯示，若目前無資料代表尚未開放。</div>}
                 </div>
             );
         }
