@@ -234,7 +234,18 @@
                 }
             };
 
-            const handleLogout = () => {
+            const handleLogout = async () => {
+                // 如果是學生登出，將他的名字從已綁定的名單中移除
+                if (role === 'student' && user && currentRoom) {
+                    try {
+                        const update = {};
+                        update[`studentMappings.${user.uid}`] = firebase.firestore.FieldValue.delete();
+                        await db.collection('sessions').doc(currentRoom).update(update);
+                    } catch (error) {
+                        console.error("清除學生綁定狀態失敗:", error);
+                    }
+                }
+
                 auth.signOut();
                 if (isStudentMode) {
                     setUser(null);
