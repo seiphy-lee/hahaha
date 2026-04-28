@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -21,20 +21,20 @@
             font-size: 2.5rem;
         }
 
-        /* 修改重點：改用 Grid 佈局，設定每列 4 個 */
+        /* 改用 Grid 佈局，設定每列 4 個 */
         .menu-container { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 核心語法：重複4次，各佔1等份 */
+            grid-template-columns: repeat(4, 1fr); 
             gap: 20px; 
             width: 100%; 
-            max-width: 1200px; /* 寬度加大，不然擠不下4張 */
+            max-width: 1200px; 
         }
         
         /* 一般按鈕樣式 */
         .btn { 
             background-color: #fff; 
             color: #8e44ad; 
-            padding: 30px 20px; /* 增加一點內距讓卡片好看些 */
+            padding: 30px 20px; 
             text-decoration: none; 
             border-radius: 12px; 
             text-align: center; 
@@ -49,7 +49,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 80px; /* 設定最小高度，確保排版整齊 */
+            min-height: 80px; 
         }
         .btn:hover { 
             transform: translateY(-3px); 
@@ -57,7 +57,7 @@
             color: #fff; 
         }
         
-        /* 加鎖按鈕的特殊樣式 (深紫色) */
+        /* 加鎖按鈕的特殊樣式 (深紫色) - 老師保留了你的 CSS 以備不時之需 */
         .btn-lock { 
             border-color: #5e2a75; 
             color: #5e2a75; 
@@ -68,7 +68,7 @@
             color: #fff; 
         }
 
-        /* AI 工具特殊樣式 (綠色) - 保留您的樣式定義，雖然目前沒用到 */
+        /* AI 工具特殊樣式 (綠色) */
         .btn-ai { 
             border-color: #27ae60; 
             color: #27ae60; 
@@ -94,31 +94,15 @@
         /* RWD 響應式：手機和平板自動調整 */
         @media (max-width: 992px) {
             .menu-container {
-                grid-template-columns: repeat(2, 1fr); /* 平板變 2 欄 */
+                grid-template-columns: repeat(2, 1fr); 
             }
         }
         @media (max-width: 576px) {
             .menu-container {
-                grid-template-columns: 1fr; /* 手機變 1 欄 */
+                grid-template-columns: 1fr; 
             }
         }
     </style>
-
-    <script>
-        function checkPassword() {
-            // 1. 彈出視窗詢問密碼
-            var password = prompt("請輸入老師專用密碼：");
-
-            // 2. 檢查密碼 (這裡預設是 1021)
-            if (password === "1021") {
-                // 密碼正確 -> 跳轉到目標檔案
-                window.location.href = "上課觀測記錄.html"; 
-            } else if (password != null) {
-                // 密碼錯誤 -> 顯示警告 (排除按取消的情況)
-                alert("密碼錯誤，存取被拒絕 🚫");
-            }
-        }
-    </script>
 </head>
 <body>
 
@@ -135,13 +119,11 @@
         <a href="倒數計時.html" class="btn">7. 倒數計時</a>
         <a href="縮短網址.html" class="btn">8. 縮短網址</a>
         <a href="小精靈(競賽).html" class="btn">9. 小精靈(競賽)</a>
-        <a href="加速度測量.html" class="btn">10. 加速度測量</a>
-        <a href="手機磁場感測器.html" class="btn">11. 手機磁場感測器</a>
-        <a href="選書投票程式.html" class="btn">12. 選書投票程式</a>
-        <a href="學生共同評分.html" class="btn">13. 學生共同評分</a>
+        <a href="學生共同評分.html" class="btn">10. 學生共同評分</a> 
+        <a href="加速度測量.html" class="btn">11. 加速度測量</a>
+        <a href="手機磁場感測器.html" class="btn">12. 手機磁場感測器</a>
+        <a href="選書投票程式.html" class="btn">13. 選書投票程式</a>
         
-        <!-- 修正編號為 9，並保持鎖定功能 -->
-        <a href="#" onclick="checkPassword()" class="btn btn-lock">🔒 14. 上課觀測記錄<br>(老師專用)</a>
     </div>
 
     <a href="index.html" class="back-btn">⬅ 回到主選單</a>
