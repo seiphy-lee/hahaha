@@ -735,7 +735,7 @@
                     {activeTab === 'monitor' && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-100">
-                                <div className="p-6 border-b bg-gray-50 flex justify-between items-center">
+                                <div className="px-6 py-3 border-b bg-gray-50 flex justify-between items-center">
                                     <h3 className="font-bold text-lg flex items-center gap-2 text-gray-800"><Icons.Users/> 全班狀態監控</h3>
                                     <button onClick={handleResetVotes} className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2 rounded-lg font-bold shadow-sm transition-colors flex items-center gap-2 active:scale-95">
                                         <Icons.Trash /> 清空所有評分紀錄
@@ -745,12 +745,12 @@
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-white text-gray-500 uppercase sticky top-0 z-10 shadow-sm">
                                             <tr>
-                                                <th className="p-4 font-bold">姓名</th>
-                                                <th className="p-4 font-bold">登入狀態</th>
-                                                <th className="p-4 font-bold">目前評分進度</th>
-                                                <th className="p-4 font-bold text-right">評分(總分)</th>
-                                                <th className="p-4 font-bold text-center">操作</th>
-                                                <th className="p-4 font-bold text-gray-400">累計已評</th>
+                                                <th className="px-4 py-2 font-bold">姓名</th>
+                                                <th className="px-4 py-2 font-bold">登入狀態</th>
+                                                <th className="px-4 py-2 font-bold">目前評分進度</th>
+                                                <th className="px-4 py-2 font-bold text-right">評分(總分)</th>
+                                                <th className="px-4 py-2 font-bold text-center">操作</th>
+                                                <th className="px-4 py-2 font-bold text-gray-400">累計已評</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
@@ -768,19 +768,19 @@
 
                                                 return (
                                                     <tr key={studentName} className="hover:bg-gray-50 transition-colors">
-                                                        <td className="p-4 font-bold text-gray-800">{studentName}</td>
-                                                        <td className="p-4">{isOnline ? <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-bold border border-green-200">線上</span> : <span className="text-gray-400 text-xs border border-gray-200 px-3 py-1 rounded-full">未登入</span>}</td>
-                                                        <td className="p-4">
+                                                        <td className="px-4 py-2 font-bold text-gray-800">{studentName}</td>
+                                                        <td className="px-4 py-2">{isOnline ? <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-bold border border-green-200">線上</span> : <span className="text-gray-400 text-xs border border-gray-200 px-3 py-1 rounded-full">未登入</span>}</td>
+                                                        <td className="px-4 py-2">
                                                             {!currentGroup ? <span className="text-gray-400">-</span> : 
                                                                 currentVote ? <span className="text-green-600 font-bold flex items-center gap-1"><Icons.CheckCircle/>已完成</span> : <span className="text-red-500 font-bold animate-pulse">未評分</span>}
                                                         </td>
-                                                        <td className={`p-4 text-right font-mono text-lg ${totalClass}`}>{totalDisplay}</td>
-                                                        <td className="p-4 text-center">
+                                                        <td className={`px-4 py-2 text-right font-mono text-lg ${totalClass}`}>{totalDisplay}</td>
+                                                        <td className="px-4 py-2 text-center">
                                                             {currentVote && (
                                                                 <button onClick={()=>deleteVote(currentVote.id)} className="text-gray-400 hover:text-red-600 p-2 bg-gray-50 rounded-lg hover:bg-red-50 transition" title="標記為不採計"><Icons.Trash2/></button>
                                                             )}
                                                         </td>
-                                                        <td className="p-4 text-gray-400 font-mono font-medium">{totalVoted} 組</td>
+                                                        <td className="px-4 py-2 text-gray-400 font-mono font-medium">{totalVoted} 組</td>
                                                     </tr>
                                                 )
                                             })}
@@ -810,7 +810,7 @@
                                 </div>
                             ) : (
                                 <div className="bg-white rounded-xl shadow overflow-hidden animate-fade-in border border-gray-100">
-                                    <div className="p-6 border-b flex items-center gap-4 bg-gray-50">
+                                    <div className="px-6 py-3 border-b flex items-center gap-4 bg-gray-50">
                                         <button onClick={() => setMonitorGroupId(null)} className="text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 p-2 px-4 rounded-lg flex items-center gap-2 font-bold transition shadow-sm active:scale-95">
                                             <Icons.ArrowLeft /> 返回清單
                                         </button>
@@ -823,12 +823,12 @@
                                         <table className="w-full text-sm text-left">
                                             <thead className="bg-white text-gray-500 uppercase border-b border-gray-200">
                                                 <tr>
-                                                    <th className="p-4 font-bold">評分學生</th>
-                                                    <th className="p-4 text-right font-bold">總分</th>
+                                                    <th className="px-4 py-2 font-bold">評分學生</th>
+                                                    <th className="px-4 py-2 text-right font-bold">總分</th>
                                                     {(session.criteria||[]).map(c => (
-                                                        <th key={c.id} className="p-4 text-right hidden md:table-cell font-bold">{c.name}</th>
+                                                        <th key={c.id} className="px-4 py-2 text-right hidden md:table-cell font-bold">{c.name}</th>
                                                     ))}
-                                                    <th className="p-4 text-center font-bold">操作</th>
+                                                    <th className="px-4 py-2 text-center font-bold">操作</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100">
@@ -842,12 +842,12 @@
                                                     .sort((a, b) => b.total - a.total)
                                                     .map(v => (
                                                         <tr key={v.id} className="hover:bg-gray-50 transition">
-                                                            <td className="p-4 font-bold text-gray-800">{v.userName}</td>
-                                                            <td className="p-4 text-right font-black text-indigo-600 text-xl">{v.total}</td>
+                                                            <td className="px-4 py-2 font-bold text-gray-800">{v.userName}</td>
+                                                            <td className="px-4 py-2 text-right font-black text-indigo-600 text-xl">{v.total}</td>
                                                             {(session.criteria||[]).map(c => (
-                                                                <td key={c.id} className="p-4 text-right text-gray-500 hidden md:table-cell font-mono font-medium">{v.scores[c.id]}</td>
+                                                                <td key={c.id} className="px-4 py-2 text-right text-gray-500 hidden md:table-cell font-mono font-medium">{v.scores[c.id]}</td>
                                                             ))}
-                                                            <td className="p-4 text-center">
+                                                            <td className="px-4 py-2 text-center">
                                                                 <button onClick={() => deleteVote(v.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition" title="標記為不採計">
                                                                     <Icons.Trash2 />
                                                                 </button>
