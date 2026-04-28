@@ -397,6 +397,7 @@
             const [newCriName, setNewCriName] = React.useState('');
             const [newCriMax, setNewCriMax] = React.useState(10);
             const [monitorGroupId, setMonitorGroupId] = React.useState(null);
+            const [monitorStudentName, setMonitorStudentName] = React.useState(null); // 學生評分明細監控
             const [newGroupName, setNewGroupName] = React.useState('');
             const [showClearCriteriaConfirm, setShowClearCriteriaConfirm] = React.useState(false);
 
@@ -576,9 +577,9 @@
             return (
                 <div className="space-y-6">
                     <div className="flex bg-white rounded-lg p-1 shadow-sm overflow-x-auto">
-                        {[{id: 'control', label: '控制台'}, {id: 'setup', label: '名單設定'}, {id: 'criteria', label: '評分標準'}, {id: 'monitor', label: '監控與修正'}, {id: 'groupDetails', label: '各組明細'}, {id: 'results', label: '結果統計'}]
+                        {[{id: 'control', label: '評分控制台'}, {id: 'setup', label: '學生與小組名單設定'}, {id: 'criteria', label: '評分標準設定'}, {id: 'monitor', label: '監控評分與修正分數'}, {id: 'groupDetails', label: '各組得分明細'}, {id: 'studentDetails', label: '學生評分明細'}, {id: 'results', label: '結果統計'}]
                         .map(t => (
-                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>
+                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null); setMonitorStudentName(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>
                                 {t.label}
                             </button>
                         ))}
@@ -616,7 +617,7 @@
                             
                             <h3 className="font-bold text-lg border-b pb-2 text-gray-800">報告流程控制</h3>
                             <div className="space-y-3">
-                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center border-2 border-dashed rounded-lg bg-gray-50">尚未設定組別，請前往「名單設定」新增。</p>}
+                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center border-2 border-dashed rounded-lg bg-gray-50">尚未設定組別，請前往「學生與小組名單設定」新增。</p>}
                                 {(groups||[]).map(g => (
                                     <div key={g.id} className={`flex justify-between items-center p-4 border rounded-xl transition-colors ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-200' : 'hover:bg-gray-50 border-gray-200'}`}>
                                         <span className={`font-bold text-lg ${session.currentGroupId === g.id ? 'text-green-800' : 'text-gray-700'}`}>{g.name}</span>
@@ -648,7 +649,6 @@
                                 </div>
                                 <div className="bg-gray-50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border border-gray-100 shadow-inner">
                                     {(session.students||[]).map(s => {
-                                        // 修改：在名單設定中也統一使用「onlineStudents」來判斷綠燈顯示
                                         const isOnline = Object.values(session.onlineStudents||{}).includes(s);
                                         return (
                                             <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isOnline ? 'bg-green-100 text-green-700 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200'}`}>
@@ -866,6 +866,82 @@
                         </div>
                     )}
 
+                    {activeTab === 'studentDetails' && (
+                        <div className="space-y-6 animate-fade-in">
+                            {!monitorStudentName ? (
+                                <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
+                                    <h3 className="font-bold text-lg mb-4 text-gray-800">學生評分檢核 (點選查看明細)</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                        {(session.students||[]).sort((a, b) => a.localeCompare(b)).map(studentName => {
+                                            const count = votes.filter(v => v.userName === studentName && !v.isDeleted).length;
+                                            return (
+                                                <button key={studentName} onClick={()=>setMonitorStudentName(studentName)} className="p-4 border-2 border-gray-100 rounded-xl hover:border-gray-800 hover:shadow-md transition text-left group bg-gray-50">
+                                                    <div className="font-bold text-gray-800 text-lg group-hover:text-gray-900">{studentName}</div>
+                                                    <div className="text-sm text-gray-500 mt-2 font-medium">已評: <span className="font-bold text-gray-800 bg-white px-2 py-1 rounded border shadow-sm ml-1">{count}</span> 組</div>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white rounded-xl shadow overflow-hidden animate-fade-in border border-gray-100">
+                                    <div className="px-6 py-3 border-b flex items-center gap-4 bg-gray-50">
+                                        <button onClick={() => setMonitorStudentName(null)} className="text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 p-2 px-4 rounded-lg flex items-center gap-2 font-bold transition shadow-sm active:scale-95">
+                                            <Icons.ArrowLeft /> 返回清單
+                                        </button>
+                                        <h2 className="text-xl font-black text-gray-800">
+                                            {monitorStudentName} - 評分明細
+                                        </h2>
+                                    </div>
+                                    
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-white text-gray-500 uppercase border-b border-gray-200">
+                                                <tr>
+                                                    <th className="px-4 py-2 font-bold">評分組別</th>
+                                                    <th className="px-4 py-2 text-right font-bold">總分</th>
+                                                    {(session.criteria||[]).map(c => (
+                                                        <th key={c.id} className="px-4 py-2 text-right hidden md:table-cell font-bold">{c.name}</th>
+                                                    ))}
+                                                    <th className="px-4 py-2 text-center font-bold">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {votes
+                                                    .filter(v => v.userName === monitorStudentName && !v.isDeleted)
+                                                    .map(v => {
+                                                        let total = 0;
+                                                        (session.criteria||[]).forEach(c => total += (v.scores[c.id] || 0));
+                                                        const groupName = groups.find(g => g.id === v.groupId)?.name || '未知組別';
+                                                        return { ...v, total, groupName };
+                                                    })
+                                                    .sort((a, b) => a.groupName.localeCompare(b.groupName))
+                                                    .map(v => (
+                                                        <tr key={v.id} className="hover:bg-gray-50 transition">
+                                                            <td className="px-4 py-2 font-bold text-gray-800">{v.groupName}</td>
+                                                            <td className="px-4 py-2 text-right font-black text-indigo-600 text-xl">{v.total}</td>
+                                                            {(session.criteria||[]).map(c => (
+                                                                <td key={c.id} className="px-4 py-2 text-right text-gray-500 hidden md:table-cell font-mono font-medium">{v.scores[c.id]}</td>
+                                                            ))}
+                                                            <td className="px-4 py-2 text-center">
+                                                                <button onClick={() => deleteVote(v.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition" title="標記為不採計">
+                                                                    <Icons.Trash2 />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                }
+                                                {votes.filter(v => v.userName === monitorStudentName && !v.isDeleted).length === 0 && (
+                                                    <tr><td colSpan={(session.criteria||[]).length + 3} className="p-8 text-center text-gray-400 font-bold">該名學生尚無有效評分紀錄</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {activeTab === 'results' && <ResultsBoard session={session} roomName={roomName} groups={groups} criteria={session.criteria || DEFAULT_CRITERIA} isAdmin={true} />}
                 </div>
             );
@@ -1062,6 +1138,7 @@
                     right: { style: "thin", color: { rgb: "000000" } }
                 };
 
+                // --- 1. 建立「最終排行榜」Sheet ---
                 const rankingHeaders = ["名次", "組名稱", "平均總分"];
                 const rankingData = results.map((r, i) => [i + 1, r.name, r.avg]);
                 
@@ -1089,6 +1166,7 @@
                 }
                 XLSX.utils.book_append_sheet(wb, rankWs, "最終排行榜");
 
+                // --- 2. 建立各組 Sheet ---
                 groups.forEach(group => {
                     const groupVotes = allVotes.filter(v => v.groupId === group.id);
                     const headers = ["評分學生", ...criteria.map(c => c.name), "總分", "備註"];
@@ -1157,6 +1235,73 @@
                     
                     XLSX.utils.book_append_sheet(wb, ws, sheetName);
                 });
+
+                // --- 3. 建立「學生評分明細」Sheet ---
+                const studentHeaders = ["學生姓名", "評分組別", ...criteria.map(c => c.name), "總分", "備註"];
+                const studentDataRows = [];
+                
+                // 依據學生姓名排序
+                const sortedStudents = [...(session.students||[])].sort((a, b) => a.localeCompare(b));
+                
+                sortedStudents.forEach(studentName => {
+                    const studentVotes = allVotes.filter(v => v.userName === studentName);
+                    // 該學生的評分也依據組別名稱排序
+                    studentVotes.sort((a, b) => {
+                        const nameA = groups.find(g => g.id === a.groupId)?.name || '';
+                        const nameB = groups.find(g => g.id === b.groupId)?.name || '';
+                        return nameA.localeCompare(nameB);
+                    });
+
+                    studentVotes.forEach(v => {
+                        const groupName = groups.find(g => g.id === v.groupId)?.name || '未知組別';
+                        const row = [studentName, groupName];
+                        let total = 0;
+                        criteria.forEach(c => {
+                            const score = v.scores[c.id] || 0;
+                            row.push(score);
+                            total += score;
+                        });
+                        row.push(total);
+                        row.push(v.isDeleted ? "不採計" : "");
+                        studentDataRows.push(row);
+                    });
+                });
+
+                const studentWsData = [
+                    [`學生評分明細表 - ${roomName}老師的教室`, ...Array(studentHeaders.length - 1).fill("")],
+                    studentHeaders,
+                    ...studentDataRows
+                ];
+
+                const studentWs = XLSX.utils.aoa_to_sheet(studentWsData);
+                studentWs['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: studentHeaders.length - 1 } }];
+                studentWs['!cols'] = studentHeaders.map(() => ({ wch: 15 }));
+                studentWs['!rows'] = studentWsData.map(() => ({ hpt: 18 }));
+                studentWs['!rows'][0] = { hpt: 30 }; // 大標題高度
+
+                const studentRange = XLSX.utils.decode_range(studentWs['!ref']);
+                for (let R = studentRange.s.r; R <= studentRange.e.r; ++R) {
+                    for (let C = studentRange.s.c; C <= studentRange.e.c; ++C) {
+                        const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
+                        if (!studentWs[cell_address]) continue;
+                        if (!studentWs[cell_address].s) studentWs[cell_address].s = {};
+                        
+                        studentWs[cell_address].s.alignment = { horizontal: "center", vertical: "center", wrapText: true };
+                        studentWs[cell_address].s.border = borderStyle;
+
+                        if (R === 0) studentWs[cell_address].s.font = { bold: true, sz: 14 };
+                        
+                        // 備註欄紅色字體
+                        if (C === studentRange.e.c && studentWs[cell_address].v === "不採計") {
+                            studentWs[cell_address].s.font = { color: { rgb: "FF0000" } };
+                        }
+                        // 總分欄藍色字體
+                        if (R > 0 && C === studentRange.e.c - 1) { 
+                            studentWs[cell_address].s.font = { color: { rgb: "0000FF" } };
+                        }
+                    }
+                }
+                XLSX.utils.book_append_sheet(wb, studentWs, "學生評分明細");
 
                 XLSX.writeFile(wb, `評分結果_${roomName}老師.xlsx`);
             };
