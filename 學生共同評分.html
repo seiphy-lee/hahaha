@@ -576,10 +576,19 @@
 
             return (
                 <div className="space-y-6">
-                    <div className="flex bg-white rounded-lg p-1 shadow-sm overflow-x-auto">
-                        {[{id: 'control', label: '評分控制台'}, {id: 'setup', label: '學生與小組名單設定'}, {id: 'criteria', label: '評分標準設定'}, {id: 'monitor', label: '監控評分與修正分數'}, {id: 'groupDetails', label: '各組得分明細'}, {id: 'studentDetails', label: '學生評分明細'}, {id: 'results', label: '結果統計'}]
+                    <div className="flex flex-wrap bg-white rounded-lg p-1 shadow-sm overflow-x-auto gap-2">
+                        {[
+                            {id: 'control', label: '評分控制台'}, 
+                            {id: 'setup', label: '學生與小組名單設定'}, 
+                            {id: 'criteria', label: '評分標準設定'}, 
+                            {id: 'monitor', label: '監控評分與修正分數'}, 
+                            {id: 'groupDetails', label: '各組得分明細'}, 
+                            {id: 'studentDetails', label: '學生評分明細'}, 
+                            {id: 'results', label: '結果統計'}
+                        ]
                         .map(t => (
-                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null); setMonitorStudentName(null);}} className={`flex-1 py-2 px-3 whitespace-nowrap text-sm font-bold rounded-md ${activeTab===t.id ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:bg-gray-100'}`}>
+                            <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null); setMonitorStudentName(null);}} 
+                                className={`flex-1 py-3 px-4 whitespace-normal text-lg font-bold rounded-md border border-gray-200 transition-all ${activeTab===t.id ? 'bg-gray-800 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100 hover:shadow'}`}>
                                 {t.label}
                             </button>
                         ))}
