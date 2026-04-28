@@ -389,7 +389,7 @@
 
         // --- Teacher Dashboard ---
         function TeacherDashboard({ session, roomName }) {
-            const [activeTab, setActiveTab] = React.useState('control'); 
+            const [activeTab, setActiveTab] = React.useState('setup'); 
             const [votes, setVotes] = React.useState([]);
             const [groups, setGroups] = React.useState([]); 
             const [batchGroups, setBatchGroups] = React.useState('');
@@ -578,9 +578,9 @@
                 <div className="space-y-6">
                     <div className="flex flex-wrap bg-white rounded-lg p-1 shadow-sm overflow-x-auto gap-2">
                         {[
-                            {id: 'control', label: '評分控制台'}, 
                             {id: 'setup', label: '學生與小組名單設定'}, 
                             {id: 'criteria', label: '評分標準設定'}, 
+                            {id: 'control', label: '評分控制台'}, 
                             {id: 'monitor', label: '監控評分與修正分數'}, 
                             {id: 'groupDetails', label: '各組得分明細'}, 
                             {id: 'studentDetails', label: '學生評分明細'}, 
@@ -588,7 +588,7 @@
                         ]
                         .map(t => (
                             <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null); setMonitorStudentName(null);}} 
-                                className={`flex-1 py-3 px-4 whitespace-normal text-lg font-bold rounded-md border border-orange-200 transition-all ${activeTab===t.id ? 'bg-orange-500 text-white shadow-md' : 'text-orange-800 bg-white hover:bg-orange-100 hover:shadow'}`}>
+                                className={`flex-1 py-3 px-4 whitespace-normal text-lg font-bold rounded-md border border-gray-200 transition-all ${activeTab===t.id ? 'bg-gray-800 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100 hover:shadow'}`}>
                                 {t.label}
                             </button>
                         ))}
@@ -597,21 +597,21 @@
                     {activeTab === 'control' && (
                         <div className="bg-white rounded-xl shadow p-6 space-y-6 animate-fade-in">
                             
-                            {/* --- 新增：邀請學生專屬連結區塊 --- */}
-                            <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="font-bold text-lg text-indigo-800 mb-2 flex items-center gap-2">
+                            {/* --- 邀請學生專屬連結區塊 --- */}
+                            <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-5 shadow-sm">
+                                <h3 className="font-bold text-lg text-fuchsia-800 mb-2 flex items-center gap-2">
                                     <Icons.Link /> 邀請學生加入評分
                                 </h3>
-                                <p className="text-sm text-indigo-600 mb-3 font-medium">請複製下方專屬連結提供給學生。學生點擊後將會直接被引導至您的教室：</p>
+                                <p className="text-sm text-fuchsia-600 mb-3 font-medium">請複製下方專屬連結提供給學生。學生點擊後將會直接被引導至您的教室：</p>
                                 <div className="flex flex-col sm:flex-row gap-2">
-                                    <input type="text" readOnly value={shareLink} className="flex-1 p-3 rounded-lg border border-indigo-200 bg-white text-gray-700 outline-none text-sm font-mono shadow-inner" />
-                                    <button onClick={handleCopyLink} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 transition shadow whitespace-nowrap active:scale-95">
+                                    <input type="text" readOnly value={shareLink} className="flex-1 p-3 rounded-lg border border-fuchsia-200 bg-white text-gray-700 outline-none text-sm font-mono shadow-inner" />
+                                    <button onClick={handleCopyLink} className="bg-fuchsia-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-fuchsia-700 transition shadow whitespace-nowrap active:scale-95">
                                         複製連結
                                     </button>
                                 </div>
                             </div>
                             
-                            <div className="flex justify-between items-center bg-orange-50 p-4 rounded-xl border border-orange-100">
+                            <div className="flex justify-between items-center bg-fuchsia-50 p-4 rounded-xl border border-fuchsia-100">
                                 <div>
                                     <p className="text-gray-500 text-xs font-bold uppercase">目前已上線學生</p>
                                     <p className="text-2xl font-bold text-gray-800">{loggedInCount} <span className="text-sm text-gray-400">/ {(session.students||[]).length}</span></p>
@@ -625,21 +625,39 @@
                             </div>
                             
                             <h3 className="font-bold text-lg border-b pb-2 text-gray-800">報告流程控制</h3>
-                            <div className="space-y-3">
-                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 text-center border-2 border-dashed rounded-lg bg-orange-50">尚未設定組別，請前往「學生與小組名單設定」新增。</p>}
-                                {(groups||[]).map(g => (
-                                    <div key={g.id} className={`flex justify-between items-center p-4 border rounded-xl transition-colors ${session.currentGroupId === g.id ? 'border-green-500 bg-green-50 shadow-md ring-2 ring-green-200' : 'hover:bg-orange-50 border-orange-100'}`}>
-                                        <span className={`font-bold text-lg ${session.currentGroupId === g.id ? 'text-green-800' : 'text-gray-700'}`}>{g.name}</span>
-                                        {session.currentGroupId === g.id ? (
-                                            <button onClick={()=>updateSession({currentGroupId: null})} className="px-5 py-2.5 bg-white border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-sm active:scale-95">停止評分</button>
-                                        ) : (
-                                            <button onClick={()=>updateSession({currentGroupId: g.id, showResults: false})} disabled={!!session.currentGroupId} className={`px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm active:scale-95 ${session.currentGroupId ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-orange-500 text-white hover:bg-orange-600'}`}>開始評分</button>
-                                        )}
-                                    </div>
-                                ))}
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {(groups||[]).length === 0 && <p className="text-gray-400 py-4 col-span-full text-center border-2 border-dashed rounded-lg bg-fuchsia-50">尚未設定組別，請前往「學生與小組名單設定」新增。</p>}
+                                {(groups||[]).map(g => {
+                                    const isCurrent = session.currentGroupId === g.id;
+                                    const hasVoted = votes.some(v => v.groupId === g.id && !v.isDeleted);
+                                    
+                                    let cardClass = "flex flex-col justify-between p-5 border-2 rounded-xl transition-all h-36 ";
+                                    if (isCurrent) {
+                                        cardClass += "border-green-500 bg-green-50 shadow-md ring-2 ring-green-200";
+                                    } else if (hasVoted) {
+                                        cardClass += "bg-gray-100 border-gray-300 opacity-80";
+                                    } else {
+                                        cardClass += "bg-white border-fuchsia-200 hover:shadow-md hover:border-fuchsia-400";
+                                    }
+
+                                    return (
+                                        <div key={g.id} className={cardClass}>
+                                            <span className={`font-bold text-xl ${isCurrent ? 'text-green-800' : 'text-gray-800'}`}>{g.name}</span>
+                                            <div className="flex justify-start mt-auto">
+                                                {isCurrent ? (
+                                                    <button onClick={()=>updateSession({currentGroupId: null})} className="px-5 py-2 bg-white border-2 border-red-200 text-red-600 rounded-lg font-bold hover:bg-red-50 transition-colors shadow-sm active:scale-95">停止評分</button>
+                                                ) : (
+                                                    <button onClick={()=>updateSession({currentGroupId: g.id, showResults: false})} disabled={!!session.currentGroupId} className={`px-5 py-2 rounded-lg font-bold transition-colors shadow-sm active:scale-95 ${session.currentGroupId ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-fuchsia-600 text-white hover:bg-fuchsia-700'}`}>開始評分</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <div className="pt-4 border-t border-orange-100">
-                                <button onClick={()=>updateSession({showResults: !session.showResults})} className={`w-full py-4 rounded-xl font-bold text-lg transition-colors shadow-md ${session.showResults ? 'bg-amber-200 text-amber-900 hover:bg-amber-300 border border-amber-300' : 'bg-orange-600 text-white hover:bg-orange-700'}`}>
+
+                            <div className="pt-4 border-t border-fuchsia-100">
+                                <button onClick={()=>updateSession({showResults: !session.showResults})} className={`w-full py-4 rounded-xl font-bold text-lg transition-colors shadow-md ${session.showResults ? 'bg-amber-200 text-amber-900 hover:bg-amber-300 border border-amber-300' : 'bg-fuchsia-600 text-white hover:bg-fuchsia-700'}`}>
                                     {session.showResults ? '隱藏排行榜' : '公佈排行榜 (學生可見)'}
                                 </button>
                             </div>
