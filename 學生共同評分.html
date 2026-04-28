@@ -599,13 +599,13 @@
                             
                             {/* --- 新增：邀請學生專屬連結區塊 --- */}
                             <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="font-bold text-lg text-orange-800 mb-2 flex items-center gap-2">
+                                <h3 className="font-bold text-lg text-indigo-800 mb-2 flex items-center gap-2">
                                     <Icons.Link /> 邀請學生加入評分
                                 </h3>
-                                <p className="text-sm text-orange-700 mb-3 font-medium">請複製下方專屬連結提供給學生。學生點擊後將會直接被引導至您的教室：</p>
+                                <p className="text-sm text-indigo-600 mb-3 font-medium">請複製下方專屬連結提供給學生。學生點擊後將會直接被引導至您的教室：</p>
                                 <div className="flex flex-col sm:flex-row gap-2">
-                                    <input type="text" readOnly value={shareLink} className="flex-1 p-3 rounded-lg border border-orange-200 bg-white text-gray-700 outline-none text-sm font-mono shadow-inner" />
-                                    <button onClick={handleCopyLink} className="bg-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-orange-600 transition shadow whitespace-nowrap active:scale-95">
+                                    <input type="text" readOnly value={shareLink} className="flex-1 p-3 rounded-lg border border-indigo-200 bg-white text-gray-700 outline-none text-sm font-mono shadow-inner" />
+                                    <button onClick={handleCopyLink} className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 transition shadow whitespace-nowrap active:scale-95">
                                         複製連結
                                     </button>
                                 </div>
@@ -647,8 +647,8 @@
                     )}
 
                     {activeTab === 'setup' && (
-                        <div className="grid md:grid-cols-2 gap-6 animate-fade-in">
-                            <div className="bg-white rounded-xl shadow p-6">
+                        <div className="grid md:grid-cols-12 gap-6 animate-fade-in">
+                            <div className="bg-white rounded-xl shadow p-6 md:col-span-7">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800"><Icons.Users/> 學生名單管理</h3>
                                 <p className="text-xs text-gray-500 mb-2">請貼上全班姓名，一行一個名字</p>
                                 <textarea className="w-full h-40 border-2 border-orange-100 p-3 rounded-lg text-sm mb-2 focus:border-orange-400 focus:outline-none transition-colors bg-orange-50/50" placeholder="王小明&#10;李大華..." value={batchStudents} onChange={e=>setBatchStudents(e.target.value)}></textarea>
@@ -667,7 +667,7 @@
                                     })}
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl shadow p-6">
+                            <div className="bg-white rounded-xl shadow p-6 md:col-span-5">
                                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800"><Icons.Award/> 分組名單管理</h3>
                                 <div className="mb-4 flex gap-2">
                                     <input type="text" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} className="border-2 border-orange-100 p-2 rounded-lg flex-1 focus:border-orange-400 focus:outline-none bg-orange-50/50" placeholder="單筆新增組名" />
@@ -682,7 +682,7 @@
                                 <div className="bg-orange-50/50 p-3 rounded-lg h-48 overflow-y-auto space-y-2 mt-4 border border-orange-100 shadow-inner">
                                     {(groups||[]).map((g,i) => (
                                         <div key={g.id} className="text-sm bg-white p-3 rounded-lg border border-orange-200 flex justify-between items-center hover:border-orange-400 transition shadow-sm">
-                                            <span className="font-bold text-gray-700">{i+1}. {g.name}</span>
+                                            <span className="font-bold text-gray-700 text-[25px]">{i+1}. {g.name}</span>
                                             <button onClick={async()=>{ if(confirm("刪除?")) await updateSession({ groups: session.groups.filter(x=>x.id!==g.id) }); }} className="text-gray-400 hover:text-red-500 p-1"><Icons.Trash2 /></button>
                                         </div>
                                     ))}
