@@ -29,7 +29,6 @@
                 <div class="mb-5 border-b border-gray-200 pb-5">
                     <label class="block text-blue-800 font-bold mb-2 text-sm sm:text-base">請輸入暱稱或學校名稱：</label>
                     <div class="flex flex-col gap-3 mt-2">
-                        <!-- ★ 修改：徹底移除會讓人混淆的「台中二中」等單位提示文字 ★ -->
                         <input type="text" id="login-school-input" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800 placeholder-blue-300" placeholder="請輸入暱稱或學校名稱" oninput="window.checkTenantInputs()">
                         
                         <select id="login-subject-select" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800" onchange="window.checkTenantInputs()">
@@ -56,7 +55,6 @@
                 </div>
 
                 <div class="mb-6">
-                    <!-- ★ 修改：同步修正密碼上方的提示文字 ★ -->
                     <label id="admin-password-label" class="block text-gray-700 font-bold mb-2 text-sm sm:text-base transition-colors duration-300">請先填寫上方「暱稱或學校名稱」與「科別」</label>
                     <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest focus:ring-2 focus:ring-blue-400 outline-none transition" disabled>
                 </div>
@@ -109,27 +107,30 @@
                 </div>
             </div>
 
-            <!-- 分頁導覽列 -->
+            <!-- 分頁導覽列 (★修改：增加委員名單為第2分頁) -->
             <div class="border-b border-gray-200 mb-6 bg-white rounded-t-lg px-2 pt-2 shadow-sm">
                 <nav class="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
                     <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-blue-500 text-blue-600 transition">
                         1. 基本設定
                     </button>
+                    <button onclick="window.switchAdminTab('tab-committees')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                        2. 委員名單
+                    </button>
                     <button onclick="window.switchAdminTab('tab-books')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
-                        2. 書單管理
+                        3. 書單管理
                     </button>
                     <button onclick="window.switchAdminTab('tab-details')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
-                        3. 投票明細
+                        4. 投票明細
                     </button>
                     <button onclick="window.switchAdminTab('tab-ranking')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
-                        4. 結算榜單
+                        5. 結算榜單
                     </button>
                 </nav>
             </div>
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 報表標題設定區塊 (保留自訂標題功能) -->
+                <!-- 報表標題設定區塊 -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
@@ -143,15 +144,23 @@
                     </div>
                 </div>
 
-                <!-- 委員名單 -->
+                <!-- ★ 新增：投票流程設定區塊 ★ -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-600">👥</span> 委員名單管理</h3>
-                    <div class="flex flex-col gap-2 mb-4">
-                        <textarea id="new-committee-name" rows="3" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
-                        <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm">批次新增名單</button>
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-orange-500">🚥</span> 投票流程設定</h3>
+                    <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
+                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
+                            <input type="radio" name="voteMode" value="simultaneous" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateVoteMode(this.value)"> 
+                            <span class="font-medium text-sm sm:text-base">同時投票 <span class="text-xs text-gray-500 hidden sm:inline">(所有年級書單同時開放評分)</span></span>
+                        </label>
+                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
+                            <input type="radio" name="voteMode" value="sequential" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateVoteMode(this.value)"> 
+                            <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(管理者手動控制各年級開放狀態)</span></span>
+                        </label>
                     </div>
-                    <h4 class="text-xs font-bold text-gray-500 mb-1">目前名單：</h4>
-                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
+                    <div class="bg-orange-50 p-4 rounded border border-orange-100 flex-grow">
+                        <label class="block text-sm font-bold text-orange-800 mb-2 flex items-center gap-1">💡 流程說明：</label>
+                        <p class="text-sm text-gray-700 leading-relaxed">若選擇「依序投票」，請至「書單管理」分頁，使用各年級右上角的按鈕來控制開放與結束。</p>
+                    </div>
                 </div>
 
                 <!-- 計分模式 -->
@@ -193,7 +202,20 @@
                 </div>
             </div>
 
-            <!-- [分頁 2] 書單管理 -->
+            <!-- ★ [分頁 2] 委員名單 (從基本設定拉出獨立) ★ -->
+            <div id="tab-committees" class="admin-tab-content hidden mb-6">
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-600">👥</span> 委員名單管理</h3>
+                    <div class="flex flex-col gap-2 mb-4">
+                        <textarea id="new-committee-name" rows="4" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
+                        <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm w-full sm:w-auto self-start">批次新增名單</button>
+                    </div>
+                    <h4 class="text-xs font-bold text-gray-500 mb-1">目前名單：</h4>
+                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-60 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
+                </div>
+            </div>
+
+            <!-- [分頁 3] 書單管理 -->
             <div id="tab-books" class="admin-tab-content hidden mb-6">
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-yellow-500">📚</span> 年級與書單版本管理</h3>
@@ -209,14 +231,14 @@
                 </div>
             </div>
 
-            <!-- [分頁 3] 投票明細 -->
+            <!-- [分頁 4] 投票明細 -->
             <div id="tab-details" class="admin-tab-content hidden mb-6">
                 <div id="voting-details-container" class="space-y-6">
                     <!-- 投票明細表格動態產生在這裡 -->
                 </div>
             </div>
 
-            <!-- [分頁 4] 結算榜單 -->
+            <!-- [分頁 5] 結算榜單 -->
             <div id="tab-ranking" class="admin-tab-content hidden mb-6">
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 border-b pb-4">
@@ -310,7 +332,6 @@
         
         const baseAppId = 'school-book-system-2026';
         
-        // ★ 解析網址參數 (多租戶隔離機制) ★
         let currentSchool = new URLSearchParams(window.location.search).get('school') || ''; 
         let currentDept = new URLSearchParams(window.location.search).get('dept') || ''; 
         
@@ -325,7 +346,12 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: '', adminPassword: '' };
+        // ★ 新增 voteMode 與 gradeStatus 用於流程控制 ★
+        let globalConfig = { 
+            committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
+            isAnonymous: false, subject: '', adminPassword: '',
+            voteMode: 'simultaneous', gradeStatus: {} 
+        };
         let globalScores = {}; 
         let currentRole = null;
         let currentUserLabel = null;
@@ -346,18 +372,15 @@
             }
         };
 
-        // ★ 智慧分流邏輯 ★
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 if (currentSchool && currentDept) {
-                    // 【委員模式】網址有帶參數，直接進入委員登入區塊
                     document.getElementById('admin-login-view').classList.add('hidden');
                     document.getElementById('committee-login-view').classList.remove('hidden');
                     document.getElementById('committee-login-subject-display').innerText = `${currentSchool} - ${currentDept}`;
                     
                     await loadTenantConfig(currentSchool, currentDept);
                 } else {
-                    // 【管理員模式】網址無參數，進入管理員登入區塊
                     document.getElementById('admin-login-view').classList.remove('hidden');
                     document.getElementById('committee-login-view').classList.add('hidden');
                 }
@@ -369,7 +392,6 @@
 
         initAuth();
 
-        // ★ 管理員在首頁動態檢查並鎖定資料夾 ★
         window.checkTenantInputs = async () => {
             const schoolInput = document.getElementById('login-school-input').value.trim();
             const select = document.getElementById('login-subject-select').value;
@@ -388,14 +410,12 @@
             const pwdLabel = document.getElementById('admin-password-label');
 
             if (schoolInput && deptVal) {
-                // 當兩個欄位都填寫時，才載入資料庫
                 if (currentSchool !== schoolInput || currentDept !== deptVal) {
                     currentSchool = schoolInput;
                     currentDept = deptVal;
                     await loadTenantConfig(currentSchool, currentDept);
                 }
             } else {
-                // 資料不齊全，鎖住密碼框
                 pwdInput.disabled = true;
                 pwdInput.value = '';
                 pwdInput.classList.replace('bg-white', 'bg-gray-50');
@@ -403,14 +423,12 @@
                 btn.innerText = '請先完成上方設定';
                 btn.classList.replace('bg-blue-500', 'bg-gray-400');
                 btn.classList.replace('hover:bg-blue-600', 'cursor-not-allowed');
-                // ★ 修改：JavaScript 裡面的提示文字也要同步更新 ★
                 pwdLabel.innerText = '請先填寫上方「暱稱或學校名稱」與「科別」';
                 pwdLabel.classList.remove('text-red-600');
             }
         };
 
         async function loadTenantConfig(school, dept) {
-            // 將單位與科別組合成絕對獨立的資料夾名稱
             activeAppId = baseAppId + '-' + encodeURIComponent(school + '-' + dept);
             configDocRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'appConfig', 'main');
             scoresCollectionRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'scores');
@@ -421,11 +439,16 @@
                     globalConfig = docSnap.data();
                     if (!globalConfig.subject) globalConfig.subject = `${school} ${dept}`;
                     if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
+                    if (!globalConfig.voteMode) globalConfig.voteMode = 'simultaneous';
+                    if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
                 } else {
-                    globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: `${school} ${dept}`, adminPassword: '' };
+                    globalConfig = { 
+                        committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
+                        isAnonymous: false, subject: `${school} ${dept}`, adminPassword: '',
+                        voteMode: 'simultaneous', gradeStatus: {}
+                    };
                 }
                 
-                // 動態更新密碼框的 UI
                 const pwdInput = document.getElementById('admin-password');
                 const btn = document.getElementById('admin-login-btn');
                 const pwdLabel = document.getElementById('admin-password-label');
@@ -447,7 +470,6 @@
                     }
                 }
 
-                // 載入委員名單給委員登入選單
                 const dropdown = document.getElementById('committee-dropdown');
                 if (dropdown) {
                     dropdown.innerHTML = '<option value="">-- 請選擇您的姓名 --</option>';
@@ -472,6 +494,8 @@
                     if (globalConfig.isAnonymous === undefined) globalConfig.isAnonymous = false;
                     if (globalConfig.subject === undefined) globalConfig.subject = `${currentSchool} ${currentDept}`;
                     if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
+                    if (!globalConfig.voteMode) globalConfig.voteMode = 'simultaneous';
+                    if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
                 } else {
                     setDoc(configDocRef, globalConfig);
                 }
@@ -501,6 +525,11 @@
             const radios = document.getElementsByName('sortMode');
             radios.forEach(radio => {
                 radio.checked = (radio.value === globalConfig.sortMode);
+            });
+
+            const voteModeRadios = document.getElementsByName('voteMode');
+            voteModeRadios.forEach(radio => {
+                radio.checked = (radio.value === globalConfig.voteMode);
             });
             
             const anonRadios = document.getElementsByName('isAnonymous');
@@ -583,10 +612,23 @@
                 }
                 committeeStatusHTML += `</ul></div>`;
 
+                // ★ 加入依序投票的控制按鈕 ★
+                let toggleBtnHTML = '';
+                if (globalConfig.voteMode === 'sequential') {
+                    const isOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
+                    if (isOpen) {
+                        toggleBtnHTML = `<button onclick="window.toggleGradeStatus('${grade}')" class="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded shadow-sm transition">結束投票</button>`;
+                    } else {
+                        toggleBtnHTML = `<button onclick="window.toggleGradeStatus('${grade}')" class="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded shadow-sm transition animate-pulse">開始投票</button>`;
+                    }
+                }
+
                 let html = `
                     <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
-                        <div class="bg-yellow-200 font-bold p-2 text-center border-b text-yellow-900 text-sm sm:text-base">
-                            <span>${grade}</span>
+                        <div class="bg-yellow-200 font-bold p-2 border-b text-yellow-900 text-sm sm:text-base flex items-center justify-between relative">
+                            <div class="w-16"></div> <!-- spacer -->
+                            <span class="flex-grow text-center">${grade}</span>
+                            <div class="w-16 flex justify-end">${toggleBtnHTML}</div>
                         </div>
                         <div class="p-3 sm:p-4 flex-grow flex flex-col bg-gray-50">
                             <div class="flex flex-wrap gap-1 sm:gap-2 mb-3">
@@ -823,6 +865,7 @@
             votingArea.innerHTML = ''; 
 
             const mode = globalConfig.sortMode;
+            const isSequential = globalConfig.voteMode === 'sequential';
 
             if(mode === 'score') {
                 instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-red-500 font-black">分數越高越推薦</span>）。`;
@@ -835,6 +878,23 @@
             (globalConfig.grades || []).forEach(grade => {
                 const books = globalConfig.books[grade] || [];
                 if (books.length === 0) return;
+
+                // ★ 檢查是否開放投票 ★
+                const isOpen = !isSequential || (globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true);
+
+                if (!isOpen) {
+                    let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-gray-100 shadow-sm relative -mx-4 sm:mx-0 mb-6 opacity-70">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-gray-300 pb-3 gap-2">
+                                        <h3 class="font-black text-gray-500 text-xl">${grade} 選書</h3>
+                                    </div>
+                                    <div class="py-8 text-center flex flex-col items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-2 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <p class="text-gray-500 font-bold text-lg">等待管理者開放中...</p>
+                                    </div>
+                                </div>`;
+                    votingArea.innerHTML += html;
+                    return; // 跳過渲染書單
+                }
 
                 const defaultMax = books.length > 0 ? books.length : 5;
                 const rangeObj = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
@@ -912,9 +972,6 @@
             }
         }
 
-        // ==========================================
-        // ★ 分流身分登入功能邏輯 ★
-        // ==========================================
         window.handleAdminLogin = async () => {
             const passwordInput = document.getElementById('admin-password');
             const password = passwordInput.value;
@@ -925,7 +982,6 @@
             }
 
             if (!globalConfig.adminPassword) {
-                // 第一次登入，設定新密碼
                 if (confirm(`確定要將【${currentSchool} ${currentDept}】的管理者密碼設定為「${password}」嗎？\n請牢記此密碼，設定後將無法更改！`)) {
                     globalConfig.adminPassword = password;
                     await saveConfigToCloud();
@@ -934,7 +990,6 @@
                     return;
                 }
             } else {
-                // 非第一次登入，驗證密碼
                 if (password !== globalConfig.adminPassword) {
                     alert('❌ 密碼錯誤！請重新輸入。');
                     passwordInput.value = ''; 
@@ -978,7 +1033,6 @@
         window.copyVotingLink = () => {
             if (!currentSchool || !currentDept) return;
             const url = new URL(window.location.href);
-            // 寫入雙參數，完美產生專屬委員連結
             url.searchParams.set('school', currentSchool);
             url.searchParams.set('dept', currentDept);
             const fullLink = url.toString();
@@ -1077,6 +1131,20 @@
 
         window.updateSortMode = (mode) => {
             globalConfig.sortMode = mode;
+            saveConfigToCloud();
+        };
+
+        // ★ 新增：更新投票模式 (同時/依序) ★
+        window.updateVoteMode = (mode) => {
+            globalConfig.voteMode = mode;
+            saveConfigToCloud();
+        };
+        
+        // ★ 新增：切換年級的開放狀態 ★
+        window.toggleGradeStatus = (grade) => {
+            if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
+            // 反轉狀態
+            globalConfig.gradeStatus[grade] = !globalConfig.gradeStatus[grade];
             saveConfigToCloud();
         };
         
@@ -1197,7 +1265,11 @@
                 await Promise.all(deletePromises);
 
                 const currentPassword = globalConfig.adminPassword || '';
-                globalConfig = { committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, isAnonymous: false, subject: `${currentSchool} ${currentDept}`, adminPassword: currentPassword };
+                globalConfig = { 
+                    committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
+                    isAnonymous: false, subject: `${currentSchool} ${currentDept}`, adminPassword: currentPassword,
+                    voteMode: 'simultaneous', gradeStatus: {} 
+                };
                 await setDoc(configDocRef, globalConfig);
 
                 alert('✅ 所有資料已成功清除！系統已重置為初始狀態。');
