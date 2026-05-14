@@ -15,6 +15,7 @@
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
+    <!-- 加入 px-4 讓手機兩側有安全邊距 -->
     <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
 
         <!-- ==========================================
@@ -130,7 +131,7 @@
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 報表標題設定區塊 -->
+                <!-- 報表標題設定區塊 (保留自訂標題功能) -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
@@ -210,8 +211,18 @@
                         <textarea id="new-committee-name" rows="4" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
                         <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm w-full sm:w-auto self-start">批次新增名單</button>
                     </div>
-                    <h4 class="text-xs font-bold text-gray-500 mb-1">目前名單：</h4>
-                    <ul id="committee-list" class="pl-2 text-gray-700 max-h-60 overflow-y-auto bg-gray-50 p-2 rounded border space-y-1"></ul>
+                    
+                    <!-- 標題列與清除按鈕 -->
+                    <div class="flex justify-between items-center mb-2 mt-4 border-b pb-2">
+                        <h4 class="text-lg font-bold text-gray-700">目前名單：</h4>
+                        <button onclick="window.clearCommitteeList()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm rounded shadow transition flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            刪除名單
+                        </button>
+                    </div>
+                    
+                    <!-- 使用 grid 切成 3 欄 (手機版 1 欄或 2 欄) -->
+                    <ul id="committee-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-gray-700 max-h-60 overflow-y-auto bg-gray-50 p-3 rounded border"></ul>
                 </div>
             </div>
 
@@ -556,8 +567,8 @@
             if(list) {
                 const loggedInUsers = globalConfig.loggedInUsers || [];
                 list.innerHTML = (globalConfig.committees || []).map(name => {
-                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded shadow-sm border border-green-200">📱 已上線</span>` : '';
-                    return `<li class="border-b border-gray-100 py-2 last:border-0 text-sm text-gray-700 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}${loginBadge}</li>`;
+                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded shadow-sm border border-green-200">📱 已上線</span>` : '';
+                    return `<li class="border-b border-gray-100 py-3 last:border-0 text-base sm:text-lg text-gray-800 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}${loginBadge}</li>`;
                 }).join('');
             }
             
@@ -668,7 +679,6 @@
                     }
                 }
 
-                // ★ 修改點：加入紅色的刪除年級按鈕 (左上角) ★
                 let html = `
                     <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
                         <div class="bg-yellow-200 font-bold p-2 border-b text-yellow-900 text-sm sm:text-base flex items-center justify-between relative">
@@ -914,13 +924,14 @@
 
             const mode = globalConfig.sortMode;
             const isSequential = globalConfig.voteMode === 'sequential';
-            const myVotes = globalScores[currentUserLabel] || {};
 
             if(mode === 'score') {
                 instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-red-500 font-black">分數越高越推薦</span>）。`;
             } else {
                 instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-red-500 font-black">數字越小越推薦</span>）。`;
             }
+
+            const myVotes = globalScores[currentUserLabel] || {};
 
             if (isSequential) {
                 let activeGrade = null;
@@ -972,10 +983,7 @@
 
         function renderGradeBlockForCommittee(grade, myVotes, container) {
             const books = globalConfig.books[grade] || [];
-            if (books.length === 0) {
-                 container.innerHTML += `<p class="text-red-500 font-bold p-6 bg-red-50 rounded-lg text-center border-2 border-dashed border-red-200">⚠️ 【${grade}】尚未加入任何書單版本，無法評分。</p>`;
-                 return;
-            }
+            if (books.length === 0) return;
 
             const defaultMax = books.length > 0 ? books.length : 5;
             const rangeObj = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
@@ -1193,6 +1201,16 @@
             }
         };
 
+        // 新增的清空名單功能
+        window.clearCommitteeList = () => {
+            if (confirm('確定要清空所有的名單嗎？\n這並不會刪除已經收到的投票成績。')) {
+                globalConfig.committees = [];
+                // 連帶清空上線紀錄
+                globalConfig.loggedInUsers = []; 
+                saveConfigToCloud();
+            }
+        };
+
         window.addGrade = () => {
             const input = document.getElementById('new-grade-name');
             const grade = input.value.trim();
@@ -1229,7 +1247,6 @@
             }
         };
 
-        // ★ 新增：刪除年級的邏輯 ★
         window.removeGrade = (grade) => {
             if(confirm(`確定要刪除【${grade}】嗎？\n⚠️ 警告：這將會移除該年級及其所有的書單設定！`)) {
                 globalConfig.grades = globalConfig.grades.filter(g => g !== grade);
