@@ -8,11 +8,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+<!-- ★ 背景改為溫暖的橘黃色系 bg-orange-50 ★ -->
+<body class="bg-orange-50 min-h-screen font-sans text-gray-800">
 
     <!-- 系統載入中的提示 -->
     <div id="loading-screen" class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-4"></div>
+        <!-- ★ 載入動畫改為琥珀色 border-amber-500 ★ -->
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-amber-500 mb-4"></div>
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
@@ -22,18 +24,21 @@
         <!-- ==========================================
              1. 登入版面 (全新智慧分流介面)
              ========================================== -->
-        <div id="login-section" class="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-md mx-auto mt-4 sm:mt-10">
-            <h1 class="text-[16px] sm:text-[19.2px] font-bold text-center mb-2 text-blue-600 leading-snug">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
+        <!-- ★ 卡片邊框可以加上一點淡淡的暖色陰影 ★ -->
+        <div id="login-section" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg border-t-4 border-orange-400 max-w-md mx-auto mt-4 sm:mt-10">
+            <!-- ★ 標題改為溫暖的橘紅色 text-orange-600 ★ -->
+            <h1 class="text-[16px] sm:text-[19.2px] font-bold text-center mb-2 text-orange-600 leading-snug">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
             <p class="text-center text-gray-500 mb-6 text-xs sm:text-sm">Firebase 即時連線版</p>
 
             <!-- 視圖 A：管理者專用登入區 (主網址進入時顯示) -->
             <div id="admin-login-view" class="hidden">
                 <div class="mb-5 border-b border-gray-200 pb-5">
-                    <label class="block text-blue-800 font-bold mb-2 text-sm sm:text-base">請輸入暱稱或學校名稱：</label>
+                    <label class="block text-orange-800 font-bold mb-2 text-sm sm:text-base">請輸入暱稱或學校名稱：</label>
                     <div class="flex flex-col gap-3 mt-2">
-                        <input type="text" id="login-school-input" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800 placeholder-blue-300" placeholder="請輸入暱稱或學校名稱" oninput="window.checkTenantInputs()">
+                        <!-- ★ 輸入框的 focus 顏色改為 amber ★ -->
+                        <input type="text" id="login-school-input" class="border p-3 rounded-lg w-full bg-orange-50/50 text-base focus:ring-2 focus:ring-amber-400 outline-none transition font-bold text-orange-900 placeholder-orange-300" placeholder="請輸入暱稱或學校名稱" oninput="window.checkTenantInputs()">
                         
-                        <select id="login-subject-select" class="border p-3 rounded w-full bg-blue-50 text-base focus:ring-2 focus:ring-blue-400 outline-none transition font-bold text-blue-800" onchange="window.checkTenantInputs()">
+                        <select id="login-subject-select" class="border p-3 rounded-lg w-full bg-orange-50/50 text-base focus:ring-2 focus:ring-amber-400 outline-none transition font-bold text-orange-900" onchange="window.checkTenantInputs()">
                             <option value="">-- 請選擇科別 --</option>
                             <option value="國文">國文</option>
                             <option value="英文">英文</option>
@@ -50,37 +55,39 @@
                             <option value="家政">家政</option>
                             <option value="美術">美術</option>
                             <option value="資訊">資訊</option>
-                            <option value="custom" class="font-bold text-pink-600">✍️ 自訂其他科別...</option>
+                            <option value="custom" class="font-bold text-rose-500">✍️ 自訂其他科別...</option>
                         </select>
-                        <input type="text" id="login-custom-subject-input" class="hidden border p-3 rounded w-full bg-white focus:ring-2 focus:ring-blue-400 outline-none transition" placeholder="請輸入自訂科別" oninput="window.checkTenantInputs()">
+                        <input type="text" id="login-custom-subject-input" class="hidden border p-3 rounded-lg w-full bg-white focus:ring-2 focus:ring-amber-400 outline-none transition" placeholder="請輸入自訂科別" oninput="window.checkTenantInputs()">
                     </div>
                 </div>
 
                 <div class="mb-6">
-                    <label id="admin-password-label" class="block text-gray-700 font-bold mb-2 text-sm sm:text-base transition-colors duration-300">請先填寫上方「暱稱或學校名稱」與「科別」</label>
-                    <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded bg-gray-50 text-base text-center tracking-widest focus:ring-2 focus:ring-blue-400 outline-none transition" disabled>
+                    <label id="admin-password-label" class="block text-gray-600 font-bold mb-2 text-sm sm:text-base transition-colors duration-300">請先填寫上方「暱稱或學校名稱」與「科別」</label>
+                    <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded-lg bg-gray-50 text-base text-center tracking-widest focus:ring-2 focus:ring-amber-400 outline-none transition" disabled>
                 </div>
 
-                <button id="admin-login-btn" onclick="window.handleAdminLogin()" class="w-full bg-gray-400 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md cursor-not-allowed" disabled>
+                <!-- ★ 按鈕改為溫暖的橘色 bg-orange-500 ★ -->
+                <button id="admin-login-btn" onclick="window.handleAdminLogin()" class="w-full bg-gray-300 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md cursor-not-allowed" disabled>
                     請先完成上方設定
                 </button>
             </div>
 
             <!-- 視圖 B：選書委員專用登入區 (專屬連結進入時顯示) -->
             <div id="committee-login-view" class="hidden">
-                <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-center shadow-inner">
-                    <p class="text-gray-600 text-sm font-bold">目前進入的評分空間為</p>
-                    <p class="text-xl sm:text-2xl font-black text-blue-800 mt-1">【<span id="committee-login-subject-display"></span>】</p>
+                <div class="bg-amber-50 border border-amber-200 p-4 rounded-lg mb-6 text-center shadow-inner">
+                    <p class="text-amber-700 text-sm font-bold">目前進入的評分空間為</p>
+                    <p class="text-xl sm:text-2xl font-black text-amber-900 mt-1">【<span id="committee-login-subject-display"></span>】</p>
                 </div>
 
                 <div class="mb-6">
                     <label class="block text-gray-700 font-bold mb-2 text-sm sm:text-base">請選擇您的姓名：</label>
-                    <select id="committee-dropdown" class="w-full border p-3 rounded bg-white text-base focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition">
+                    <select id="committee-dropdown" class="w-full border p-3 rounded-lg bg-white text-base focus:ring-2 focus:ring-emerald-400 outline-none shadow-sm transition">
                         <option value="">載入名單中...</option>
                     </select>
                 </div>
 
-                <button onclick="window.handleCommitteeLogin()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded transition duration-200 shadow-md flex items-center justify-center gap-2">
+                <!-- ★ 委員登入按鈕使用活潑的翠綠色 bg-emerald-500 ★ -->
+                <button onclick="window.handleCommitteeLogin()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex items-center justify-center gap-2">
                     進入評分系統 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                 </button>
             </div>
@@ -92,42 +99,45 @@
              ========================================== -->
         <div id="admin-section" class="hidden">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
-                <h1 class="text-xl sm:text-2xl font-bold text-blue-800 border-l-4 border-blue-500 pl-2 flex items-center">
+                <h1 class="text-xl sm:text-2xl font-bold text-orange-800 border-l-4 border-orange-500 pl-3 flex items-center bg-white p-2 rounded-r-lg shadow-sm">
                     👨‍💼 管理者控制台 <span id="admin-subject-title" class="ml-2 text-base sm:text-lg text-gray-500 truncate max-w-[150px] sm:max-w-xs"></span>
                 </h1>
                 
                 <div class="flex flex-wrap w-full sm:w-auto gap-2">
-                    <button onclick="window.copyVotingLink()" class="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600 text-white py-2 px-3 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm">
+                    <!-- ★ 複製連結按鈕改用活潑的玫瑰色 bg-rose-500 ★ -->
+                    <button onclick="window.copyVotingLink()" class="flex-1 sm:flex-none bg-rose-500 hover:bg-rose-600 text-white py-2 px-3 rounded-lg shadow-sm transition font-bold flex items-center justify-center gap-1 text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                         複製專屬連結
                     </button>
-                    <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white py-2 px-3 rounded shadow transition font-bold flex items-center justify-center gap-1 text-sm">
+                    <!-- 刪除保留警告意味的紅色系，但微調色階 -->
+                    <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg shadow-sm transition font-bold flex items-center justify-center gap-1 text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         清除所有資料
                     </button>
-                    <button onclick="window.logout()" class="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white py-2 px-3 rounded shadow font-bold transition text-sm">登出</button>
+                    <button onclick="window.logout()" class="flex-1 sm:flex-none bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg shadow-sm font-bold transition text-sm">登出</button>
                 </div>
             </div>
 
-            <!-- 分頁導覽列 (加入投票控制台) -->
-            <div class="border-b border-gray-200 mb-6 bg-white rounded-t-lg px-2 pt-2 shadow-sm">
+            <!-- 分頁導覽列 -->
+            <div class="border-b border-orange-200 mb-6 bg-white/80 backdrop-blur-sm rounded-t-xl px-2 pt-2 shadow-sm">
                 <nav class="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
-                    <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-blue-500 text-blue-600 transition">
+                    <!-- ★ 分頁底線改為 orange-500 ★ -->
+                    <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-orange-500 text-orange-600 transition">
                         1. 基本設定
                     </button>
-                    <button onclick="window.switchAdminTab('tab-committees')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                    <button onclick="window.switchAdminTab('tab-committees')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-orange-700 hover:border-orange-300 transition">
                         2. 委員名單
                     </button>
-                    <button onclick="window.switchAdminTab('tab-books')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                    <button onclick="window.switchAdminTab('tab-books')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-orange-700 hover:border-orange-300 transition">
                         3. 書單管理
                     </button>
-                    <button onclick="window.switchAdminTab('tab-vote-control')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                    <button onclick="window.switchAdminTab('tab-vote-control')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-orange-700 hover:border-orange-300 transition">
                         4. 投票控制台
                     </button>
-                    <button onclick="window.switchAdminTab('tab-details')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                    <button onclick="window.switchAdminTab('tab-details')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-orange-700 hover:border-orange-300 transition">
                         5. 投票明細
                     </button>
-                    <button onclick="window.switchAdminTab('tab-ranking')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                    <button onclick="window.switchAdminTab('tab-ranking')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-orange-700 hover:border-orange-300 transition">
                         6. 結算榜單
                     </button>
                 </nav>
@@ -136,13 +146,14 @@
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                 <!-- 報表標題設定區塊 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 報表標題設定</h3>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-emerald-500">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
                         <label class="text-sm font-bold text-gray-700">您可以自訂匯出 Excel 時的大標題：</label>
                         <div class="flex flex-col sm:flex-row gap-2 mt-2">
-                            <input type="text" id="admin-subject-display-input" class="border p-2 rounded w-full flex-grow text-base bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition">
-                            <button onclick="window.updateSubjectDisplay()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded font-bold transition shadow-sm whitespace-nowrap">儲存標題</button>
+                            <!-- ★ 輸入框 focus 統一改為 orange-400 ★ -->
+                            <input type="text" id="admin-subject-display-input" class="border p-2 rounded-lg w-full flex-grow text-base bg-gray-50 focus:ring-2 focus:ring-orange-400 outline-none transition">
+                            <button onclick="window.updateSubjectDisplay()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition shadow-sm whitespace-nowrap">儲存標題</button>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">※ 預設為「單位 + 科別」，更改僅影響報表顯示名稱，不影響連結。</p>
                         <p id="subject-save-status" class="text-sm text-green-600 font-bold hidden mt-2">✅ 標題已更新！</p>
@@ -150,91 +161,92 @@
                 </div>
 
                 <!-- 投票流程設定區塊 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-orange-500">🚥</span> 投票流程設定</h3>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-amber-500">🚥</span> 投票流程設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
-                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="voteMode" value="simultaneous" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateVoteMode(this.value)"> 
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <!-- ★ 單選框 accent 顏色改為 orange-500 ★ -->
+                            <input type="radio" name="voteMode" value="simultaneous" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateVoteMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">同時投票 <span class="text-xs text-gray-500 hidden sm:inline">(所有年級書單同時開放評分)</span></span>
                         </label>
-                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="voteMode" value="sequential" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateVoteMode(this.value)"> 
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <input type="radio" name="voteMode" value="sequential" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateVoteMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(在「投票控制台」手動開放年級與觀看結果)</span></span>
                         </label>
                     </div>
-                    <div class="bg-orange-50 p-4 rounded border border-orange-100 flex-grow">
-                        <label class="block text-sm font-bold text-orange-800 mb-2 flex items-center gap-1">💡 流程說明：</label>
-                        <p class="text-sm text-gray-700 leading-relaxed">若選擇「依序投票」，請至「投票控制台」分頁，使用按鈕來控制單一年級的開放與結束。</p>
+                    <div class="bg-amber-50 p-4 rounded-lg border border-amber-200 flex-grow">
+                        <label class="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-1">💡 流程說明：</label>
+                        <p class="text-sm text-amber-900 leading-relaxed">若選擇「依序投票」，請至「投票控制台」分頁，使用按鈕來控制單一年級的開放與結束。</p>
                     </div>
                 </div>
 
                 <!-- 計分模式 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-purple-500">⚙️</span> 計分模式設定</h3>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-500">⚙️</span> 計分模式設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
-                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="sortMode" value="score" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateSortMode(this.value)"> 
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <input type="radio" name="sortMode" value="score" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateSortMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">分數制 <span class="text-xs text-gray-500 hidden sm:inline">(總分越高越好)</span></span>
                         </label>
-                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="sortMode" value="rank" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateSortMode(this.value)"> 
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <input type="radio" name="sortMode" value="rank" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateSortMode(this.value)"> 
                             <span class="font-medium text-sm sm:text-base">名次制 <span class="text-xs text-gray-500 hidden sm:inline">(數字越小越好)</span></span>
                         </label>
                     </div>
-                    <div class="bg-purple-50 p-4 rounded border border-purple-100 flex-grow">
-                        <label class="block text-sm font-bold text-purple-800 mb-2 flex items-center gap-1">💡 計分範圍說明：</label>
-                        <p class="text-sm text-gray-700 leading-relaxed">請在「書單管理」分頁中，針對每個年級設定專屬的評分範圍！</p>
+                    <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex-grow">
+                        <label class="block text-sm font-bold text-indigo-800 mb-2 flex items-center gap-1">💡 計分範圍說明：</label>
+                        <p class="text-sm text-indigo-900 leading-relaxed">請在「書單管理」分頁中，針對每個年級設定專屬的評分範圍！</p>
                     </div>
                 </div>
 
                 <!-- 記名/不記名投票設定 -->
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-pink-500">🕵️</span> 投票記名設定</h3>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
+                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-rose-400">🕵️</span> 投票記名設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
-                        <label id="named-vote-label" class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="isAnonymous" value="false" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateIsAnonymous(false)"> 
+                        <label id="named-vote-label" class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <input type="radio" name="isAnonymous" value="false" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateIsAnonymous(false)"> 
                             <span class="font-medium text-sm sm:text-base">記名投票 <span class="text-xs text-gray-500 hidden sm:inline">(可看投票明細)</span></span>
                         </label>
-                        <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
-                            <input type="radio" name="isAnonymous" value="true" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateIsAnonymous(true)"> 
+                        <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
+                            <input type="radio" name="isAnonymous" value="true" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateIsAnonymous(true)"> 
                             <span class="font-medium text-sm sm:text-base">不記名投票 <span class="text-xs text-gray-500 hidden sm:inline">(隱藏明細保護隱私)</span></span>
                         </label>
                     </div>
-                    <div class="bg-pink-50 p-4 rounded border border-pink-100 flex-grow">
-                        <label class="block text-sm font-bold text-pink-800 mb-2 flex items-center gap-1">💡 記名模式說明：</label>
-                        <p class="text-sm text-gray-700 leading-relaxed">一旦切換為不記名投票後，將<strong class="text-red-500">無法恢復</strong>為記名模式。</p>
+                    <div class="bg-rose-50 p-4 rounded-lg border border-rose-200 flex-grow">
+                        <label class="block text-sm font-bold text-rose-800 mb-2 flex items-center gap-1">💡 記名模式說明：</label>
+                        <p class="text-sm text-rose-900 leading-relaxed">一旦切換為不記名投票後，將<strong class="text-red-500">無法恢復</strong>為記名模式。</p>
                     </div>
                 </div>
             </div>
 
             <!-- [分頁 2] 委員名單 -->
             <div id="tab-committees" class="admin-tab-content hidden mb-6">
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
-                    <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-600">👥</span> 委員名單管理</h3>
-                    <div class="flex flex-col gap-2 mb-4">
-                        <textarea id="new-committee-name" rows="4" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
-                        <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm w-full sm:w-auto self-start">批次新增名單</button>
-                    </div>
-                    <!-- 標題列與清除按鈕 -->
-                    <div class="flex justify-between items-center mb-2 mt-4 border-b pb-2">
-                        <h4 class="text-lg font-bold text-gray-700">目前名單：</h4>
-                        <button onclick="window.clearCommitteeList()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm rounded shadow transition flex items-center gap-1">
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-base sm:text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">👥</span> 委員名單管理</h3>
+                        <!-- 清空按鈕樣式微調 -->
+                        <button onclick="window.clearCommitteeList()" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm transition flex items-center gap-1 font-medium">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            刪除名單
+                            刪除全部名單
                         </button>
                     </div>
-                    <ul id="committee-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-gray-700 max-h-60 overflow-y-auto bg-gray-50 p-3 rounded border"></ul>
+                    <div class="flex flex-col gap-2 mb-6">
+                        <textarea id="new-committee-name" rows="4" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-3 rounded-lg w-full text-sm bg-gray-50 focus:ring-2 focus:ring-orange-400 outline-none transition"></textarea>
+                        <button onclick="window.addCommittee()" class="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-bold transition shadow-sm w-full sm:w-auto self-start">批次新增名單</button>
+                    </div>
+                    <h4 class="text-lg font-bold text-gray-700 mb-2 border-b border-gray-100 pb-2">目前名單：</h4>
+                    <ul id="committee-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-gray-700 max-h-80 overflow-y-auto bg-gray-50 p-4 rounded-xl border border-gray-200"></ul>
                 </div>
             </div>
 
-            <!-- [分頁 3] 書單管理 (已移除投票控制按鈕) -->
+            <!-- [分頁 3] 書單管理 -->
             <div id="tab-books" class="admin-tab-content hidden mb-6">
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-yellow-500">📚</span> 年級與書單版本管理</h3>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100">
+                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-amber-500">📚</span> 年級與書單版本管理</h3>
                     
-                    <div class="flex flex-col sm:flex-row gap-2 mb-6 p-3 sm:p-4 bg-gray-50 rounded border border-gray-200">
-                        <input type="text" id="new-grade-name" placeholder="例如：高一、國一、專業群科..." class="border p-2 rounded flex-grow text-sm sm:text-base focus:ring-2 focus:ring-yellow-400 outline-none">
-                        <button onclick="window.addGrade()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-5 py-2 rounded font-bold transition w-full sm:w-auto shadow-sm">➕ 新增年級</button>
+                    <div class="flex flex-col sm:flex-row gap-2 mb-6 p-4 bg-orange-50/50 rounded-xl border border-orange-100">
+                        <input type="text" id="new-grade-name" placeholder="例如：高一、國一、專業群科..." class="border p-2.5 rounded-lg flex-grow text-sm sm:text-base focus:ring-2 focus:ring-amber-400 outline-none">
+                        <button onclick="window.addGrade()" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-2.5 rounded-lg font-bold transition w-full sm:w-auto shadow-sm">➕ 新增年級</button>
                     </div>
 
                     <div id="admin-grades-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
@@ -245,9 +257,9 @@
 
             <!-- [分頁 4] 投票控制台 -->
             <div id="tab-vote-control" class="admin-tab-content hidden mb-6">
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-blue-500">🕹️</span> 投票控制台</h3>
-                    <p class="text-sm text-gray-600 mb-6 bg-blue-50 p-3 rounded border border-blue-100">此分頁僅在「依序投票」模式下發揮作用。您可以針對單一年級獨立開放投票，或將最終成績即時廣播至委員手機中。</p>
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100">
+                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-rose-500">🕹️</span> 投票控制台</h3>
+                    <p class="text-sm text-rose-800 mb-6 bg-rose-50 p-4 rounded-lg border border-rose-100 leading-relaxed">此分頁僅在「依序投票」模式下發揮作用。您可以針對單一年級獨立開放投票，或將最終成績即時顯示至委員手機中。</p>
                     
                     <div id="vote-control-container" class="space-y-4">
                         <!-- JavaScript 會動態產生橫條控制區塊 -->
@@ -264,18 +276,18 @@
 
             <!-- [分頁 6] 結算榜單 -->
             <div id="tab-ranking" class="admin-tab-content hidden mb-6">
-                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 border-b pb-4">
+                <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 border-b border-gray-100 pb-4">
                         <div class="flex items-center gap-2">
-                            <h3 class="text-base sm:text-lg font-bold text-green-800 flex items-center gap-2">🏆 結算榜單 (雲端連動)</h3>
-                            <span class="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded animate-pulse">● Live</span>
+                            <h3 class="text-base sm:text-lg font-bold text-emerald-700 flex items-center gap-2">🏆 結算榜單 (雲端連動)</h3>
+                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse border border-emerald-200">● Live</span>
                         </div>
-                        <button onclick="window.downloadExcel()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-5 rounded shadow text-sm transition flex items-center justify-center gap-2">
+                        <button onclick="window.downloadExcel()" class="w-full sm:w-auto bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm text-sm transition flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                             下載 Excel 報表
                         </button>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="ranking-container">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" id="ranking-container">
                         <!-- 名次結果會動態顯示在這裡 -->
                     </div>
                 </div>
@@ -287,13 +299,13 @@
              ========================================== -->
         <div id="committee-section" class="hidden">
              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0">
-                <h1 class="text-xl sm:text-2xl font-bold text-green-800 border-l-4 border-green-500 pl-2">🧑‍🏫 歡迎，<span id="current-committee-name"></span> 委員</h1>
-                <button onclick="window.logout()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded shadow">登出並返回</button>
+                <h1 class="text-xl sm:text-2xl font-bold text-emerald-700 border-l-4 border-emerald-500 pl-3 bg-white p-2 rounded-r-lg shadow-sm">🧑‍🏫 歡迎，<span id="current-committee-name"></span> 委員</h1>
+                <button onclick="window.logout()" class="w-full sm:w-auto bg-rose-500 hover:bg-rose-600 text-white py-2 px-5 rounded-lg shadow-sm font-bold transition">登出並返回</button>
             </div>
             
-            <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                <h2 class="text-lg sm:text-xl font-bold mb-3">📖 本期選書評分表 <span id="committee-subject-title" class="text-blue-600 font-black ml-2 text-base"></span></h2>
-                <p id="voting-instruction" class="text-sm sm:text-base text-blue-700 font-bold mb-6 bg-blue-50 p-3 sm:p-4 rounded border border-blue-200 shadow-sm leading-relaxed">
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-md border-t-4 border-emerald-400">
+                <h2 class="text-lg sm:text-xl font-bold mb-3 text-gray-800">📖 本期選書評分表 <span id="committee-subject-title" class="text-orange-600 font-black ml-2 text-base"></span></h2>
+                <p id="voting-instruction" class="text-sm sm:text-base text-emerald-800 font-bold mb-6 bg-emerald-50 p-3 sm:p-4 rounded-lg border border-emerald-200 shadow-sm leading-relaxed">
                     <!-- 提示文字動態產生 -->
                 </p>
                 
@@ -306,51 +318,51 @@
     </div>
 
     <!-- 彈出式確認視窗: 投票送出 -->
-    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] hidden flex items-center justify-center p-4">
-        <div class="bg-white p-5 sm:p-6 rounded-lg shadow-2xl max-w-sm w-full mx-auto transform transition-all">
-            <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-4 border-b pb-2">送出評分確認</h3>
-            <div id="confirm-modal-content" class="mb-6 text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-auto transform transition-all border-t-4 border-emerald-500">
+            <h3 class="text-lg sm:text-xl font-bold text-emerald-800 mb-4 border-b border-gray-100 pb-3">送出評分確認</h3>
+            <div id="confirm-modal-content" class="mb-6 text-gray-700 space-y-2 max-h-[60vh] overflow-y-auto pr-2">
                 <!-- 評分明細 -->
             </div>
-            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-4">
-                <button onclick="window.closeConfirmModal()" class="w-full sm:w-auto px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition font-medium border">取消修改</button>
-                <button onclick="window.confirmSubmitGrade()" class="w-full sm:w-auto px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded transition font-bold shadow-md">確定送出</button>
+            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-5 pt-4 border-t border-gray-100">
+                <button onclick="window.closeConfirmModal()" class="w-full sm:w-auto px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-bold border border-gray-200">取消修改</button>
+                <button onclick="window.confirmSubmitGrade()" class="w-full sm:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition font-bold shadow-md">確定送出</button>
             </div>
         </div>
     </div>
 
     <!-- 彈出式確認視窗：不記名切換警告 -->
-    <div id="anonymous-confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[100] hidden flex items-center justify-center p-4">
-        <div class="bg-white p-5 sm:p-6 rounded-lg shadow-2xl max-w-sm w-full mx-auto transform transition-all border-t-4 border-pink-500">
-            <h3 class="text-lg sm:text-xl font-bold text-pink-700 mb-4 border-b pb-2 flex items-center gap-2">
+    <div id="anonymous-confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-auto transform transition-all border-t-4 border-rose-500">
+            <h3 class="text-lg sm:text-xl font-bold text-rose-700 mb-4 border-b border-gray-100 pb-3 flex items-center gap-2">
                 <span class="text-2xl">⚠️</span> 切換不記名投票確認
             </h3>
             <div class="mb-6 text-gray-700 space-y-3">
                 <p class="font-bold text-red-600">請注意：</p>
-                <p>接下來的投票過程都將以<span class="font-bold text-pink-600">「不記名方式」</span>進行。</p>
-                <p class="text-sm bg-pink-50 p-3 rounded border border-pink-100">為避免投票資訊外流，一旦確認切換為不記名投票後，將<span class="font-bold text-red-600 underline">無法恢復</span>為記名投票模式！</p>
+                <p>接下來的投票過程都將以<span class="font-bold text-rose-600">「不記名方式」</span>進行。</p>
+                <p class="text-sm bg-rose-50 p-4 rounded-lg border border-rose-100 leading-relaxed">為避免投票資訊外流，一旦確認切換為不記名投票後，將<span class="font-bold text-red-600 underline">無法恢復</span>為記名投票模式！</p>
             </div>
-            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-4">
-                <button onclick="window.cancelAnonymous()" class="w-full sm:w-auto px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition font-medium border">取消</button>
-                <button onclick="window.confirmAnonymous()" class="w-full sm:w-auto px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded transition font-bold shadow-md">確定切換</button>
+            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-5 pt-4 border-t border-gray-100">
+                <button onclick="window.cancelAnonymous()" class="w-full sm:w-auto px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-bold border border-gray-200">取消</button>
+                <button onclick="window.confirmAnonymous()" class="w-full sm:w-auto px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition font-bold shadow-md">確定切換</button>
             </div>
         </div>
     </div>
 
     <!-- 委員登入身分確認 Modal -->
-    <div id="committee-login-modal" class="fixed inset-0 bg-black bg-opacity-60 z-[110] hidden flex items-center justify-center p-4">
-        <div class="bg-white p-5 sm:p-6 rounded-lg shadow-2xl max-w-sm w-full mx-auto transform transition-all">
-            <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-4 border-b pb-2 flex items-center gap-2">
+    <div id="committee-login-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-auto transform transition-all border-t-4 border-blue-500">
+            <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-4 border-b border-gray-100 pb-3 flex items-center gap-2">
                 <span>👤</span> 登入身分確認
             </h3>
-            <div class="mb-6 text-gray-700 space-y-3">
-                <p>您即將使用以下身分登入評分系統：</p>
-                <p class="text-2xl font-black text-blue-600 text-center py-2 bg-blue-50 rounded border border-blue-100" id="confirm-login-name"></p>
-                <p class="text-sm text-red-500 mt-2 font-bold leading-relaxed">* 登入後此姓名將對其他委員隱藏，以防他人誤點。</p>
+            <div class="mb-6 text-gray-700 space-y-4">
+                <p class="text-gray-600">您即將使用以下身分登入評分系統：</p>
+                <p class="text-2xl font-black text-blue-600 text-center py-3 bg-blue-50/50 rounded-lg border border-blue-100 shadow-inner" id="confirm-login-name"></p>
+                <p class="text-sm text-rose-500 mt-2 font-bold leading-relaxed bg-rose-50 p-3 rounded-lg">* 登入後此姓名將對其他委員隱藏，以防他人誤點。</p>
             </div>
-            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-4">
-                <button onclick="window.cancelCommitteeLogin()" class="w-full sm:w-auto px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded transition font-medium border">取消</button>
-                <button onclick="window.proceedCommitteeLogin()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition font-bold shadow-md">確認，我是本人</button>
+            <div class="flex flex-col sm:flex-row justify-end gap-3 mt-5 pt-4 border-t border-gray-100">
+                <button onclick="window.cancelCommitteeLogin()" class="w-full sm:w-auto px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-bold border border-gray-200">取消</button>
+                <button onclick="window.proceedCommitteeLogin()" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-bold shadow-md">確認，我是本人</button>
             </div>
         </div>
     </div>
@@ -387,7 +399,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 新增 showResultStatus 用於廣播結果
         let globalConfig = { 
             committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
             isAnonymous: false, subject: '', adminPassword: '',
@@ -399,8 +410,6 @@
         
         let pendingSubmitGrade = '';
         let pendingSubmitVotes = {};
-
-        const predefinedSubjects = ['國文', '英文', '數學', '物理', '化學', '生物', '地球科學', '地理', '歷史', '公民', '音樂', '體育', '家政', '美術', '資訊'];
 
         const initAuth = async () => {
             try {
@@ -582,8 +591,8 @@
             if(list) {
                 const loggedInUsers = globalConfig.loggedInUsers || [];
                 list.innerHTML = (globalConfig.committees || []).map(name => {
-                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-[12px] bg-green-100 text-green-700 px-2 py-0.5 rounded shadow-sm border border-green-200">📱 已上線</span>` : '';
-                    return `<li class="border-b border-gray-100 py-3 last:border-0 text-base sm:text-lg text-gray-800 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}${loginBadge}</li>`;
+                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-[12px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded shadow-sm border border-emerald-200">📱 已上線</span>` : '';
+                    return `<li class="border-b border-gray-100 py-3 last:border-0 text-base sm:text-lg text-gray-800 flex items-center before:content-['•'] before:mr-2 before:text-orange-500">${name}${loginBadge}</li>`;
                 }).join('');
             }
             
@@ -624,7 +633,7 @@
                 renderLiveRanking();
             }
             if (currentRole === 'committee' && currentUserLabel) {
-                document.getElementById('committee-subject-titleinnerText = `(${currentSchool} ${currentDept})`');
+                document.getElementById('committee-subject-title').innerText = `(${currentSchool} ${currentDept})`;
                 renderVotingArea();
             }
         }
@@ -635,7 +644,7 @@
             
             const btns = document.querySelectorAll('.admin-tab-btn');
             btns.forEach(btn => {
-                btn.classList.remove('border-blue-500', 'text-blue-600', 'font-bold');
+                btn.classList.remove('border-orange-500', 'text-orange-600', 'font-bold');
                 btn.classList.add('border-transparent', 'text-gray-500');
             });
 
@@ -643,7 +652,7 @@
             const activeBtn = document.querySelector(`button[onclick="window.switchAdminTab('${tabId}')"]`);
             if (activeBtn) {
                 activeBtn.classList.remove('border-transparent', 'text-gray-500');
-                activeBtn.classList.add('border-blue-500', 'text-blue-600', 'font-bold');
+                activeBtn.classList.add('border-orange-500', 'text-orange-600', 'font-bold');
             }
         };
 
@@ -662,54 +671,54 @@
                     const isAdded = books.includes(pub);
                     const btnClass = isAdded 
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                        : 'bg-blue-50 hover:bg-blue-200 text-blue-700 border border-blue-200 cursor-pointer';
+                        : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 cursor-pointer';
                     return `<button ${isAdded ? 'disabled' : `onclick="window.addBook('${grade}', '${pub}')"`} 
                             class="text-xs sm:text-sm px-2 py-1 rounded transition ${btnClass}">${pub}</button>`;
                 }).join('');
 
                 let html = `
-                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
-                        <div class="bg-yellow-200 font-bold p-2 text-center border-b text-yellow-900 text-sm sm:text-base flex items-center justify-between relative">
+                    <div class="border rounded-xl bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition border-amber-100">
+                        <div class="bg-amber-100/50 font-bold p-3 text-center border-b border-amber-100 text-amber-900 text-sm sm:text-base flex items-center justify-between relative">
                             <div class="w-16 flex justify-start">
-                                <button onclick="window.removeGrade('${grade}')" class="text-red-600 hover:text-white hover:bg-red-500 rounded w-6 h-6 flex items-center justify-center font-black transition text-base" title="刪除此年級">✕</button>
+                                <button onclick="window.removeGrade('${grade}')" class="text-rose-500 hover:text-white hover:bg-rose-500 rounded-lg w-7 h-7 flex items-center justify-center font-black transition text-base" title="刪除此年級">✕</button>
                             </div>
-                            <span class="flex-grow text-center">${grade}</span>
+                            <span class="flex-grow text-center text-lg">${grade}</span>
                             <div class="w-16"></div> <!-- spacer -->
                         </div>
-                        <div class="p-3 sm:p-4 flex-grow flex flex-col bg-gray-50">
-                            <div class="flex flex-wrap gap-1 sm:gap-2 mb-3">
+                        <div class="p-3 sm:p-5 flex-grow flex flex-col bg-white">
+                            <div class="flex flex-wrap gap-1 sm:gap-2 mb-4 bg-gray-50/50 p-2 rounded-lg border border-gray-100">
                                 ${pubButtonsHTML}
                             </div>
-                            <div class="flex gap-1 sm:gap-2 mb-3">
-                                <input type="text" id="new-book-${grade}" class="border p-1.5 w-full text-xs sm:text-sm rounded shadow-inner" placeholder="輸入其他版本">
-                                <button onclick="window.addBook('${grade}')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 text-sm rounded font-bold transition shadow-sm">+</button>
+                            <div class="flex gap-1 sm:gap-2 mb-4">
+                                <input type="text" id="new-book-${grade}" class="border p-2 w-full text-xs sm:text-sm rounded-lg shadow-inner focus:ring-2 focus:ring-amber-400 outline-none transition" placeholder="輸入其他版本">
+                                <button onclick="window.addBook('${grade}')" class="bg-amber-500 hover:bg-amber-600 text-white px-4 text-sm rounded-lg font-bold transition shadow-sm">+</button>
                             </div>
                             
-                            <div class="bg-white p-2 rounded border border-gray-200 mb-3 flex-grow">
-                                <h4 class="text-xs font-bold text-gray-500 mb-1 border-b pb-1">已選入版本：</h4>
-                                <ul class="text-xs sm:text-sm text-gray-700 space-y-1 mt-1">
+                            <div class="bg-white p-3 rounded-lg border border-gray-100 mb-4 flex-grow shadow-sm">
+                                <h4 class="text-xs font-bold text-gray-500 mb-2 border-b border-gray-50 pb-2">已選入版本：</h4>
+                                <ul class="text-sm text-gray-700 space-y-1.5 mt-2">
                                     ${books.map(b => `
-                                        <li class="flex justify-between items-center py-1 border-b border-gray-50 last:border-0 px-1 hover:bg-gray-100 rounded transition">
-                                            <div class="flex items-center gap-2">
-                                                <span class="w-1 h-1 bg-gray-500 rounded-full"></span>
-                                                <span>${b}</span>
+                                        <li class="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0 px-2 hover:bg-orange-50/50 rounded-lg transition group">
+                                            <div class="flex items-center gap-3">
+                                                <span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+                                                <span class="font-medium">${b}</span>
                                             </div>
-                                            <button onclick="window.removeBook('${grade}', '${b}')" class="text-red-500 hover:text-white hover:bg-red-500 rounded w-5 h-5 flex items-center justify-center font-bold transition text-xs" title="刪除此版本">✕</button>
+                                            <button onclick="window.removeBook('${grade}', '${b}')" class="text-rose-400 hover:text-white hover:bg-rose-500 rounded w-6 h-6 flex items-center justify-center font-bold transition text-xs opacity-50 group-hover:opacity-100" title="刪除此版本">✕</button>
                                         </li>
                                     `).join('')}
-                                    ${books.length === 0 ? '<li class="text-gray-400 text-center italic text-xs py-2 border border-dashed border-gray-200 rounded">尚未加入任何版本</li>' : ''}
+                                    ${books.length === 0 ? '<li class="text-gray-400 text-center italic text-xs py-4 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">尚未加入任何版本</li>' : ''}
                                 </ul>
                             </div>
 
-                            <div class="bg-yellow-100 p-2 sm:p-3 rounded border border-yellow-300">
-                                <label class="block text-xs font-bold text-yellow-800 mb-2">🎯 此年級計分範圍：</label>
-                                <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="range-min-${grade}" value="${range.min}" class="border p-1 w-12 sm:w-14 text-center rounded text-sm shadow-inner" onchange="window.updateGradeRange('${grade}')">
-                                        <span class="text-sm font-bold text-yellow-700">~</span>
-                                        <input type="number" id="range-max-${grade}" value="${range.max}" class="border p-1 w-12 sm:w-14 text-center rounded text-sm shadow-inner" onchange="window.updateGradeRange('${grade}')">
+                            <div class="bg-amber-50 p-3 sm:p-4 rounded-lg border border-amber-200 shadow-inner">
+                                <label class="block text-xs font-bold text-amber-800 mb-3 flex items-center gap-1"><span class="text-base">🎯</span> 此年級計分範圍：</label>
+                                <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 bg-white p-1 rounded-md border border-amber-100">
+                                        <input type="number" id="range-min-${grade}" value="${range.min}" class="border-0 bg-transparent p-1 w-12 text-center rounded text-sm outline-none font-bold text-gray-700" onchange="window.updateGradeRange('${grade}')">
+                                        <span class="text-sm font-bold text-amber-400">~</span>
+                                        <input type="number" id="range-max-${grade}" value="${range.max}" class="border-0 bg-transparent p-1 w-12 text-center rounded text-sm outline-none font-bold text-gray-700" onchange="window.updateGradeRange('${grade}')">
                                     </div>
-                                    <button onclick="window.updateGradeRange('${grade}')" class="text-xs bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 transition shadow-sm w-full sm:w-auto mt-1 sm:mt-0 font-bold">更新</button>
+                                    <button onclick="window.updateGradeRange('${grade}')" class="text-xs bg-amber-500 text-white px-4 py-2 rounded-md hover:bg-amber-600 transition shadow-sm w-full sm:w-auto font-bold">更新</button>
                                 </div>
                             </div>
                         </div>
@@ -718,7 +727,7 @@
             });
 
             if((globalConfig.grades || []).length === 0) {
-                container.innerHTML = '<p class="text-gray-500 col-span-1 md:col-span-2 xl:col-span-3 text-center bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300">目前還沒有年級，請在上方輸入並新增。</p>';
+                container.innerHTML = '<p class="text-gray-500 col-span-1 md:col-span-2 xl:col-span-3 text-center bg-white p-8 rounded-xl border-2 border-dashed border-gray-200">目前還沒有年級，請在上方輸入並新增。</p>';
             }
         }
 
@@ -727,7 +736,7 @@
             container.innerHTML = '';
 
             if (globalConfig.voteMode !== 'sequential') {
-                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed border-gray-300">目前為「同時投票」模式，此分頁功能已停用。<br>若需手動控制各年級投票流程，請至「基本設定」切換為「依序投票」。</p>';
+                container.innerHTML = '<p class="text-gray-500 text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-200 shadow-sm">目前為「同時投票」模式，此分頁功能已停用。<br>若需手動控制各年級投票流程，請至「基本設定」切換為「依序投票」。</p>';
                 return;
             }
 
@@ -746,23 +755,23 @@
                 });
                 const progressText = `進度: ${votedCount} / ${committees.length} 人`;
 
-                // 狀態顯示與按鈕邏輯
+                // ★ 修改：文字微調為「顯示投票結果給委員」與 UI 樣式更新 ★
                 let voteBtnHTML = isVoteOpen 
-                    ? `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center animate-pulse">■ 結束投票</button>` 
-                    : `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center">▶ 開始投票</button>`;
+                    ? `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg shadow-md transition font-bold text-sm w-full sm:w-auto text-center flex items-center justify-center gap-2 animate-pulse"><span class="w-2 h-2 bg-white rounded-full"></span> 結束投票</button>` 
+                    : `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg shadow-sm transition font-bold text-sm w-full sm:w-auto text-center flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg> 開始投票</button>`;
                 
                 let resultBtnHTML = isResultOpen
-                    ? `<button onclick="window.toggleResultStatus('${grade}')" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center border-2 border-orange-600">👁️ 隱藏結果</button>`
-                    : `<button onclick="window.toggleResultStatus('${grade}')" class="bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center">👁️ 廣播結果給委員</button>`;
+                    ? `<button onclick="window.toggleResultStatus('${grade}')" class="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg shadow-md transition font-bold text-sm w-full sm:w-auto text-center border-2 border-orange-600 flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" /></svg> 隱藏結果</button>`
+                    : `<button onclick="window.toggleResultStatus('${grade}')" class="bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 px-5 py-2.5 rounded-lg shadow-sm transition font-bold text-sm w-full sm:w-auto text-center flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> 顯示投票結果給委員</button>`;
 
-                let cardBgClass = isVoteOpen ? 'bg-blue-50 border-blue-200' : isResultOpen ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200';
+                let cardBgClass = isVoteOpen ? 'bg-blue-50/50 border-blue-200' : isResultOpen ? 'bg-orange-50/50 border-orange-200' : 'bg-white border-gray-100 hover:border-gray-200';
 
                 let html = `
-                    <div class="flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg shadow-sm ${cardBgClass} transition gap-4">
-                        <div class="flex items-center gap-4 w-full sm:w-auto">
-                            <h4 class="text-lg font-black text-gray-800 min-w-[3rem]">${grade}</h4>
-                            ${voteBtnHTML}
-                            <span class="text-sm font-medium text-gray-500 bg-white px-3 py-1 rounded-full border shadow-inner">${progressText}</span>
+                    <div class="flex flex-col sm:flex-row items-center justify-between p-5 border rounded-xl shadow-sm ${cardBgClass} transition duration-300 gap-4 group">
+                        <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full sm:w-auto">
+                            <h4 class="text-xl font-black text-gray-800 min-w-[3rem] text-center sm:text-left">${grade}</h4>
+                            <div class="w-full sm:w-auto">${voteBtnHTML}</div>
+                            <span class="text-sm font-medium text-gray-500 bg-white px-4 py-1.5 rounded-full border shadow-inner whitespace-nowrap">${progressText}</span>
                         </div>
                         <div class="w-full sm:w-auto">
                             ${resultBtnHTML}
@@ -773,7 +782,7 @@
             });
             
             if((globalConfig.grades || []).length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed border-gray-300">目前沒有年級資料可供控制。</p>';
+                container.innerHTML = '<p class="text-gray-500 text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-200 shadow-sm">目前沒有年級資料可供控制。</p>';
             }
         }
 
@@ -782,11 +791,11 @@
             
             if (globalConfig.isAnonymous) {
                 container.innerHTML = `
-                    <div class="bg-pink-50 p-8 rounded-lg shadow-sm border border-pink-200 text-center my-4">
-                        <p class="text-pink-800 font-bold text-xl mb-3 flex items-center justify-center gap-2">
+                    <div class="bg-rose-50 p-8 rounded-xl shadow-sm border border-rose-200 text-center my-4">
+                        <p class="text-rose-800 font-bold text-xl mb-3 flex items-center justify-center gap-2">
                             <span class="text-3xl">🕵️</span> 目前為「不記名投票」模式
                         </p>
-                        <p class="text-gray-700 text-sm sm:text-base">
+                        <p class="text-rose-700/80 text-sm sm:text-base leading-relaxed">
                             為保護委員隱私，系統已主動隱藏此分頁的投票明細表。<br>
                             下載的 Excel 報表也僅會提供結算總表。
                         </p>
@@ -831,15 +840,15 @@
                 });
 
                 let html = `
-                    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                        <h3 class="text-base sm:text-lg font-bold mb-4 text-blue-800 flex items-center gap-2">📊 ${grade} 成績明細</h3>
-                        <div class="overflow-x-auto rounded border border-gray-200">
+                    <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <h3 class="text-base sm:text-lg font-bold mb-4 text-indigo-800 flex items-center gap-2"><span class="text-xl">📊</span> ${grade} 成績明細</h3>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                             <table class="w-full text-sm text-center border-collapse min-w-max">
                                 <thead>
-                                    <tr class="bg-gray-100 text-gray-700 border-b">
-                                        <th class="p-2 border-r font-bold sticky left-0 bg-gray-100 z-10 w-24">委員姓名</th>`;
+                                    <tr class="bg-gray-50 text-gray-700 border-b border-gray-200">
+                                        <th class="p-3 border-r border-gray-200 font-bold sticky left-0 bg-gray-50 z-10 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]">委員姓名</th>`;
                 books.forEach(b => {
-                    html += `<th class="p-2 font-bold border-r last:border-0 min-w-[5rem]">${b}</th>`;
+                    html += `<th class="p-3 font-bold border-r border-gray-200 last:border-0 min-w-[5rem]">${b}</th>`;
                 });
                 html += `           </tr>
                                 </thead>
@@ -847,27 +856,27 @@
                 
                 committees.forEach(c => {
                     let v = globalScores[c] && globalScores[c][grade] ? globalScores[c][grade] : {};
-                    html += `<tr class="border-b hover:bg-gray-50 transition bg-white">
-                                <td class="p-2 border-r font-medium sticky left-0 bg-white z-10">${c}</td>`;
+                    html += `<tr class="border-b border-gray-100 hover:bg-orange-50/30 transition bg-white">
+                                <td class="p-3 border-r border-gray-100 font-medium sticky left-0 bg-white z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)] text-gray-600">${c}</td>`;
                     books.forEach(b => {
-                        let s = v[b] !== undefined ? `<span class="font-bold text-gray-800">${v[b]}</span>` : `<span class="text-gray-400">未評</span>`;
-                        html += `<td class="p-2 border-r last:border-0">${s}</td>`;
+                        let s = v[b] !== undefined ? `<span class="font-bold text-gray-800">${v[b]}</span>` : `<span class="text-gray-300">未評</span>`;
+                        html += `<td class="p-3 border-r border-gray-100 last:border-0">${s}</td>`;
                     });
                     html += `</tr>`;
                 });
 
-                html += `       <tr class="bg-yellow-50 font-bold text-gray-800 border-b">
-                                    <td class="p-2 border-r sticky left-0 bg-yellow-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">${scoreLabel}</td>`;
+                html += `       <tr class="bg-amber-50/50 font-bold text-amber-900 border-b border-amber-100">
+                                    <td class="p-3 border-r border-amber-100 sticky left-0 bg-amber-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">${scoreLabel}</td>`;
                 books.forEach(b => {
-                    html += `<td class="p-2 border-r last:border-0">${totalScores[b] === 0 ? '-' : totalScores[b]}</td>`;
+                    html += `<td class="p-3 border-r border-amber-100 last:border-0">${totalScores[b] === 0 ? '-' : totalScores[b]}</td>`;
                 });
                 html += `       </tr>
-                                <tr class="bg-green-50 font-bold text-gray-800">
-                                    <td class="p-2 border-r sticky left-0 bg-green-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">最終排名</td>`;
+                                <tr class="bg-emerald-50 font-bold text-emerald-900 border-t-2 border-emerald-200">
+                                    <td class="p-3 border-r border-emerald-100 sticky left-0 bg-emerald-50 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">最終排名</td>`;
                 books.forEach(b => {
                     let bookObj = sortedBooks.find(item => item.name === b);
                     let displayRank = (bookObj && bookObj.score !== 0) ? bookObj.rank : '-';
-                    html += `<td class="p-2 border-r last:border-0 text-red-600">${displayRank}</td>`;
+                    html += `<td class="p-3 border-r border-emerald-100 last:border-0 text-rose-600 text-base">${displayRank}</td>`;
                 });
                 html += `       </tr>
                                 </tbody>
@@ -878,7 +887,7 @@
             });
 
             if (container.innerHTML === '') {
-                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed">尚無成績明細，請先至「書單管理」建立年級與書單。</p>';
+                container.innerHTML = '<p class="text-gray-500 text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-200 shadow-sm">尚無成績明細，請先至「書單管理」建立年級與書單。</p>';
             }
         }
 
@@ -921,34 +930,35 @@
                 });
 
                 let html = `
-                    <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col border-gray-200">
-                        <div class="bg-green-100 font-bold p-2 sm:p-3 text-center border-b text-green-800 text-sm sm:text-base">${grade} ${modeText}榜單</div>
-                        <div class="p-3 sm:p-4 space-y-3 bg-gray-50 flex-grow">`;
+                    <div class="border rounded-xl bg-white shadow-sm overflow-hidden flex flex-col border-gray-100 hover:shadow-md transition">
+                        <div class="bg-emerald-50/50 font-bold p-3 sm:p-4 text-center border-b border-emerald-100 text-emerald-800 text-sm sm:text-base">${grade} ${modeText}榜單</div>
+                        <div class="p-4 sm:p-5 space-y-3 bg-white flex-grow">`;
                 
-                if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-500 text-center py-4">尚無書籍</p>`;
+                if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-400 text-center py-6 italic">尚無書籍</p>`;
                 else {
                     sortedBooks.forEach((item) => {
                         let rank = item.rank;
                         let medal = '';
                         if (item.score === 0) {
-                            medal = `<span class="inline-block w-5 text-center text-xs text-gray-400 font-bold">-</span>`;
+                            medal = `<span class="inline-block w-6 text-center text-sm text-gray-300 font-bold">-</span>`;
                         } else {
-                            medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="inline-block w-5 text-center text-xs text-gray-400 font-bold">${rank}.</span>`;
+                            medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="inline-block w-6 text-center text-sm text-gray-400 font-bold">${rank}.</span>`;
                         }
                         
                         let displayScore = item.score === 0 ? '-' : item.score;
                         let unit = mode === 'score' ? '分' : '名次加總';
-                        let rowBg = rank === 1 && item.score !== 0 ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-100';
+                        let rowBg = rank === 1 && item.score !== 0 ? 'bg-amber-50/50 border-amber-200 transform scale-[1.02] shadow-sm z-10 relative' : 'bg-white border-gray-100 hover:border-gray-200';
+                        let nameColor = rank === 1 && item.score !== 0 ? 'text-amber-900' : 'text-gray-700';
                         
                         html += `
-                            <div class="flex justify-between items-center border rounded p-2 sm:p-3 shadow-sm ${rowBg}">
-                                <div class="flex items-center gap-2 overflow-hidden">
-                                    <span class="shrink-0 text-sm sm:text-base">${medal}</span>
-                                    <span class="font-bold text-gray-800 text-sm sm:text-base truncate">${item.name}</span>
+                            <div class="flex justify-between items-center border rounded-lg p-3 shadow-sm ${rowBg} transition-all duration-200">
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <span class="shrink-0 text-base sm:text-lg">${medal}</span>
+                                    <span class="font-bold ${nameColor} text-sm sm:text-base truncate">${item.name}</span>
                                 </div>
-                                <div class="text-right shrink-0">
-                                    <span class="font-black text-red-500 text-base sm:text-lg">${displayScore}</span>
-                                    <span class="text-[10px] sm:text-xs text-gray-500 ml-1 hidden sm:inline">${unit}</span>
+                                <div class="text-right shrink-0 bg-white/50 px-2 py-1 rounded">
+                                    <span class="font-black text-rose-500 text-base sm:text-lg">${displayScore}</span>
+                                    <span class="text-[10px] sm:text-xs text-gray-400 ml-1 hidden sm:inline">${unit}</span>
                                 </div>
                             </div>`;
                     });
@@ -968,13 +978,12 @@
             const myVotes = globalScores[currentUserLabel] || {};
 
             if(mode === 'score') {
-                instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-red-500 font-black">分數越高越推薦</span>）。`;
+                instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-rose-500 font-black">分數越高越推薦</span>）。`;
             } else {
-                instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-red-500 font-black">數字越小越推薦</span>）。`;
+                instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-rose-500 font-black">數字越小越推薦</span>）。`;
             }
 
             if (isSequential) {
-                // 依序投票模式：檢查各年級的廣播結果狀態與開放投票狀態
                 let activeGrade = null;
                 let showingResultGrade = null;
                 
@@ -986,34 +995,31 @@
                     }
                 });
 
-                // ★ 1. 如果有年級開放「看結果」，優先顯示結果排行榜 ★
                 if (showingResultGrade) {
                     renderResultBlockForCommittee(showingResultGrade, votingArea);
                     return;
                 }
 
-                // ★ 2. 如果沒有看結果，且也沒有開放投票，顯示等待室 ★
                 if (!activeGrade) {
                     votingArea.innerHTML = `
-                        <div class="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                            <div class="text-5xl mb-4 animate-pulse">⏳</div>
-                            <h3 class="text-2xl font-bold text-gray-700 mb-2">等待管理員開放</h3>
-                            <p class="text-gray-500 text-sm sm:text-base px-4">請稍候，即將開放下一階段的投票或結果展示...</p>
+                        <div class="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-sm">
+                            <div class="text-5xl mb-6 animate-bounce">⏳</div>
+                            <h3 class="text-2xl font-bold text-gray-700 mb-3">等待開放投票中</h3>
+                            <p class="text-gray-500 text-sm sm:text-base px-4 leading-relaxed">請稍候，管理者即將開放書單讓您評分...</p>
                         </div>
                     `;
                     return;
                 }
 
-                // ★ 3. 正常開放投票的邏輯 ★
                 const userVotesForThisGrade = myVotes[activeGrade] || {};
                 const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
 
                 if (hasVoted) {
                     votingArea.innerHTML = `
-                        <div class="py-16 text-center bg-green-50 rounded-xl border-2 border-dashed border-green-300">
-                            <div class="text-5xl mb-4">✅</div>
-                            <h3 class="text-xl sm:text-2xl font-bold text-green-700 mb-2">您已完成【${activeGrade}】的評分</h3>
-                            <p class="text-green-600 text-sm sm:text-base px-4">分數已成功送出，請等待下一步指示...</p>
+                        <div class="py-20 text-center bg-emerald-50 rounded-2xl border-2 border-dashed border-emerald-200 shadow-sm">
+                            <div class="text-5xl mb-6">✅</div>
+                            <h3 class="text-xl sm:text-2xl font-bold text-emerald-800 mb-3">您已完成【${activeGrade}】的評分</h3>
+                            <p class="text-emerald-600/80 text-sm sm:text-base px-4 leading-relaxed">分數已成功送出，請等待管理者開放下一個年級...</p>
                         </div>
                     `;
                     return;
@@ -1022,18 +1028,14 @@
                 renderGradeBlockForCommittee(activeGrade, myVotes, votingArea);
 
             } else {
-                // 同時投票模式：直接渲染所有年級
                 let renderedAny = false;
                 (globalConfig.grades || []).forEach(grade => {
-                    const books = globalConfig.books[grade] || [];
-                    if (books.length > 0) {
-                        renderGradeBlockForCommittee(grade, myVotes, votingArea);
-                        renderedAny = true;
-                    }
+                    renderGradeBlockForCommittee(grade, myVotes, votingArea);
+                    renderedAny = true;
                 });
 
                 if (!renderedAny) {
-                    votingArea.innerHTML = '<p class="text-red-500 font-bold p-6 bg-red-50 rounded-lg text-center border-2 border-dashed border-red-200">⚠️ 管理員尚未建立任何年級的書單，暫時無法評分。</p>';
+                    votingArea.innerHTML = '<p class="text-rose-500 font-bold p-8 bg-rose-50 rounded-2xl text-center border-2 border-dashed border-rose-200">⚠️ 管理員尚未建立任何年級的書單，暫時無法評分。</p>';
                 }
             }
         }
@@ -1041,7 +1043,7 @@
         function renderGradeBlockForCommittee(grade, myVotes, container) {
             const books = globalConfig.books[grade] || [];
             if (books.length === 0) {
-                 container.innerHTML += `<p class="text-red-500 font-bold p-6 bg-red-50 rounded-lg text-center border-2 border-dashed border-red-200">⚠️ 【${grade}】尚未加入任何書單版本，無法評分。</p>`;
+                 container.innerHTML += `<p class="text-rose-500 font-bold p-6 bg-rose-50 rounded-xl text-center border border-rose-200 shadow-sm">⚠️ 【${grade}】尚未加入任何書單版本，無法評分。</p>`;
                  return;
             }
 
@@ -1053,10 +1055,10 @@
             const userVotesForThisGrade = myVotes[grade] || {};
             const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
 
-            let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-gray-50 shadow-sm relative -mx-4 sm:mx-0 mb-6">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 border-b border-blue-200 pb-3 gap-2">
-                                <h3 class="font-black text-blue-800 text-xl">${grade} 選書</h3>
-                                <span class="text-sm font-bold text-white bg-blue-500 px-3 py-1 rounded-full shadow-inner inline-block w-max">此區範圍: ${min} ~ ${max}</span>
+            let html = `<div class="border-y sm:border border-gray-200 px-4 py-6 sm:p-6 sm:rounded-2xl bg-white shadow-sm relative -mx-4 sm:mx-0 mb-8">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 border-b border-gray-100 pb-4 gap-3">
+                                <h3 class="font-black text-indigo-800 text-xl sm:text-2xl">${grade} 選書</h3>
+                                <span class="text-xs sm:text-sm font-bold text-white bg-indigo-500 px-3 py-1 rounded-full shadow-sm inline-block w-max">此區範圍: ${min} ~ ${max}</span>
                             </div>
                             <div class="space-y-4">`;
             
@@ -1068,24 +1070,24 @@
                 const disabledAttr = hasVoted ? 'disabled' : '';
                 const sliderClass = hasVoted 
                     ? 'cursor-not-allowed opacity-40 grayscale' 
-                    : 'cursor-pointer accent-blue-600';
-                const boxClass = hasVoted ? 'bg-gray-100' : 'bg-white hover:border-blue-400';
+                    : 'cursor-pointer accent-indigo-600';
+                const boxClass = hasVoted ? 'bg-gray-50 border-gray-100' : 'bg-white hover:border-indigo-300 hover:shadow-md border-gray-200';
 
                 html += `
-                    <div class="flex flex-col rounded-lg border border-gray-200 transition shadow-sm gap-3 p-4 ${boxClass}">
-                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                            <span class="text-gray-800 font-bold text-lg">${book}</span>
-                            <div class="w-12 text-center shrink-0">
-                                <span class="score-display font-black text-blue-700 text-base bg-blue-50 px-2 py-1 rounded border border-blue-200 shadow-inner block ${hasVoted ? 'opacity-50' : ''}">${currentScore}</span>
+                    <div class="flex flex-col rounded-xl border transition-all duration-200 shadow-sm gap-4 p-4 sm:p-5 ${boxClass}">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <span class="text-gray-800 font-bold text-lg sm:text-xl">${book}</span>
+                            <div class="w-14 text-center shrink-0">
+                                <span class="score-display font-black text-indigo-700 text-lg bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 shadow-inner block ${hasVoted ? 'opacity-50' : ''}">${currentScore}</span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-3 w-full pt-1">
-                            <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${min}</span>
+                        <div class="flex items-center gap-4 w-full pt-1">
+                            <span class="text-sm text-gray-400 font-bold shrink-0 w-4 text-right">${min}</span>
                             <input type="range" min="${min}" max="${max}" step="1" 
-                                   class="score-input-${grade} w-full h-3 sm:h-4 bg-gray-200 rounded-lg appearance-none ${sliderClass}" 
+                                   class="score-input-${grade} w-full h-2 sm:h-3 bg-gray-200 rounded-lg appearance-none ${sliderClass}" 
                                    data-book="${book}" value="${currentScore}" ${disabledAttr}
                                    oninput="if(!${hasVoted}) this.closest('.flex-col').querySelector('.score-display').innerText = this.value">
-                            <span class="text-xs sm:text-sm text-gray-400 font-medium shrink-0">${max}</span>
+                            <span class="text-sm text-gray-400 font-bold shrink-0 w-4">${max}</span>
                         </div>
                     </div>`;
             });
@@ -1093,16 +1095,16 @@
             html += `</div>`;
 
             if (hasVoted) {
-                html += `<div class="mt-6 border-t border-gray-300 pt-5 flex justify-center">
-                            <p class="text-green-700 font-bold text-sm sm:text-base bg-green-100 px-6 py-2.5 rounded-lg border border-green-300 shadow-sm flex items-center gap-2">
+                html += `<div class="mt-8 border-t border-gray-100 pt-6 flex justify-center">
+                            <p class="text-emerald-700 font-bold text-sm sm:text-base bg-emerald-50 px-6 py-3 rounded-xl border border-emerald-200 shadow-sm flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
                                 您已完成本年級評分，結果已鎖定。
                             </p>
                          </div>`;
             } else {
-                html += `<div class="mt-6 border-t border-gray-300 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
-                            <p id="save-status-${grade}" class="text-sm text-green-600 font-bold hidden transition-opacity order-2 sm:order-1">✅ ${grade} 已同步至雲端！</p>
-                            <button onclick="window.showConfirmModal('${grade}')" class="w-full sm:w-auto sm:ml-auto px-6 bg-green-500 hover:bg-green-600 text-white font-bold py-3 sm:py-2 rounded-lg shadow-md transition duration-200 flex items-center justify-center gap-2 order-1 sm:order-2 text-base sm:text-sm">
+                html += `<div class="mt-8 border-t border-gray-100 pt-5 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0">
+                            <p id="save-status-${grade}" class="text-sm text-emerald-600 font-bold hidden transition-opacity order-2 sm:order-1 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">✅ ${grade} 已同步至雲端！</p>
+                            <button onclick="window.showConfirmModal('${grade}')" class="w-full sm:w-auto sm:ml-auto px-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 sm:py-2.5 rounded-xl shadow-md transition duration-200 flex items-center justify-center gap-2 order-1 sm:order-2 text-base shadow-emerald-500/30 hover:shadow-emerald-500/50 transform hover:-translate-y-0.5">
                                 💾 送出 ${grade} 評分
                             </button>
                          </div>`;
@@ -1112,7 +1114,6 @@
             container.innerHTML += html;
         }
 
-        // ★ 新增：專門在委員手機上渲染成績排行榜的小工具 ★
         function renderResultBlockForCommittee(grade, container) {
             const mode = globalConfig.sortMode; 
             const unitText = mode === 'score' ? '分' : '名次加總';
@@ -1146,29 +1147,30 @@
                 }
             });
 
-            let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-orange-50 shadow-sm relative -mx-4 sm:mx-0 mb-6 border-orange-200">
-                            <div class="flex items-center justify-center mb-4 border-b border-orange-200 pb-3">
-                                <h3 class="font-black text-orange-800 text-xl flex items-center gap-2">👁️ ${grade} 投票結果</h3>
+            let html = `<div class="border-y sm:border border-orange-200 px-4 py-6 sm:p-6 sm:rounded-2xl bg-orange-50/50 shadow-sm relative -mx-4 sm:mx-0 mb-8">
+                            <div class="flex items-center justify-center mb-5 border-b border-orange-200/50 pb-4">
+                                <h3 class="font-black text-orange-800 text-xl sm:text-2xl flex items-center gap-2"><span class="text-2xl">👁️</span> ${grade} 投票結果</h3>
                             </div>
                             <div class="space-y-3">`;
             
-            if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-500 text-center py-4">尚無書籍</p>`;
+            if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-500 text-center py-6 italic">尚無書籍</p>`;
             else {
                 sortedBooks.forEach((item) => {
                     let rank = item.rank;
-                    let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="inline-block w-5 text-center text-xs text-gray-400 font-bold">${rank}.</span>`;
+                    let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="inline-block w-6 text-center text-sm text-gray-400 font-bold">${rank}.</span>`;
                     let displayScore = item.score === 0 ? '-' : item.score;
-                    let rowBg = rank === 1 && item.score !== 0 ? 'bg-yellow-50 border-yellow-300 shadow-md transform scale-[1.02]' : 'bg-white border-gray-200';
+                    let rowBg = rank === 1 && item.score !== 0 ? 'bg-white border-amber-200 shadow-md transform scale-[1.02] z-10 relative' : 'bg-white/80 border-gray-100';
+                    let nameColor = rank === 1 && item.score !== 0 ? 'text-amber-900' : 'text-gray-700';
                     
                     html += `
-                        <div class="flex justify-between items-center border rounded-lg p-3 sm:p-4 shadow-sm ${rowBg} transition-transform">
-                            <div class="flex items-center gap-3 overflow-hidden">
-                                <span class="shrink-0 text-lg sm:text-xl">${medal}</span>
-                                <span class="font-bold text-gray-800 text-base sm:text-lg truncate">${item.name}</span>
+                        <div class="flex justify-between items-center border rounded-xl p-4 sm:p-5 shadow-sm ${rowBg} transition-all duration-300">
+                            <div class="flex items-center gap-4 overflow-hidden">
+                                <span class="shrink-0 text-xl sm:text-2xl">${medal}</span>
+                                <span class="font-bold ${nameColor} text-lg sm:text-xl truncate">${item.name}</span>
                             </div>
-                            <div class="text-right shrink-0">
-                                <span class="font-black text-red-500 text-lg sm:text-xl">${displayScore}</span>
-                                <span class="text-xs text-gray-500 ml-1">${unitText}</span>
+                            <div class="text-right shrink-0 bg-gray-50/50 px-3 py-1.5 rounded-lg border border-gray-100">
+                                <span class="font-black text-rose-500 text-xl sm:text-2xl">${displayScore}</span>
+                                <span class="text-xs text-gray-500 ml-1 font-medium">${unitText}</span>
                             </div>
                         </div>`;
                 });
@@ -1176,23 +1178,6 @@
             html += `</div></div>`;
             container.innerHTML += html;
         }
-
-        // ==========================================
-        // 互動功能與邏輯更新
-        // ==========================================
-        window.toggleLoginRole = () => {
-            const role = document.querySelector('input[name="role"]:checked').value;
-            const dropdown = document.getElementById('committee-select-group');
-            const passwordGroup = document.getElementById('admin-password-group');
-            
-            if(role === 'committee') {
-                dropdown.classList.remove('hidden');
-                passwordGroup.classList.add('hidden');
-            } else {
-                dropdown.classList.add('hidden');
-                passwordGroup.classList.remove('hidden');
-            }
-        };
 
         window.handleAdminLogin = async () => {
             const passwordInput = document.getElementById('admin-password');
@@ -1343,14 +1328,6 @@
             }
         };
 
-        window.clearCommitteeList = () => {
-            if (confirm('確定要清空所有的名單嗎？\n這並不會刪除已經收到的投票成績。')) {
-                globalConfig.committees = [];
-                globalConfig.loggedInUsers = []; 
-                saveConfigToCloud();
-            }
-        };
-
         window.addGrade = () => {
             const input = document.getElementById('new-grade-name');
             const grade = input.value.trim();
@@ -1398,6 +1375,14 @@
             }
         };
 
+        window.clearCommitteeList = () => {
+            if (confirm('確定要清空所有的名單嗎？\n這並不會刪除已經收到的投票成績。')) {
+                globalConfig.committees = [];
+                globalConfig.loggedInUsers = []; 
+                saveConfigToCloud();
+            }
+        };
+
         window.updateSortMode = (mode) => {
             globalConfig.sortMode = mode;
             saveConfigToCloud();
@@ -1414,7 +1399,6 @@
             
             const isCurrentlyOpen = globalConfig.gradeStatus[grade] === true;
 
-            // 如果是依序投票，強制先關掉所有的「投票」和「顯示結果」
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
@@ -1424,7 +1408,6 @@
                 }
             }
             
-            // 若原本是關閉的，則打開投票 (此時 showResult 必定為 false)
             if (!isCurrentlyOpen) {
                 globalConfig.gradeStatus[grade] = true;
             }
@@ -1438,7 +1421,6 @@
 
             const isResultOpen = globalConfig.showResultStatus[grade] === true;
 
-            // 互斥邏輯：無論如何先關閉所有的投票狀態和結果狀態
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
@@ -1448,7 +1430,6 @@
                 }
             }
 
-            // 若原本是隱藏結果，則打開結果廣播
             if (!isResultOpen) {
                 globalConfig.showResultStatus[grade] = true;
             }
@@ -1494,13 +1475,13 @@
                 const updateBtn = document.querySelector(`#range-max-${grade}`).nextElementSibling;
                 const originalText = updateBtn.innerText;
                 updateBtn.innerText = "完成!";
-                updateBtn.classList.replace('bg-blue-500', 'bg-green-500');
-                updateBtn.classList.replace('hover:bg-blue-600', 'hover:bg-green-600');
+                updateBtn.classList.replace('bg-amber-500', 'bg-emerald-500');
+                updateBtn.classList.replace('hover:bg-amber-600', 'hover:bg-emerald-600');
                 
                 setTimeout(() => {
                     updateBtn.innerText = originalText;
-                    updateBtn.classList.replace('bg-green-500', 'bg-blue-500');
-                    updateBtn.classList.replace('hover:bg-green-600', 'hover:bg-blue-600');
+                    updateBtn.classList.replace('bg-emerald-500', 'bg-amber-500');
+                    updateBtn.classList.replace('hover:bg-emerald-600', 'hover:bg-amber-600');
                 }, 1500);
             }
         };
@@ -1528,20 +1509,20 @@
             pendingSubmitVotes = {};
             const contentDiv = document.getElementById('confirm-modal-content');
             
-            let modalHtml = `<p class="font-bold text-gray-800 mb-3 text-sm sm:text-base">您即將送出【<span class="text-blue-600">${grade}</span>】的評分：</p>
-                             <ul class="bg-gray-50 p-3 rounded-lg border text-sm space-y-2">`;
+            let modalHtml = `<p class="font-bold text-gray-800 mb-4 text-base sm:text-lg">您即將送出【<span class="text-emerald-600">${grade}</span>】的評分：</p>
+                             <ul class="bg-gray-50/50 p-4 rounded-xl border border-gray-100 text-sm space-y-3 shadow-inner">`;
             
             inputs.forEach(input => {
                 const book = input.getAttribute('data-book');
                 const score = parseInt(input.value);
                 pendingSubmitVotes[book] = score; 
-                modalHtml += `<li class="flex justify-between items-center border-b border-gray-200 pb-2 last:border-0 last:pb-0">
-                                <span class="font-medium text-gray-700">${book}</span> 
-                                <span class="text-blue-600 font-black text-lg bg-blue-50 px-2 rounded">${score}</span>
+                modalHtml += `<li class="flex justify-between items-center border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                                <span class="font-medium text-gray-600 text-base">${book}</span> 
+                                <span class="text-emerald-700 font-black text-xl bg-emerald-50 px-3 py-0.5 rounded-lg border border-emerald-100">${score}</span>
                               </li>`;
             });
             
-            modalHtml += `</ul><p class="text-xs text-red-500 mt-4 leading-relaxed">* 請再次確認分數/名次，點擊「確定送出」後將即時同步給管理員。</p>`;
+            modalHtml += `</ul><p class="text-xs text-rose-500 mt-5 leading-relaxed bg-rose-50 p-3 rounded-lg border border-rose-100">* 請再次確認分數/名次，點擊「確定送出」後將即時同步給管理員。</p>`;
             contentDiv.innerHTML = modalHtml;
             
             document.getElementById('confirm-modal').classList.remove('hidden');
@@ -1755,13 +1736,9 @@
                     const books = globalConfig.books[grade] || [];
                     if (books.length === 0) return; 
 
-                    const detailSheet = workbook.addWorksheet(`${grade} 明細`);
-                    
-                    detailSheet.pageSetup.paperSize = 9; 
-                    detailSheet.pageSetup.orientation = 'landscape'; 
-                    detailSheet.pageSetup.fitToPage = true;
-                    detailSheet.pageSetup.fitToWidth = 1;
-                    detailSheet.pageSetup.fitToHeight = 0;
+                    const detailSheet = workbook.addWorksheet(`${grade} 明細`, {
+                        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
+                    });
 
                     let headers = ["委員姓名", ...books];
                     const hr = detailSheet.addRow(headers);
