@@ -8,34 +8,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
-<!-- ★ 背景改為溫暖的橘黃色系 bg-orange-50 ★ -->
 <body class="bg-orange-50 min-h-screen font-sans text-gray-800">
 
-    <!-- 系統載入中的提示 -->
     <div id="loading-screen" class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
-        <!-- ★ 載入動畫改為琥珀色 border-amber-500 ★ -->
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-amber-500 mb-4"></div>
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
     </div>
 
-    <!-- 加入 px-4 讓手機兩側有安全邊距 -->
     <div class="container mx-auto px-4 py-6 max-w-5xl hidden" id="main-app">
 
         <!-- ==========================================
-             1. 登入版面 (全新智慧分流介面)
+             1. 登入版面
              ========================================== -->
-        <!-- ★ 卡片邊框可以加上一點淡淡的暖色陰影 ★ -->
         <div id="login-section" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg border-t-4 border-orange-400 max-w-md mx-auto mt-4 sm:mt-10">
-            <!-- ★ 標題改為溫暖的橘紅色 text-orange-600 ★ -->
             <h1 class="text-[16px] sm:text-[19.2px] font-bold text-center mb-2 text-orange-600 leading-snug">☁️ 選書計分系統(台中二中阿發老師設計)</h1>
             <p class="text-center text-gray-500 mb-6 text-xs sm:text-sm">Firebase 即時連線版</p>
 
-            <!-- 視圖 A：管理者專用登入區 (主網址進入時顯示) -->
             <div id="admin-login-view" class="hidden">
                 <div class="mb-5 border-b border-gray-200 pb-5">
                     <label class="block text-orange-800 font-bold mb-2 text-sm sm:text-base">請輸入暱稱或學校名稱：</label>
                     <div class="flex flex-col gap-3 mt-2">
-                        <!-- ★ 輸入框的 focus 顏色改為 amber ★ -->
                         <input type="text" id="login-school-input" class="border p-3 rounded-lg w-full bg-orange-50/50 text-base focus:ring-2 focus:ring-amber-400 outline-none transition font-bold text-orange-900 placeholder-orange-300" placeholder="請輸入暱稱或學校名稱" oninput="window.checkTenantInputs()">
                         
                         <select id="login-subject-select" class="border p-3 rounded-lg w-full bg-orange-50/50 text-base focus:ring-2 focus:ring-amber-400 outline-none transition font-bold text-orange-900" onchange="window.checkTenantInputs()">
@@ -66,13 +58,11 @@
                     <input type="password" id="admin-password" maxlength="4" placeholder="****" class="w-full border p-3 rounded-lg bg-gray-50 text-base text-center tracking-widest focus:ring-2 focus:ring-amber-400 outline-none transition" disabled>
                 </div>
 
-                <!-- ★ 按鈕改為溫暖的橘色 bg-orange-500 ★ -->
                 <button id="admin-login-btn" onclick="window.handleAdminLogin()" class="w-full bg-gray-300 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md cursor-not-allowed" disabled>
                     請先完成上方設定
                 </button>
             </div>
 
-            <!-- 視圖 B：選書委員專用登入區 (專屬連結進入時顯示) -->
             <div id="committee-login-view" class="hidden">
                 <div class="bg-amber-50 border border-amber-200 p-4 rounded-lg mb-6 text-center shadow-inner">
                     <p class="text-amber-700 text-sm font-bold">目前進入的評分空間為</p>
@@ -86,7 +76,6 @@
                     </select>
                 </div>
 
-                <!-- ★ 委員登入按鈕使用活潑的翠綠色 bg-emerald-500 ★ -->
                 <button onclick="window.handleCommitteeLogin()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex items-center justify-center gap-2">
                     進入評分系統 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                 </button>
@@ -95,7 +84,7 @@
         </div>
 
         <!-- ==========================================
-             2. 管理者版面 (分頁模式)
+             2. 管理者版面
              ========================================== -->
         <div id="admin-section" class="hidden">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
@@ -104,12 +93,10 @@
                 </h1>
                 
                 <div class="flex flex-wrap w-full sm:w-auto gap-2">
-                    <!-- ★ 複製連結按鈕改用活潑的玫瑰色 bg-rose-500 ★ -->
                     <button onclick="window.copyVotingLink()" class="flex-1 sm:flex-none bg-rose-500 hover:bg-rose-600 text-white py-2 px-3 rounded-lg shadow-sm transition font-bold flex items-center justify-center gap-1 text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
                         複製專屬連結
                     </button>
-                    <!-- 刪除保留警告意味的紅色系，但微調色階 -->
                     <button onclick="window.clearAllData()" class="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg shadow-sm transition font-bold flex items-center justify-center gap-1 text-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         清除所有資料
@@ -118,10 +105,8 @@
                 </div>
             </div>
 
-            <!-- 分頁導覽列 -->
             <div class="border-b border-orange-200 mb-6 bg-white/80 backdrop-blur-sm rounded-t-xl px-2 pt-2 shadow-sm">
                 <nav class="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
-                    <!-- ★ 分頁底線改為 orange-500 ★ -->
                     <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-orange-500 text-orange-600 transition">
                         1. 基本設定
                     </button>
@@ -145,13 +130,11 @@
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 報表標題設定區塊 -->
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-emerald-500">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
                         <label class="text-sm font-bold text-gray-700">您可以自訂匯出 Excel 時的大標題：</label>
                         <div class="flex flex-col sm:flex-row gap-2 mt-2">
-                            <!-- ★ 輸入框 focus 統一改為 orange-400 ★ -->
                             <input type="text" id="admin-subject-display-input" class="border p-2 rounded-lg w-full flex-grow text-base bg-gray-50 focus:ring-2 focus:ring-orange-400 outline-none transition">
                             <button onclick="window.updateSubjectDisplay()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-bold transition shadow-sm whitespace-nowrap">儲存標題</button>
                         </div>
@@ -160,27 +143,24 @@
                     </div>
                 </div>
 
-                <!-- 投票流程設定區塊 -->
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-amber-500">🚥</span> 投票流程設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
                         <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
-                            <!-- ★ 單選框 accent 顏色改為 orange-500 ★ -->
                             <input type="radio" name="voteMode" value="simultaneous" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateVoteMode(this.value)"> 
-                            <span class="font-medium text-sm sm:text-base">同時投票 <span class="text-xs text-gray-500 hidden sm:inline">(所有年級書單同時開放評分)</span></span>
+                            <span class="font-medium text-sm sm:text-base">同時投票 <span class="text-xs text-gray-500 hidden sm:inline">(所有年級書單可同時開放評分)</span></span>
                         </label>
                         <label class="flex items-center p-3 border rounded-lg hover:bg-orange-50 cursor-pointer transition">
                             <input type="radio" name="voteMode" value="sequential" class="mr-3 w-4 h-4 accent-orange-500" onchange="window.updateVoteMode(this.value)"> 
-                            <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(在「投票控制台」手動開放年級與觀看結果)</span></span>
+                            <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(一次只能開啟一個年級的評分)</span></span>
                         </label>
                     </div>
                     <div class="bg-amber-50 p-4 rounded-lg border border-amber-200 flex-grow">
                         <label class="block text-sm font-bold text-amber-800 mb-2 flex items-center gap-1">💡 流程說明：</label>
-                        <p class="text-sm text-amber-900 leading-relaxed">若選擇「依序投票」，請至「投票控制台」分頁，使用按鈕來控制單一年級的開放與結束。</p>
+                        <p class="text-sm text-amber-900 leading-relaxed">請至「投票控制台」分頁，使用按鈕來控制各年級的開放狀態與結果顯示。</p>
                     </div>
                 </div>
 
-                <!-- 計分模式 -->
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-indigo-500">⚙️</span> 計分模式設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
@@ -199,7 +179,6 @@
                     </div>
                 </div>
 
-                <!-- 記名/不記名投票設定 -->
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-rose-400">🕵️</span> 投票記名設定</h3>
                     <div class="space-y-3 mb-4 border-b border-gray-100 pb-4">
@@ -224,7 +203,6 @@
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100 flex flex-col">
                     <div class="flex justify-between items-center mb-3">
                         <h3 class="text-base sm:text-lg font-bold flex items-center gap-2"><span class="text-indigo-500">👥</span> 委員名單管理</h3>
-                        <!-- 清空按鈕樣式微調 -->
                         <button onclick="window.clearCommitteeList()" class="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 text-sm rounded-lg shadow-sm transition flex items-center gap-1 font-medium">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             刪除全部名單
@@ -259,7 +237,9 @@
             <div id="tab-vote-control" class="admin-tab-content hidden mb-6">
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-orange-100">
                     <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-rose-500">🕹️</span> 投票控制台</h3>
-                    <p class="text-sm text-rose-800 mb-6 bg-rose-50 p-4 rounded-lg border border-rose-100 leading-relaxed">此分頁僅在「依序投票」模式下發揮作用。您可以針對單一年級獨立開放投票，或將最終成績即時顯示至委員手機中。</p>
+                    <p id="vote-control-instruction" class="text-sm text-rose-800 mb-6 bg-rose-50 p-4 rounded-lg border border-rose-100 leading-relaxed">
+                        <!-- 說明文字動態產生 -->
+                    </p>
                     
                     <div id="vote-control-container" class="space-y-4">
                         <!-- JavaScript 會動態產生橫條控制區塊 -->
@@ -716,7 +696,7 @@
                                     <div class="flex items-center gap-2 bg-white p-1 rounded-md border border-amber-100">
                                         <input type="number" id="range-min-${grade}" value="${range.min}" class="border-0 bg-transparent p-1 w-12 text-center rounded text-sm outline-none font-bold text-gray-700" onchange="window.updateGradeRange('${grade}')">
                                         <span class="text-sm font-bold text-amber-400">~</span>
-                                        <input type="number" id="range-max-${grade}" value="${range.max}" class="border-0 bg-transparent p-1 w-12 text-center rounded text-sm outline-none font-bold text-gray-700" onchange="window.updateGradeRange('${grade}')">
+                                        <input type="number" id="range-max-${grade}" value="${range.max}" class="border p-1 w-12 text-center rounded text-sm outline-none font-bold text-gray-700" onchange="window.updateGradeRange('${grade}')">
                                     </div>
                                     <button onclick="window.updateGradeRange('${grade}')" class="text-xs bg-amber-500 text-white px-4 py-2 rounded-md hover:bg-amber-600 transition shadow-sm w-full sm:w-auto font-bold">更新</button>
                                 </div>
@@ -731,20 +711,25 @@
             }
         }
 
+        // ★ 核心改寫：投票控制台渲染 (兩種模式通用) ★
         function renderVoteControlPanel() {
             const container = document.getElementById('vote-control-container');
+            const instruction = document.getElementById('vote-control-instruction');
             container.innerHTML = '';
 
-            if (globalConfig.voteMode !== 'sequential') {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8 bg-white rounded-xl border-2 border-dashed border-gray-200 shadow-sm">目前為「同時投票」模式，此分頁功能已停用。<br>若需手動控制各年級投票流程，請至「基本設定」切換為「依序投票」。</p>';
-                return;
+            const isSequential = globalConfig.voteMode === 'sequential';
+            
+            // 根據模式顯示不同的提示文字
+            if (isSequential) {
+                instruction.innerHTML = '此分頁在「依序投票」模式下，您可以針對單一年級獨立開放投票，或將最終成績即時顯示至委員手機中。<br>⚠️ 注意：依序投票模式下，<span class="text-red-500 font-bold">一次只能開啟一個年級的投票</span>。';
+            } else {
+                instruction.innerHTML = '此分頁在「同時投票」模式下，您可以自由獨立控制各個年級的開放狀態與結果顯示。<br>💡 在此模式下，您可以<span class="text-blue-600 font-bold">同時開啟多個年級</span>讓委員評分。';
             }
 
             (globalConfig.grades || []).forEach(grade => {
                 const isVoteOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
                 const isResultOpen = globalConfig.showResultStatus && globalConfig.showResultStatus[grade] === true;
                 
-                // 計算投票進度
                 const committees = globalConfig.committees || [];
                 let votedCount = 0;
                 committees.forEach(name => {
@@ -973,7 +958,6 @@
             votingArea.innerHTML = ''; 
 
             const mode = globalConfig.sortMode;
-            const isSequential = globalConfig.voteMode === 'sequential';
             const myVotes = globalScores[currentUserLabel] || {};
 
             if(mode === 'score') {
@@ -982,23 +966,24 @@
                 instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-rose-500 font-black">數字越小越推薦</span>）。`;
             }
 
-            if (isSequential) {
-                let activeGrade = null;
-                let showingResultGrade = null;
-                
-                (globalConfig.grades || []).forEach(grade => {
-                    if (globalConfig.showResultStatus && globalConfig.showResultStatus[grade] === true) {
-                        showingResultGrade = grade;
-                    } else if (globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true) {
-                        activeGrade = grade;
-                    }
-                });
-
-                if (showingResultGrade) {
-                    renderResultBlockForCommittee(showingResultGrade, votingArea);
-                    return;
+            let activeGrade = null;
+            let showingResultGrade = null;
+            
+            (globalConfig.grades || []).forEach(grade => {
+                if (globalConfig.showResultStatus && globalConfig.showResultStatus[grade] === true) {
+                    showingResultGrade = grade;
+                } else if (globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true) {
+                    activeGrade = grade;
                 }
+            });
 
+            if (showingResultGrade) {
+                renderResultBlockForCommittee(showingResultGrade, votingArea);
+                return;
+            }
+
+            // ★ 修改：同時投票或依序投票但有開放年級時的處理邏輯 ★
+            if (globalConfig.voteMode === 'sequential') {
                 if (!activeGrade) {
                     votingArea.innerHTML = `
                         <div class="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-sm">
@@ -1025,16 +1010,26 @@
                 }
 
                 renderGradeBlockForCommittee(activeGrade, myVotes, votingArea);
-
             } else {
+                // 同時投票模式：直接渲染所有「有被點擊開始投票」的年級
                 let renderedAny = false;
                 (globalConfig.grades || []).forEach(grade => {
-                    renderGradeBlockForCommittee(grade, myVotes, votingArea);
-                    renderedAny = true;
+                    const isOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
+                    // ★ 核心修改點：即使是同時投票，也要判斷該年級是否開放 ★
+                    if (isOpen) {
+                        renderGradeBlockForCommittee(grade, myVotes, votingArea);
+                        renderedAny = true;
+                    }
                 });
 
                 if (!renderedAny) {
-                    votingArea.innerHTML = '<p class="text-rose-500 font-bold p-8 bg-rose-50 rounded-2xl text-center border-2 border-dashed border-rose-200">⚠️ 管理員尚未建立任何年級的書單，暫時無法評分。</p>';
+                    votingArea.innerHTML = `
+                        <div class="py-20 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200 shadow-sm">
+                            <div class="text-5xl mb-6 animate-bounce">⏳</div>
+                            <h3 class="text-2xl font-bold text-gray-700 mb-3">等待開放投票中</h3>
+                            <p class="text-gray-500 text-sm sm:text-base px-4 leading-relaxed">請稍候，管理者即將開放書單讓您評分...</p>
+                        </div>
+                    `;
                 }
             }
         }
@@ -1392,12 +1387,14 @@
             saveConfigToCloud();
         };
         
+        // ★ 修改：保留互斥邏輯，但增加同時投票的判斷 ★
         window.toggleGradeStatus = (grade) => {
             if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
             if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
             
             const isCurrentlyOpen = globalConfig.gradeStatus[grade] === true;
 
+            // 若為依序模式，先強制關閉所有投票與結果
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
@@ -1407,6 +1404,7 @@
                 }
             }
             
+            // 若原本沒開，則開啟
             if (!isCurrentlyOpen) {
                 globalConfig.gradeStatus[grade] = true;
             }
@@ -1420,6 +1418,7 @@
 
             const isResultOpen = globalConfig.showResultStatus[grade] === true;
 
+            // 若為依序模式，先強制關閉所有投票與結果
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
@@ -1735,9 +1734,13 @@
                     const books = globalConfig.books[grade] || [];
                     if (books.length === 0) return; 
 
-                    const detailSheet = workbook.addWorksheet(`${grade} 明細`, {
-                        pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
-                    });
+                    const detailSheet = workbook.addWorksheet(`${grade} 明細`);
+                    
+                    detailSheet.pageSetup.paperSize = 9; 
+                    detailSheet.pageSetup.orientation = 'landscape'; 
+                    detailSheet.pageSetup.fitToPage = true;
+                    detailSheet.pageSetup.fitToWidth = 1;
+                    detailSheet.pageSetup.fitToHeight = 0;
 
                     let headers = ["委員姓名", ...books];
                     const hr = detailSheet.addRow(headers);
