@@ -10,6 +10,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-800">
 
+    <!-- 系統載入中的提示 -->
     <div id="loading-screen" class="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mb-4"></div>
         <h2 class="text-xl font-bold text-gray-700">正在連線至 Firebase 雲端資料庫...</h2>
@@ -108,7 +109,7 @@
                 </div>
             </div>
 
-            <!-- 分頁導覽列 -->
+            <!-- 分頁導覽列 (加入投票控制台) -->
             <div class="border-b border-gray-200 mb-6 bg-white rounded-t-lg px-2 pt-2 shadow-sm">
                 <nav class="-mb-px flex space-x-2 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
                     <button onclick="window.switchAdminTab('tab-setup')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-bold text-sm sm:text-base border-blue-500 text-blue-600 transition">
@@ -120,18 +121,21 @@
                     <button onclick="window.switchAdminTab('tab-books')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
                         3. 書單管理
                     </button>
+                    <button onclick="window.switchAdminTab('tab-vote-control')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
+                        4. 投票控制台
+                    </button>
                     <button onclick="window.switchAdminTab('tab-details')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
-                        4. 投票明細
+                        5. 投票明細
                     </button>
                     <button onclick="window.switchAdminTab('tab-ranking')" class="admin-tab-btn whitespace-nowrap py-3 px-2 sm:px-4 border-b-2 font-medium text-sm sm:text-base border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 transition">
-                        5. 結算榜單
+                        6. 結算榜單
                     </button>
                 </nav>
             </div>
 
             <!-- [分頁 1] 基本設定 -->
             <div id="tab-setup" class="admin-tab-content grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-                <!-- 報表標題設定區塊 (保留自訂標題功能) -->
+                <!-- 報表標題設定區塊 -->
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 flex flex-col">
                     <h3 class="text-base sm:text-lg font-bold mb-3 flex items-center gap-2"><span class="text-teal-600">🏷️</span> 報表標題設定</h3>
                     <div class="flex flex-col gap-2 mb-4 flex-grow">
@@ -155,12 +159,12 @@
                         </label>
                         <label class="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition">
                             <input type="radio" name="voteMode" value="sequential" class="mr-3 w-4 h-4 accent-blue-600" onchange="window.updateVoteMode(this.value)"> 
-                            <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(管理者手動控制各年級開放狀態)</span></span>
+                            <span class="font-medium text-sm sm:text-base">依序投票 <span class="text-xs text-gray-500 hidden sm:inline">(在「投票控制台」手動開放年級與觀看結果)</span></span>
                         </label>
                     </div>
                     <div class="bg-orange-50 p-4 rounded border border-orange-100 flex-grow">
                         <label class="block text-sm font-bold text-orange-800 mb-2 flex items-center gap-1">💡 流程說明：</label>
-                        <p class="text-sm text-gray-700 leading-relaxed">若選擇「依序投票」，請至「書單管理」分頁，使用各年級右上角的按鈕來控制單一年級的開放與結束。</p>
+                        <p class="text-sm text-gray-700 leading-relaxed">若選擇「依序投票」，請至「投票控制台」分頁，使用按鈕來控制單一年級的開放與結束。</p>
                     </div>
                 </div>
 
@@ -211,7 +215,6 @@
                         <textarea id="new-committee-name" rows="4" placeholder="可貼上多筆姓名，用「換行」或「逗號」隔開，系統會自動批次新增" class="border p-2 rounded w-full text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 outline-none transition"></textarea>
                         <button onclick="window.addCommittee()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-bold transition shadow-sm w-full sm:w-auto self-start">批次新增名單</button>
                     </div>
-                    
                     <!-- 標題列與清除按鈕 -->
                     <div class="flex justify-between items-center mb-2 mt-4 border-b pb-2">
                         <h4 class="text-lg font-bold text-gray-700">目前名單：</h4>
@@ -220,13 +223,11 @@
                             刪除名單
                         </button>
                     </div>
-                    
-                    <!-- 使用 grid 切成 3 欄 (手機版 1 欄或 2 欄) -->
                     <ul id="committee-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-gray-700 max-h-60 overflow-y-auto bg-gray-50 p-3 rounded border"></ul>
                 </div>
             </div>
 
-            <!-- [分頁 3] 書單管理 -->
+            <!-- [分頁 3] 書單管理 (已移除投票控制按鈕) -->
             <div id="tab-books" class="admin-tab-content hidden mb-6">
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
                     <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-yellow-500">📚</span> 年級與書單版本管理</h3>
@@ -242,14 +243,26 @@
                 </div>
             </div>
 
-            <!-- [分頁 4] 投票明細 -->
+            <!-- [分頁 4] 投票控制台 -->
+            <div id="tab-vote-control" class="admin-tab-content hidden mb-6">
+                <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-base sm:text-lg font-bold mb-4 flex items-center gap-2"><span class="text-blue-500">🕹️</span> 投票控制台</h3>
+                    <p class="text-sm text-gray-600 mb-6 bg-blue-50 p-3 rounded border border-blue-100">此分頁僅在「依序投票」模式下發揮作用。您可以針對單一年級獨立開放投票，或將最終成績即時廣播至委員手機中。</p>
+                    
+                    <div id="vote-control-container" class="space-y-4">
+                        <!-- JavaScript 會動態產生橫條控制區塊 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- [分頁 5] 投票明細 -->
             <div id="tab-details" class="admin-tab-content hidden mb-6">
                 <div id="voting-details-container" class="space-y-6">
                     <!-- 投票明細表格動態產生在這裡 -->
                 </div>
             </div>
 
-            <!-- [分頁 5] 結算榜單 -->
+            <!-- [分頁 6] 結算榜單 -->
             <div id="tab-ranking" class="admin-tab-content hidden mb-6">
                 <div class="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 border-b pb-4">
@@ -360,7 +373,6 @@
         };
         
         const baseAppId = 'school-book-system-2026';
-        
         let currentSchool = new URLSearchParams(window.location.search).get('school') || ''; 
         let currentDept = new URLSearchParams(window.location.search).get('dept') || ''; 
         
@@ -375,10 +387,11 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // 新增 showResultStatus 用於廣播結果
         let globalConfig = { 
             committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
             isAnonymous: false, subject: '', adminPassword: '',
-            voteMode: 'simultaneous', gradeStatus: {}, loggedInUsers: [] 
+            voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: [] 
         };
         let globalScores = {}; 
         let currentRole = null;
@@ -481,12 +494,13 @@
                     if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
                     if (!globalConfig.voteMode) globalConfig.voteMode = 'simultaneous';
                     if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
+                    if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
                     if (!globalConfig.loggedInUsers) globalConfig.loggedInUsers = [];
                 } else {
                     globalConfig = { 
                         committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
                         isAnonymous: false, subject: `${school} ${dept}`, adminPassword: '',
-                        voteMode: 'simultaneous', gradeStatus: {}, loggedInUsers: []
+                        voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: []
                     };
                 }
                 
@@ -546,6 +560,7 @@
                     if (globalConfig.adminPassword === undefined) globalConfig.adminPassword = '';
                     if (!globalConfig.voteMode) globalConfig.voteMode = 'simultaneous';
                     if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
+                    if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
                     if (!globalConfig.loggedInUsers) globalConfig.loggedInUsers = [];
                 } else {
                     setDoc(configDocRef, globalConfig);
@@ -567,7 +582,7 @@
             if(list) {
                 const loggedInUsers = globalConfig.loggedInUsers || [];
                 list.innerHTML = (globalConfig.committees || []).map(name => {
-                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-sm bg-green-100 text-green-700 px-2 py-0.5 rounded shadow-sm border border-green-200">📱 已上線</span>` : '';
+                    const loginBadge = loggedInUsers.includes(name) ? `<span class="ml-2 text-[12px] bg-green-100 text-green-700 px-2 py-0.5 rounded shadow-sm border border-green-200">📱 已上線</span>` : '';
                     return `<li class="border-b border-gray-100 py-3 last:border-0 text-base sm:text-lg text-gray-800 flex items-center before:content-['•'] before:mr-2 before:text-blue-500">${name}${loginBadge}</li>`;
                 }).join('');
             }
@@ -604,11 +619,12 @@
             if (currentRole === 'admin') {
                 document.getElementById('admin-subject-title').innerText = `- ${currentSchool} ${currentDept}`;
                 renderAdminGradesAndBooks();
+                renderVoteControlPanel(); 
                 renderVotingDetails(); 
                 renderLiveRanking();
             }
             if (currentRole === 'committee' && currentUserLabel) {
-                document.getElementById('committee-subject-title').innerText = `(${currentSchool} ${currentDept})`;
+                document.getElementById('committee-subject-titleinnerText = `(${currentSchool} ${currentDept})`');
                 renderVotingArea();
             }
         }
@@ -651,42 +667,14 @@
                             class="text-xs sm:text-sm px-2 py-1 rounded transition ${btnClass}">${pub}</button>`;
                 }).join('');
 
-                let committeeStatusHTML = `<div class="mt-3 bg-white p-2 rounded border border-gray-200">
-                    <h4 class="text-xs font-bold text-gray-600 mb-2 border-b pb-1">👀 委員投票狀態 (共 ${committees.length} 人)</h4>
-                    <ul class="max-h-24 overflow-y-auto space-y-1">`;
-                
-                if(committees.length === 0) {
-                    committeeStatusHTML += `<li class="text-xs text-gray-400 text-center py-1">尚無名單</li>`;
-                } else {
-                    committees.forEach(name => {
-                        const userVotesForThisGrade = globalScores[name] && globalScores[name][grade];
-                        const hasVoted = userVotesForThisGrade && Object.keys(userVotesForThisGrade).length > 0;
-                        const badge = hasVoted 
-                            ? `<span class="text-green-600 text-[10px] border border-green-200 bg-green-50 px-1 rounded font-bold">✅ 已投</span>` 
-                            : `<span class="text-red-500 text-[10px] border border-red-200 bg-red-50 px-1 rounded font-bold">⏳ 未投</span>`;
-                        committeeStatusHTML += `<li class="flex justify-between items-center text-xs py-0.5 border-b border-gray-50 last:border-0"><span class="text-gray-700 truncate w-20" title="${name}">${name}</span>${badge}</li>`;
-                    });
-                }
-                committeeStatusHTML += `</ul></div>`;
-
-                let toggleBtnHTML = '';
-                if (globalConfig.voteMode === 'sequential') {
-                    const isOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
-                    if (isOpen) {
-                        toggleBtnHTML = `<button onclick="window.toggleGradeStatus('${grade}')" class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded shadow-sm transition font-bold">結束投票</button>`;
-                    } else {
-                        toggleBtnHTML = `<button onclick="window.toggleGradeStatus('${grade}')" class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded shadow-md transition animate-pulse font-bold">開始投票</button>`;
-                    }
-                }
-
                 let html = `
                     <div class="border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col hover:shadow-md transition">
-                        <div class="bg-yellow-200 font-bold p-2 border-b text-yellow-900 text-sm sm:text-base flex items-center justify-between relative">
-                            <div class="w-20 flex justify-start">
+                        <div class="bg-yellow-200 font-bold p-2 text-center border-b text-yellow-900 text-sm sm:text-base flex items-center justify-between relative">
+                            <div class="w-16 flex justify-start">
                                 <button onclick="window.removeGrade('${grade}')" class="text-red-600 hover:text-white hover:bg-red-500 rounded w-6 h-6 flex items-center justify-center font-black transition text-base" title="刪除此年級">✕</button>
                             </div>
                             <span class="flex-grow text-center">${grade}</span>
-                            <div class="w-20 flex justify-end">${toggleBtnHTML}</div>
+                            <div class="w-16"></div> <!-- spacer -->
                         </div>
                         <div class="p-3 sm:p-4 flex-grow flex flex-col bg-gray-50">
                             <div class="flex flex-wrap gap-1 sm:gap-2 mb-3">
@@ -724,8 +712,6 @@
                                     <button onclick="window.updateGradeRange('${grade}')" class="text-xs bg-blue-500 text-white px-3 py-1.5 rounded hover:bg-blue-600 transition shadow-sm w-full sm:w-auto mt-1 sm:mt-0 font-bold">更新</button>
                                 </div>
                             </div>
-
-                            ${committeeStatusHTML}
                         </div>
                     </div>`;
                 container.innerHTML += html;
@@ -733,6 +719,61 @@
 
             if((globalConfig.grades || []).length === 0) {
                 container.innerHTML = '<p class="text-gray-500 col-span-1 md:col-span-2 xl:col-span-3 text-center bg-gray-50 p-6 rounded-lg border border-dashed border-gray-300">目前還沒有年級，請在上方輸入並新增。</p>';
+            }
+        }
+
+        function renderVoteControlPanel() {
+            const container = document.getElementById('vote-control-container');
+            container.innerHTML = '';
+
+            if (globalConfig.voteMode !== 'sequential') {
+                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed border-gray-300">目前為「同時投票」模式，此分頁功能已停用。<br>若需手動控制各年級投票流程，請至「基本設定」切換為「依序投票」。</p>';
+                return;
+            }
+
+            (globalConfig.grades || []).forEach(grade => {
+                const isVoteOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
+                const isResultOpen = globalConfig.showResultStatus && globalConfig.showResultStatus[grade] === true;
+                
+                // 計算投票進度
+                const committees = globalConfig.committees || [];
+                let votedCount = 0;
+                committees.forEach(name => {
+                    const userVotesForThisGrade = globalScores[name] && globalScores[name][grade];
+                    if (userVotesForThisGrade && Object.keys(userVotesForThisGrade).length > 0) {
+                        votedCount++;
+                    }
+                });
+                const progressText = `進度: ${votedCount} / ${committees.length} 人`;
+
+                // 狀態顯示與按鈕邏輯
+                let voteBtnHTML = isVoteOpen 
+                    ? `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center animate-pulse">■ 結束投票</button>` 
+                    : `<button onclick="window.toggleGradeStatus('${grade}')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center">▶ 開始投票</button>`;
+                
+                let resultBtnHTML = isResultOpen
+                    ? `<button onclick="window.toggleResultStatus('${grade}')" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center border-2 border-orange-600">👁️ 隱藏結果</button>`
+                    : `<button onclick="window.toggleResultStatus('${grade}')" class="bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded shadow-sm transition font-bold text-sm w-full sm:w-auto text-center">👁️ 廣播結果給委員</button>`;
+
+                let cardBgClass = isVoteOpen ? 'bg-blue-50 border-blue-200' : isResultOpen ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200';
+
+                let html = `
+                    <div class="flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg shadow-sm ${cardBgClass} transition gap-4">
+                        <div class="flex items-center gap-4 w-full sm:w-auto">
+                            <h4 class="text-lg font-black text-gray-800 min-w-[3rem]">${grade}</h4>
+                            ${voteBtnHTML}
+                            <span class="text-sm font-medium text-gray-500 bg-white px-3 py-1 rounded-full border shadow-inner">${progressText}</span>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            ${resultBtnHTML}
+                        </div>
+                    </div>`;
+                
+                container.innerHTML += html;
+            });
+            
+            if((globalConfig.grades || []).length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-6 bg-gray-50 rounded border border-dashed border-gray-300">目前沒有年級資料可供控制。</p>';
             }
         }
 
@@ -924,6 +965,7 @@
 
             const mode = globalConfig.sortMode;
             const isSequential = globalConfig.voteMode === 'sequential';
+            const myVotes = globalScores[currentUserLabel] || {};
 
             if(mode === 'score') {
                 instruction.innerHTML = `🔔 目前為【分數制】：請拖曳滑桿給予各版本分數（<span class="text-red-500 font-black">分數越高越推薦</span>）。`;
@@ -931,27 +973,38 @@
                 instruction.innerHTML = `🔔 目前為【名次制】：請拖曳滑桿選擇名次（<span class="text-red-500 font-black">數字越小越推薦</span>）。`;
             }
 
-            const myVotes = globalScores[currentUserLabel] || {};
-
             if (isSequential) {
+                // 依序投票模式：檢查各年級的廣播結果狀態與開放投票狀態
                 let activeGrade = null;
+                let showingResultGrade = null;
+                
                 (globalConfig.grades || []).forEach(grade => {
-                    if (globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true) {
+                    if (globalConfig.showResultStatus && globalConfig.showResultStatus[grade] === true) {
+                        showingResultGrade = grade;
+                    } else if (globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true) {
                         activeGrade = grade;
                     }
                 });
 
+                // ★ 1. 如果有年級開放「看結果」，優先顯示結果排行榜 ★
+                if (showingResultGrade) {
+                    renderResultBlockForCommittee(showingResultGrade, votingArea);
+                    return;
+                }
+
+                // ★ 2. 如果沒有看結果，且也沒有開放投票，顯示等待室 ★
                 if (!activeGrade) {
                     votingArea.innerHTML = `
                         <div class="py-16 text-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
                             <div class="text-5xl mb-4 animate-pulse">⏳</div>
-                            <h3 class="text-2xl font-bold text-gray-700 mb-2">等待開放投票中</h3>
-                            <p class="text-gray-500 text-sm sm:text-base px-4">請稍候，管理者即將開放書單讓您評分...</p>
+                            <h3 class="text-2xl font-bold text-gray-700 mb-2">等待管理員開放</h3>
+                            <p class="text-gray-500 text-sm sm:text-base px-4">請稍候，即將開放下一階段的投票或結果展示...</p>
                         </div>
                     `;
                     return;
                 }
 
+                // ★ 3. 正常開放投票的邏輯 ★
                 const userVotesForThisGrade = myVotes[activeGrade] || {};
                 const hasVoted = Object.keys(userVotesForThisGrade).length > 0;
 
@@ -960,7 +1013,7 @@
                         <div class="py-16 text-center bg-green-50 rounded-xl border-2 border-dashed border-green-300">
                             <div class="text-5xl mb-4">✅</div>
                             <h3 class="text-xl sm:text-2xl font-bold text-green-700 mb-2">您已完成【${activeGrade}】的評分</h3>
-                            <p class="text-green-600 text-sm sm:text-base px-4">分數已成功送出，請等待管理者開放下一個年級...</p>
+                            <p class="text-green-600 text-sm sm:text-base px-4">分數已成功送出，請等待下一步指示...</p>
                         </div>
                     `;
                     return;
@@ -969,10 +1022,14 @@
                 renderGradeBlockForCommittee(activeGrade, myVotes, votingArea);
 
             } else {
+                // 同時投票模式：直接渲染所有年級
                 let renderedAny = false;
                 (globalConfig.grades || []).forEach(grade => {
-                    renderGradeBlockForCommittee(grade, myVotes, votingArea);
-                    renderedAny = true;
+                    const books = globalConfig.books[grade] || [];
+                    if (books.length > 0) {
+                        renderGradeBlockForCommittee(grade, myVotes, votingArea);
+                        renderedAny = true;
+                    }
                 });
 
                 if (!renderedAny) {
@@ -983,7 +1040,10 @@
 
         function renderGradeBlockForCommittee(grade, myVotes, container) {
             const books = globalConfig.books[grade] || [];
-            if (books.length === 0) return;
+            if (books.length === 0) {
+                 container.innerHTML += `<p class="text-red-500 font-bold p-6 bg-red-50 rounded-lg text-center border-2 border-dashed border-red-200">⚠️ 【${grade}】尚未加入任何書單版本，無法評分。</p>`;
+                 return;
+            }
 
             const defaultMax = books.length > 0 ? books.length : 5;
             const rangeObj = globalConfig.gradeRanges[grade] || { min: 1, max: defaultMax };
@@ -1051,6 +1111,88 @@
             html += `</div>`;
             container.innerHTML += html;
         }
+
+        // ★ 新增：專門在委員手機上渲染成績排行榜的小工具 ★
+        function renderResultBlockForCommittee(grade, container) {
+            const mode = globalConfig.sortMode; 
+            const unitText = mode === 'score' ? '分' : '名次加總';
+            let totalScores = {};
+            const books = globalConfig.books[grade] || [];
+            books.forEach(book => totalScores[book] = 0);
+
+            for (let committeeName in globalScores) {
+                let committeeVotes = globalScores[committeeName][grade] || {};
+                for (let book in committeeVotes) {
+                    if (totalScores[book] !== undefined) {
+                        totalScores[book] += parseInt(committeeVotes[book]) || 0;
+                    }
+                }
+            }
+
+            let sortedBooks = Object.keys(totalScores).map(book => {
+                return { name: book, score: totalScores[book] };
+            }).sort((a, b) => {
+                if (mode === 'score') return b.score - a.score;
+                let scoreA = a.score === 0 ? 9999 : a.score;
+                let scoreB = b.score === 0 ? 9999 : b.score;
+                return scoreA - scoreB;
+            });
+
+            sortedBooks.forEach((item, index) => {
+                if (index > 0 && item.score === sortedBooks[index - 1].score) {
+                    item.rank = sortedBooks[index - 1].rank;
+                } else {
+                    item.rank = index + 1;
+                }
+            });
+
+            let html = `<div class="border-y sm:border px-4 py-5 sm:p-5 sm:rounded-xl bg-orange-50 shadow-sm relative -mx-4 sm:mx-0 mb-6 border-orange-200">
+                            <div class="flex items-center justify-center mb-4 border-b border-orange-200 pb-3">
+                                <h3 class="font-black text-orange-800 text-xl flex items-center gap-2">👁️ ${grade} 投票結果</h3>
+                            </div>
+                            <div class="space-y-3">`;
+            
+            if (sortedBooks.length === 0) html += `<p class="text-sm text-gray-500 text-center py-4">尚無書籍</p>`;
+            else {
+                sortedBooks.forEach((item) => {
+                    let rank = item.rank;
+                    let medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="inline-block w-5 text-center text-xs text-gray-400 font-bold">${rank}.</span>`;
+                    let displayScore = item.score === 0 ? '-' : item.score;
+                    let rowBg = rank === 1 && item.score !== 0 ? 'bg-yellow-50 border-yellow-300 shadow-md transform scale-[1.02]' : 'bg-white border-gray-200';
+                    
+                    html += `
+                        <div class="flex justify-between items-center border rounded-lg p-3 sm:p-4 shadow-sm ${rowBg} transition-transform">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <span class="shrink-0 text-lg sm:text-xl">${medal}</span>
+                                <span class="font-bold text-gray-800 text-base sm:text-lg truncate">${item.name}</span>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <span class="font-black text-red-500 text-lg sm:text-xl">${displayScore}</span>
+                                <span class="text-xs text-gray-500 ml-1">${unitText}</span>
+                            </div>
+                        </div>`;
+                });
+            }
+            html += `</div></div>`;
+            container.innerHTML += html;
+        }
+
+        // ==========================================
+        // 互動功能與邏輯更新
+        // ==========================================
+        window.toggleLoginRole = () => {
+            const role = document.querySelector('input[name="role"]:checked').value;
+            const dropdown = document.getElementById('committee-select-group');
+            const passwordGroup = document.getElementById('admin-password-group');
+            
+            if(role === 'committee') {
+                dropdown.classList.remove('hidden');
+                passwordGroup.classList.add('hidden');
+            } else {
+                dropdown.classList.add('hidden');
+                passwordGroup.classList.remove('hidden');
+            }
+        };
 
         window.handleAdminLogin = async () => {
             const passwordInput = document.getElementById('admin-password');
@@ -1201,11 +1343,9 @@
             }
         };
 
-        // 新增的清空名單功能
         window.clearCommitteeList = () => {
             if (confirm('確定要清空所有的名單嗎？\n這並不會刪除已經收到的投票成績。')) {
                 globalConfig.committees = [];
-                // 連帶清空上線紀錄
                 globalConfig.loggedInUsers = []; 
                 saveConfigToCloud();
             }
@@ -1253,6 +1393,7 @@
                 delete globalConfig.books[grade];
                 delete globalConfig.gradeRanges[grade];
                 delete globalConfig.gradeStatus[grade];
+                if (globalConfig.showResultStatus) delete globalConfig.showResultStatus[grade];
                 saveConfigToCloud();
             }
         };
@@ -1269,18 +1410,49 @@
         
         window.toggleGradeStatus = (grade) => {
             if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
+            if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
+            
             const isCurrentlyOpen = globalConfig.gradeStatus[grade] === true;
 
+            // 如果是依序投票，強制先關掉所有的「投票」和「顯示結果」
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
                 }
+                for (let g in globalConfig.showResultStatus) {
+                    globalConfig.showResultStatus[g] = false;
+                }
             }
             
+            // 若原本是關閉的，則打開投票 (此時 showResult 必定為 false)
             if (!isCurrentlyOpen) {
                 globalConfig.gradeStatus[grade] = true;
             }
             
+            saveConfigToCloud();
+        };
+
+        window.toggleResultStatus = (grade) => {
+            if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
+            if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
+
+            const isResultOpen = globalConfig.showResultStatus[grade] === true;
+
+            // 互斥邏輯：無論如何先關閉所有的投票狀態和結果狀態
+            if (globalConfig.voteMode === 'sequential') {
+                for (let g in globalConfig.gradeStatus) {
+                    globalConfig.gradeStatus[g] = false;
+                }
+                for (let g in globalConfig.showResultStatus) {
+                    globalConfig.showResultStatus[g] = false;
+                }
+            }
+
+            // 若原本是隱藏結果，則打開結果廣播
+            if (!isResultOpen) {
+                globalConfig.showResultStatus[grade] = true;
+            }
+
             saveConfigToCloud();
         };
         
@@ -1404,7 +1576,7 @@
                 globalConfig = { 
                     committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
                     isAnonymous: false, subject: `${currentSchool} ${currentDept}`, adminPassword: currentPassword,
-                    voteMode: 'simultaneous', gradeStatus: {}, loggedInUsers: []
+                    voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: []
                 };
                 await setDoc(configDocRef, globalConfig);
 
