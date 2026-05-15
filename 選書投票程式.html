@@ -391,6 +391,8 @@
         let pendingSubmitGrade = '';
         let pendingSubmitVotes = {};
 
+        const predefinedSubjects = ['國文', '英文', '數學', '物理', '化學', '生物', '地球科學', '地理', '歷史', '公民', '音樂', '體育', '家政', '美術', '資訊'];
+
         const initAuth = async () => {
             try {
                 await signInAnonymously(auth);
@@ -407,21 +409,20 @@
                 if (currentSchool && currentDept) {
                     await loadTenantConfig(currentSchool, currentDept);
                     
+                    // ★ 修正：取消自動登入功能。若有本地殘存紀錄，直接在背景釋放該委員姓名，並強制導向登入介面
                     const savedUser = localStorage.getItem(`activeUser_${activeAppId}`);
-                    if (savedUser && (globalConfig.committees || []).includes(savedUser)) {
-                        currentRole = 'committee';
-                        currentUserLabel = savedUser;
-                        document.getElementById('current-committee-name').innerText = savedUser;
-                        document.getElementById('admin-login-view').classList.add('hidden');
-                        document.getElementById('committee-login-view').classList.add('hidden');
-                        document.getElementById('login-section').classList.add('hidden');
-                        document.getElementById('committee-section').classList.remove('hidden');
-                        setupRealtimeListeners();
-                    } else {
-                        document.getElementById('admin-login-view').classList.add('hidden');
-                        document.getElementById('committee-login-view').classList.remove('hidden');
-                        document.getElementById('committee-login-subject-display').innerText = `${currentSchool} - ${currentDept}`;
+                    if (savedUser) {
+                        localStorage.removeItem(`activeUser_${activeAppId}`);
+                        if (globalConfig.loggedInUsers && globalConfig.loggedInUsers.includes(savedUser)) {
+                            globalConfig.loggedInUsers = globalConfig.loggedInUsers.filter(n => n !== savedUser);
+                            await saveConfigToCloud();
+                        }
                     }
+                    
+                    document.getElementById('admin-login-view').classList.add('hidden');
+                    document.getElementById('committee-login-view').classList.remove('hidden');
+                    document.getElementById('committee-login-subject-display').innerText = `${currentSchool} - ${currentDept}`;
+                    
                 } else {
                     document.getElementById('admin-login-view').classList.remove('hidden');
                     document.getElementById('committee-login-view').classList.add('hidden');
@@ -554,6 +555,17 @@
                 } else {
                     setDoc(configDocRef, globalConfig);
                 }
+
+                // ★ 核心防護機制：如果委員目前在線，但他的名字從名單中消失了 (代表管理員清除了資料)
+                if (currentRole === 'committee' && currentUserLabel) {
+                    if (!globalConfig.committees || !globalConfig.committees.includes(currentUserLabel)) {
+                        alert('⚠️ 系統已重置或您的名單已被刪除，將強制登出。');
+                        localStorage.removeItem(`activeUser_${activeAppId}`);
+                        window.location.reload();
+                        return;
+                    }
+                }
+
                 updateUI();
             });
 
@@ -581,7 +593,9 @@
             }
 
             const displayInput = document.getElementById('admin-subject-display-input');
-            if (displayInput) displayInput.value = globalConfig.subject;
+            if (displayInput && document.activeElement !== displayInput) {
+                displayInput.value = globalConfig.subject;
+            }
 
             const radios = document.getElementsByName('sortMode');
             radios.forEach(radio => {
@@ -638,6 +652,16 @@
 
         function renderAdminGradesAndBooks() {
             const container = document.getElementById('admin-grades-container');
+            const adminDrafts = {};
+            if (container) {
+                container.querySelectorAll('input[type="text"]').forEach(input => {
+                    if (input.id && input.id.startsWith('new-book-')) {
+                        const grade = input.id.replace('new-book-', '');
+                        adminDrafts[grade] = input.value;
+                    }
+                });
+            }
+            
             container.innerHTML = '';
             const defaultPublishers = ['龍騰', '翰林', '南一', '全華', '泰宇', '三民'];
             const committees = globalConfig.committees || [];
@@ -670,7 +694,7 @@
                                 ${pubButtonsHTML}
                             </div>
                             <div class="flex gap-1 sm:gap-2 mb-4">
-                                <input type="text" id="new-book-${grade}" class="border p-2 w-full text-xs sm:text-sm rounded-lg shadow-inner focus:ring-2 focus:ring-amber-400 outline-none transition" placeholder="輸入其他版本">
+                                <input type="text" id="new-book-${grade}" value="${adminDrafts[grade] || ''}" class="border p-2 w-full text-xs sm:text-sm rounded-lg shadow-inner focus:ring-2 focus:ring-amber-400 outline-none transition" placeholder="輸入其他版本">
                                 <button onclick="window.addBook('${grade}')" class="bg-amber-500 hover:bg-amber-600 text-white px-4 text-sm rounded-lg font-bold transition shadow-sm">+</button>
                             </div>
                             
@@ -711,7 +735,6 @@
             }
         }
 
-        // ★ 核心改寫：投票控制台渲染 (兩種模式通用) ★
         function renderVoteControlPanel() {
             const container = document.getElementById('vote-control-container');
             const instruction = document.getElementById('vote-control-instruction');
@@ -719,7 +742,6 @@
 
             const isSequential = globalConfig.voteMode === 'sequential';
             
-            // 根據模式顯示不同的提示文字
             if (isSequential) {
                 instruction.innerHTML = '此分頁在「依序投票」模式下，您可以針對單一年級獨立開放投票，或將最終成績即時顯示至委員手機中。<br>⚠️ 注意：依序投票模式下，<span class="text-red-500 font-bold">一次只能開啟一個年級的投票</span>。';
             } else {
@@ -955,6 +977,20 @@
         function renderVotingArea() {
             const votingArea = document.getElementById('voting-area');
             const instruction = document.getElementById('voting-instruction');
+            
+            const draftValues = {};
+            if (votingArea) {
+                votingArea.querySelectorAll('input[type="range"]').forEach(input => {
+                    const book = input.getAttribute('data-book');
+                    const gradeClass = Array.from(input.classList).find(c => c.startsWith('score-input-'));
+                    if (gradeClass && book) {
+                        const grade = gradeClass.replace('score-input-', '');
+                        if (!draftValues[grade]) draftValues[grade] = {};
+                        draftValues[grade][book] = input.value;
+                    }
+                });
+            }
+            
             votingArea.innerHTML = ''; 
 
             const mode = globalConfig.sortMode;
@@ -982,7 +1018,6 @@
                 return;
             }
 
-            // ★ 修改：同時投票或依序投票但有開放年級時的處理邏輯 ★
             if (globalConfig.voteMode === 'sequential') {
                 if (!activeGrade) {
                     votingArea.innerHTML = `
@@ -1009,15 +1044,13 @@
                     return;
                 }
 
-                renderGradeBlockForCommittee(activeGrade, myVotes, votingArea);
+                renderGradeBlockForCommittee(activeGrade, myVotes, votingArea, draftValues);
             } else {
-                // 同時投票模式：直接渲染所有「有被點擊開始投票」的年級
                 let renderedAny = false;
                 (globalConfig.grades || []).forEach(grade => {
                     const isOpen = globalConfig.gradeStatus && globalConfig.gradeStatus[grade] === true;
-                    // ★ 核心修改點：即使是同時投票，也要判斷該年級是否開放 ★
                     if (isOpen) {
-                        renderGradeBlockForCommittee(grade, myVotes, votingArea);
+                        renderGradeBlockForCommittee(grade, myVotes, votingArea, draftValues);
                         renderedAny = true;
                     }
                 });
@@ -1034,7 +1067,7 @@
             }
         }
 
-        function renderGradeBlockForCommittee(grade, myVotes, container) {
+        function renderGradeBlockForCommittee(grade, myVotes, container, draftValues = {}) {
             const books = globalConfig.books[grade] || [];
             if (books.length === 0) {
                  container.innerHTML += `<p class="text-rose-500 font-bold p-6 bg-rose-50 rounded-xl text-center border border-rose-200 shadow-sm">⚠️ 【${grade}】尚未加入任何書單版本，無法評分。</p>`;
@@ -1057,7 +1090,13 @@
                             <div class="space-y-4">`;
             
             books.forEach(book => {
-                let currentScore = (myVotes[grade] && myVotes[grade][book] !== undefined) ? myVotes[grade][book] : min;
+                let currentScore = min;
+                if(myVotes[grade] && myVotes[grade][book] !== undefined) {
+                    currentScore = myVotes[grade][book];
+                } else if (draftValues[grade] && draftValues[grade][book] !== undefined) {
+                    currentScore = parseInt(draftValues[grade][book]);
+                }
+                
                 if(currentScore > max) currentScore = max;
                 if(currentScore < min) currentScore = min;
                 
@@ -1231,8 +1270,6 @@
                 await saveConfigToCloud();
             }
 
-            localStorage.setItem(`activeUser_${activeAppId}`, name);
-
             currentRole = 'committee';
             currentUserLabel = name;
             document.getElementById('current-committee-name').innerText = name;
@@ -1248,7 +1285,6 @@
                     globalConfig.loggedInUsers = globalConfig.loggedInUsers.filter(n => n !== currentUserLabel);
                     await saveConfigToCloud();
                 }
-                localStorage.removeItem(`activeUser_${activeAppId}`);
             }
 
             currentRole = null;
@@ -1258,6 +1294,16 @@
 
             window.location.reload(); 
         };
+
+        // ★ 新增：當委員重新整理或關閉網頁時，嘗試將他們從已上線名單移除
+        window.addEventListener('beforeunload', () => {
+            if (currentRole === 'committee' && currentUserLabel) {
+                if (globalConfig.loggedInUsers && globalConfig.loggedInUsers.includes(currentUserLabel)) {
+                    globalConfig.loggedInUsers = globalConfig.loggedInUsers.filter(n => n !== currentUserLabel);
+                    setDoc(configDocRef, globalConfig);
+                }
+            }
+        });
 
         window.copyVotingLink = () => {
             if (!currentSchool || !currentDept) return;
@@ -1387,14 +1433,12 @@
             saveConfigToCloud();
         };
         
-        // ★ 修改：保留互斥邏輯，但增加同時投票的判斷 ★
         window.toggleGradeStatus = (grade) => {
             if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
             if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
             
             const isCurrentlyOpen = globalConfig.gradeStatus[grade] === true;
 
-            // 若為依序模式，先強制關閉所有投票與結果
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
@@ -1404,7 +1448,6 @@
                 }
             }
             
-            // 若原本沒開，則開啟
             if (!isCurrentlyOpen) {
                 globalConfig.gradeStatus[grade] = true;
             }
@@ -1418,7 +1461,6 @@
 
             const isResultOpen = globalConfig.showResultStatus[grade] === true;
 
-            // 若為依序模式，先強制關閉所有投票與結果
             if (globalConfig.voteMode === 'sequential') {
                 for (let g in globalConfig.gradeStatus) {
                     globalConfig.gradeStatus[g] = false;
