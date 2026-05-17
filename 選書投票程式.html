@@ -382,7 +382,8 @@
         let globalConfig = { 
             committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
             isAnonymous: false, subject: '', adminPassword: '',
-            voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: [] 
+            voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: [],
+            sessionId: '' // ★ 新增 sessionId，用於防護連結失效
         };
         let globalScores = {}; 
         let currentRole = null;
@@ -408,8 +409,17 @@
             if (user) {
                 if (currentSchool && currentDept) {
                     await loadTenantConfig(currentSchool, currentDept);
+
+                    // ★ 連結失效驗證：如果網址帶來的 sid 和資料庫的 globalConfig.sessionId 不同，則拒絕進入 ★
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const currentUrlSid = urlParams.get('sid');
+                    if (globalConfig.sessionId && currentUrlSid !== globalConfig.sessionId) {
+                        alert('⚠️ 此投票連結已失效！\n管理員已重置系統，請向管理員索取最新連結。');
+                        localStorage.removeItem(`activeUser_${activeAppId}`);
+                        window.location.href = window.location.pathname; // 強制跳回無參數的首頁
+                        return; // 終止後續載入
+                    }
                     
-                    // ★ 修正：取消自動登入功能。若有本地殘存紀錄，直接在背景釋放該委員姓名，並強制導向登入介面
                     const savedUser = localStorage.getItem(`activeUser_${activeAppId}`);
                     if (savedUser) {
                         localStorage.removeItem(`activeUser_${activeAppId}`);
@@ -486,11 +496,13 @@
                     if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
                     if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
                     if (!globalConfig.loggedInUsers) globalConfig.loggedInUsers = [];
+                    if (globalConfig.sessionId === undefined) globalConfig.sessionId = '';
                 } else {
                     globalConfig = { 
                         committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
                         isAnonymous: false, subject: `${school} ${dept}`, adminPassword: '',
-                        voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: []
+                        voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: [],
+                        sessionId: ''
                     };
                 }
                 
@@ -552,11 +564,24 @@
                     if (!globalConfig.gradeStatus) globalConfig.gradeStatus = {};
                     if (!globalConfig.showResultStatus) globalConfig.showResultStatus = {};
                     if (!globalConfig.loggedInUsers) globalConfig.loggedInUsers = [];
+                    if (globalConfig.sessionId === undefined) globalConfig.sessionId = '';
                 } else {
                     setDoc(configDocRef, globalConfig);
                 }
 
-                // ★ 核心防護機制：如果委員目前在線，但他的名字從名單中消失了 (代表管理員清除了資料)
+                // ★ 即時監聽防護 1：如果委員目前在線，且系統被重置 (sessionId 改變)，強制踢回首頁 ★
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentUrlSid = urlParams.get('sid');
+                const isCommitteeLink = urlParams.has('school') && urlParams.has('dept') && currentRole !== 'admin';
+                
+                if (isCommitteeLink && globalConfig.sessionId && currentUrlSid !== globalConfig.sessionId) {
+                    alert('⚠️ 此投票連結已失效！\n管理員已重置系統，請向管理員索取最新連結。');
+                    localStorage.removeItem(`activeUser_${activeAppId}`);
+                    window.location.href = window.location.pathname; // 強制跳回無參數的首頁
+                    return;
+                }
+
+                // 核心防護機制 2：如果委員名字從名單中消失了 (代表管理員清除了資料)
                 if (currentRole === 'committee' && currentUserLabel) {
                     if (!globalConfig.committees || !globalConfig.committees.includes(currentUserLabel)) {
                         alert('⚠️ 系統已重置或您的名單已被刪除，將強制登出。');
@@ -1295,7 +1320,6 @@
             window.location.reload(); 
         };
 
-        // ★ 新增：當委員重新整理或關閉網頁時，嘗試將他們從已上線名單移除
         window.addEventListener('beforeunload', () => {
             if (currentRole === 'committee' && currentUserLabel) {
                 if (globalConfig.loggedInUsers && globalConfig.loggedInUsers.includes(currentUserLabel)) {
@@ -1305,11 +1329,19 @@
             }
         });
 
-        window.copyVotingLink = () => {
+        // ★ 修改：產生帶有 sid 的網址 ★
+        window.copyVotingLink = async () => {
             if (!currentSchool || !currentDept) return;
+            
+            if (!globalConfig.sessionId) {
+                globalConfig.sessionId = Date.now().toString();
+                await saveConfigToCloud();
+            }
+
             const url = new URL(window.location.href);
             url.searchParams.set('school', currentSchool);
             url.searchParams.set('dept', currentDept);
+            url.searchParams.set('sid', globalConfig.sessionId); // 加上隱形金鑰
             const fullLink = url.toString();
 
             const tempInput = document.createElement("input");
@@ -1594,10 +1626,12 @@
                 await Promise.all(deletePromises);
 
                 const currentPassword = globalConfig.adminPassword || '';
+                const newSessionId = Date.now().toString(); // ★ 產生新的金鑰，作廢舊連結 ★
                 globalConfig = { 
                     committees: [], grades: [], books: {}, sortMode: 'score', gradeRanges: {}, 
                     isAnonymous: false, subject: `${currentSchool} ${currentDept}`, adminPassword: currentPassword,
-                    voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: []
+                    voteMode: 'simultaneous', gradeStatus: {}, showResultStatus: {}, loggedInUsers: [],
+                    sessionId: newSessionId
                 };
                 await setDoc(configDocRef, globalConfig);
 
