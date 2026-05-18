@@ -21,7 +21,7 @@
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
+            overflow: hidden; /* 桌機預設隱藏捲軸 */
             background-color: var(--bg-color);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: var(--text-color);
@@ -43,7 +43,7 @@
             z-index: 10;
             align-items: flex-start;
             max-width: 95vw;
-            flex-wrap: wrap; /* 手機版自動換行 */
+            flex-wrap: wrap; 
         }
 
         /* 獨立面板共用樣式 */
@@ -90,15 +90,15 @@
             color: var(--accent-color);
         }
 
-        /* 新增質量數值的放大樣式 */
+        /* 質量數值的放大樣式 */
         .mass-val {
             font-size: 1.5em;
         }
 
-        /* 新增速度單位 v0 的樣式 */
+        /* 速度單位 v0 的樣式 */
         .v-symbol {
             font-size: 2em;
-            font-style: italic; /* 物理符號通常使用斜體 */
+            font-style: italic; 
             font-family: 'Times New Roman', Times, serif;
         }
 
@@ -174,7 +174,7 @@
 
         #btn-reset {
             background-color: var(--btn-reset-bg);
-            color: #333; /* 黃底配深色字更清晰 */
+            color: #333; 
         }
 
         #btn-reset:hover {
@@ -207,19 +207,32 @@
         }
 
         /* ==================================================
-           僅針對手機版的優化佈局 (高度極致壓縮 0.6 倍)
+           針對手機版及手機橫向的優化佈局 (允許向下捲動)
+           涵蓋寬度小於850px(一般手機橫放)或高度極小的情況
            ================================================== */
-        @media (max-width: 600px) {
+        @media (max-width: 850px), (max-height: 500px) {
+            body, html {
+                overflow-y: auto; /* 解除捲軸隱藏，允許上下滑動 */
+                height: auto;
+            }
             #ui-container {
-                top: 5px;
-                left: 5px;
-                right: 5px;
-                gap: 5px;
-                pointer-events: none; /* 讓未被面板覆蓋的空白區域可以將事件穿透至下方畫布 */
+                position: relative; /* 釋放絕對定位，排入正常網頁流，把下方的畫布往下推 */
+                top: 0;
+                left: 0;
+                right: auto;
+                width: 100%;
+                margin: 0;
+                padding: 10px;
+                box-sizing: border-box;
+                gap: 10px;
+                pointer-events: auto; 
+            }
+            canvas {
+                height: auto; /* 讓 CSS 高度依照 JS 設定的實際像素，避免被 100% 壓縮 */
             }
             .panel {
-                pointer-events: auto; /* 面板本身保持可點擊 */
-                padding: 8px 12px; /* 大幅縮小手機版內距 */
+                pointer-events: auto;
+                padding: 10px 15px; 
                 border-radius: 6px;
             }
             #controls-panel, #stats-panel {
@@ -228,49 +241,49 @@
             }
             h1 {
                 font-size: 1.05rem;
-                margin: 0 0 6px 0; /* 縮小標題下方間距 */
+                margin: 0 0 8px 0;
             }
             .control-group {
-                margin-bottom: 6px; /* 縮小控制項間距 */
+                margin-bottom: 8px;
             }
             .control-group label {
-                font-size: 0.8rem;
-                margin-bottom: 2px;
+                font-size: 0.85rem;
+                margin-bottom: 4px;
             }
             .mass-val {
-                font-size: 1.1em; /* 在手機上適度縮小質量字體 */
+                font-size: 1.1em;
             }
             input[type=range] {
-                height: 4px; /* 滑桿變細 */
+                height: 4px;
             }
             input[type=range]::-webkit-slider-thumb {
-                width: 14px;
-                height: 14px; /* 滑桿按鈕變小 */
+                width: 16px;
+                height: 16px; 
             }
             .button-group {
-                margin-top: 8px;
-                gap: 8px;
+                margin-top: 10px;
+                gap: 10px;
             }
             button {
-                padding: 6px; /* 縮小按鈕高度 */
-                font-size: 0.9rem;
+                padding: 8px; 
+                font-size: 0.95rem;
             }
             .stat-main {
                 font-size: 1.1rem;
-                margin-bottom: 6px;
-                padding-bottom: 6px;
+                margin-bottom: 8px;
+                padding-bottom: 8px;
             }
             .stat-main span {
-                font-size: 1.6rem; /* 縮小碰撞次數數字 */
+                font-size: 1.8rem; 
             }
             .stat-details {
-                font-size: 0.8rem;
-                line-height: 1.2;
+                font-size: 0.85rem;
+                line-height: 1.3;
                 display: flex;
-                justify-content: space-between; /* 將原本垂直排列的三個速度改為並排 */
+                justify-content: space-between; 
             }
             .stat-details > div {
-                white-space: nowrap; /* 強制不換行，防止 v0 跑到下一行導致面板長高 */
+                white-space: nowrap; 
             }
             .v-symbol {
                 font-size: 1.2em;
@@ -297,7 +310,6 @@
 
             <div class="control-group">
                 <label><span>畫面縮放:</span> <span id="val-zoom" class="highlight">1.00x</span></label>
-                <!-- 修改為預設最大 1.00，最低 0.10 -->
                 <input type="range" id="slider-zoom" min="0.10" max="1.00" step="0.01" value="1.00">
             </div>
 
@@ -344,7 +356,7 @@
 
         // Simulation State
         let isPlaying = false; 
-        let hasStarted = false; // 新增變數：記錄是否已經開始發射
+        let hasStarted = false; 
         let animationId;
         let collisionCount = 0;
         
@@ -353,7 +365,6 @@
         let basePpx = 100; // 基礎縮放下的每單位像素
         const PHYS_W = 1.25; // 物體的「物理寬度」單位 (1.25 * 100px = 125px，對應原本放大的2.5倍設定)
         
-        // 將原本的 100 縮小 0.3 倍變為 30，釋放下方空間給動畫
         const GROUND_Y_OFFSET = 30; 
         const INITIAL_V = 3; 
 
@@ -361,7 +372,6 @@
             constructor(name, m, initialX, initialV) {
                 this.name = name;
                 this.m = m;
-                // Physical properties
                 this.x = initialX; // 物理位置
                 this.v = initialV; // 物理速度
                 this.color = '#c69c72'; 
@@ -446,9 +456,10 @@
         }
 
         function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            // 基礎的解析度縮放，確保在大螢幕/小螢幕物件初始都在視野內
+            // 使用 clientWidth 防止出現垂直捲軸時造成水平寬度擠壓
+            canvas.width = document.documentElement.clientWidth;
+            // 設定最小高度 400px，確保手機橫放並往下捲動時，動畫區塊有充足的空間顯示
+            canvas.height = Math.max(window.innerHeight, 400); 
             basePpx = Math.max(50, canvas.width / 15);
         }
 
@@ -483,7 +494,7 @@
             let right0 = blocks[0].x + PHYS_W;
             let left1 = blocks[1].x;
             if (right0 >= left1 && blocks[0].v > blocks[1].v) {
-                blocks[0].x = left1 - PHYS_W; // 修正位置避免穿透
+                blocks[0].x = left1 - PHYS_W; 
                 collide(blocks[0], blocks[1]);
             }
 
@@ -508,7 +519,6 @@
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)'; 
             ctx.lineWidth = 1;
             ctx.beginPath();
-            // 隨著縮放改變格線寬度
             for (let x = 0; x < canvas.width; x += currentPpx) {
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, groundY);
@@ -528,7 +538,7 @@
             lastTime = timestamp;
 
             const groundY = canvas.height - GROUND_Y_OFFSET;
-            const currentPpx = basePpx * globalZoom; // 套用縮放倍率
+            const currentPpx = basePpx * globalZoom; 
 
             if (isPlaying) {
                 updatePhysics(dt);
@@ -570,12 +580,10 @@
 
         sliderZoom.addEventListener('input', (e) => {
             globalZoom = parseFloat(e.target.value);
-            // 配合 step 0.01，顯示至小數點後第二位
             valZoom.innerText = globalZoom.toFixed(2) + 'x';
         });
 
         btnPlay.addEventListener('click', () => {
-            // 如果是全新狀態下的第一次發射，套用最新滑桿設定，並鎖定質量滑桿
             if (!hasStarted) {
                 hasStarted = true;
                 sliderM2.disabled = true;
@@ -585,12 +593,11 @@
             
             isPlaying = !isPlaying;
             btnPlay.innerText = isPlaying ? "暫停" : "開始發射";
-            btnPlay.style.backgroundColor = isPlaying ? "#e6ad00" : "var(--btn-play-bg)"; // 播放時變色提示
+            btnPlay.style.backgroundColor = isPlaying ? "#e6ad00" : "var(--btn-play-bg)"; 
             lastTime = performance.now(); 
         });
 
         btnReset.addEventListener('click', () => {
-            // 重置時解鎖狀態與質量滑桿
             hasStarted = false;
             sliderM2.disabled = false;
             sliderM3.disabled = false;
