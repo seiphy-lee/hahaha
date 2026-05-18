@@ -193,58 +193,71 @@
             font-family: sans-serif;
         }
 
-        /* 僅針對手機版的優化佈局 */
+        /* ==================================================
+           僅針對手機版的優化佈局 (高度極致壓縮 0.6 倍)
+           ================================================== */
         @media (max-width: 600px) {
             #ui-container {
-                top: 10px;
-                left: 10px;
-                right: 10px;
-                gap: 10px;
+                top: 5px;
+                left: 5px;
+                right: 5px;
+                gap: 5px;
                 pointer-events: none; /* 讓未被面板覆蓋的空白區域可以將事件穿透至下方畫布 */
             }
             .panel {
                 pointer-events: auto; /* 面板本身保持可點擊 */
-                padding: 12px 15px; /* 大幅縮小手機版內距 */
+                padding: 8px 12px; /* 大幅縮小手機版內距 */
+                border-radius: 6px;
             }
             #controls-panel, #stats-panel {
                 width: 100%;
                 box-sizing: border-box;
             }
             h1 {
-                font-size: 1.1rem;
-                margin: 0 0 10px 0; /* 縮小標題下方間距 */
+                font-size: 1.05rem;
+                margin: 0 0 6px 0; /* 縮小標題下方間距 */
             }
             .control-group {
-                margin-bottom: 10px; /* 縮小控制項間距 */
+                margin-bottom: 6px; /* 縮小控制項間距 */
             }
             .control-group label {
-                font-size: 0.9rem;
-                margin-bottom: 4px;
+                font-size: 0.8rem;
+                margin-bottom: 2px;
             }
             .mass-val {
-                font-size: 1.2em; /* 在手機上適度縮小質量字體 */
+                font-size: 1.1em; /* 在手機上適度縮小質量字體 */
+            }
+            input[type=range] {
+                height: 4px; /* 滑桿變細 */
+            }
+            input[type=range]::-webkit-slider-thumb {
+                width: 14px;
+                height: 14px; /* 滑桿按鈕變小 */
             }
             .button-group {
-                margin-top: 10px;
-                gap: 10px;
+                margin-top: 8px;
+                gap: 8px;
             }
             button {
-                padding: 10px; /* 縮小按鈕高度 */
-                font-size: 0.95rem;
+                padding: 6px; /* 縮小按鈕高度 */
+                font-size: 0.9rem;
             }
             .stat-main {
-                font-size: 1.2rem;
-                margin-bottom: 8px;
-                padding-bottom: 8px;
+                font-size: 1.1rem;
+                margin-bottom: 6px;
+                padding-bottom: 6px;
             }
             .stat-main span {
-                font-size: 2rem; /* 縮小碰撞次數數字 */
+                font-size: 1.6rem; /* 縮小碰撞次數數字 */
             }
             .stat-details {
-                font-size: 0.9rem;
-                line-height: 1.4;
+                font-size: 0.8rem;
+                line-height: 1.2;
                 display: flex;
-                justify-content: space-between; /* 將原本垂直排列的三個速度改為並排，大幅節省垂直空間 */
+                justify-content: space-between; /* 將原本垂直排列的三個速度改為並排 */
+            }
+            .stat-details > div {
+                white-space: nowrap; /* 強制不換行，防止 v0 跑到下一行導致面板長高 */
             }
             .v-symbol {
                 font-size: 1.2em;
@@ -271,7 +284,6 @@
 
             <div class="control-group">
                 <label><span>畫面縮放:</span> <span id="val-zoom" class="highlight">1.00x</span></label>
-                <!-- 將 step 改為 0.01 以達到滑順效果 -->
                 <input type="range" id="slider-zoom" min="0.5" max="2.0" step="0.01" value="1.0">
             </div>
 
@@ -325,7 +337,9 @@
         let globalZoom = 1.0;
         let basePpx = 100; // 基礎縮放下的每單位像素
         const PHYS_W = 1.25; // 物體的「物理寬度」單位 (1.25 * 100px = 125px，對應原本放大的2.5倍設定)
-        const GROUND_Y_OFFSET = 100; 
+        
+        // 將原本的 100 縮小 0.3 倍變為 30，釋放下方空間給動畫
+        const GROUND_Y_OFFSET = 30; 
         const INITIAL_V = 3; 
 
         class Block {
