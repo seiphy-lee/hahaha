@@ -13,33 +13,35 @@
         ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
         
         .canvas-container {
-            aspect-ratio: 16 / 5;
+            /* 桌機版維持較長寬比，去除天空後改為 5:1 */
+            aspect-ratio: 5 / 1;
             width: 100%;
             background-color: #f8fafc;
         }
         
         @media (max-width: 768px) {
-            .canvas-container { aspect-ratio: 16 / 7; }
+            /* 手機版設定，配合內部 w-[180%] 放大畫布 */
+            .canvas-container { aspect-ratio: 5 / 1; }
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800 font-sans p-4 md:p-8">
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans p-2 md:p-8">
 
-    <div class="max-w-6xl mx-auto space-y-6">
+    <div class="max-w-6xl mx-auto space-y-4 md:space-y-6">
         
         <!-- 標題與說明 -->
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">一維彈性碰撞過程模擬</h1>
-            <p class="text-gray-600 text-sm md:text-base leading-relaxed">
+        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900 mb-2">一維彈性碰撞過程模擬</h1>
+            <p class="text-gray-600 text-xs md:text-base leading-relaxed hidden md:block">
                 本動畫以<b>靜止觀察者視角</b>演示。模擬總時間固定為 10 秒：碰撞前接近需 3 秒，彈簧壓縮接觸時間剛好為 4 秒，碰撞後分離演示 3 秒。質量與初始速度為固定參數以利於觀察彈簧壓縮期間的速度與距離變化。
             </p>
         </div>
 
         <!-- 兩欄式佈局：控制面板與圖表 -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             
             <!-- 控制面板 -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-1 space-y-6 flex flex-col justify-between">
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-1 space-y-4 md:space-y-6 flex flex-col justify-between hidden md:flex">
                 <div>
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-xl font-bold text-gray-800">系統參數</h2>
@@ -78,42 +80,45 @@
             </div>
 
             <!-- v-t 圖表區 -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">v-t 圖 (速度-時間)</h2>
-                <!-- 放大鉛直方向的高度 -->
-                <div class="w-full h-80 relative">
+            <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
+                <h2 class="text-lg md:text-xl font-bold text-gray-800 mb-2 md:mb-4 px-2 pt-2 md:p-0">v-t 圖 (速度-時間)</h2>
+                <!-- 手機版高度壓縮成 h-56 (約0.7倍)，桌機版維持 h-80 -->
+                <div class="w-full h-56 md:h-80 relative">
                     <canvas id="vtChart"></canvas>
                 </div>
             </div>
         </div>
 
         <!-- 動畫展示區 -->
-        <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 relative">
+        <div class="bg-white p-3 md:p-6 rounded-xl shadow-sm border border-gray-200 relative flex flex-col">
             
-            <!-- 手機版專屬按鍵 (右上角) -->
-            <div class="absolute top-4 right-4 z-20 flex md:hidden space-x-2">
-                <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors text-xl font-bold w-32">
+            <!-- 手機版專屬控制列 (獨立一排，不重疊，字體縮小為 0.6x~0.7x) -->
+            <div class="flex md:hidden items-center justify-start space-x-2 mb-2 w-full">
+                <div id="phaseIndicatorBadgeMobile" class="bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center">
+                    碰撞前
+                </div>
+                <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center w-20">
                     開始播放
                 </button>
-                <button id="btnResetMobile" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg shadow-md transition-colors text-xl font-bold">
+                <button id="btnResetMobile" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center">
                     重置
                 </button>
             </div>
 
-            <!-- 狀態指示器 -->
-            <div class="absolute top-4 left-4 md:top-8 md:left-8 z-20 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none" id="phaseIndicatorBadge">
+            <!-- 桌機版狀態指示器 -->
+            <div class="hidden md:flex absolute top-8 left-8 z-20 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none" id="phaseIndicatorBadge">
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
-            <!-- 物理狀態文字說明 -->
-            <div class="absolute top-4 md:top-8 right-4 md:right-8 z-10 text-right bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm border border-gray-100 hidden md:block">
+            <!-- 桌機版物理狀態文字說明 -->
+            <div class="absolute top-8 right-8 z-10 text-right bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm border border-gray-100 hidden md:block">
                 <p id="descLine1" class="text-gray-800 font-medium">v₁ > v₂</p>
                 <p id="descLine2" class="text-gray-600 text-sm">系統總動能最大，<br>總位能為零。</p>
             </div>
 
-            <!-- 橫向滑動區塊 (手機版畫布放大 1.5倍) -->
-            <div class="w-full overflow-x-auto overflow-y-hidden rounded mt-20 md:mt-0" style="-webkit-overflow-scrolling: touch;">
-                <div class="canvas-container relative w-[150%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden md:mt-4" id="canvasWrapper">
+            <!-- 橫向滑動區塊 (手機版畫布放大倍率增加為 w-[180%]，配合移除的上方留白，視覺大幅放大) -->
+            <div class="w-full overflow-x-auto overflow-y-hidden rounded md:mt-0" style="-webkit-overflow-scrolling: touch;">
+                <div class="canvas-container relative w-[180%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden" id="canvasWrapper">
                     <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
                 </div>
             </div>
@@ -175,7 +180,8 @@
         const wrapper = document.getElementById('canvasWrapper');
         
         const logicalWidth = 1100;
-        const logicalHeight = 350;
+        // 【優化】將邏輯高度從 350 大幅縮減至 220，去除物體上方的無效灰色天空
+        const logicalHeight = 220; 
 
         const ui = {
             btnPlay: document.getElementById('btnPlayPause'),
@@ -184,6 +190,7 @@
             btnResetMobile: document.getElementById('btnResetMobile'),
             phaseInd: document.getElementById('phaseIndicator'),
             badge: document.getElementById('phaseIndicatorBadge'),
+            badgeMobile: document.getElementById('phaseIndicatorBadgeMobile'),
             descL1: document.getElementById('descLine1'),
             descL2: document.getElementById('descLine2'),
             timeDisplay: document.getElementById('timeDisplay'),
@@ -191,33 +198,43 @@
         };
 
         function updateTimeDisplay() {
-            ui.timeDisplay.innerHTML = `${state.time.toFixed(2)} <span class="text-2xl text-slate-500">s</span>`;
-            ui.progressText.innerText = Math.floor(state.time);
+            if(ui.timeDisplay) {
+                ui.timeDisplay.innerHTML = `${state.time.toFixed(2)} <span class="text-2xl text-slate-500">s</span>`;
+            }
+            if(ui.progressText) {
+                ui.progressText.innerText = Math.floor(state.time);
+            }
         }
 
         function updatePlayButtons() {
             let isEnd = state.x1 - PHYS.blockW/2 > logicalWidth + 150;
             let text = "";
-            let baseClass = "";
+            let baseClassDesk = "";
+            let baseClassMob = "";
 
             if (isEnd) {
                 text = "重新播放";
-                baseClass = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+                baseClassDesk = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+                baseClassMob = "bg-green-600 hover:bg-green-700 text-white transition-colors";
             } else if (state.running) {
                 text = "暫停";
-                baseClass = "bg-blue-600 hover:bg-blue-700 text-white transition-colors";
+                baseClassDesk = "bg-blue-600 hover:bg-blue-700 text-white transition-colors";
+                baseClassMob = "bg-blue-600 hover:bg-blue-700 text-white transition-colors";
             } else {
                 text = state.time === 0 ? "開始播放" : "繼續播放";
-                baseClass = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+                baseClassDesk = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+                baseClassMob = "bg-green-600 hover:bg-green-700 text-white transition-colors";
             }
 
             // 更新桌面版按鈕
-            ui.btnPlay.innerText = text;
-            ui.btnPlay.className = `${baseClass} px-4 py-2 rounded shadow w-24`;
+            if(ui.btnPlay) {
+                ui.btnPlay.innerText = text;
+                ui.btnPlay.className = `${baseClassDesk} px-4 py-2 rounded shadow w-24`;
+            }
 
-            // 更新手機版按鈕
+            // 更新手機版按鈕 (字體 0.6x = text-sm)
             ui.btnPlayMobile.innerText = text;
-            ui.btnPlayMobile.className = `${baseClass} px-4 py-2 rounded-lg shadow-md text-xl font-bold w-32`;
+            ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20`;
         }
 
         const handlePlayClick = () => {
@@ -240,9 +257,9 @@
         };
 
         // 綁定兩組按鈕事件
-        ui.btnPlay.addEventListener('click', handlePlayClick);
+        if(ui.btnPlay) ui.btnPlay.addEventListener('click', handlePlayClick);
         ui.btnPlayMobile.addEventListener('click', handlePlayClick);
-        ui.btnReset.addEventListener('click', handleResetClick);
+        if(ui.btnReset) ui.btnReset.addEventListener('click', handleResetClick);
         ui.btnResetMobile.addEventListener('click', handleResetClick);
 
         // ---------------------------------------------------------
@@ -271,7 +288,7 @@
                 },
                 {
                     label: '質心速度 (v_C)',
-                    borderColor: '#FF0000', // 質心速度虛線改為紅色
+                    borderColor: '#FF0000',
                     backgroundColor: 'transparent',
                     data: [],
                     borderWidth: 2,
@@ -289,6 +306,10 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: false,
+                layout: {
+                    // 減少圖表周圍不必要的留白
+                    padding: { left: 0, right: 0, top: 0, bottom: 0 }
+                },
                 interaction: {
                     mode: 'index',
                     intersect: false,
@@ -299,7 +320,8 @@
                         title: { 
                             display: true, 
                             text: '時間 (s)', 
-                            padding: { top: 15 } 
+                            // 去除 top padding，將字體往上拉近軸線
+                            padding: { top: 2, bottom: 0 } 
                         },
                         min: 0,
                         max: 10,
@@ -311,22 +333,19 @@
                     y: {
                         title: { display: true, text: '速度 (m/s)' },
                         min: 0,
-                        max: 80 // 【調整】最大值調整為 80
+                        max: 80 
                     }
                 },
                 plugins: {
                     legend: { 
                         position: 'top',
                         labels: {
-                            usePointStyle: true, // 使用自訂圖例樣式
+                            usePointStyle: true,
+                            boxWidth: 20,
                             generateLabels: function(chart) {
-                                // 呼叫預設標籤生成函式
                                 const originalLabels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
                                 originalLabels.forEach(label => {
-                                    // 強制設定圖例為直線形狀
                                     label.pointStyle = 'line';
-                                    
-                                    // 針對質心速度改變文字顏色
                                     if (label.text.includes('質心速度')) {
                                         label.fontColor = '#FF0000';
                                     }
@@ -384,23 +403,21 @@
             ctx.beginPath();
             ctx.strokeStyle = '#64748b';
             ctx.lineWidth = 2.5;
-            // 圓角讓端點接合更平滑
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
             
             let width = endX - startX;
-            let numCoils = 12; // 圈數
-            let amplitude = 12; // 【固定高度】絕不突變
+            let numCoils = 12; 
+            let amplitude = 12; 
             let flatEnd = 20; 
             
-            // 安全限制，避免錯誤
             if (width < 2) return;
             
             ctx.moveTo(startX, y);
             ctx.lineTo(startX + flatEnd, y);
             
             let springWidth = Math.max(0, width - flatEnd * 2);
-            let segments = 200; // 使用高密度點位來描繪完美的正弦波連續曲線
+            let segments = 200; 
             
             for (let i = 0; i <= segments; i++) {
                 let t = i / segments;
@@ -475,16 +492,15 @@
             ctx.translate(offsetX, offsetY);
             ctx.scale(scale, scale);
 
+            // 調整地板位置對應新的 logicalHeight (220)
             const groundY = logicalHeight / 2 + PHYS.blockH/2 + 2;
 
             ctx.fillStyle = '#cbd5e1'; 
-            // 將地板向右與向左延伸，確保超出畫面範圍
             ctx.fillRect(-500, groundY, logicalWidth + 1000, 15);
             
             ctx.fillStyle = '#64748b';
             ctx.font = '12px sans-serif';
             ctx.textAlign = 'center';
-            // 將座標軸刻度多繪製一段，配合延長的地板
             for (let i = 0; i <= logicalWidth + 300; i += 100) {
                 ctx.beginPath();
                 ctx.moveTo(i, groundY);
@@ -525,29 +541,33 @@
         // 狀態文字更新
         // ---------------------------------------------------------
         function updateDescriptions() {
-            let ind = ui.phaseInd;
             let badge = ui.badge;
-            let l1 = ui.descL1;
-            let l2 = ui.descL2;
+            let badgeMob = ui.badgeMobile;
             
             switch(state.phase) {
                 case 'before':
-                    ind.innerText = '碰撞前';
-                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
-                    l1.innerHTML = 'v<sub class="text-xs">1</sub> > v<sub class="text-xs">2</sub>';
-                    l2.innerHTML = '距離縮短中<br>總位能為零。';
+                    if(badge) {
+                        badge.innerHTML = '<span class="tracking-widest">碰撞前</span>';
+                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
+                    }
+                    badgeMob.innerText = '碰撞前';
+                    badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
                     break;
                 case 'during':
-                    ind.innerText = '碰撞中';
-                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
-                    l1.innerHTML = '彈力作用中';
-                    l2.innerHTML = '動能與位能劇烈轉換中...';
+                    if(badge) {
+                        badge.innerHTML = '<span class="tracking-widest">碰撞中</span>';
+                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
+                    }
+                    badgeMob.innerText = '碰撞中';
+                    badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
                     break;
                 case 'after':
-                    ind.innerText = '碰撞後';
-                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
-                    l1.innerHTML = 'v<sub class="text-xs">2</sub>\' > v<sub class="text-xs">1</sub>\'';
-                    l2.innerHTML = '系統總動能與碰撞前相等，<br>位能恢復為零，物體遠離。';
+                    if(badge) {
+                        badge.innerHTML = '<span class="tracking-widest">碰撞後</span>';
+                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
+                    }
+                    badgeMob.innerText = '碰撞後';
+                    badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
                     break;
             }
         }
@@ -587,8 +607,6 @@
                         if(state.phase === 'during') updateDescriptions();
                     }
                     
-                    // 【離場判斷】當甲物體(在左側的物體)完全離開右方界線時，才停止模擬
-                    // 增加緩衝空間確保物體完全退場 (大於視窗邊界)
                     if (state.x1 - PHYS.blockW/2 > logicalWidth + 150) {
                         state.running = false;
                         updatePlayButtons();
