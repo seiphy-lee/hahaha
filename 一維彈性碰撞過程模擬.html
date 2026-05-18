@@ -43,7 +43,8 @@
                 <div>
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-xl font-bold text-gray-800">系統參數</h2>
-                        <div class="space-x-2">
+                        <!-- 桌面版按鍵 -->
+                        <div class="space-x-2 hidden md:block">
                             <button id="btnPlayPause" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition-colors w-24">
                                 開始播放
                             </button>
@@ -87,10 +88,20 @@
         </div>
 
         <!-- 動畫展示區 -->
-        <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden">
+        <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 relative">
             
+            <!-- 手機版專屬按鍵 (右上角) -->
+            <div class="absolute top-4 right-4 z-20 flex md:hidden space-x-2">
+                <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-md transition-colors text-xl font-bold w-32">
+                    開始播放
+                </button>
+                <button id="btnResetMobile" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg shadow-md transition-colors text-xl font-bold">
+                    重置
+                </button>
+            </div>
+
             <!-- 狀態指示器 -->
-            <div class="absolute top-4 md:top-8 left-4 md:left-8 z-10 text-white px-4 py-2 rounded shadow-md text-sm md:text-base font-bold flex items-center transition-colors duration-300" id="phaseIndicatorBadge">
+            <div class="absolute top-4 left-4 md:top-8 md:left-8 z-20 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none" id="phaseIndicatorBadge">
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
@@ -100,9 +111,11 @@
                 <p id="descLine2" class="text-gray-600 text-sm">系統總動能最大，<br>總位能為零。</p>
             </div>
 
-            <!-- 動畫畫布 -->
-            <div class="canvas-container relative rounded overflow-hidden mt-4" id="canvasWrapper">
-                <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+            <!-- 橫向滑動區塊 (手機版畫布放大 1.5倍) -->
+            <div class="w-full overflow-x-auto overflow-y-hidden rounded mt-20 md:mt-0" style="-webkit-overflow-scrolling: touch;">
+                <div class="canvas-container relative w-[150%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden md:mt-4" id="canvasWrapper">
+                    <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+                </div>
             </div>
         </div>
 
@@ -150,8 +163,7 @@
             updateTimeDisplay();
 
             state.running = false;
-            ui.btnPlay.innerText = "開始播放";
-            ui.btnPlay.className = "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition-colors w-24";
+            updatePlayButtons();
             lastTime = performance.now();
         };
 
@@ -168,6 +180,8 @@
         const ui = {
             btnPlay: document.getElementById('btnPlayPause'),
             btnReset: document.getElementById('btnReset'),
+            btnPlayMobile: document.getElementById('btnPlayPauseMobile'),
+            btnResetMobile: document.getElementById('btnResetMobile'),
             phaseInd: document.getElementById('phaseIndicator'),
             badge: document.getElementById('phaseIndicatorBadge'),
             descL1: document.getElementById('descLine1'),
@@ -181,30 +195,55 @@
             ui.progressText.innerText = Math.floor(state.time);
         }
 
-        ui.btnPlay.addEventListener('click', () => {
+        function updatePlayButtons() {
+            let isEnd = state.x1 - PHYS.blockW/2 > logicalWidth + 150;
+            let text = "";
+            let baseClass = "";
+
+            if (isEnd) {
+                text = "重新播放";
+                baseClass = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+            } else if (state.running) {
+                text = "暫停";
+                baseClass = "bg-blue-600 hover:bg-blue-700 text-white transition-colors";
+            } else {
+                text = state.time === 0 ? "開始播放" : "繼續播放";
+                baseClass = "bg-green-600 hover:bg-green-700 text-white transition-colors";
+            }
+
+            // 更新桌面版按鈕
+            ui.btnPlay.innerText = text;
+            ui.btnPlay.className = `${baseClass} px-4 py-2 rounded shadow w-24`;
+
+            // 更新手機版按鈕
+            ui.btnPlayMobile.innerText = text;
+            ui.btnPlayMobile.className = `${baseClass} px-4 py-2 rounded-lg shadow-md text-xl font-bold w-32`;
+        }
+
+        const handlePlayClick = () => {
             // 當兩物體完全移出畫面外時，點擊播放會自動重置並直接開始播放
-            // 擴大判斷範圍(logicalWidth + 150)，確保完全離開畫面邊界
             if (state.x1 - PHYS.blockW/2 > logicalWidth + 150) {
                 initialSetup();
                 state.running = true;
-                ui.btnPlay.innerText = "暫停";
-                ui.btnPlay.className = "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition-colors w-24";
+                updatePlayButtons();
                 lastTime = performance.now();
             } else {
                 state.running = !state.running;
-                ui.btnPlay.innerText = state.running ? "暫停" : "開始播放";
-                ui.btnPlay.className = state.running 
-                    ? "bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow transition-colors w-24"
-                    : "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition-colors w-24";
+                updatePlayButtons();
                 if(state.running) lastTime = performance.now();
             }
-        });
+        };
 
-        ui.btnReset.addEventListener('click', () => {
+        const handleResetClick = () => {
             initialSetup();
             if(!state.running) draw();
-        });
+        };
 
+        // 綁定兩組按鈕事件
+        ui.btnPlay.addEventListener('click', handlePlayClick);
+        ui.btnPlayMobile.addEventListener('click', handlePlayClick);
+        ui.btnReset.addEventListener('click', handleResetClick);
+        ui.btnResetMobile.addEventListener('click', handleResetClick);
 
         // ---------------------------------------------------------
         // Chart.js 設定
@@ -494,19 +533,19 @@
             switch(state.phase) {
                 case 'before':
                     ind.innerText = '碰撞前';
-                    badge.className = 'absolute top-4 md:top-8 left-4 md:left-8 z-10 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-sm md:text-base font-bold flex items-center transition-colors duration-300';
+                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
                     l1.innerHTML = 'v<sub class="text-xs">1</sub> > v<sub class="text-xs">2</sub>';
                     l2.innerHTML = '距離縮短中<br>總位能為零。';
                     break;
                 case 'during':
                     ind.innerText = '碰撞中';
-                    badge.className = 'absolute top-4 md:top-8 left-4 md:left-8 z-10 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-sm md:text-base font-bold flex items-center transition-colors duration-300';
+                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
                     l1.innerHTML = '彈力作用中';
                     l2.innerHTML = '動能與位能劇烈轉換中...';
                     break;
                 case 'after':
                     ind.innerText = '碰撞後';
-                    badge.className = 'absolute top-4 md:top-8 left-4 md:left-8 z-10 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-sm md:text-base font-bold flex items-center transition-colors duration-300';
+                    badge.className = 'absolute top-4 left-4 md:top-8 md:left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-2xl md:text-base font-bold flex items-center transition-colors duration-300 pointer-events-none';
                     l1.innerHTML = 'v<sub class="text-xs">2</sub>\' > v<sub class="text-xs">1</sub>\'';
                     l2.innerHTML = '系統總動能與碰撞前相等，<br>位能恢復為零，物體遠離。';
                     break;
@@ -552,8 +591,7 @@
                     // 增加緩衝空間確保物體完全退場 (大於視窗邊界)
                     if (state.x1 - PHYS.blockW/2 > logicalWidth + 150) {
                         state.running = false;
-                        ui.btnPlay.innerText = "重新播放";
-                        ui.btnPlay.className = "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition-colors w-24";
+                        updatePlayButtons();
                     }
                 }
             }
