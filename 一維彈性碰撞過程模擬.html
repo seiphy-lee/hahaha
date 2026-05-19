@@ -182,7 +182,6 @@
             chartData.datasets[2].data = [];
             if(vtChart) vtChart.update();
             updateDescriptions();
-            updateTimeDisplay();
 
             state.running = false;
             updatePlayButtons();
@@ -237,8 +236,10 @@
             }
 
             // 更新手機版按鈕 (配合 CSS 橫向自動縮小)
-            ui.btnPlayMobile.innerText = text;
-            ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20 btn-mobile`;
+            if(ui.btnPlayMobile) {
+                ui.btnPlayMobile.innerText = text;
+                ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20 btn-mobile`;
+            }
         }
 
         const handlePlayClick = () => {
@@ -262,9 +263,9 @@
 
         // 綁定兩組按鈕事件
         if(ui.btnPlay) ui.btnPlay.addEventListener('click', handlePlayClick);
-        ui.btnPlayMobile.addEventListener('click', handlePlayClick);
+        if(ui.btnPlayMobile) ui.btnPlayMobile.addEventListener('click', handlePlayClick);
         if(ui.btnReset) ui.btnReset.addEventListener('click', handleResetClick);
-        ui.btnResetMobile.addEventListener('click', handleResetClick);
+        if(ui.btnResetMobile) ui.btnResetMobile.addEventListener('click', handleResetClick);
 
         // ---------------------------------------------------------
         // Chart.js 設定
@@ -554,24 +555,30 @@
                         badge.innerHTML = '<span class="tracking-widest">碰撞前</span>';
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
-                    badgeMob.innerText = '碰撞前';
-                    badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    if(badgeMob) {
+                        badgeMob.innerText = '碰撞前';
+                        badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    }
                     break;
                 case 'during':
                     if(badge) {
                         badge.innerHTML = '<span class="tracking-widest">碰撞中</span>';
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
-                    badgeMob.innerText = '碰撞中';
-                    badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    if(badgeMob) {
+                        badgeMob.innerText = '碰撞中';
+                        badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    }
                     break;
                 case 'after':
                     if(badge) {
                         badge.innerHTML = '<span class="tracking-widest">碰撞後</span>';
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
-                    badgeMob.innerText = '碰撞後';
-                    badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    if(badgeMob) {
+                        badgeMob.innerText = '碰撞後';
+                        badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
+                    }
                     break;
             }
         }
@@ -593,7 +600,6 @@
                 
                 if (simDt > 0) {
                     updatePhysics(simDt);
-                    updateTimeDisplay();
 
                     chartUpdateTimer += simDt;
                     // 【限制】確保圖表點位最多只畫到 10 秒
