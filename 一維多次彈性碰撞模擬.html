@@ -388,10 +388,10 @@
         const GROUND_Y_OFFSET = 30; // 確保物體靠近底部邊緣
         const INITIAL_V = 3; 
 
-        // ★ 新增：定義縮放的固定錨點 (Anchor Point)
-        // 甲初始 1.0，丙初始 7.0，兩者距離 6.0。
-        // 以丙右方等距處為錨點：7.0 + 6.0 = 13.0
-        const ANCHOR_X = 13.0; 
+        // ★ 修正：定義縮放的固定錨點 (Anchor Point)
+        // 將錨點精準設定在「丙物體的中心位置」(初始X: 7.0 + 寬度一半)
+        // 這樣縮放時，丙物體在畫面上的位置將保持完全不動
+        const ANCHOR_X = 7.0 + (PHYS_W / 2); 
 
         class Block {
             constructor(name, m, initialX, initialV) {
