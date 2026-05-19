@@ -61,23 +61,12 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             
             <!-- 控制面板 -->
-            <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-1 space-y-4 md:space-y-6 flex flex-col justify-between hidden md:flex">
+            <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-1 flex flex-col hidden md:flex h-full">
                 <div>
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-bold text-gray-800">系統參數</h2>
-                        <!-- 桌面版按鍵 -->
-                        <div class="space-x-2 hidden md:block">
-                            <button id="btnPlayPause" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow transition-colors w-24">
-                                開始播放
-                            </button>
-                            <button id="btnReset" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded shadow transition-colors">
-                                重置
-                            </button>
-                        </div>
-                    </div>
+                    <h2 class="text-xl font-bold text-gray-800 mb-6">系統參數</h2>
 
                     <!-- 參數顯示 (固定值) -->
-                    <div class="grid grid-cols-2 gap-4 text-center mt-6">
+                    <div class="grid grid-cols-2 gap-4 text-center">
                         <div class="bg-green-50 p-4 rounded-lg border border-green-100 shadow-sm">
                             <div class="text-sm text-green-700 font-bold mb-1">甲物體 (m₁)</div>
                             <div class="text-2xl font-mono font-bold text-green-600">2.0 <span class="text-sm">kg</span></div>
@@ -91,11 +80,14 @@
                     </div>
                 </div>
 
-                <!-- 大尺寸計時器 -->
-                <div class="bg-slate-100 p-4 rounded-lg text-center border border-slate-200 shadow-inner mt-4">
-                    <div class="text-sm text-slate-500 font-bold mb-1 tracking-widest">模擬時間</div>
-                    <div class="text-5xl font-mono font-bold text-slate-800" id="timeDisplay">0.00 <span class="text-2xl text-slate-500">s</span></div>
-                    <div class="text-xs text-slate-400 mt-1">進度: <span id="progressText">0</span> 秒</div>
+                <!-- 桌面版按鍵 (移至底部) -->
+                <div class="mt-auto pt-6 flex space-x-3 w-full">
+                    <button id="btnPlayPause" class="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg shadow-md transition-colors text-lg font-bold flex-1">
+                        開始播放
+                    </button>
+                    <button id="btnReset" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg shadow-md transition-colors text-lg font-bold flex-1">
+                        重置
+                    </button>
                 </div>
             </div>
 
@@ -260,7 +252,7 @@
             // 更新桌面版按鈕
             if(ui.btnPlay) {
                 ui.btnPlay.innerText = text;
-                ui.btnPlay.className = `${baseClassDesk} px-4 py-2 rounded shadow w-24`;
+                ui.btnPlay.className = `${baseClassDesk} px-4 py-3 rounded-lg shadow-md text-lg font-bold flex-1`;
             }
 
             // 更新手機版按鈕 (配合 CSS 橫向自動縮小)
@@ -539,7 +531,7 @@
                 ctx.strokeStyle = '#f8fafc';
                 ctx.lineWidth = 2;
                 ctx.stroke();
-                ctx.fillText(i + 'm', i, groundY + 30);
+                // 移除水平位置參數 (ctx.fillText)
             }
 
             let rightOfM1 = state.x1 + PHYS.blockW/2;
