@@ -40,17 +40,17 @@
             margin-bottom: 20px;
         }
 
-        /* 修改標題字體大小為原來的 1.5 倍 (1.5rem * 1.5 = 2.25rem) */
         h1 { margin: 0; font-size: 2.25rem; letter-spacing: 1px; }
 
         /* 主內容區域 */
         .container {
             width: 100%;
             max-width: 1000px;
-            padding: 10px 20px; /* 減少上方內距 */
+            padding: 10px 20px; 
             display: flex;
             flex-direction: column;
             align-items: center;
+            box-sizing: border-box;
         }
 
         /* Canvas 通用樣式 */
@@ -60,7 +60,7 @@
             overflow: hidden;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
             background: radial-gradient(circle at center, #475569 0%, #1e293b 100%);
-            margin-bottom: 15px; /* 減少間距 */
+            margin-bottom: 15px; 
             border: 1px solid #475569;
             width: 100%;
             max-width: 100%;
@@ -77,6 +77,7 @@
             display: grid;
             gap: 20px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            box-sizing: border-box;
         }
 
         /* 兩欄佈局 */
@@ -100,7 +101,6 @@
             font-weight: bold;
         }
 
-        /* 修改滑桿樣式：設定 accent-color 為黃橙色 */
         input[type=range] { 
             width: 100%; 
             cursor: pointer; 
@@ -124,7 +124,7 @@
         }
         .toggle-switch input { width: 20px; height: 20px; }
 
-        /* 動作按鈕懸浮區 */
+        /* 動作按鈕懸浮區 (桌機版：絕對定位於底部) */
         .actions-overlay {
             position: absolute;
             bottom: 20px;
@@ -166,7 +166,6 @@
             left: 20px;
             color: rgba(255,255,255,0.9);
             font-family: 'Consolas', 'Monaco', monospace;
-            /* 修改 2：字體縮小為 0.75 倍 (2.5 * 0.75 = 1.875) */
             font-size: 1.875rem;
             font-weight: bold;
             pointer-events: none;
@@ -184,10 +183,8 @@
             right: 20px;
             color: rgba(255,255,255,0.9);
             font-family: 'Consolas', 'Monaco', monospace;
-            /* 修改 2：字體縮小 */
             font-size: 1.875rem;
             font-weight: bold;
-            /* 修改 1：靠左對齊 */
             text-align: left;
             pointer-events: none;
             background: rgba(0,0,0,0.4);
@@ -200,12 +197,11 @@
         /* 中間提示文字 */
         .center-message {
             position: absolute;
-            top: 30px; /* 稍微調整垂直位置以對齊 */
+            top: 30px; 
             left: 50%;
             transform: translateX(-50%);
-            color: #facc15; /* 黃色 */
+            color: #facc15; 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            /* 字體大小設為數據欄(1.875rem)的 1.5 倍 */
             font-size: 2.8rem; 
             font-weight: bold;
             pointer-events: none;
@@ -214,10 +210,82 @@
             z-index: 5;
         }
 
+        /* =========================================
+           手機版專屬優化 (完美解決重疊問題) 
+           ========================================= */
         @media (max-width: 600px) {
             .grid-2 { grid-template-columns: 1fr; }
-            .data-display, .data-display-right { font-size: 1.25rem; padding: 10px; }
-            .center-message { font-size: 1.5rem; top: 80px; } /* 手機版調整 */
+            h1 { font-size: 1.4rem; text-align: center; line-height: 1.3; }
+            .nav-header { padding: 15px 10px; margin-bottom: 10px;}
+            .container { padding: 5px 10px; }
+
+            /* 魔法開始：將畫布區塊轉為網格，解開所有的 absolute 定位 */
+            .canvas-wrapper {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                /* 分成四層：1.數據、2.提示文字、3.畫布、4.按鈕 */
+                grid-template-rows: auto auto auto auto; 
+                padding-top: 10px; 
+            }
+
+            /* 左上角速度 -> 移到第一排左側 */
+            .data-display {
+                position: static; /* 取消浮動 */
+                grid-column: 1 / 2;
+                grid-row: 1;
+                font-size: 1rem;
+                padding: 5px 10px;
+                background: transparent;
+                text-shadow: none;
+                text-align: left;
+            }
+
+            /* 右上角質量 -> 移到第一排右側 */
+            .data-display-right {
+                position: static; /* 取消浮動 */
+                grid-column: 2 / 3;
+                grid-row: 1;
+                font-size: 1rem;
+                padding: 5px 10px;
+                background: transparent;
+                text-shadow: none;
+                text-align: right;
+            }
+
+            /* 提示文字 -> 移到第二排中間 */
+            .center-message {
+                position: static; /* 取消浮動 */
+                grid-column: 1 / 3;
+                grid-row: 2;
+                transform: none; /* 取消位移 */
+                font-size: 1.2rem;
+                padding: 10px 10px 0px;
+                white-space: normal;
+                text-align: center;
+                margin: 0 auto;
+            }
+
+            /* 畫布 -> 移到第三排 */
+            canvas {
+                grid-column: 1 / 3;
+                grid-row: 3;
+                margin: 10px 0;
+            }
+
+            /* 按鈕區 -> 移到第四排最底部，形成一個底座 */
+            .actions-overlay {
+                position: static; /* 取消浮動 */
+                grid-column: 1 / 3;
+                grid-row: 4;
+                padding: 15px;
+                background: rgba(0, 0, 0, 0.3);
+                border-top: 1px solid rgba(255,255,255,0.1);
+            }
+
+            .btn-action {
+                padding: 10px 20px;
+                font-size: 0.95rem;
+            }
         }
     </style>
 </head>
@@ -229,7 +297,7 @@
 
 <div class="container">
     <div class="canvas-wrapper">
-        <!-- 修改 3：Canvas 高度由 400 改為 250，壓縮縱向空間 -->
+        <!-- 畫布區塊 -->
         <canvas id="linearCanvas" width="800" height="250"></canvas>
         
         <!-- 左上角：速度顯示 -->
@@ -245,6 +313,7 @@
             m1: 2.0 kg<br>m2: 2.0 kg
         </div>
 
+        <!-- 按鈕區 -->
         <div class="actions-overlay">
             <button class="btn-action btn-start" id="btnLinearStart" onclick="linearSim.start()">
                 <span>▶ 發射 (Fire)</span>
@@ -264,7 +333,6 @@
             </div>
             <input type="range" id="rangeM1" min="1" max="10" step="0.5" value="2" oninput="linearSim.updateParams()">
             
-            <!-- m1 無限大開關 -->
             <label class="toggle-switch">
                 <input type="checkbox" id="checkInfiniteM1" onchange="linearSim.updateParams('m1')">
                 <span>m1 質量無限大</span>
@@ -285,7 +353,6 @@
             </div>
             <input type="range" id="rangeM2" min="1" max="10" step="0.5" value="2" oninput="linearSim.updateParams()">
             
-            <!-- m2 無限大開關 -->
             <label class="toggle-switch">
                 <input type="checkbox" id="checkInfiniteM2" onchange="linearSim.updateParams('m2')">
                 <span>m2 質量無限大</span>
@@ -314,25 +381,23 @@ const linearSim = (function() {
     let animationId;
     let isRunning = false;
     
+    // 視覺特效變數
+    let trails1 = [];
+    let trails2 = [];
+    let collisionFlash = 0;
+    
     // 物理參數
     let params = {
-        m1: 2,
-        v1: 5,
-        m2: 2,
-        v2: 0,
-        isM1Infinite: false,
-        isM2Infinite: false,
+        m1: 2, v1: 5, m2: 2, v2: 0,
+        isM1Infinite: false, isM2Infinite: false,
         restitution: 1.0
     };
 
-    // 球體物件
-    // 修改 3：地板上移至 180，故球體位置由 300 調整為 180 (預留半徑)
-    // 雖然程式碼邏輯是畫圖時計算 y，但這裡保留初始值結構
     let b1 = { x: 100, v: 0, m: 0, r: 25, color: '#3b82f6' };
     let b2 = { x: 500, v: 0, m: 0, r: 25, color: '#ef4444' };
 
     const FIXED_RADIUS = 30;
-    const FLOOR_Y = 180; // 修改 3：地板繪製高度上移
+    const FLOOR_Y = 180; 
 
     function init() {
         updateParams();
@@ -341,7 +406,6 @@ const linearSim = (function() {
     }
 
     function updateParams(source) {
-        // 互斥邏輯
         const checkM1 = document.getElementById('checkInfiniteM1');
         const checkM2 = document.getElementById('checkInfiniteM2');
 
@@ -357,7 +421,6 @@ const linearSim = (function() {
         params.isM1Infinite = checkM1.checked;
         params.isM2Infinite = checkM2.checked;
 
-        // 處理 m1
         if (params.isM1Infinite) {
             rangeM1.disabled = true;
             document.getElementById('valM1').textContent = "∞";
@@ -368,7 +431,6 @@ const linearSim = (function() {
             document.getElementById('valM1').textContent = params.m1.toFixed(1) + " kg";
         }
 
-        // 處理 m2
         if (params.isM2Infinite) {
             rangeM2.disabled = true;
             document.getElementById('valM2').textContent = "∞";
@@ -382,40 +444,30 @@ const linearSim = (function() {
         params.v1 = parseFloat(document.getElementById('rangeV1').value);
         document.getElementById('valV1').textContent = params.v1.toFixed(1) + " m/s";
 
-        // 處理恢復係數
         const rangeE = document.getElementById('linearRestitutionRange');
         params.restitution = parseFloat(rangeE.value);
         document.getElementById('linearRestitutionVal').textContent = params.restitution.toFixed(2);
 
-        // 更新球體質量 (若未開始)
         if (!isRunning) {
-            b1.m = params.m1;
-            b2.m = params.m2;
-            b1.r = FIXED_RADIUS;
-            b2.r = FIXED_RADIUS;
+            b1.m = params.m1; b2.m = params.m2;
+            b1.r = FIXED_RADIUS; b2.r = FIXED_RADIUS;
             updateDisplay(); 
         }
     }
 
     function reset() {
         isRunning = false;
-        b1.x = 100;
-        b1.v = 0; 
-        b1.m = params.m1;
-        b1.r = FIXED_RADIUS;
-
-        b2.x = 500;
-        b2.v = 0;
-        b2.m = params.m2;
-        b2.r = FIXED_RADIUS;
+        b1.x = 100; b1.v = 0; b1.m = params.m1; b1.r = FIXED_RADIUS;
+        b2.x = 500; b2.v = 0; b2.m = params.m2; b2.r = FIXED_RADIUS;
+        
+        // 重置視覺特效
+        trails1 = []; trails2 = []; collisionFlash = 0;
 
         document.getElementById('btnLinearStart').disabled = false;
         document.getElementById('btnLinearReset').disabled = true;
         
-        // 介面控制項解鎖
         const rangeM1 = document.getElementById('rangeM1');
         const rangeM2 = document.getElementById('rangeM2');
-        
         rangeM1.disabled = params.isM1Infinite;
         rangeM2.disabled = params.isM2Infinite;
         
@@ -431,12 +483,10 @@ const linearSim = (function() {
     function start() {
         if (isRunning) return;
         isRunning = true;
-        
         b1.v = params.v1; 
         
         document.getElementById('btnLinearStart').disabled = true;
         document.getElementById('btnLinearReset').disabled = false;
-
         document.getElementById('rangeM1').disabled = true;
         document.getElementById('rangeM2').disabled = true;
         document.getElementById('rangeV1').disabled = true;
@@ -452,45 +502,46 @@ const linearSim = (function() {
         b1.x += b1.v * timeScale;
         b2.x += b2.v * timeScale;
 
+        // 紀錄殘影軌跡
+        if (Math.abs(b1.v) > 0.1) trails1.push({x: b1.x, y: FLOOR_Y - b1.r});
+        if (Math.abs(b2.v) > 0.1) trails2.push({x: b2.x, y: FLOOR_Y - b2.r});
+        if (trails1.length > 15) trails1.shift();
+        if (trails2.length > 15) trails2.shift();
+
         // 碰撞偵測
         if (b1.x + b1.r + b2.r >= b2.x) {
+            
+            // 觸發碰撞閃光特效
+            collisionFlash = 1.0;
+            
             // 位置修正
             let overlap = (b1.x + b1.r + b2.r) - b2.x;
-            
             if (params.isM1Infinite && !params.isM2Infinite) {
                 b2.x += overlap;
             } else if (!params.isM1Infinite && params.isM2Infinite) {
                 b1.x -= overlap;
             } else {
-                b1.x -= overlap / 2;
-                b2.x += overlap / 2;
+                b1.x -= overlap / 2; b2.x += overlap / 2;
             }
 
             // 速度計算
-            let v1 = b1.v;
-            let v2 = b2.v;
-            let m1 = params.m1; 
-            let m2 = params.m2;
+            let v1 = b1.v, v2 = b2.v;
+            let m1 = params.m1, m2 = params.m2;
             let e = params.restitution;
-
             let v1_new, v2_new;
 
             if (m1 === Infinity && m2 === Infinity) {
-                v1_new = -e * v1;
-                v2_new = -e * v2; 
+                v1_new = -e * v1; v2_new = -e * v2; 
             } else if (m1 === Infinity) {
-                v1_new = v1;
-                v2_new = v1 + e * (v1 - v2);
+                v1_new = v1; v2_new = v1 + e * (v1 - v2);
             } else if (m2 === Infinity) {
-                v2_new = v2;
-                v1_new = v2 - e * (v1 - v2);
+                v2_new = v2; v1_new = v2 - e * (v1 - v2);
             } else {
                 v1_new = (m1 * v1 + m2 * v2 - m2 * e * (v1 - v2)) / (m1 + m2);
                 v2_new = (m1 * v1 + m2 * v2 + m1 * e * (v1 - v2)) / (m1 + m2);
             }
 
-            b1.v = v1_new;
-            b2.v = v2_new;
+            b1.v = v1_new; b2.v = v2_new;
         }
         
         updateDisplay();
@@ -502,16 +553,36 @@ const linearSim = (function() {
 
         let m1Text = params.isM1Infinite ? "∞" : params.m1.toFixed(1) + " kg";
         let m2Text = params.isM2Infinite ? "∞" : params.m2.toFixed(1) + " kg";
-        // 修改 1：質量面板靠左對齊，這裡為了讓文字對齊，將 m1 與數值對齊
-        // 使用 &nbsp; 或者 CSS 控制。由於已經設定 CSS text-align: left，這裡只需輸出內容
         const textM = `m1: ${m1Text}<br>m2: ${m2Text}`;
         document.getElementById('linearMass').innerHTML = textM;
+    }
+
+    // 繪製殘影函數
+    function drawFadingTrails(trails, color, radius) {
+        for(let i=0; i<trails.length; i++) {
+            let alpha = (i / trails.length) * 0.4;
+            ctx.beginPath();
+            // 越後面的殘影越大越清楚
+            ctx.arc(trails[i].x, trails[i].y, radius * (0.6 + 0.4 * (i / trails.length)), 0, Math.PI*2);
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 修改 3：地板位置
+        // 碰撞閃光渲染
+        if (collisionFlash > 0) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${collisionFlash * 0.4})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            collisionFlash -= 0.04;
+            if(collisionFlash < 0) collisionFlash = 0;
+        }
+
+        // 地板
         ctx.beginPath();
         ctx.moveTo(0, FLOOR_Y);
         ctx.lineTo(800, FLOOR_Y);
@@ -519,22 +590,23 @@ const linearSim = (function() {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 標籤
+        // 繪製殘影
+        drawFadingTrails(trails1, b1.color, b1.r);
+        drawFadingTrails(trails2, b2.color, b2.r);
+
+        // 球體與標籤
         let label1 = params.isM1Infinite ? "∞" : "m1";
         let label2 = params.isM2Infinite ? "∞" : "m2";
-
         drawBall(b1.x, FLOOR_Y - b1.r, b1.r, b1.color, label1);
         drawBall(b2.x, FLOOR_Y - b2.r, b2.r, b2.color, label2);
     }
 
     function drawBall(x, y, r, color, label) {
-        // 陰影
         ctx.beginPath();
         ctx.ellipse(x, FLOOR_Y + 5, r, r * 0.2, 0, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         ctx.fill();
 
-        // 球體
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         let grad = ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.1, x, y, r);
@@ -544,7 +616,6 @@ const linearSim = (function() {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // 文字
         ctx.fillStyle = "#fff";
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
@@ -557,16 +628,10 @@ const linearSim = (function() {
         animationId = requestAnimationFrame(loop);
     }
 
-    function stopLoop() {
-        cancelAnimationFrame(animationId);
-    }
-
-    return { init, updateParams, start, reset, loop, stopLoop };
+    return { init, updateParams, start, reset };
 })();
 
-window.onload = function() {
-    linearSim.init();
-};
+window.onload = function() { linearSim.init(); };
 </script>
 
 </body>
