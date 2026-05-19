@@ -280,7 +280,7 @@
         }
 
         /* ==================================================
-           新增：手機橫向 (Landscape) 專屬佈局
+           手機橫向 (Landscape) 專屬佈局
            將兩個面板「左右並排」，釋放下方空間給動畫
            ================================================== */
         @media (max-height: 450px) and (orientation: landscape) {
@@ -388,6 +388,11 @@
         const GROUND_Y_OFFSET = 30; // 確保物體靠近底部邊緣
         const INITIAL_V = 3; 
 
+        // ★ 新增：定義縮放的固定錨點 (Anchor Point)
+        // 甲初始 1.0，丙初始 7.0，兩者距離 6.0。
+        // 以丙右方等距處為錨點：7.0 + 6.0 = 13.0
+        const ANCHOR_X = 13.0; 
+
         class Block {
             constructor(name, m, initialX, initialV) {
                 this.name = name;
@@ -402,9 +407,9 @@
                 if (this.flashTimer > 0) this.flashTimer--;
                 let currentColor = this.flashTimer > 0 ? '#e6c8a8' : this.color;
 
-                // 根據縮放計算畫面像素
                 const pixelSize = PHYS_W * currentPpx; 
-                const pixelX = this.x * currentPpx;
+                // pixelX 現在只計算自身相對於物理原點的距離，偏移量由 Canvas translate 處理
+                const pixelX = this.x * currentPpx; 
                 const pixelY = groundY - pixelSize;
                 
                 // Draw Box
@@ -476,7 +481,6 @@
         }
 
         function resizeCanvas() {
-            // 恢復為嚴格的螢幕 100% 寬高，並確保無捲軸
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight; 
             basePpx = Math.max(50, canvas.width / 15);
@@ -507,8 +511,7 @@
             // 1. 移動位置
             blocks.forEach(b => b.x += b.v * dt);
 
-            // 2. 碰撞偵測 (使用物理寬度 PHYS_W 進行運算，與畫面縮放無關)
-            
+            // 2. 碰撞偵測
             // 甲 vs 乙
             let right0 = blocks[0].x + PHYS_W;
             let left1 = blocks[1].x;
@@ -534,13 +537,21 @@
             }
         }
 
-        function drawGrid(groundY, currentPpx) {
+        // 修改格線繪製邏輯，使其支援視窗偏移 (Translation) 運算
+        function drawGrid(groundY, currentPpx, offsetX) {
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)'; 
             ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let x = 0; x < canvas.width; x += currentPpx) {
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, groundY);
+            
+            // 由於畫布偏移了 offsetX，我們需要回推螢幕的左右邊界所對應的物理座標
+            // 以確保整個畫面都有畫到格線
+            const startPhysX = Math.floor(-offsetX / currentPpx);
+            const endPhysX = Math.ceil((canvas.width - offsetX) / currentPpx);
+            
+            for (let i = startPhysX; i <= endPhysX; i++) {
+                const px = i * currentPpx;
+                ctx.moveTo(px, 0);
+                ctx.lineTo(px, groundY);
             }
             ctx.stroke();
         }
@@ -558,19 +569,20 @@
 
             const groundY = canvas.height - GROUND_Y_OFFSET;
             const currentPpx = basePpx * globalZoom; 
+            
+            // ★ 計算偏移量：確保 ANCHOR_X 的位置在任何縮放比例下，對應的螢幕像素都固定在原處
+            const offsetX = ANCHOR_X * (basePpx - currentPpx);
 
             if (isPlaying) {
                 updatePhysics(dt);
                 updateHUD();
             }
 
-            // 繪製背景
+            // 繪製背景 (不動)
             ctx.fillStyle = '#f4ebe1'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            drawGrid(groundY, currentPpx);
-
-            // 繪製地板
+            // 繪製地板 (不動，橫跨整個螢幕)
             ctx.fillStyle = '#b0b4b8';
             ctx.fillRect(0, groundY, canvas.width, GROUND_Y_OFFSET);
             ctx.strokeStyle = '#9da1a5';
@@ -580,8 +592,15 @@
             ctx.lineTo(canvas.width, groundY);
             ctx.stroke();
 
-            // 繪製方塊
+            // 啟動 Canvas 平移
+            ctx.save();
+            ctx.translate(offsetX, 0); // 將畫布座標系向右平移
+
+            // 繪製動態物理物件 (皆相對於原物理座標)
+            drawGrid(groundY, currentPpx, offsetX);
             blocks.forEach(b => b.draw(ctx, groundY, currentPpx));
+
+            ctx.restore(); // 結束平移
 
             animationId = requestAnimationFrame(gameLoop);
         }
