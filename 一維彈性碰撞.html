@@ -107,11 +107,31 @@
         
         /* 手機版微調標題與選單大小 */
         @media (max-width: 600px) {
-            .header { padding: 0 10px; }
-            .title { font-size: 1.05rem; padding: 12px 0 10px 0; }
+            .header { 
+                padding: 0 10px; 
+                flex-direction: column; /* 讓分頁籤換行到標題下方 */
+                align-items: stretch; /* 撐滿寬度 */
+            }
+            .title { 
+                font-size: 1.05rem; 
+                padding: 10px 0 8px 0; 
+            }
             .title-badge { font-size: 0.75rem; padding: 2px 6px; }
-            .tabs { margin-left: 10px; }
-            .tab { padding: 10px 14px; font-size: 0.9rem; }
+            .tabs { 
+                margin-left: 0; /* 取消左方間距 */
+                margin-bottom: 0;
+                gap: 4px;
+            }
+            .tab { 
+                padding: 6px 12px; /* 高度內距縮小至 0.6 倍 */
+                font-size: 0.8rem; /* 字體微縮小 */
+                border-radius: 6px 6px 0 0;
+            }
+            .tab-num {
+                width: 16px;
+                height: 16px;
+                font-size: 0.7rem;
+            }
         }
     </style>
 </head>
@@ -176,8 +196,6 @@
             body { padding: 0.25rem !important; }
             .main-spacing > * + * { margin-top: 0.35rem !important; } /* 大幅縮減區塊間距 */
             
-            .header-box { display: none !important; } /* 隱藏大標題以騰出空間 */
-            
             .chart-box { padding: 0.5rem !important; }
             .chart-title { font-size: 1.1rem !important; margin-bottom: 0.25rem !important; padding: 0 0.5rem !important; }
             .chart-wrapper { height: 45vh !important; min-height: 120px; } /* 壓縮圖表高度 */
@@ -192,17 +210,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800 font-sans p-2 md:p-8">
+<body class="bg-[#0f172a] min-h-screen text-gray-800 font-sans p-2 md:p-8">
 
     <div class="max-w-6xl mx-auto space-y-4 md:space-y-6 main-spacing">
-        
-        <!-- 標題與說明 -->
-        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 header-box">
-            <h1 class="text-xl md:text-3xl font-bold text-gray-900 mb-2">一維彈性碰撞過程模擬</h1>
-            <p class="text-gray-600 text-xs md:text-base leading-relaxed hidden md:block">
-                本動畫以<b>靜止觀察者視角</b>演示。模擬總時間固定為 10 秒：碰撞前接近需 3 秒，彈簧壓縮接觸時間剛好為 4 秒，碰撞後分離演示 3 秒。質量與初始速度為固定參數以利於觀察彈簧壓縮期間的速度與距離變化。
-            </p>
-        </div>
 
         <!-- 兩欄式佈局：控制面板與圖表 -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
@@ -439,7 +449,7 @@
                     tension: 0.2
                 },
                 {
-                    label: '質心速度 (v_C)',
+                    label: '質心速度 (vᴄ)', // 使用 unicode 小型大寫字母 c，呈現比 v 小的視覺效果
                     borderColor: '#FF0000',
                     backgroundColor: 'transparent',
                     data: [],
@@ -1402,7 +1412,7 @@ window.onload = function() { linearSim.init(); };
     <title>一維多次彈性碰撞模擬</title>
     <style>
         :root {
-            --bg-color: #f4ebe1; /* 參考截圖的淺米色背景 */
+            --bg-color: #0f172a; /* 配合整體配色調整為深藍色 */
             --panel-bg: rgba(255, 255, 255, 0.95); /* 亮色不透明面板 */
             --text-color: #333333; /* 深色文字 */
             --accent-color: #d15a5a; /* 點綴色 (深紅) */
@@ -1974,8 +1984,8 @@ window.onload = function() { linearSim.init(); };
                 updateHUD();
             }
 
-            // 繪製背景 (不動)
-            ctx.fillStyle = '#f4ebe1'; 
+            // 繪製背景 (不動)，配合整體深藍色
+            ctx.fillStyle = '#0f172a'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // 繪製地板 (不動，橫跨整個螢幕)
