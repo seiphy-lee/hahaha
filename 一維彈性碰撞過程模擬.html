@@ -122,12 +122,6 @@
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
-            <!-- 桌機版物理狀態文字說明 -->
-            <div class="absolute top-8 right-8 z-10 text-right bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm border border-gray-100 hidden md:block">
-                <p id="descLine1" class="text-gray-800 font-medium">v₁ > v₂</p>
-                <p id="descLine2" class="text-gray-600 text-sm">系統總動能最大，<br>總位能為零。</p>
-            </div>
-
             <!-- 橫向滑動區塊 (手機版直立時放大倍率 w-[180%]，橫向時自適應 100%) -->
             <div class="w-full overflow-x-auto overflow-y-hidden rounded md:mt-0 sim-scroll-wrapper" style="-webkit-overflow-scrolling: touch;">
                 <div class="canvas-container relative w-[180%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden sim-canvas-inner" id="canvasWrapper">
@@ -213,21 +207,8 @@
             btnResetMobile: document.getElementById('btnResetMobile'),
             phaseInd: document.getElementById('phaseIndicator'),
             badge: document.getElementById('phaseIndicatorBadge'),
-            badgeMobile: document.getElementById('phaseIndicatorBadgeMobile'),
-            descL1: document.getElementById('descLine1'),
-            descL2: document.getElementById('descLine2'),
-            timeDisplay: document.getElementById('timeDisplay'),
-            progressText: document.getElementById('progressText')
+            badgeMobile: document.getElementById('phaseIndicatorBadgeMobile')
         };
-
-        function updateTimeDisplay() {
-            if(ui.timeDisplay) {
-                ui.timeDisplay.innerHTML = `${state.time.toFixed(2)} <span class="text-2xl text-slate-500">s</span>`;
-            }
-            if(ui.progressText) {
-                ui.progressText.innerText = Math.floor(state.time);
-            }
-        }
 
         function updatePlayButtons() {
             let isEnd = state.x1 - PHYS.blockW/2 > logicalWidth + 150;
