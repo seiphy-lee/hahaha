@@ -20,7 +20,7 @@
             padding: 0 20px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             z-index: 10;
-            position: relative; /* 確保 z-index 生效，使其在 iframe 之上 */
+            position: relative; 
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
@@ -180,31 +180,27 @@
         ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
         
         .canvas-container {
-            /* 桌機版維持較長寬比，去除天空後改為 5:1 */
             aspect-ratio: 5 / 1;
             width: 100%;
             background-color: #f8fafc;
         }
         
         @media (max-width: 768px) {
-            /* 手機版直立設定，配合內部 w-[180%] 放大畫布 */
             .canvas-container { aspect-ratio: 5 / 1; }
         }
 
-        /* ----- 手機橫向螢幕的特製版面 ----- */
         @media (max-width: 932px) and (orientation: landscape) {
             body { padding: 0.25rem !important; }
-            .main-spacing > * + * { margin-top: 0.35rem !important; } /* 大幅縮減區塊間距 */
+            .main-spacing > * + * { margin-top: 0.35rem !important; } 
             
             .chart-box { padding: 0.5rem !important; }
             .chart-title { font-size: 1.1rem !important; margin-bottom: 0.25rem !important; padding: 0 0.5rem !important; }
-            .chart-wrapper { height: 45vh !important; min-height: 120px; } /* 壓縮圖表高度 */
+            .chart-wrapper { height: 45vh !important; min-height: 120px; } 
             
             .sim-box { padding: 0.5rem !important; }
             .controls-row { margin-bottom: 0.25rem !important; }
             .btn-mobile { padding: 0.15rem 0.5rem !important; font-size: 0.75rem !important; width: auto !important; min-width: 4rem; }
             
-            /* 橫向模式夠寬，取消放大與滾動，讓畫面自適應全寬 */
             .sim-scroll-wrapper { overflow-x: hidden !important; }
             .sim-canvas-inner { width: 100% !important; margin-top: 0 !important; }
         }
@@ -251,7 +247,6 @@
             <!-- v-t 圖表區 -->
             <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2 chart-box">
                 <h2 class="text-lg md:text-xl font-bold text-gray-800 mb-2 md:mb-4 px-2 pt-2 md:p-0 chart-title">v-t 圖 (速度-時間)</h2>
-                <!-- 手機版直立高度 h-56，橫向由 CSS 壓縮，桌機版維持 h-80 -->
                 <div class="w-full h-56 md:h-80 relative chart-wrapper">
                     <canvas id="vtChart"></canvas>
                 </div>
@@ -261,7 +256,7 @@
         <!-- 動畫展示區 -->
         <div class="bg-white p-3 md:p-6 rounded-xl shadow-sm border border-gray-200 relative flex flex-col sim-box">
             
-            <!-- 手機版專屬控制列 (獨立一排，不重疊) -->
+            <!-- 手機版專屬控制列 -->
             <div class="flex md:hidden items-center justify-start space-x-2 mb-2 w-full controls-row">
                 <div id="phaseIndicatorBadgeMobile" class="bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center btn-mobile">
                     碰撞前
@@ -279,9 +274,9 @@
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
-            <!-- 橫向滑動區塊 (手機版直立時放大倍率 w-[180%]，橫向時自適應 100%) -->
-            <div class="w-full overflow-x-auto overflow-y-hidden rounded md:mt-0 sim-scroll-wrapper" style="-webkit-overflow-scrolling: touch;">
-                <div class="canvas-container relative w-[180%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden sim-canvas-inner" id="canvasWrapper">
+            <!-- 橫向區塊：手機版取消放大，統一改為 w-full 確保完全可見 -->
+            <div class="w-full overflow-hidden rounded md:mt-0 sim-scroll-wrapper" style="-webkit-overflow-scrolling: touch;">
+                <div class="canvas-container relative w-full max-w-none origin-top-left rounded-lg overflow-hidden sim-canvas-inner" id="canvasWrapper">
                     <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
                 </div>
             </div>
@@ -294,39 +289,43 @@
         // 物理常數與狀態 (單位: 公尺與秒)
         // ---------------------------------------------------------
         const PI = Math.PI;
-        const pxScale = 6; // 1 公尺 = 6 像素 (配合畫面寬度呈現完美比例)
+        const pxScale = 10; // 1 公尺 = 10 像素
+        
+        // 【完美 1/3 時間分配】
+        // 總模擬時間 10 秒，碰撞前、碰撞中、碰撞後各 3.333 秒
+        // m1 = 2, m2 = 3 => 約化質量 μ = (2*3)/(2+3) = 1.2 kg
+        // 碰撞時間 T_c = pi * sqrt(μ / k) = 3.3333...
+        // 故 k = (PI^2 * 1.2) / (3.3333^2)
+        const targetPhaseTime = 10 / 3;
         
         const PHYS = {
-            k: 0.075 * PI * PI, // 彈力常數 (經過設計，讓質量2與3的碰撞剛好歷時4秒)
-            L0: 20, // 彈簧原長 (公尺) -> 對應 120 像素
-            blockW: 80 / 6, // 物體寬度 (公尺) -> 對應 80 像素
-            blockH: 60 / 6  // 物體高度 (公尺) -> 對應 60 像素
+            k: (PI * PI * 1.2) / (targetPhaseTime * targetPhaseTime), 
+            L0: 15, // 彈簧原長 15m (150px)
+            blockW: 6, // 物體寬度 6m (60px)
+            blockH: 6  // 物體高度 6m (60px)
         };
 
         let state = {
-            m1: 2.0,
-            m2: 3.0,
-            x1: 16, // 甲的初始位置 (公尺)
-            v1: 10,
-            x2: 51, // 乙的初始位置 (公尺)
-            v2: 5,
+            m1: 2.0, m2: 3.0,
+            x1: 4.0, v1: 10.0,
+            x2: 41.666, v2: 5.0,
             time: 0,
             running: false, 
             phase: 'before' 
         };
 
         const initialSetup = () => {
-            // 由於採用統一的物理公尺座標，手機與桌機都能在相同的時間內發生碰撞
-            // 距離差為 35m。彈簧原長 20m。相對速度 5m/s。
-            // (35 - 20) / 5 = 3秒 (精準讓碰撞發生在第 3 秒)
-            state.x1 = 16; 
-            state.x2 = 51;  
-            state.v1 = 10;
-            state.v2 = 5;
+            // 在 3.333 秒時發生接觸 (相對速度 = 5m/s)
+            // 需縮短距離 = 5 * 3.3333 = 16.666 m
+            // 接觸時距離 = L0 + blockW = 15 + 6 = 21 m
+            // 故初始距離 x2 - x1 = 21 + 16.666 = 37.666 m
+            state.x1 = 4.0; 
+            state.x2 = 41.666;  
+            state.v1 = 10.0;
+            state.v2 = 5.0;
             state.time = 0;
             state.phase = 'before';
             
-            // 重置圖表資料
             chartData.datasets[0].data = [];
             chartData.datasets[1].data = [];
             chartData.datasets[2].data = [];
@@ -345,7 +344,8 @@
         const ctx = canvas.getContext('2d');
         const wrapper = document.getElementById('canvasWrapper');
         
-        const logicalWidth = 1100;
+        // 設定較小的內部邏輯寬度，確保手機螢幕 w-full 顯示時物件完整可見
+        const logicalWidth = 900;
         const logicalHeight = 220; 
 
         const ui = {
@@ -381,13 +381,10 @@
                 baseClassMob = "bg-green-600 hover:bg-green-700 text-white transition-colors";
             }
 
-            // 更新桌面版按鈕
             if(ui.btnPlay) {
                 ui.btnPlay.innerText = text;
                 ui.btnPlay.className = `${baseClassDesk} px-4 py-3 rounded-lg shadow-md text-lg font-bold flex-1`;
             }
-
-            // 更新手機版按鈕
             if(ui.btnPlayMobile) {
                 ui.btnPlayMobile.innerText = text;
                 ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20 btn-mobile`;
@@ -474,7 +471,7 @@
                     x: {
                         type: 'linear', 
                         min: 0,
-                        max: 10, // 強制將橫軸鎖定在 10 秒，創造完美的 1/3, 1/3, 1/3 佈局
+                        max: 10, // 強制將橫軸鎖定在 10 秒
                         title: { 
                             display: true, 
                             text: '時間', 
@@ -489,7 +486,7 @@
                     y: {
                         title: { display: true, text: '速度 (m/s)' },
                         min: 0,
-                        max: 12, // 配合最高速度 10 調整上限
+                        max: 12, 
                         ticks: { stepSize: 2 }
                     }
                 },
@@ -529,6 +526,7 @@
                 
                 let force = 0;
                 
+                // 距離小於原長開始碰撞壓縮
                 if (distance < PHYS.L0) {
                     let compression = PHYS.L0 - distance;
                     force = PHYS.k * compression; 
@@ -685,16 +683,17 @@
 
             const arrowY = logicalHeight / 2 - blockH_px/2 - 25;
             
-            // 速度箭頭長度以公尺數值直接當作像素比例，視覺上剛剛好
-            drawArrow(ctx, x1_px, arrowY, x1_px + state.v1 * pxScale, arrowY, '#16a34a');
+            // 速度箭頭長度以公尺數值直接當作像素比例，vScale=1.5
+            const vScale = 1.5; 
+            drawArrow(ctx, x1_px, arrowY, x1_px + state.v1 * pxScale * vScale, arrowY, '#16a34a');
             ctx.fillStyle = '#16a34a';
             ctx.font = 'italic bold 22px "Times New Roman", serif';
             ctx.textAlign = 'center';
-            ctx.fillText(state.phase === 'after' ? "v₁'" : "v₁", x1_px + (state.v1 * pxScale)/2, arrowY - 15);
+            ctx.fillText(state.phase === 'after' ? "v₁'" : "v₁", x1_px + (state.v1 * pxScale * vScale)/2, arrowY - 15);
 
-            drawArrow(ctx, x2_px, arrowY, x2_px + state.v2 * pxScale, arrowY, '#f97316');
+            drawArrow(ctx, x2_px, arrowY, x2_px + state.v2 * pxScale * vScale, arrowY, '#f97316');
             ctx.fillStyle = '#f97316';
-            ctx.fillText(state.phase === 'after' ? "v₂'" : "v₂", x2_px + (state.v2 * pxScale)/2, arrowY - 15);
+            ctx.fillText(state.phase === 'after' ? "v₂'" : "v₂", x2_px + (state.v2 * pxScale * vScale)/2, arrowY - 15);
             
             ctx.restore();
         }
@@ -824,7 +823,7 @@
             --text-color: #f8fafc;
             --accent-color: #10b981;
             --danger-color: #ef4444;
-            --slider-color: #f59e0b; /* 定義黃橙色變數 */
+            --slider-color: #f59e0b; 
         }
 
         body {
@@ -839,7 +838,6 @@
             min-height: 100vh;
         }
 
-        /* 頂部標題 */
         .nav-header {
             width: 100%;
             background-color: rgba(30, 41, 59, 0.95);
@@ -854,7 +852,6 @@
 
         h1 { margin: 0; font-size: 2.25rem; letter-spacing: 1px; }
 
-        /* 主內容區域 */
         .container {
             width: 100%;
             max-width: 1000px;
@@ -865,7 +862,6 @@
             box-sizing: border-box;
         }
 
-        /* Canvas 通用樣式 */
         .canvas-wrapper {
             position: relative;
             border-radius: 12px;
@@ -880,7 +876,6 @@
 
         canvas { display: block; width: 100%; height: auto; }
 
-        /* 控制面板通用樣式 */
         .controls {
             background-color: var(--panel-bg);
             padding: 20px;
@@ -892,10 +887,8 @@
             box-sizing: border-box;
         }
 
-        /* 兩欄佈局 */
         .grid-2 { grid-template-columns: 1fr 1fr; }
         
-        /* 參數滑桿 */
         .slider-group {
             background: rgba(0,0,0,0.2);
             padding: 15px;
@@ -920,7 +913,6 @@
             accent-color: var(--slider-color);
         }
 
-        /* 開關樣式 */
         .toggle-switch {
             display: flex;
             align-items: center;
@@ -936,7 +928,6 @@
         }
         .toggle-switch input { width: 20px; height: 20px; }
 
-        /* 動作按鈕懸浮區 (桌機版：絕對定位於底部) */
         .actions-overlay {
             position: absolute;
             bottom: 20px;
@@ -971,7 +962,6 @@
         .btn-start { background-color: rgba(16, 185, 129, 0.9); color: white; }
         .btn-reset { background-color: rgba(239, 68, 68, 0.9); color: white; }
 
-        /* 數據顯示 - 左上角 (速度) */
         .data-display {
             position: absolute;
             top: 20px;
@@ -988,7 +978,6 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
-        /* 數據顯示 - 右上角 (質量) */
         .data-display-right {
             position: absolute;
             top: 20px;
@@ -1006,7 +995,6 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
         }
 
-        /* 中間提示文字 */
         .center-message {
             position: absolute;
             top: 30px; 
@@ -1022,27 +1010,21 @@
             z-index: 5;
         }
 
-        /* =========================================
-           手機版專屬優化 (完美解決重疊問題) 
-           ========================================= */
         @media (max-width: 600px) {
             .grid-2 { grid-template-columns: 1fr; }
             h1 { font-size: 1.4rem; text-align: center; line-height: 1.3; }
             .nav-header { padding: 15px 10px; margin-bottom: 10px;}
             .container { padding: 5px 10px; }
 
-            /* 魔法開始：將畫布區塊轉為網格，解開所有的 absolute 定位 */
             .canvas-wrapper {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                /* 分成四層：1.數據、2.提示文字、3.畫布、4.按鈕 */
                 grid-template-rows: auto auto auto auto; 
                 padding-top: 10px; 
             }
 
-            /* 左上角速度 -> 移到第一排左側 */
             .data-display {
-                position: static; /* 取消浮動 */
+                position: static; 
                 grid-column: 1 / 2;
                 grid-row: 1;
                 font-size: 1rem;
@@ -1052,9 +1034,8 @@
                 text-align: left;
             }
 
-            /* 右上角質量 -> 移到第一排右側 */
             .data-display-right {
-                position: static; /* 取消浮動 */
+                position: static; 
                 grid-column: 2 / 3;
                 grid-row: 1;
                 font-size: 1rem;
@@ -1064,12 +1045,11 @@
                 text-align: right;
             }
 
-            /* 提示文字 -> 移到第二排中間 */
             .center-message {
-                position: static; /* 取消浮動 */
+                position: static; 
                 grid-column: 1 / 3;
                 grid-row: 2;
-                transform: none; /* 取消位移 */
+                transform: none; 
                 font-size: 1.2rem;
                 padding: 10px 10px 0px;
                 white-space: normal;
@@ -1077,16 +1057,14 @@
                 margin: 0 auto;
             }
 
-            /* 畫布 -> 移到第三排 */
             canvas {
                 grid-column: 1 / 3;
                 grid-row: 3;
                 margin: 10px 0;
             }
 
-            /* 按鈕區 -> 移到第四排最底部，形成一個底座 */
             .actions-overlay {
-                position: static; /* 取消浮動 */
+                position: static; 
                 grid-column: 1 / 3;
                 grid-row: 4;
                 padding: 15px;
@@ -1109,23 +1087,18 @@
 
 <div class="container">
     <div class="canvas-wrapper">
-        <!-- 畫布區塊 -->
         <canvas id="linearCanvas" width="800" height="250"></canvas>
         
-        <!-- 左上角：速度顯示 -->
         <div class="data-display" id="linearData">
             v1: 0.0 m/s<br>v2: 0.0 m/s
         </div>
 
-        <!-- 中間：提示文字 -->
         <div class="center-message">鋼球2的初速預設為 0</div>
         
-        <!-- 右上角：質量顯示 -->
         <div class="data-display-right" id="linearMass">
             m1: 2.0 kg<br>m2: 2.0 kg
         </div>
 
-        <!-- 按鈕區 -->
         <div class="actions-overlay">
             <button class="btn-action btn-start" id="btnLinearStart" onclick="linearSim.start()">
                 <span>▶ 發射 (Fire)</span>
@@ -1137,7 +1110,6 @@
     </div>
 
     <div class="controls grid-2">
-        <!-- 左側：m1 設定 -->
         <div class="slider-group">
             <div class="slider-header">
                 <span>鋼球 1 質量 (m1)</span>
@@ -1157,7 +1129,6 @@
             <input type="range" id="rangeV1" min="1" max="10" step="0.5" value="5" oninput="linearSim.updateParams()">
         </div>
 
-        <!-- 右側：m2 設定 -->
         <div class="slider-group">
             <div class="slider-header">
                 <span>鋼球 2 質量 (m2)</span>
@@ -1174,7 +1145,6 @@
             </div>
         </div>
 
-        <!-- 恢復係數 (跨欄顯示) -->
         <div class="slider-group" style="grid-column: 1 / -1;">
             <div class="slider-header">
                 <span>恢復係數 (Coefficient of Restitution, e)</span>
@@ -1193,7 +1163,6 @@ const linearSim = (function() {
     let animationId;
     let isRunning = false;
     
-    // 物理參數
     let params = {
         m1: 2, v1: 5, m2: 2, v2: 0,
         isM1Infinite: false, isM2Infinite: false,
@@ -1308,7 +1277,6 @@ const linearSim = (function() {
 
         // 碰撞偵測
         if (b1.x + b1.r + b2.r >= b2.x) {
-            // 位置修正
             let overlap = (b1.x + b1.r + b2.r) - b2.x;
             if (params.isM1Infinite && !params.isM2Infinite) {
                 b2.x += overlap;
@@ -1318,7 +1286,6 @@ const linearSim = (function() {
                 b1.x -= overlap / 2; b2.x += overlap / 2;
             }
 
-            // 速度計算
             let v1 = b1.v, v2 = b2.v;
             let m1 = params.m1, m2 = params.m2;
             let e = params.restitution;
@@ -1362,7 +1329,6 @@ const linearSim = (function() {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 球體與標籤
         let label1 = params.isM1Infinite ? "∞" : "m1";
         let label2 = params.isM2Infinite ? "∞" : "m2";
         drawBall(b1.x, FLOOR_Y - b1.r, b1.r, b1.color, label1);
@@ -1416,14 +1382,14 @@ window.onload = function() { linearSim.init(); };
     <title>一維多次彈性碰撞模擬</title>
     <style>
         :root {
-            --bg-color: #0f172a; /* 配合整體配色調整為深藍色 */
-            --panel-bg: rgba(255, 255, 255, 0.95); /* 亮色不透明面板 */
-            --text-color: #333333; /* 深色文字 */
-            --accent-color: #d15a5a; /* 點綴色 (深紅) */
-            --btn-play-bg: #00B050; /* 開始發射按鍵 綠色 */
-            --btn-reset-bg: #FFC000; /* 重置按鍵 黃橘色 */
-            --box-color: #c69c72; /* 木塊顏色 */
-            --ground-color: #b0b4b8; /* 地面淺灰色 */
+            --bg-color: #0f172a; 
+            --panel-bg: rgba(255, 255, 255, 0.95); 
+            --text-color: #333333; 
+            --accent-color: #d15a5a; 
+            --btn-play-bg: #00B050; 
+            --btn-reset-bg: #FFC000; 
+            --box-color: #c69c72; 
+            --ground-color: #b0b4b8; 
         }
 
         body, html {
@@ -1431,7 +1397,7 @@ window.onload = function() { linearSim.init(); };
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* 強制隱藏捲軸，確保畫面不被推動 */
+            overflow: hidden; 
             background-color: var(--bg-color);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: var(--text-color);
@@ -1443,7 +1409,6 @@ window.onload = function() { linearSim.init(); };
             height: 100%;
         }
 
-        /* 雙面板容器 */
         #ui-container {
             position: absolute;
             top: 20px;
@@ -1456,7 +1421,6 @@ window.onload = function() { linearSim.init(); };
             flex-wrap: wrap; 
         }
 
-        /* 獨立面板共用樣式 */
         .panel {
             background: var(--panel-bg);
             padding: 25px;
@@ -1474,7 +1438,7 @@ window.onload = function() { linearSim.init(); };
         }
 
         h1 {
-            display: none; /* 原本的大標題隱藏，因為外層已有選單 */
+            display: none; 
         }
 
         .control-group {
@@ -1495,12 +1459,10 @@ window.onload = function() { linearSim.init(); };
             color: var(--accent-color);
         }
 
-        /* 質量數值的放大樣式 */
         .mass-val {
             font-size: 1.5em;
         }
 
-        /* 速度單位 v0 的樣式 */
         .v-symbol {
             font-size: 2em;
             font-style: italic; 
@@ -1511,7 +1473,6 @@ window.onload = function() { linearSim.init(); };
             font-size: 0.5em;
         }
 
-        /* 自訂滑桿樣式 */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
@@ -1536,7 +1497,6 @@ window.onload = function() { linearSim.init(); };
             transform: scale(1.2);
         }
 
-        /* 停用滑桿時的樣式 (防呆視覺回饋) */
         input[type=range]:disabled {
             opacity: 0.4;
             cursor: not-allowed;
@@ -1587,7 +1547,6 @@ window.onload = function() { linearSim.init(); };
             transform: translateY(-2px);
         }
 
-        /* 統計面板排版 */
         .stat-main {
             font-size: 1.6rem;
             color: #555;
@@ -1611,10 +1570,6 @@ window.onload = function() { linearSim.init(); };
             font-family: sans-serif;
         }
 
-        /* ==================================================
-           僅針對手機直向的優化佈局 (高度極致壓縮 0.6 倍)
-           恢復為浮動覆蓋 (absolute)，確保不推擠 Canvas
-           ================================================== */
         @media (max-width: 600px) {
             #ui-container {
                 position: absolute;
@@ -1622,11 +1577,11 @@ window.onload = function() { linearSim.init(); };
                 left: 5px;
                 right: 5px;
                 gap: 5px;
-                pointer-events: none; /* 讓未被面板覆蓋的空白區域可以將事件穿透至下方畫布 */
+                pointer-events: none; 
             }
             .panel {
-                pointer-events: auto; /* 面板本身保持可點擊 */
-                padding: 8px 12px; /* 大幅縮小手機版內距 */
+                pointer-events: auto; 
+                padding: 8px 12px; 
                 border-radius: 6px;
             }
             #controls-panel, #stats-panel {
@@ -1684,13 +1639,9 @@ window.onload = function() { linearSim.init(); };
             }
         }
 
-        /* ==================================================
-           手機橫向 (Landscape) 專屬佈局
-           將兩個面板「左右並排」，釋放下方空間給動畫
-           ================================================== */
         @media (max-height: 450px) and (orientation: landscape) {
             #ui-container {
-                flex-wrap: nowrap; /* 強制不換行，並排顯示 */
+                flex-wrap: nowrap; 
                 gap: 10px;
                 top: 5px;
                 left: 5px;
@@ -1700,26 +1651,24 @@ window.onload = function() { linearSim.init(); };
                 padding: 6px 10px;
             }
             #controls-panel {
-                width: 55%; /* 左邊面板佔 55% */
+                width: 55%; 
             }
             #stats-panel {
-                width: 45%; /* 右邊面板佔 45% */
+                width: 45%; 
             }
-            /* 進一步縮減間距避免遮擋 */
             h1 { font-size: 0.95rem; margin: 0 0 4px 0; }
             .control-group { margin-bottom: 4px; }
             .button-group { margin-top: 4px; }
             button { padding: 4px; font-size: 0.85rem; }
             .stat-main { font-size: 1rem; margin-bottom: 4px; padding-bottom: 4px; }
             .stat-main span { font-size: 1.4rem; }
-            .stat-details { flex-direction: column; gap: 2px; } /* 空間足夠時可直向排列數據 */
+            .stat-details { flex-direction: column; gap: 2px; } 
         }
     </style>
 </head>
 <body>
 
     <div id="ui-container">
-        <!-- 左側：控制面板 -->
         <div id="controls-panel" class="panel">
             <div class="control-group">
                 <label><span>乙質量 (m):</span> <span id="val-m2" class="highlight mass-val">1.0 m</span></label>
@@ -1742,7 +1691,6 @@ window.onload = function() { linearSim.init(); };
             </div>
         </div>
 
-        <!-- 右側：統計面板 -->
         <div id="stats-panel" class="panel">
             <div class="stat-main">
                 總碰撞次數:<span id="stat-collisions">0</span>
@@ -1761,7 +1709,6 @@ window.onload = function() { linearSim.init(); };
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
         
-        // UI Elements
         const sliderM2 = document.getElementById('slider-m2');
         const sliderM3 = document.getElementById('slider-m3');
         const sliderZoom = document.getElementById('slider-zoom');
@@ -1777,26 +1724,24 @@ window.onload = function() { linearSim.init(); };
         const vYi = document.getElementById('v-yi');
         const vBing = document.getElementById('v-bing');
 
-        // Simulation State
         let isPlaying = false; 
         let hasStarted = false; 
         let animationId;
         let collisionCount = 0;
         
-        // Physics & Render Constants
         let globalZoom = 1.0;
-        let basePpx = 100; // 基礎縮放下的每單位像素
-        const PHYS_W = 1.25; // 物體的「物理寬度」單位
+        let basePpx = 100; 
+        const PHYS_W = 1.25; 
         
-        const GROUND_Y_OFFSET = 30; // 確保物體靠近底部邊緣
+        const GROUND_Y_OFFSET = 30; 
         const INITIAL_V = 3; 
 
         class Block {
             constructor(name, m, initialX, initialV) {
                 this.name = name;
                 this.m = m;
-                this.x = initialX; // 物理位置
-                this.v = initialV; // 物理速度
+                this.x = initialX; 
+                this.v = initialV; 
                 this.color = '#c69c72'; 
                 this.flashTimer = 0;
             }
@@ -1806,22 +1751,18 @@ window.onload = function() { linearSim.init(); };
                 let currentColor = this.flashTimer > 0 ? '#e6c8a8' : this.color;
 
                 const pixelSize = PHYS_W * currentPpx; 
-                // pixelX 現在只計算自身相對於物理原點的距離，偏移量由 Canvas translate 處理
                 const pixelX = this.x * currentPpx; 
                 const pixelY = groundY - pixelSize;
                 
-                // Draw Box
                 ctx.save();
                 ctx.fillStyle = currentColor;
                 ctx.globalAlpha = 1.0;
                 ctx.fillRect(pixelX, pixelY, pixelSize, pixelSize);
                 
-                // Border
                 ctx.strokeStyle = '#a67d53';
                 ctx.lineWidth = 1;
                 ctx.strokeRect(pixelX, pixelY, pixelSize, pixelSize);
                 
-                // Label 根據縮放調整字體大小
                 ctx.fillStyle = '#333';
                 const fontSize = 48 * globalZoom; 
                 ctx.font = `${fontSize}px "PMingLiU", "MingLiU", serif`; 
@@ -1830,7 +1771,6 @@ window.onload = function() { linearSim.init(); };
                 ctx.fillText(this.name, pixelX + pixelSize / 2, pixelY + pixelSize / 2);
                 ctx.restore();
 
-                // Draw Velocity Arrow 根據縮放調整箭頭大小
                 if (Math.abs(this.v) > 0.01) {
                     this.drawArrow(ctx, pixelX + pixelSize/2, pixelY - 20 * globalZoom, this.v * 30 * globalZoom, '#f07931');
                 }
@@ -1845,7 +1785,6 @@ window.onload = function() { linearSim.init(); };
                 ctx.lineWidth = 3 * globalZoom;
                 ctx.stroke();
 
-                // Arrow head
                 const angle = length > 0 ? 0 : Math.PI;
                 const headSize = 10 * globalZoom;
                 ctx.beginPath();
@@ -1906,11 +1845,8 @@ window.onload = function() { linearSim.init(); };
         function updatePhysics(dt) {
             if (dt > 0.1) dt = 0.1;
 
-            // 1. 移動位置
             blocks.forEach(b => b.x += b.v * dt);
 
-            // 2. 碰撞偵測
-            // 甲 vs 乙
             let right0 = blocks[0].x + PHYS_W;
             let left1 = blocks[1].x;
             if (right0 >= left1 && blocks[0].v > blocks[1].v) {
@@ -1918,7 +1854,6 @@ window.onload = function() { linearSim.init(); };
                 collide(blocks[0], blocks[1]);
             }
 
-            // 乙 vs 丙
             let right1 = blocks[1].x + PHYS_W;
             let left2 = blocks[2].x;
             if (right1 >= left2 && blocks[1].v > blocks[2].v) {
@@ -1926,7 +1861,6 @@ window.onload = function() { linearSim.init(); };
                 collide(blocks[1], blocks[2]);
             }
             
-            // 防呆補丁：乙往回彈撞到甲
             right0 = blocks[0].x + PHYS_W;
             left1 = blocks[1].x;
              if (right0 >= left1 && blocks[0].v > blocks[1].v) {
@@ -1935,14 +1869,11 @@ window.onload = function() { linearSim.init(); };
             }
         }
 
-        // 修改格線繪製邏輯，使其支援視窗偏移 (Translation) 運算
         function drawGrid(groundY, currentPpx, offsetX) {
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)'; 
             ctx.lineWidth = 1;
             ctx.beginPath();
             
-            // 由於畫布偏移了 offsetX，我們需要回推螢幕的左右邊界所對應的物理座標
-            // 以確保整個畫面都有畫到格線
             const startPhysX = Math.floor(-offsetX / currentPpx);
             const endPhysX = Math.ceil((canvas.width - offsetX) / currentPpx);
             
@@ -1968,17 +1899,13 @@ window.onload = function() { linearSim.init(); };
             const groundY = canvas.height - GROUND_Y_OFFSET;
             const currentPpx = basePpx * globalZoom; 
             
-            // ★ 計算偏移量：根據裝置決定錨點
-            // 判斷是否為手機版 (根據 CSS 的斷點：寬度小於 600，或是高度小於 450 的橫向模式)
             const isMobile = window.innerWidth <= 600 || window.innerHeight <= 450;
             let offsetX = 0;
 
             if (isMobile) {
-                // 手機版：錨點設定為「甲(1.0)與乙(4.0)的中點」，並固定在畫面正中央 (canvas.width / 2)
                 const anchorXMobile = ((1.0 + 4.0) / 2) + (PHYS_W / 2); 
                 offsetX = (canvas.width / 2) - (anchorXMobile * currentPpx);
             } else {
-                // 桌機版：錨點設定為「丙物體的中心位置」(初始X: 7.0)，保持在其初始像素位置不動
                 const anchorXDesktop = 7.0 + (PHYS_W / 2);
                 offsetX = anchorXDesktop * (basePpx - currentPpx);
             }
@@ -1988,11 +1915,9 @@ window.onload = function() { linearSim.init(); };
                 updateHUD();
             }
 
-            // 繪製背景 (不動)，配合整體深藍色
             ctx.fillStyle = '#0f172a'; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製地板 (不動，橫跨整個螢幕)
             ctx.fillStyle = '#b0b4b8';
             ctx.fillRect(0, groundY, canvas.width, GROUND_Y_OFFSET);
             ctx.strokeStyle = '#9da1a5';
@@ -2002,20 +1927,17 @@ window.onload = function() { linearSim.init(); };
             ctx.lineTo(canvas.width, groundY);
             ctx.stroke();
 
-            // 啟動 Canvas 平移
             ctx.save();
-            ctx.translate(offsetX, 0); // 將畫布座標系向右平移
+            ctx.translate(offsetX, 0); 
 
-            // 繪製動態物理物件 (皆相對於原物理座標)
             drawGrid(groundY, currentPpx, offsetX);
             blocks.forEach(b => b.draw(ctx, groundY, currentPpx));
 
-            ctx.restore(); // 結束平移
+            ctx.restore(); 
 
             animationId = requestAnimationFrame(gameLoop);
         }
 
-        // --- Event Listeners ---
         window.addEventListener('resize', resizeCanvas);
 
         sliderM2.addEventListener('input', (e) => {
@@ -2057,7 +1979,6 @@ window.onload = function() { linearSim.init(); };
             lastTime = performance.now();
         });
 
-        // 啟動初始化
         resizeCanvas();
         initSimulation();
         requestAnimationFrame(gameLoop);
@@ -2068,14 +1989,7 @@ window.onload = function() { linearSim.init(); };
     </script>
 
     <script>
-        /**
-         * 切換頁籤邏輯
-         * 利用 Blob 技術，將封裝在腳本區塊裡的程式碼轉換成虛擬網址並餵給 Iframe。
-         * 這樣可以實現 100% 的環境隔離，不會有任何 CSS 或 JavaScript 衝突，
-         * 且能完美保留原本撰寫的響應式佈局 (Responsive Design)。
-         */
         function switchTab(tabIndex) {
-            // 1. 更新頁籤的視覺狀態
             document.querySelectorAll('.tab').forEach((el, idx) => {
                 if (idx + 1 === tabIndex) {
                     el.classList.add('active');
@@ -2084,19 +1998,14 @@ window.onload = function() { linearSim.init(); };
                 }
             });
 
-            // 2. 獲取並還原原始 HTML 程式碼
-            // 避免被瀏覽器提早截斷，在此還原 script 結尾標籤
             const rawText = document.getElementById('src-' + tabIndex).textContent;
             const htmlContent = rawText.replace(/<\\\/script>/g, '<' + '/script>');
 
-            // 3. 注入 Iframe 
             const iframe = document.getElementById('sim-frame');
             
-            // 使用 Blob URL 是最安全的隔離方式，確保 Chart.js 或 Tailwind CDN 不受跨域限制
             const blob = new Blob([htmlContent], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
             
-            // 釋放舊的 Blob 記憶體以提升效能
             if (iframe.src && iframe.src.startsWith('blob:')) {
                 URL.revokeObjectURL(iframe.src);
             }
@@ -2104,7 +2013,6 @@ window.onload = function() { linearSim.init(); };
             iframe.src = url;
         }
 
-        // 初始化：預設開啟第一個分頁
         window.onload = () => {
             switchTab(1);
         };
