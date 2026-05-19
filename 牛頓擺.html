@@ -245,20 +245,40 @@
             border: 1px solid rgba(148, 163, 184, 0.1);
         }
 
+        /* ---------- 針對手機版面的優化 (依據阿發老師需求調整) ---------- */
         @media (max-width: 600px) {
+            /* 1. 壓縮控制面板整體高度 (約0.8倍) */
             .controls {
                 grid-template-columns: 1fr;
+                gap: 10px; /* 原本 20px */
+                padding: 12px; /* 原本 20px */
+            }
+            .control-group {
+                padding: 6px; /* 原本 10px */
+            }
+            .control-label {
+                margin-bottom: 4px; /* 原本 8px */
+                font-size: 0.85rem;
+            }
+            .btn-group {
+                padding: 3px; /* 原本 5px */
             }
             .btn-select {
-                padding: 6px 12px;
+                padding: 4px 12px; /* 縮減上下 padding，壓縮高度 */
+                font-size: 1rem;
             }
+            .slider-group {
+                padding: 10px; /* 原本 15px */
+            }
+            
+            /* 2. 將動作按鈕往下拉，並微調按鈕高度以完全避開鋼球 */
             .actions-overlay {
-                bottom: 15px;
+                bottom: 2px; /* 原本 15px，現在往下貼近 Canvas 邊緣 */
                 gap: 10px;
             }
             .btn-action {
-                padding: 8px 20px;
-                font-size: 0.9rem;
+                padding: 6px 20px; /* 縮減按鈕上下 padding，讓它更修長，不擋住球 */
+                font-size: 0.85rem;
             }
         }
     </style>
@@ -324,7 +344,7 @@
 
     <div class="info-panel">
         <strong>物理筆記：</strong>
-        若 $e=1$，表示系統無動能損耗 (理想狀態)，擺動將無限持續。
+        若 e=1，表示系統無動能損耗 (理想狀態)，擺動將無限持續。
         當兩側拉起數量不同時，碰撞後會交換速度與數量，這是動量守恆最迷人的展示。
     </div>
 </div>
@@ -640,5 +660,4 @@
 </script>
 
 </body>
-
 </html>
