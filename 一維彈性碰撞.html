@@ -227,12 +227,12 @@
                         <div class="bg-green-50 p-4 rounded-lg border border-green-100 shadow-sm">
                             <div class="text-sm text-green-700 font-bold mb-1">甲物體 (m₁)</div>
                             <div class="text-2xl font-mono font-bold text-green-600">2.0 <span class="text-sm">kg</span></div>
-                            <div class="text-sm text-green-700 mt-2">初速: 60 m/s</div>
+                            <div class="text-sm text-green-700 mt-2">初速: 10 m/s</div>
                         </div>
                         <div class="bg-orange-50 p-4 rounded-lg border border-orange-100 shadow-sm">
                             <div class="text-sm text-orange-700 font-bold mb-1">乙物體 (m₂)</div>
-                            <div class="text-2xl font-mono font-bold text-orange-500">1.0 <span class="text-sm">kg</span></div>
-                            <div class="text-sm text-orange-700 mt-2">初速: 20 m/s</div>
+                            <div class="text-2xl font-mono font-bold text-orange-500">3.0 <span class="text-sm">kg</span></div>
+                            <div class="text-sm text-orange-700 mt-2">初速: 5 m/s</div>
                         </div>
                     </div>
                 </div>
@@ -304,11 +304,11 @@
 
         let state = {
             m1: 2.0,
-            m2: 1.0,
+            m2: 3.0,
             x1: 0,
-            v1: 60,
+            v1: 10,
             x2: 0,
-            v2: 20,
+            v2: 5,
             time: 0,
             running: false, 
             phase: 'before' 
@@ -319,17 +319,17 @@
             const isMobile = window.innerWidth < 768;
             
             if (isMobile) {
-                // 手機版：將初始位置往左移，並縮短相對距離，讓碰撞能提早發生，確保全程接觸維持在視窗內
-                state.x1 = 40;   // 恰好貼齊畫面左邊緣 (40 - blockW/2 = 0)
-                state.x2 = 320;  // 距離縮短，第 2 秒發生碰撞
+                // 手機版：將初始位置往左移，設定適當距離確保能快速進入碰撞階段
+                state.x1 = 40;   
+                state.x2 = 290;  
             } else {
-                // 桌機版：維持原本設定，不更動
+                // 桌機版：設定適當距離，配合 timeScale 讓接近時間大約在 2~3 秒內
                 state.x1 = 100; 
-                state.x2 = 420;  // 維持第 3 秒發生碰撞
+                state.x2 = 350;  
             }
             
-            state.v1 = 60;
-            state.v2 = 20;
+            state.v1 = 10;
+            state.v2 = 5;
             state.time = 0;
             state.phase = 'before';
             
@@ -481,21 +481,17 @@
                         type: 'linear', 
                         title: { 
                             display: true, 
-                            text: '時間 (s)', 
-                            // 去除 top padding，將字體往上拉近軸線
+                            text: '時間', 
                             padding: { top: 2, bottom: 0 } 
                         },
-                        min: 0,
-                        max: 10,
                         ticks: { 
-                            stepSize: 1, 
-                            maxTicksLimit: 11
+                            display: false // 隱藏時間數值，專注於碰撞過程關係
                         }
                     },
                     y: {
                         title: { display: true, text: '速度 (m/s)' },
                         min: 0,
-                        max: 80 
+                        max: 12 // 因應最大速度為 10，將 y 軸極限下修，讓圖形變化更明顯
                     }
                 },
                 plugins: {
@@ -684,7 +680,7 @@
             drawBlock(ctx, state.x2, logicalHeight / 2, '乙');
 
             const arrowY = logicalHeight / 2 - PHYS.blockH/2 - 25;
-            const vScale = 1.0; 
+            const vScale = 4.0; // 將箭頭放大 4 倍，讓數值小 (10, 5) 時也能清楚顯示
             
             drawArrow(ctx, state.x1, arrowY, state.x1 + state.v1 * vScale, arrowY, '#16a34a');
             ctx.fillStyle = '#16a34a';
@@ -753,14 +749,15 @@
             if (dt > 0.1) dt = 0.1;
 
             if (state.running) {
-                let simDt = dt; 
+                // 因為實際數值變小，為了良好的視覺體驗，加速物理推進 4 倍
+                let simDt = dt * 4; 
                 
                 if (simDt > 0) {
                     updatePhysics(simDt);
 
                     chartUpdateTimer += simDt;
-                    // 【限制】確保圖表點位最多只畫到 10 秒
-                    if (chartUpdateTimer >= 0.05 && state.time <= 10.05) {
+                    // 取消時間上限限制，只要運行就持續推播圖表
+                    if (chartUpdateTimer >= 0.1) {
                         chartUpdateTimer = 0;
                         
                         let vc = (state.m1 * state.v1 + state.m2 * state.v2) / (state.m1 + state.m2);
