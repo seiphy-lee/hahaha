@@ -388,11 +388,6 @@
         const GROUND_Y_OFFSET = 30; // 確保物體靠近底部邊緣
         const INITIAL_V = 3; 
 
-        // ★ 修正：定義縮放的固定錨點 (Anchor Point)
-        // 將錨點精準設定在「丙物體的中心位置」(初始X: 7.0 + 寬度一半)
-        // 這樣縮放時，丙物體在畫面上的位置將保持完全不動
-        const ANCHOR_X = 7.0 + (PHYS_W / 2); 
-
         class Block {
             constructor(name, m, initialX, initialV) {
                 this.name = name;
@@ -570,8 +565,20 @@
             const groundY = canvas.height - GROUND_Y_OFFSET;
             const currentPpx = basePpx * globalZoom; 
             
-            // ★ 計算偏移量：確保 ANCHOR_X 的位置在任何縮放比例下，對應的螢幕像素都固定在原處
-            const offsetX = ANCHOR_X * (basePpx - currentPpx);
+            // ★ 計算偏移量：根據裝置決定錨點
+            // 判斷是否為手機版 (根據 CSS 的斷點：寬度小於 600，或是高度小於 450 的橫向模式)
+            const isMobile = window.innerWidth <= 600 || window.innerHeight <= 450;
+            let offsetX = 0;
+
+            if (isMobile) {
+                // 手機版：錨點設定為「甲(1.0)與乙(4.0)的中點」，並固定在畫面正中央 (canvas.width / 2)
+                const anchorXMobile = ((1.0 + 4.0) / 2) + (PHYS_W / 2); 
+                offsetX = (canvas.width / 2) - (anchorXMobile * currentPpx);
+            } else {
+                // 桌機版：錨點設定為「丙物體的中心位置」(初始X: 7.0)，保持在其初始像素位置不動
+                const anchorXDesktop = 7.0 + (PHYS_W / 2);
+                offsetX = anchorXDesktop * (basePpx - currentPpx);
+            }
 
             if (isPlaying) {
                 updatePhysics(dt);
