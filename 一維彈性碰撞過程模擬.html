@@ -152,8 +152,19 @@
         };
 
         const initialSetup = () => {
-            state.x1 = 100; 
-            state.x2 = 420; 
+            // 判斷是否為手機版 (小於 768px 對應 Tailwind md 斷點)
+            const isMobile = window.innerWidth < 768;
+            
+            if (isMobile) {
+                // 手機版：將初始位置往左移，並縮短相對距離，讓碰撞能提早發生，確保全程接觸維持在視窗內
+                state.x1 = 40;   // 恰好貼齊畫面左邊緣 (40 - blockW/2 = 0)
+                state.x2 = 320;  // 距離縮短，第 2 秒發生碰撞
+            } else {
+                // 桌機版：維持原本設定，不更動
+                state.x1 = 100; 
+                state.x2 = 420;  // 維持第 3 秒發生碰撞
+            }
+            
             state.v1 = 60;
             state.v2 = 20;
             state.time = 0;
@@ -180,7 +191,7 @@
         const wrapper = document.getElementById('canvasWrapper');
         
         const logicalWidth = 1100;
-        // 【優化】將邏輯高度從 350 大幅縮減至 220，去除物體上方的無效灰色天空
+        // 將邏輯高度從 350 大幅縮減至 220，去除物體上方的無效灰色天空
         const logicalHeight = 220; 
 
         const ui = {
