@@ -20,17 +20,37 @@
         }
         
         @media (max-width: 768px) {
-            /* 手機版設定，配合內部 w-[180%] 放大畫布 */
+            /* 手機版直立設定，配合內部 w-[180%] 放大畫布 */
             .canvas-container { aspect-ratio: 5 / 1; }
+        }
+
+        /* ----- 手機橫向螢幕的特製版面 ----- */
+        @media (max-width: 932px) and (orientation: landscape) {
+            body { padding: 0.25rem !important; }
+            .main-spacing > * + * { margin-top: 0.35rem !important; } /* 大幅縮減區塊間距 */
+            
+            .header-box { display: none !important; } /* 隱藏大標題以騰出空間 */
+            
+            .chart-box { padding: 0.5rem !important; }
+            .chart-title { font-size: 1.1rem !important; margin-bottom: 0.25rem !important; padding: 0 0.5rem !important; }
+            .chart-wrapper { height: 45vh !important; min-height: 120px; } /* 壓縮圖表高度 */
+            
+            .sim-box { padding: 0.5rem !important; }
+            .controls-row { margin-bottom: 0.25rem !important; }
+            .btn-mobile { padding: 0.15rem 0.5rem !important; font-size: 0.75rem !important; width: auto !important; min-width: 4rem; }
+            
+            /* 橫向模式夠寬，取消放大與滾動，讓畫面自適應全寬 */
+            .sim-scroll-wrapper { overflow-x: hidden !important; }
+            .sim-canvas-inner { width: 100% !important; margin-top: 0 !important; }
         }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-800 font-sans p-2 md:p-8">
 
-    <div class="max-w-6xl mx-auto space-y-4 md:space-y-6">
+    <div class="max-w-6xl mx-auto space-y-4 md:space-y-6 main-spacing">
         
         <!-- 標題與說明 -->
-        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200">
+        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-200 header-box">
             <h1 class="text-xl md:text-3xl font-bold text-gray-900 mb-2">一維彈性碰撞過程模擬</h1>
             <p class="text-gray-600 text-xs md:text-base leading-relaxed hidden md:block">
                 本動畫以<b>靜止觀察者視角</b>演示。模擬總時間固定為 10 秒：碰撞前接近需 3 秒，彈簧壓縮接觸時間剛好為 4 秒，碰撞後分離演示 3 秒。質量與初始速度為固定參數以利於觀察彈簧壓縮期間的速度與距離變化。
@@ -80,27 +100,27 @@
             </div>
 
             <!-- v-t 圖表區 -->
-            <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2">
-                <h2 class="text-lg md:text-xl font-bold text-gray-800 mb-2 md:mb-4 px-2 pt-2 md:p-0">v-t 圖 (速度-時間)</h2>
-                <!-- 手機版高度壓縮成 h-56 (約0.7倍)，桌機版維持 h-80 -->
-                <div class="w-full h-56 md:h-80 relative">
+            <div class="bg-white p-2 md:p-6 rounded-xl shadow-sm border border-gray-200 lg:col-span-2 chart-box">
+                <h2 class="text-lg md:text-xl font-bold text-gray-800 mb-2 md:mb-4 px-2 pt-2 md:p-0 chart-title">v-t 圖 (速度-時間)</h2>
+                <!-- 手機版直立高度 h-56，橫向由 CSS 壓縮，桌機版維持 h-80 -->
+                <div class="w-full h-56 md:h-80 relative chart-wrapper">
                     <canvas id="vtChart"></canvas>
                 </div>
             </div>
         </div>
 
         <!-- 動畫展示區 -->
-        <div class="bg-white p-3 md:p-6 rounded-xl shadow-sm border border-gray-200 relative flex flex-col">
+        <div class="bg-white p-3 md:p-6 rounded-xl shadow-sm border border-gray-200 relative flex flex-col sim-box">
             
-            <!-- 手機版專屬控制列 (獨立一排，不重疊，字體縮小為 0.6x~0.7x) -->
-            <div class="flex md:hidden items-center justify-start space-x-2 mb-2 w-full">
-                <div id="phaseIndicatorBadgeMobile" class="bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center">
+            <!-- 手機版專屬控制列 (獨立一排，不重疊) -->
+            <div class="flex md:hidden items-center justify-start space-x-2 mb-2 w-full controls-row">
+                <div id="phaseIndicatorBadgeMobile" class="bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center btn-mobile">
                     碰撞前
                 </div>
-                <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center w-20">
+                <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center w-20 btn-mobile">
                     開始播放
                 </button>
-                <button id="btnResetMobile" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center">
+                <button id="btnResetMobile" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center btn-mobile">
                     重置
                 </button>
             </div>
@@ -116,9 +136,9 @@
                 <p id="descLine2" class="text-gray-600 text-sm">系統總動能最大，<br>總位能為零。</p>
             </div>
 
-            <!-- 橫向滑動區塊 (手機版畫布放大倍率增加為 w-[180%]，配合移除的上方留白，視覺大幅放大) -->
-            <div class="w-full overflow-x-auto overflow-y-hidden rounded md:mt-0" style="-webkit-overflow-scrolling: touch;">
-                <div class="canvas-container relative w-[180%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden" id="canvasWrapper">
+            <!-- 橫向滑動區塊 (手機版直立時放大倍率 w-[180%]，橫向時自適應 100%) -->
+            <div class="w-full overflow-x-auto overflow-y-hidden rounded md:mt-0 sim-scroll-wrapper" style="-webkit-overflow-scrolling: touch;">
+                <div class="canvas-container relative w-[180%] md:w-full max-w-none origin-top-left rounded-lg overflow-hidden sim-canvas-inner" id="canvasWrapper">
                     <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
                 </div>
             </div>
@@ -243,9 +263,9 @@
                 ui.btnPlay.className = `${baseClassDesk} px-4 py-2 rounded shadow w-24`;
             }
 
-            // 更新手機版按鈕 (字體 0.6x = text-sm)
+            // 更新手機版按鈕 (配合 CSS 橫向自動縮小)
             ui.btnPlayMobile.innerText = text;
-            ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20`;
+            ui.btnPlayMobile.className = `${baseClassMob} px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center w-20 btn-mobile`;
         }
 
         const handlePlayClick = () => {
@@ -562,7 +582,7 @@
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
                     badgeMob.innerText = '碰撞前';
-                    badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
+                    badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
                     break;
                 case 'during':
                     if(badge) {
@@ -570,7 +590,7 @@
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
                     badgeMob.innerText = '碰撞中';
-                    badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
+                    badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
                     break;
                 case 'after':
                     if(badge) {
@@ -578,7 +598,7 @@
                         badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
                     }
                     badgeMob.innerText = '碰撞後';
-                    badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300';
+                    badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
                     break;
             }
         }
@@ -632,7 +652,16 @@
         initialSetup();
         requestAnimationFrame(loop);
         
-        window.addEventListener('resize', draw);
+        // 當視窗大小或方向改變時，重新初始化以應用新的設定與排版
+        window.addEventListener('resize', () => {
+            let wasRunning = state.running;
+            initialSetup();
+            if (wasRunning) {
+                state.running = true;
+                updatePlayButtons();
+            }
+            draw();
+        });
 
     </script>
 </body>
