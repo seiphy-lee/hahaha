@@ -381,11 +381,6 @@ const linearSim = (function() {
     let animationId;
     let isRunning = false;
     
-    // 視覺特效變數
-    let trails1 = [];
-    let trails2 = [];
-    let collisionFlash = 0;
-    
     // 物理參數
     let params = {
         m1: 2, v1: 5, m2: 2, v2: 0,
@@ -459,9 +454,6 @@ const linearSim = (function() {
         isRunning = false;
         b1.x = 100; b1.v = 0; b1.m = params.m1; b1.r = FIXED_RADIUS;
         b2.x = 500; b2.v = 0; b2.m = params.m2; b2.r = FIXED_RADIUS;
-        
-        // 重置視覺特效
-        trails1 = []; trails2 = []; collisionFlash = 0;
 
         document.getElementById('btnLinearStart').disabled = false;
         document.getElementById('btnLinearReset').disabled = true;
@@ -502,18 +494,8 @@ const linearSim = (function() {
         b1.x += b1.v * timeScale;
         b2.x += b2.v * timeScale;
 
-        // 紀錄殘影軌跡
-        if (Math.abs(b1.v) > 0.1) trails1.push({x: b1.x, y: FLOOR_Y - b1.r});
-        if (Math.abs(b2.v) > 0.1) trails2.push({x: b2.x, y: FLOOR_Y - b2.r});
-        if (trails1.length > 15) trails1.shift();
-        if (trails2.length > 15) trails2.shift();
-
         // 碰撞偵測
         if (b1.x + b1.r + b2.r >= b2.x) {
-            
-            // 觸發碰撞閃光特效
-            collisionFlash = 1.0;
-            
             // 位置修正
             let overlap = (b1.x + b1.r + b2.r) - b2.x;
             if (params.isM1Infinite && !params.isM2Infinite) {
@@ -557,30 +539,8 @@ const linearSim = (function() {
         document.getElementById('linearMass').innerHTML = textM;
     }
 
-    // 繪製殘影函數
-    function drawFadingTrails(trails, color, radius) {
-        for(let i=0; i<trails.length; i++) {
-            let alpha = (i / trails.length) * 0.4;
-            ctx.beginPath();
-            // 越後面的殘影越大越清楚
-            ctx.arc(trails[i].x, trails[i].y, radius * (0.6 + 0.4 * (i / trails.length)), 0, Math.PI*2);
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = color;
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1.0;
-    }
-
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 碰撞閃光渲染
-        if (collisionFlash > 0) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${collisionFlash * 0.4})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            collisionFlash -= 0.04;
-            if(collisionFlash < 0) collisionFlash = 0;
-        }
 
         // 地板
         ctx.beginPath();
@@ -589,10 +549,6 @@ const linearSim = (function() {
         ctx.strokeStyle = "#94a3b8";
         ctx.lineWidth = 2;
         ctx.stroke();
-
-        // 繪製殘影
-        drawFadingTrails(trails1, b1.color, b1.r);
-        drawFadingTrails(trails2, b2.color, b2.r);
 
         // 球體與標籤
         let label1 = params.isM1Infinite ? "∞" : "m1";
