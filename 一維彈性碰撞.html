@@ -27,23 +27,24 @@
         }
         .title {
             color: #facc15;
-            font-size: 1.25rem;
+            font-size: 2.125rem; /* 放大 1.7 倍 (原 1.25rem) */
             font-weight: bold;
             padding: 16px 0 14px 0;
             margin: 0;
             letter-spacing: 1px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
             white-space: nowrap;
             flex-shrink: 0;
         }
         .title-badge {
             background: #3b82f6;
             color: white;
-            font-size: 0.8rem;
-            padding: 2px 8px;
-            border-radius: 4px;
+            font-size: 1rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            vertical-align: middle;
         }
         .tabs {
             display: flex;
@@ -109,22 +110,22 @@
         @media (max-width: 600px) {
             .header { 
                 padding: 0 10px; 
-                flex-direction: column; /* 讓分頁籤換行到標題下方 */
-                align-items: stretch; /* 撐滿寬度 */
+                flex-direction: column; 
+                align-items: stretch; 
             }
             .title { 
-                font-size: 1.05rem; 
+                font-size: 1.785rem; /* 放大 1.7 倍 (原 1.05rem) */
                 padding: 10px 0 8px 0; 
             }
-            .title-badge { font-size: 0.75rem; padding: 2px 6px; }
+            .title-badge { font-size: 0.85rem; padding: 2px 6px; }
             .tabs { 
-                margin-left: 0; /* 取消左方間距 */
+                margin-left: 0; 
                 margin-bottom: 0;
                 gap: 4px;
             }
             .tab { 
-                padding: 6px 12px; /* 高度內距縮小至 0.6 倍 */
-                font-size: 0.8rem; /* 字體微縮小 */
+                padding: 6px 12px; 
+                font-size: 0.8rem; 
                 border-radius: 6px 6px 0 0;
             }
             .tab-num {
@@ -155,7 +156,6 @@
     </div>
     
     <div class="iframe-container">
-        <!-- 這裡將會動態載入您的物理模擬程式 -->
         <iframe id="sim-frame" title="Physics Simulation"></iframe>
     </div>
 
@@ -256,11 +256,8 @@
         <!-- 動畫展示區 -->
         <div class="bg-white p-3 md:p-6 rounded-xl shadow-sm border border-gray-200 relative flex flex-col sim-box">
             
-            <!-- 手機版專屬控制列 -->
+            <!-- 手機版專屬控制列 (移除狀態區塊，只留按鈕並置左) -->
             <div class="flex md:hidden items-center justify-start space-x-2 mb-2 w-full controls-row">
-                <div id="phaseIndicatorBadgeMobile" class="bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center btn-mobile">
-                    碰撞前
-                </div>
                 <button id="btnPlayPauseMobile" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow-sm transition-colors text-sm font-bold text-center w-20 btn-mobile">
                     開始播放
                 </button>
@@ -269,8 +266,8 @@
                 </button>
             </div>
 
-            <!-- 桌機版狀態指示器 -->
-            <div class="hidden md:flex absolute top-8 left-8 z-20 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none" id="phaseIndicatorBadge">
+            <!-- 統一狀態指示器 (長高 1.5 倍，字體 2 倍 32px，移至正中央上方) -->
+            <div id="phaseIndicatorBadge" class="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-sky-500 text-white px-6 py-3 rounded-xl shadow-md text-[32px] font-bold flex items-center transition-colors duration-300 pointer-events-none">
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
@@ -353,9 +350,7 @@
             btnReset: document.getElementById('btnReset'),
             btnPlayMobile: document.getElementById('btnPlayPauseMobile'),
             btnResetMobile: document.getElementById('btnResetMobile'),
-            phaseInd: document.getElementById('phaseIndicator'),
-            badge: document.getElementById('phaseIndicatorBadge'),
-            badgeMobile: document.getElementById('phaseIndicatorBadgeMobile')
+            badge: document.getElementById('phaseIndicatorBadge')
         };
 
         function updatePlayButtons() {
@@ -417,8 +412,77 @@
         if(ui.btnResetMobile) ui.btnResetMobile.addEventListener('click', handleResetClick);
 
         // ---------------------------------------------------------
-        // Chart.js 設定
+        // Chart.js 設定與客製化 Plugin (繪製箭頭與文字)
         // ---------------------------------------------------------
+        const phasePlugin = {
+            id: 'phasePlugin',
+            beforeDraw: (chart) => {
+                const { ctx, chartArea: { top, bottom, left, right }, scales: { x, y } } = chart;
+                
+                // 取得 3.33 秒與 6.66 秒的 X 座標
+                const t1 = 10 / 3;
+                const t2 = 20 / 3;
+                const x1 = x.getPixelForValue(t1);
+                const x2 = x.getPixelForValue(t2);
+
+                ctx.save();
+                
+                // 1. 畫垂直虛線 (深藍色)
+                ctx.beginPath();
+                ctx.setLineDash([6, 4]);
+                ctx.strokeStyle = '#1e3a8a'; 
+                ctx.lineWidth = 2;
+                ctx.moveTo(x1, top);
+                ctx.lineTo(x1, bottom);
+                ctx.moveTo(x2, top);
+                ctx.lineTo(x2, bottom);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 2. 畫說明文字 (斜體、楷體、對齊 y=2.5 的位置)
+                const textY = y.getPixelForValue(2.5);
+                ctx.fillStyle = '#1e3a8a';
+                ctx.font = 'italic bold 22px "KaiTi", "標楷體", serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('碰撞前', (left + x1) / 2, textY);
+                ctx.fillText('碰撞中', (x1 + x2) / 2, textY);
+                ctx.fillText('碰撞後', (x2 + right) / 2, textY);
+
+                // 3. 畫雙箭頭直線 (對齊 y=1.0 的位置)
+                const arrowY = y.getPixelForValue(1.0);
+                const drawArrow = (startX, endX) => {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, arrowY);
+                    ctx.lineTo(endX, arrowY);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#1e3a8a';
+                    ctx.stroke();
+
+                    // 左箭頭
+                    ctx.beginPath();
+                    ctx.moveTo(startX, arrowY);
+                    ctx.lineTo(startX + 12, arrowY - 6);
+                    ctx.lineTo(startX + 12, arrowY + 6);
+                    ctx.fillStyle = '#1e3a8a';
+                    ctx.fill();
+
+                    // 右箭頭
+                    ctx.beginPath();
+                    ctx.moveTo(endX, arrowY);
+                    ctx.lineTo(endX - 12, arrowY - 6);
+                    ctx.lineTo(endX - 12, arrowY + 6);
+                    ctx.fill();
+                };
+                
+                drawArrow(left, x1);
+                drawArrow(x1, x2);
+                drawArrow(x2, right);
+
+                ctx.restore();
+            }
+        };
+
         const chartCtx = document.getElementById('vtChart').getContext('2d');
         const chartData = {
             datasets: [
@@ -509,7 +573,8 @@
                         }
                     }
                 }
-            }
+            },
+            plugins: [phasePlugin] // 載入客製化箭頭與文字插件
         });
 
         // ---------------------------------------------------------
@@ -703,38 +768,23 @@
         // ---------------------------------------------------------
         function updateDescriptions() {
             let badge = ui.badge;
-            let badgeMob = ui.badgeMobile;
+            if(!badge) return;
+            
+            // 將長高放大 1.5 倍 (px-6 py-3)，字體放大 2 倍 (text-[32px])，並置中
+            const baseClass = 'absolute top-4 left-1/2 -translate-x-1/2 z-20 text-white px-6 py-3 rounded-xl shadow-md text-[32px] font-bold flex items-center transition-colors duration-300 pointer-events-none ';
             
             switch(state.phase) {
                 case 'before':
-                    if(badge) {
-                        badge.innerHTML = '<span class="tracking-widest">碰撞前</span>';
-                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-sky-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
-                    }
-                    if(badgeMob) {
-                        badgeMob.innerText = '碰撞前';
-                        badgeMob.className = 'bg-sky-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
-                    }
+                    badge.innerHTML = '<span class="tracking-widest">碰撞前</span>';
+                    badge.className = baseClass + 'bg-sky-500';
                     break;
                 case 'during':
-                    if(badge) {
-                        badge.innerHTML = '<span class="tracking-widest">碰撞中</span>';
-                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-amber-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
-                    }
-                    if(badgeMob) {
-                        badgeMob.innerText = '碰撞中';
-                        badgeMob.className = 'bg-amber-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
-                    }
+                    badge.innerHTML = '<span class="tracking-widest">碰撞中</span>';
+                    badge.className = baseClass + 'bg-amber-500';
                     break;
                 case 'after':
-                    if(badge) {
-                        badge.innerHTML = '<span class="tracking-widest">碰撞後</span>';
-                        badge.className = 'hidden md:flex absolute top-8 left-8 z-20 bg-indigo-500 text-white px-4 py-2 rounded shadow-md text-base font-bold items-center transition-colors duration-300 pointer-events-none';
-                    }
-                    if(badgeMob) {
-                        badgeMob.innerText = '碰撞後';
-                        badgeMob.className = 'bg-indigo-500 text-white px-3 py-1.5 rounded shadow-sm text-sm font-bold text-center transition-colors duration-300 btn-mobile';
-                    }
+                    badge.innerHTML = '<span class="tracking-widest">碰撞後</span>';
+                    badge.className = baseClass + 'bg-indigo-500';
                     break;
             }
         }
