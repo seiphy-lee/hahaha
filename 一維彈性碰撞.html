@@ -27,7 +27,7 @@
         }
         .title {
             color: #facc15;
-            font-size: 2.125rem; /* 放大 1.7 倍 (原 1.25rem) */
+            font-size: 2.125rem; /* 桌機版 1.7 倍 */
             font-weight: bold;
             padding: 16px 0 14px 0;
             margin: 0;
@@ -114,10 +114,14 @@
                 align-items: stretch; 
             }
             .title { 
-                font-size: 1.785rem; /* 放大 1.7 倍 (原 1.05rem) */
+                font-size: 1.07rem; /* 手機版縮小為 0.6 倍 */
                 padding: 10px 0 8px 0; 
+                gap: 8px;
             }
-            .title-badge { font-size: 0.85rem; padding: 2px 6px; }
+            .title-badge { 
+                font-size: 0.6rem; /* 徽章也等比縮小 */
+                padding: 2px 5px; 
+            }
             .tabs { 
                 margin-left: 0; 
                 margin-bottom: 0;
@@ -266,8 +270,9 @@
                 </button>
             </div>
 
-            <!-- 統一狀態指示器 (長高 1.5 倍，字體 2 倍 32px，移至正中央上方) -->
-            <div id="phaseIndicatorBadge" class="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-sky-500 text-white px-6 py-3 rounded-xl shadow-md text-[32px] font-bold flex items-center transition-colors duration-300 pointer-events-none">
+            <!-- 統一狀態指示器 -->
+            <!-- 桌機 0.7倍高度 (py-2, text-24px)，手機 0.5倍高度/0.4倍字 (py-1, text-13px, 右上角) -->
+            <div id="phaseIndicatorBadge" class="absolute z-20 text-white font-bold flex items-center transition-colors duration-300 pointer-events-none shadow-md top-2 right-2 translate-x-0 px-3 py-1 text-[13px] rounded-lg md:top-4 md:right-auto md:left-1/2 md:-translate-x-1/2 md:px-6 md:py-2 md:text-[24px] md:rounded-xl bg-sky-500">
                 <span id="phaseIndicator" class="tracking-widest">碰撞前</span>
             </div>
 
@@ -439,10 +444,14 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
 
+                // 判斷是否為手機版，縮小 0.5 倍
+                const isMobile = window.innerWidth <= 600;
+                const fontSize = isMobile ? 11 : 22; 
+
                 // 2. 畫說明文字 (斜體、楷體、對齊 y=2.5 的位置)
                 const textY = y.getPixelForValue(2.5);
                 ctx.fillStyle = '#1e3a8a';
-                ctx.font = 'italic bold 22px "KaiTi", "標楷體", serif';
+                ctx.font = `italic bold ${fontSize}px "KaiTi", "標楷體", serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('碰撞前', (left + x1) / 2, textY);
@@ -712,7 +721,12 @@
             ctx.translate(offsetX, offsetY);
             ctx.scale(scale, scale);
 
-            const groundY = logicalHeight / 2 + (PHYS.blockH * pxScale)/2 + 2;
+            let blockW_px = PHYS.blockW * pxScale;
+            let blockH_px = PHYS.blockH * pxScale;
+            
+            // 新增基準 Y 軸，向下移動半個物體高度
+            const baseY = logicalHeight / 2 + blockH_px / 2;
+            const groundY = baseY + blockH_px / 2 + 2;
 
             ctx.fillStyle = '#cbd5e1'; 
             ctx.fillRect(-500, groundY, logicalWidth + 1000, 15);
@@ -732,8 +746,6 @@
             // 將公尺轉換為像素供繪圖使用
             let x1_px = state.x1 * pxScale;
             let x2_px = state.x2 * pxScale;
-            let blockW_px = PHYS.blockW * pxScale;
-            let blockH_px = PHYS.blockH * pxScale;
             let L0_px = PHYS.L0 * pxScale;
 
             let rightOfM1 = x1_px + blockW_px/2;
@@ -741,12 +753,12 @@
             let actualSpringEndX = leftOfM2;
             let actualSpringStartX = (rightOfM1 > leftOfM2 - L0_px) ? rightOfM1 : leftOfM2 - L0_px;
             
-            drawSpring(ctx, actualSpringStartX, actualSpringEndX, logicalHeight / 2);
+            drawSpring(ctx, actualSpringStartX, actualSpringEndX, baseY);
 
-            drawBlock(ctx, x1_px, logicalHeight / 2, '甲', blockW_px, blockH_px);
-            drawBlock(ctx, x2_px, logicalHeight / 2, '乙', blockW_px, blockH_px);
+            drawBlock(ctx, x1_px, baseY, '甲', blockW_px, blockH_px);
+            drawBlock(ctx, x2_px, baseY, '乙', blockW_px, blockH_px);
 
-            const arrowY = logicalHeight / 2 - blockH_px/2 - 25;
+            const arrowY = baseY - blockH_px/2 - 25;
             
             // 速度箭頭長度以公尺數值直接當作像素比例，vScale=1.5
             const vScale = 1.5; 
@@ -770,8 +782,11 @@
             let badge = ui.badge;
             if(!badge) return;
             
-            // 將長高放大 1.5 倍 (px-6 py-3)，字體放大 2 倍 (text-[32px])，並置中
-            const baseClass = 'absolute top-4 left-1/2 -translate-x-1/2 z-20 text-white px-6 py-3 rounded-xl shadow-md text-[32px] font-bold flex items-center transition-colors duration-300 pointer-events-none ';
+            // 手機版 (top-2 right-2, 0.5x height py-1, 0.4x text 13px)
+            // 桌機版 (md:top-4 md:left-1/2 md:0.7x height py-2, text 24px)
+            const baseClass = 'absolute z-20 text-white font-bold flex items-center transition-colors duration-300 pointer-events-none shadow-md ' + 
+                              'md:top-4 md:right-auto md:left-1/2 md:-translate-x-1/2 md:px-6 md:py-2 md:text-[24px] md:rounded-xl ' + 
+                              'top-2 right-2 translate-x-0 px-3 py-1 text-[13px] rounded-lg ';
             
             switch(state.phase) {
                 case 'before':
