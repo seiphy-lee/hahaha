@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物理直線運動：x-t, v-t, a-t 圖轉換</title>
+    <!-- 引入 Tailwind CSS 以快速排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 讓 Canvas 在不同螢幕大小下保持良好的比例 */
+        canvas {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- 標題與阿發老師設計標記 -->
+        <h1 class="text-3xl font-bold text-center mb-2 text-blue-700">
+            物理直線運動圖形轉換器 
+            <span class="text-lg text-[#00B0F0] font-normal inline-block mt-2 md:mt-0 md:ml-2">(台中二中 阿發老師設計)</span>
+        </h1>
+        <p class="text-center text-gray-600 mb-6">請在最左側的 <b>x-t 圖</b> 上點擊以新增點，<b>拖曳紅點</b>可以動態改變圖形。<br>可透過 x-t 圖上方的按鈕切換不同運動模式。</p>
+
+        <!-- 控制面板 -->
+        <div class="flex justify-center mb-6 gap-4">
+            <button id="clearBtn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-200 shadow">
+                清除所有點
+            </button>
+            <div id="statusText" class="py-2 px-4 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium shadow-sm">
+                目前點數：0 / 2
+            </div>
+        </div>
+
+        <!-- 畫布區塊：由左至右排列 (x-t, v-t, a-t) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- x-t 圖 -->
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-semibold mb-2">位置 - 時間 (x-t) 圖</h2>
+                
+                <!-- 模式切換按鈕 -->
+                <div class="flex gap-2 mb-3">
+                    <button id="btnLine" class="px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors">直線</button>
+                    <button id="btnParabola" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">拋物線</button>
+                    <button id="btnPolyline" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">多段折線</button>
+                    <button id="btnSpline" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">多段曲線</button>
+                </div>
+
+                <canvas id="xtCanvas" width="400" height="400" class="w-full max-w-[400px]"></canvas>
+            </div>
+            
+            <!-- v-t 圖 -->
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-semibold mb-2 mt-12 md:mt-0">速度 - 時間 (v-t) 圖</h2>
+                <canvas id="vtCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default md:mt-11"></canvas>
+            </div>
+
+            <!-- a-t 圖 -->
+            <div class="flex flex-col items-center">
+                <h2 class="text-xl font-semibold mb-2 mt-12 md:mt-0">加速度 - 時間 (a-t) 圖</h2>
+                <canvas id="atCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default md:mt-11"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 畫布與環境設定 ---
+        const xtCanvas = document.getElementById('xtCanvas');
+        const vtCanvas = document.getElementById('vtCanvas');
+        const atCanvas = document.getElementById('atCanvas');
+        
+        const xtCtx = xtCanvas.getContext('2d');
+        const vtCtx = vtCanvas.getContext('2d');
+        const atCtx = atCanvas.getContext('2d');
+
+        const clearBtn = document.getElementById('clearBtn');
+        const statusText = document.getElementById('statusText');
+
+        // --- 模式控制 ---
+        const MODES = {
+            LINE: 'line',
+            PARABOLA: 'parabola',
+            POLYLINE: 'polyline',
+            SPLINE: 'spline'
+        };
+        let currentMode = MODES.LINE;
+        let maxPoints = 2;
+
+        const btnLine = document.getElementById('btnLine');
+        const btnParabola = document.getElementById('btnParabola');
+        const btnPolyline = document.getElementById('btnPolyline');
+        const btnSpline = document.getElementById('btnSpline');
+
+        // 更新狀態文字
+        function updateStatus() {
+            let maxStr = (currentMode === MODES.POLYLINE || currentMode === MODES.SPLINE) ? '10 (上限)' : maxPoints;
+            statusText.innerText = `目前點數：${points.length} / ${maxStr}`;
+        }
+
+        // 切換模式函數
+        function setMode(mode) {
+            currentMode = mode;
+            points = []; // 切換模式時清除所有點
+            draggingPoint = null;
+
+            // 重置按鈕樣式為未選取
+            [btnLine, btnParabola, btnPolyline, btnSpline].forEach(btn => {
+                btn.className = "px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors";
+            });
+
+            // 設定選取的按鈕樣式與最大點數
+            if (mode === MODES.LINE) {
+                btnLine.className = "px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors";
+                maxPoints = 2;
+            } else if (mode === MODES.PARABOLA) {
+                btnParabola.className = "px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors";
+                maxPoints = 3;
+            } else if (mode === MODES.POLYLINE) {
+                btnPolyline.className = "px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors";
+                maxPoints = 10; 
+            } else if (mode === MODES.SPLINE) {
+                btnSpline.className = "px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors";
+                maxPoints = 10; 
+            }
+
+            updateStatus();
+            updateGraphs();
+        }
+
+        // 綁定模式按鈕事件
+        btnLine.addEventListener('click', () => setMode(MODES.LINE));
+        btnParabola.addEventListener('click', () => setMode(MODES.PARABOLA));
+        btnPolyline.addEventListener('click', () => setMode(MODES.POLYLINE));
+        btnSpline.addEventListener('click', () => setMode(MODES.SPLINE));
+
+        // 儲存使用者點擊的座標點 {t, x}
+        let points = [];
+        let draggingPoint = null; 
+        const HIT_RADIUS = 12;    
+
+        const config = {
+            width: 400,
+            height: 400,
+            padding: 40,
+            tMax: 10,   
+            yMax: 20,   
+            yMin: -20   
+        };
+
+        // --- 座標轉換函數 ---
+        function toScreen(t, y) {
+            const px = config.padding + (t / config.tMax) * (config.width - 2 * config.padding);
+            const py = config.height - config.padding - ((y - config.yMin) / (config.yMax - config.yMin)) * (config.height - 2 * config.padding);
+            return { px, py };
+        }
+
+        function toLogical(px, py) {
+            const t = ((px - config.padding) / (config.width - 2 * config.padding)) * config.tMax;
+            const y = config.yMin + (1 - (py - config.padding) / (config.height - 2 * config.padding)) * (config.yMax - config.yMin);
+            return { t, y };
+        }
+
+        // --- 繪圖基礎函數 ---
+        function drawAxes(ctx, yLabel) {
+            ctx.clearRect(0, 0, config.width, config.height);
+            
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+
+            for (let y = config.yMin; y <= config.yMax; y += 5) {
+                let { px: px1, py } = toScreen(0, y);
+                let { px: px2 } = toScreen(config.tMax, y);
+                ctx.beginPath(); ctx.moveTo(px1, py); ctx.lineTo(px2, py); ctx.stroke();
+            }
+
+            for (let t = 0; t <= config.tMax; t += 1) {
+                let { px, py: py1 } = toScreen(t, config.yMin);
+                let { py: py2 } = toScreen(t, config.yMax);
+                ctx.beginPath(); ctx.moveTo(px, py1); ctx.lineTo(px, py2); ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            
+            let originScreen = toScreen(0, 0);
+            let tMaxScreen = toScreen(config.tMax, 0);
+            ctx.beginPath(); ctx.moveTo(originScreen.px, originScreen.py); ctx.lineTo(tMaxScreen.px, tMaxScreen.py); ctx.stroke();
+
+            let yMinScreen = toScreen(0, config.yMin);
+            let yMaxScreen = toScreen(0, config.yMax);
+            ctx.beginPath(); ctx.moveTo(yMinScreen.px, yMinScreen.py); ctx.lineTo(yMaxScreen.px, yMaxScreen.py); ctx.stroke();
+
+            ctx.fillStyle = '#334155';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('t (s)', tMaxScreen.px - 10, originScreen.py - 10);
+            ctx.fillText(yLabel, yMaxScreen.px + 10, yMaxScreen.py + 10);
+            ctx.fillText('0', originScreen.px - 15, originScreen.py + 15);
+        }
+
+        function drawCurve(ctx, func, color, tStart = 0, tEnd = config.tMax) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            // 確保起點一定有畫到
+            let { px: startPx, py: startPy } = toScreen(tStart, func(tStart));
+            startPy = Math.max(0, Math.min(config.height, startPy));
+            ctx.moveTo(startPx, startPy);
+
+            // 提高解析度至 0.05，確保曲線畫起來平滑
+            for (let t = tStart; t <= tEnd; t += 0.05) {
+                let y = func(t);
+                let { px, py } = toScreen(t, y);
+                
+                // 限制 Y 軸畫布範圍內，避免加速度等數值衝太高破壞版面
+                py = Math.max(0, Math.min(config.height, py)); 
+                ctx.lineTo(px, py);
+            }
+
+            // 確保終點一定有畫到
+            let { px: endPx, py: endPy } = toScreen(tEnd, func(tEnd));
+            endPy = Math.max(0, Math.min(config.height, endPy));
+            ctx.lineTo(endPx, endPy);
+
+            ctx.stroke();
+        }
+
+        // --- 物理與數學運算 ---
+        function updateGraphs() {
+            drawAxes(xtCtx, 'x (m)');
+            drawAxes(vtCtx, 'v (m/s)');
+            drawAxes(atCtx, 'a (m/s²)');
+
+            // 畫出拖曳點 
+            points.forEach(p => {
+                let { px, py } = toScreen(p.t, p.x);
+                xtCtx.beginPath();
+                if (p === draggingPoint) {
+                    xtCtx.arc(px, py, 8, 0, Math.PI * 2);
+                    xtCtx.fillStyle = '#b91c1c'; 
+                    xtCtx.shadowColor = 'rgba(239, 68, 68, 0.5)';
+                    xtCtx.shadowBlur = 10;
+                } else {
+                    xtCtx.arc(px, py, 6, 0, Math.PI * 2);
+                    xtCtx.fillStyle = '#ef4444'; 
+                    xtCtx.shadowBlur = 0;
+                }
+                xtCtx.fill();
+                xtCtx.shadowBlur = 0; 
+            });
+
+            // 根據不同模式與點數繪製對應圖形
+            if (currentMode === MODES.LINE && points.length === 2) {
+                // 直線模式 (等速)
+                let p1 = points[0], p2 = points[1];
+                let dt = p2.t - p1.t;
+                if (Math.abs(dt) > 0.01) {
+                    let v = (p2.x - p1.x) / dt;
+                    let x0 = p1.x - v * p1.t;
+                    drawCurve(xtCtx, (t) => v * t + x0, '#2563eb');
+                    drawCurve(vtCtx, (t) => v, '#16a34a');
+                    drawCurve(atCtx, (t) => 0, '#ea580c');
+                }
+            } 
+            else if (currentMode === MODES.PARABOLA && points.length === 3) {
+                // 拋物線模式 (等加速)
+                let t1 = points[0].t, x1 = points[0].x;
+                let t2 = points[1].t, x2 = points[1].x;
+                let t3 = points[2].t, x3 = points[2].x;
+
+                let d1 = (t1 - t2) * (t1 - t3);
+                let d2 = (t2 - t1) * (t2 - t3);
+                let d3 = (t3 - t1) * (t3 - t2);
+                
+                if (Math.abs(d1) > 0.001 && Math.abs(d2) > 0.001 && Math.abs(d3) > 0.001) {
+                    let A = x1 / d1 + x2 / d2 + x3 / d3;
+                    let B = -x1 * (t2 + t3) / d1 - x2 * (t1 + t3) / d2 - x3 * (t1 + t2) / d3;
+                    let C = x1 * t2 * t3 / d1 + x2 * t1 * t3 / d2 + x3 * t1 * t2 / d3;
+
+                    drawCurve(xtCtx, (t) => A * t * t + B * t + C, '#2563eb');
+                    drawCurve(vtCtx, (t) => 2 * A * t + B, '#16a34a');
+                    drawCurve(atCtx, (t) => 2 * A, '#ea580c');
+                } else {
+                    xtCtx.fillStyle = '#dc2626';
+                    xtCtx.font = '16px sans-serif';
+                    xtCtx.fillText('三個時間點過於接近，無法建立拋物線', 50, 30);
+                }
+            }
+            else if (currentMode === MODES.POLYLINE && points.length >= 2) {
+                let tStart = points[0].t;
+                let tEnd = points[points.length-1].t;
+
+                // 多段折線模式 (多段等速)
+                let xFunc = (t) => {
+                    if (t <= points[0].t) {
+                        let v = (points[1].x - points[0].x) / (points[1].t - points[0].t);
+                        return points[0].x + v * (t - points[0].t);
+                    }
+                    if (t >= points[points.length-1].t) {
+                        let last = points.length - 1;
+                        let v = (points[last].x - points[last-1].x) / (points[last].t - points[last-1].t);
+                        return points[last].x + v * (t - points[last].t);
+                    }
+                    for (let i = 0; i < points.length - 1; i++) {
+                        if (t >= points[i].t && t <= points[i+1].t) {
+                            let v = (points[i+1].x - points[i].x) / (points[i+1].t - points[i].t);
+                            return points[i].x + v * (t - points[i].t);
+                        }
+                    }
+                };
+
+                let vFunc = (t) => {
+                    if (t <= points[0].t) return (points[1].x - points[0].x) / (points[1].t - points[0].t);
+                    if (t >= points[points.length-1].t) {
+                        let last = points.length - 1;
+                        return (points[last].x - points[last-1].x) / (points[last].t - points[last-1].t);
+                    }
+                    for (let i = 0; i < points.length - 1; i++) {
+                        if (t >= points[i].t && t <= points[i+1].t) {
+                            return (points[i+1].x - points[i].x) / (points[i+1].t - points[i].t);
+                        }
+                    }
+                    return 0;
+                };
+
+                drawCurve(xtCtx, xFunc, '#2563eb', tStart, tEnd);
+                drawCurve(vtCtx, vFunc, '#16a34a', tStart, tEnd); 
+                drawCurve(atCtx, (t) => 0, '#ea580c', tStart, tEnd); 
+            }
+            else if (currentMode === MODES.SPLINE && points.length >= 2) {
+                let tStart = points[0].t;
+                let tEnd = points[points.length-1].t;
+
+                // 多段曲線模式 (Cubic Hermite Spline 三次埃爾米特樣條)
+                let n = points.length;
+                let tangents = [];
+                
+                if (n === 2) {
+                    let dt = points[1].t - points[0].t;
+                    if (Math.abs(dt) < 0.001) dt = 0.001;
+                    let m = (points[1].x - points[0].x) / dt;
+                    tangents = [m, m];
+                } else {
+                    for (let i = 0; i < n; i++) {
+                        if (i === 0) {
+                            let dt = points[1].t - points[0].t;
+                            if (Math.abs(dt) < 0.001) dt = 0.001;
+                            tangents.push((points[1].x - points[0].x) / dt);
+                        } else if (i === n - 1) {
+                            let dt = points[n-1].t - points[n-2].t;
+                            if (Math.abs(dt) < 0.001) dt = 0.001;
+                            tangents.push((points[n-1].x - points[n-2].x) / dt);
+                        } else {
+                            let dt = points[i+1].t - points[i-1].t;
+                            if (Math.abs(dt) < 0.001) dt = 0.001;
+                            tangents.push((points[i+1].x - points[i-1].x) / dt);
+                        }
+                    }
+                }
+
+                // 取得任意時間 t 的運動學狀態 (位置、速度、加速度)
+                let getSplineData = (t) => {
+                    // 左側外推 (使用嚴格小於並加入些微容差，避免端點 a 被強制設為 0)
+                    if (t < points[0].t - 0.0001) {
+                        return { 
+                            x: points[0].x + tangents[0] * (t - points[0].t), 
+                            v: tangents[0], 
+                            a: 0 
+                        };
+                    }
+                    // 右側外推 (嚴格大於)
+                    if (t > points[n-1].t + 0.0001) {
+                        return { 
+                            x: points[n-1].x + tangents[n-1] * (t - points[n-1].t), 
+                            v: tangents[n-1], 
+                            a: 0 
+                        };
+                    }
+                    
+                    // 區段內插值
+                    for (let i = 0; i < n - 1; i++) {
+                        // 加入容差避免 JS 浮點數運算漏掉剛好在邊界上的點
+                        if (t >= points[i].t - 0.0001 && t <= points[i+1].t + 0.0001) {
+                            let dt = points[i+1].t - points[i].t;
+                            let s = (t - points[i].t) / dt; // 局部時間參數 0 到 1
+                            s = Math.max(0, Math.min(1, s)); // 確保在 0~1 之間
+
+                            let s2 = s * s;
+                            let s3 = s2 * s;
+
+                            let xi = points[i].x, xip1 = points[i+1].x;
+                            let mi = tangents[i], mip1 = tangents[i+1];
+
+                            // 三次多項式基底函數
+                            let h00 = 2*s3 - 3*s2 + 1;
+                            let h01 = -2*s3 + 3*s2;
+                            let h10 = s3 - 2*s2 + s;
+                            let h11 = s3 - s2;
+
+                            let x = xi*h00 + xip1*h01 + mi*dt*h10 + mip1*dt*h11;
+
+                            // 速度 (位置的微分)
+                            let dh00 = 6*s2 - 6*s;
+                            let dh01 = -6*s2 + 6*s;
+                            let dh10 = 3*s2 - 4*s + 1;
+                            let dh11 = 3*s2 - 2*s;
+                            let v = (xi*dh00 + xip1*dh01 + mi*dt*dh10 + mip1*dt*dh11) / dt;
+
+                            // 加速度 (速度的微分)
+                            let ddh00 = 12*s - 6;
+                            let ddh01 = -12*s + 6;
+                            let ddh10 = 6*s - 4;
+                            let ddh11 = 6*s - 2;
+                            let a = (xi*ddh00 + xip1*ddh01 + mi*dt*ddh10 + mip1*dt*ddh11) / (dt * dt);
+
+                            return { x: x, v: v, a: a };
+                        }
+                    }
+                    
+                    return {
+                        x: points[n - 1].x,
+                        v: tangents[n - 1],
+                        a: 0
+                    };
+                };
+
+                // 分別繪製三張圖形
+                drawCurve(xtCtx, (t) => getSplineData(t).x, '#2563eb', tStart, tEnd);
+                drawCurve(vtCtx, (t) => getSplineData(t).v, '#16a34a', tStart, tEnd);
+                drawCurve(atCtx, (t) => getSplineData(t).a, '#ea580c', tStart, tEnd);
+            }
+        }
+
+        // --- 事件監聽與互動 ---
+        xtCanvas.addEventListener('mousedown', function(e) {
+            const rect = xtCanvas.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+
+            for (let i = 0; i < points.length; i++) {
+                let p = points[i];
+                let screenP = toScreen(p.t, p.x);
+                let dist = Math.hypot(screenP.px - px, screenP.py - py);
+                if (dist <= HIT_RADIUS) {
+                    draggingPoint = p;
+                    xtCanvas.style.cursor = 'grabbing';
+                    updateGraphs(); 
+                    return; 
+                }
+            }
+
+            // 使用動態的最大點數限制
+            if (points.length >= maxPoints) return;
+
+            let logicalPoint = toLogical(px, py);
+            if (logicalPoint.t >= 0 && logicalPoint.t <= config.tMax && 
+                logicalPoint.y >= config.yMin && logicalPoint.y <= config.yMax) {
+                
+                let tooClose = points.some(p => Math.abs(p.t - logicalPoint.t) < 0.2);
+                if (tooClose) {
+                    alert("點的 t (時間) 座標太接近了，請點擊左右不同的位置！");
+                    return;
+                }
+
+                points.push({ t: logicalPoint.t, x: logicalPoint.y });
+                points.sort((a, b) => a.t - b.t);
+                
+                updateStatus();
+                updateGraphs();
+            }
+        });
+
+        xtCanvas.addEventListener('mousemove', function(e) {
+            const rect = xtCanvas.getBoundingClientRect();
+            const px = e.clientX - rect.left;
+            const py = e.clientY - rect.top;
+
+            if (draggingPoint) {
+                let logicalPoint = toLogical(px, py);
+
+                logicalPoint.t = Math.max(0, Math.min(config.tMax, logicalPoint.t));
+                logicalPoint.y = Math.max(config.yMin, Math.min(config.yMax, logicalPoint.y));
+
+                let tooClose = points.some(p => p !== draggingPoint && Math.abs(p.t - logicalPoint.t) < 0.2);
+                
+                if (!tooClose) {
+                    draggingPoint.t = logicalPoint.t; 
+                }
+                draggingPoint.x = logicalPoint.y;     
+
+                points.sort((a, b) => a.t - b.t);
+                updateGraphs();
+            } else {
+                let isHovering = points.some(p => {
+                    let screenP = toScreen(p.t, p.x);
+                    return Math.hypot(screenP.px - px, screenP.py - py) <= HIT_RADIUS;
+                });
+                xtCanvas.style.cursor = isHovering ? 'grab' : 'crosshair';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (draggingPoint) {
+                draggingPoint = null;
+                xtCanvas.style.cursor = 'crosshair';
+                updateGraphs(); 
+            }
+        });
+        
+        xtCanvas.addEventListener('mouseleave', () => {
+            if (draggingPoint) {
+                draggingPoint = null;
+                updateGraphs();
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            points = [];
+            draggingPoint = null;
+            updateStatus();
+            updateGraphs();
+        });
+
+        // 初始化畫面
+        updateStatus();
+        updateGraphs();
+    </script>
+</body>
+</html>
