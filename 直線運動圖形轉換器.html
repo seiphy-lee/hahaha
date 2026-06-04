@@ -43,29 +43,33 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- x-t 圖 -->
             <div class="flex flex-col items-center">
-                <h2 class="text-xl font-semibold mb-2">位置 - 時間 (x-t) 圖</h2>
-                
-                <!-- 模式切換按鈕 -->
+                <!-- 模式切換按鈕 (移到標題上方) -->
                 <div class="flex gap-2 mb-3">
                     <button id="btnLine" class="px-3 py-1 rounded text-sm font-medium bg-blue-500 text-white shadow transition-colors">直線</button>
                     <button id="btnParabola" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">拋物線</button>
                     <button id="btnPolyline" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">多段折線</button>
                     <button id="btnSpline" class="px-3 py-1 rounded text-sm font-medium bg-[#00FFFF] text-gray-800 hover:opacity-80 shadow transition-colors">多段曲線</button>
                 </div>
+                
+                <h2 class="text-xl font-semibold mb-2">位置 - 時間 (x-t) 圖</h2>
 
                 <canvas id="xtCanvas" width="400" height="400" class="w-full max-w-[400px]"></canvas>
             </div>
             
             <!-- v-t 圖 -->
             <div class="flex flex-col items-center">
+                <!-- 加入隱藏的佔位空間 (28px) 來對齊左側的按鈕高度 -->
+                <div class="hidden md:block h-[28px] mb-3"></div>
                 <h2 class="text-xl font-semibold mb-2 mt-12 md:mt-0">速度 - 時間 (v-t) 圖</h2>
-                <canvas id="vtCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default md:mt-11"></canvas>
+                <canvas id="vtCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default"></canvas>
             </div>
 
             <!-- a-t 圖 -->
             <div class="flex flex-col items-center">
+                <!-- 加入隱藏的佔位空間 (28px) 來對齊左側的按鈕高度 -->
+                <div class="hidden md:block h-[28px] mb-3"></div>
                 <h2 class="text-xl font-semibold mb-2 mt-12 md:mt-0">加速度 - 時間 (a-t) 圖</h2>
-                <canvas id="atCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default md:mt-11"></canvas>
+                <canvas id="atCanvas" width="400" height="400" class="w-full max-w-[400px] cursor-default"></canvas>
             </div>
         </div>
     </div>
