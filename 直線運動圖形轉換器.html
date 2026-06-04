@@ -215,7 +215,6 @@
             
             // 確保起點一定有畫到
             let { px: startPx, py: startPy } = toScreen(tStart, func(tStart));
-            startPy = Math.max(0, Math.min(config.height, startPy));
             ctx.moveTo(startPx, startPy);
 
             // 提高解析度至 0.05，確保曲線畫起來平滑
@@ -223,14 +222,12 @@
                 let y = func(t);
                 let { px, py } = toScreen(t, y);
                 
-                // 限制 Y 軸畫布範圍內，避免加速度等數值衝太高破壞版面
-                py = Math.max(0, Math.min(config.height, py)); 
+                // 移除強制的 Y 軸邊界限制，讓線條自然延伸到畫布外隱藏
                 ctx.lineTo(px, py);
             }
 
             // 確保終點一定有畫到
             let { px: endPx, py: endPy } = toScreen(tEnd, func(tEnd));
-            endPy = Math.max(0, Math.min(config.height, endPy));
             ctx.lineTo(endPx, endPy);
 
             ctx.stroke();
