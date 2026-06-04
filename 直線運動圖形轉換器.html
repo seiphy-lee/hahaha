@@ -14,6 +14,8 @@
             border-radius: 0.5rem;
             cursor: crosshair;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            /* 防止在手機上拖曳時觸發預設的滑動行為或長按選單 */
+            touch-action: none; 
         }
     </style>
 </head>
@@ -141,7 +143,7 @@
         // 儲存使用者點擊的座標點 {t, x}
         let points = [];
         let draggingPoint = null; 
-        const HIT_RADIUS = 12;    
+        const HIT_RADIUS = 15; // 稍微加大判定範圍，讓手機更好點擊    
 
         const config = {
             width: 400,
@@ -256,7 +258,6 @@
 
             // 根據不同模式與點數繪製對應圖形
             if (currentMode === MODES.LINE && points.length === 2) {
-                // 直線模式 (等速)
                 let p1 = points[0], p2 = points[1];
                 let dt = p2.t - p1.t;
                 if (Math.abs(dt) > 0.01) {
@@ -268,7 +269,6 @@
                 }
             } 
             else if (currentMode === MODES.PARABOLA && points.length === 3) {
-                // 拋物線模式 (等加速)
                 let t1 = points[0].t, x1 = points[0].x;
                 let t2 = points[1].t, x2 = points[1].x;
                 let t3 = points[2].t, x3 = points[2].x;
@@ -295,7 +295,6 @@
                 let tStart = points[0].t;
                 let tEnd = points[points.length-1].t;
 
-                // 多段折線模式 (多段等速)
                 let xFunc = (t) => {
                     if (t <= points[0].t) {
                         let v = (points[1].x - points[0].x) / (points[1].t - points[0].t);
@@ -336,7 +335,6 @@
                 let tStart = points[0].t;
                 let tEnd = points[points.length-1].t;
 
-                // 多段曲線模式 (Cubic Hermite Spline 三次埃爾米特樣條)
                 let n = points.length;
                 let tangents = [];
                 
@@ -363,32 +361,19 @@
                     }
                 }
 
-                // 取得任意時間 t 的運動學狀態 (位置、速度、加速度)
                 let getSplineData = (t) => {
-                    // 左側外推 (使用嚴格小於並加入些微容差，避免端點 a 被強制設為 0)
                     if (t < points[0].t - 0.0001) {
-                        return { 
-                            x: points[0].x + tangents[0] * (t - points[0].t), 
-                            v: tangents[0], 
-                            a: 0 
-                        };
+                        return { x: points[0].x + tangents[0] * (t - points[0].t), v: tangents[0], a: 0 };
                     }
-                    // 右側外推 (嚴格大於)
                     if (t > points[n-1].t + 0.0001) {
-                        return { 
-                            x: points[n-1].x + tangents[n-1] * (t - points[n-1].t), 
-                            v: tangents[n-1], 
-                            a: 0 
-                        };
+                        return { x: points[n-1].x + tangents[n-1] * (t - points[n-1].t), v: tangents[n-1], a: 0 };
                     }
                     
-                    // 區段內插值
                     for (let i = 0; i < n - 1; i++) {
-                        // 加入容差避免 JS 浮點數運算漏掉剛好在邊界上的點
                         if (t >= points[i].t - 0.0001 && t <= points[i+1].t + 0.0001) {
                             let dt = points[i+1].t - points[i].t;
-                            let s = (t - points[i].t) / dt; // 局部時間參數 0 到 1
-                            s = Math.max(0, Math.min(1, s)); // 確保在 0~1 之間
+                            let s = (t - points[i].t) / dt; 
+                            s = Math.max(0, Math.min(1, s)); 
 
                             let s2 = s * s;
                             let s3 = s2 * s;
@@ -396,22 +381,18 @@
                             let xi = points[i].x, xip1 = points[i+1].x;
                             let mi = tangents[i], mip1 = tangents[i+1];
 
-                            // 三次多項式基底函數
                             let h00 = 2*s3 - 3*s2 + 1;
                             let h01 = -2*s3 + 3*s2;
                             let h10 = s3 - 2*s2 + s;
                             let h11 = s3 - s2;
-
                             let x = xi*h00 + xip1*h01 + mi*dt*h10 + mip1*dt*h11;
 
-                            // 速度 (位置的微分)
                             let dh00 = 6*s2 - 6*s;
                             let dh01 = -6*s2 + 6*s;
                             let dh10 = 3*s2 - 4*s + 1;
                             let dh11 = 3*s2 - 2*s;
                             let v = (xi*dh00 + xip1*dh01 + mi*dt*dh10 + mip1*dt*dh11) / dt;
 
-                            // 加速度 (速度的微分)
                             let ddh00 = 12*s - 6;
                             let ddh01 = -12*s + 6;
                             let ddh10 = 6*s - 4;
@@ -421,26 +402,41 @@
                             return { x: x, v: v, a: a };
                         }
                     }
-                    
-                    return {
-                        x: points[n - 1].x,
-                        v: tangents[n - 1],
-                        a: 0
-                    };
+                    return { x: points[n - 1].x, v: tangents[n - 1], a: 0 };
                 };
 
-                // 分別繪製三張圖形
                 drawCurve(xtCtx, (t) => getSplineData(t).x, '#2563eb', tStart, tEnd);
                 drawCurve(vtCtx, (t) => getSplineData(t).v, '#16a34a', tStart, tEnd);
                 drawCurve(atCtx, (t) => getSplineData(t).a, '#ea580c', tStart, tEnd);
             }
         }
 
-        // --- 事件監聽與互動 ---
-        xtCanvas.addEventListener('mousedown', function(e) {
-            const rect = xtCanvas.getBoundingClientRect();
-            const px = e.clientX - rect.left;
-            const py = e.clientY - rect.top;
+        // --- 事件監聽與互動 (已升級：支援手機與解決縮放誤差) ---
+
+        // 取得跨裝置與支援縮放比例的精確座標
+        function getPointerPos(canvas, e) {
+            const rect = canvas.getBoundingClientRect();
+            // 判斷是否為觸控事件，若是則取得第一個手指的座標
+            let clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
+
+            // 計算畫布內部座標解析度(400) 與 實際顯示尺寸(rect) 的縮放比例
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function handlePointerDown(e) {
+            // 防止在手機上點擊時發生預設行為（例如選取或滾動）
+            if(e.type === 'touchstart') e.preventDefault();
+
+            const pos = getPointerPos(xtCanvas, e);
+            const px = pos.x;
+            const py = pos.y;
 
             for (let i = 0; i < points.length; i++) {
                 let p = points[i];
@@ -454,7 +450,6 @@
                 }
             }
 
-            // 使用動態的最大點數限制
             if (points.length >= maxPoints) return;
 
             let logicalPoint = toLogical(px, py);
@@ -473,12 +468,14 @@
                 updateStatus();
                 updateGraphs();
             }
-        });
+        }
 
-        xtCanvas.addEventListener('mousemove', function(e) {
-            const rect = xtCanvas.getBoundingClientRect();
-            const px = e.clientX - rect.left;
-            const py = e.clientY - rect.top;
+        function handlePointerMove(e) {
+            if(e.type === 'touchmove') e.preventDefault();
+
+            const pos = getPointerPos(xtCanvas, e);
+            const px = pos.x;
+            const py = pos.y;
 
             if (draggingPoint) {
                 let logicalPoint = toLogical(px, py);
@@ -496,28 +493,36 @@
                 points.sort((a, b) => a.t - b.t);
                 updateGraphs();
             } else {
-                let isHovering = points.some(p => {
-                    let screenP = toScreen(p.t, p.x);
-                    return Math.hypot(screenP.px - px, screenP.py - py) <= HIT_RADIUS;
-                });
-                xtCanvas.style.cursor = isHovering ? 'grab' : 'crosshair';
+                // 只有滑鼠會有懸停效果
+                if (e.type === 'mousemove') {
+                    let isHovering = points.some(p => {
+                        let screenP = toScreen(p.t, p.x);
+                        return Math.hypot(screenP.px - px, screenP.py - py) <= HIT_RADIUS;
+                    });
+                    xtCanvas.style.cursor = isHovering ? 'grab' : 'crosshair';
+                }
             }
-        });
+        }
 
-        document.addEventListener('mouseup', () => {
+        function handlePointerUp() {
             if (draggingPoint) {
                 draggingPoint = null;
                 xtCanvas.style.cursor = 'crosshair';
                 updateGraphs(); 
             }
-        });
-        
-        xtCanvas.addEventListener('mouseleave', () => {
-            if (draggingPoint) {
-                draggingPoint = null;
-                updateGraphs();
-            }
-        });
+        }
+
+        // 註冊滑鼠事件
+        xtCanvas.addEventListener('mousedown', handlePointerDown);
+        xtCanvas.addEventListener('mousemove', handlePointerMove);
+        document.addEventListener('mouseup', handlePointerUp);
+        xtCanvas.addEventListener('mouseleave', handlePointerUp);
+
+        // 註冊觸控事件 (設定 passive: false 以允許使用 e.preventDefault 擋住手機滾動)
+        xtCanvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+        xtCanvas.addEventListener('touchmove', handlePointerMove, { passive: false });
+        xtCanvas.addEventListener('touchend', handlePointerUp);
+        xtCanvas.addEventListener('touchcancel', handlePointerUp);
 
         clearBtn.addEventListener('click', () => {
             points = [];
