@@ -98,11 +98,7 @@
             // 解析網址列參數 ?room=XXX 來決定是否為學生模式
             const urlParams = new URLSearchParams(window.location.search);
             const initialRoom = urlParams.get('room');
-            
-            // 新增：老師需要加上 ?manage=true 才會看到後台
-            const isTeacherMode = urlParams.get('manage') === 'true';
-            // 只要沒有 ?manage=true，一律當作學生模式 (防護機制)
-            const isStudentMode = !isTeacherMode;
+            const isStudentMode = !!initialRoom;
 
             const [user, setUser] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
@@ -275,21 +271,33 @@
 
             // --- 學生專屬登入畫面 (網址帶有 ?room 參數) ---
             if (isStudentMode && !role) {
-                // 新增防護：如果學生亂刪除網址，導致沒有 room 參數，就擋下來
-                if (!currentRoom) {
-                    return (
-                        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-200 p-4">
-                            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in text-center border-t-4 border-orange-500">
-                                <div className="flex justify-center text-orange-500 mb-4 scale-125">
-                                    <Icons.Lock />
-                                </div>
-                                <h1 className="text-2xl font-black mb-2 text-gray-800">需要專屬連結</h1>
-                                <p className="text-gray-500 mb-6 font-bold">請使用老師提供的完整邀請連結來進入教室喔！</p>
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-200 p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in text-center border-t-4 border-orange-500">
+                            <div className="flex justify-center text-orange-500 mb-4 scale-125">
+                                <Icons.Users />
                             </div>
-                        </div>
-                    );
-                }
+                            <h1 className="text-xl font-bold mb-2 text-gray-800">準備進入教室</h1>
+                            <h2 className="text-2xl font-black text-orange-600 mb-4">{currentRoom}</h2>
+                            <p className="text-gray-500 mb-6 text-sm">為了確保評分公平性，請使用您的 Google 帳號登入</p>
+                            
+                            {errorMsg && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 mb-4 text-left border border-red-100">
+                                    <div className="mt-0.5"><Icons.X /></div>
+                                    {errorMsg}
+                                </div>
+                            )}
 
+                            <button onClick={handleGoogleLogin} className="w-full py-4 bg-orange-500 text-white rounded-xl hover:bg-orange-600 flex items-center justify-center gap-2 font-bold transition shadow-lg active:scale-95">
+                                <Icons.User /> Google 帳號登入
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 老師專屬登入畫面 (網址沒有 ?room 參數) ---
+            if (!isStudentMode && !role) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-200 p-4">
                         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in border-t-4 border-orange-500">
