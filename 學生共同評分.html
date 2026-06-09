@@ -576,18 +576,19 @@
 
             return (
                 <div className="space-y-6">
-                    <div className="flex flex-wrap bg-white rounded-lg p-1 shadow-sm overflow-x-auto gap-2">
+                    {/* ====== 修改區域開始 ====== */}
+                    {/* 把原本的一般 flex 加上 grid-cols-4 響應式排版，維持桌機版的 md:flex */}
+                    <div className="grid grid-cols-4 md:flex md:flex-wrap bg-white rounded-lg p-1 shadow-sm gap-1 md:gap-2">
                         {[
-                            {id: 'setup', label: '學生與小組名單設定'}, 
-                            {id: 'criteria', label: '評分標準設定'}, 
-                            {id: 'control', label: '評分控制台'}, 
-                            {id: 'monitor', label: '監控評分與修正分數'}, 
-                            {id: 'groupDetails', label: '各組得分明細'}, 
-                            {id: 'studentDetails', label: '學生評分明細'}, 
-                            {id: 'results', label: '結果統計'}
+                            {id: 'setup', label: '學生與小組名單設定', line1: '學生與小組', line2: '名單設定'}, 
+                            {id: 'criteria', label: '評分標準設定', line1: '評分標準', line2: '設定'}, 
+                            {id: 'control', label: '評分控制台', line1: '評分', line2: '控制台'}, 
+                            {id: 'monitor', label: '監控評分與修正分數', line1: '監控評分與', line2: '修正分數'}, 
+                            {id: 'groupDetails', label: '各組得分明細', line1: '各組得分', line2: '明細'}, 
+                            {id: 'studentDetails', label: '學生評分明細', line1: '學生評分', line2: '明細'}, 
+                            {id: 'results', label: '結果統計', line1: '結果', line2: '統計'}
                         ]
                         .map(t => {
-                            // 動態處理分頁標籤顏色與樣式
                             let bgStyle = {};
                             let textClass = "text-gray-700";
                             
@@ -611,13 +612,24 @@
 
                             return (
                                 <button key={t.id} onClick={()=>{setActiveTab(t.id); setMonitorGroupId(null); setMonitorStudentName(null);}} 
-                                    className={`flex-1 py-3 px-4 whitespace-normal text-lg font-bold rounded-md border border-gray-200 transition-all shadow-sm ${textClass}`}
+                                    className={`md:flex-1 py-1 md:py-3 px-1 md:px-4 font-bold rounded-lg border border-gray-200 transition-all shadow-sm flex flex-col md:block items-center justify-center aspect-square md:aspect-auto ${textClass}`}
                                     style={bgStyle}>
-                                    {t.label}
+                                    
+                                    {/* 桌機版文字：單行顯示 */}
+                                    <span className="hidden md:inline text-lg">{t.label}</span>
+                                    
+                                    {/* 手機版文字：雙行顯示，並使用 clamp 自動調整字體大小，盡量滿版 */}
+                                    <div 
+                                        className="md:hidden flex flex-col items-center justify-center w-full h-full leading-tight tracking-tighter"
+                                        style={{ fontSize: 'clamp(11px, 3.2vw, 16px)' }}>
+                                        <span>{t.line1}</span>
+                                        <span>{t.line2}</span>
+                                    </div>
                                 </button>
                             );
                         })}
                     </div>
+                    {/* ====== 修改區域結束 ====== */}
 
                     {activeTab === 'control' && (
                         <div className="bg-white rounded-xl shadow p-6 space-y-6 animate-fade-in">
