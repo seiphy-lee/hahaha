@@ -134,7 +134,7 @@
 
             <!-- 物理參數區塊 -->
             <div class="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 shadow-lg flex-grow flex flex-col">
-                <!-- 將原本在標題區的敘述移動至此 -->
+                <!-- 敘述移動至此 -->
                 <p class="text-[14px] text-[#FFFF99] mb-6 leading-relaxed text-justify">
                     探索光頻率、強度、功函數與外加電場如何影響電子的發射與運動。
                 </p>
@@ -211,47 +211,50 @@
                 </div>
             </div>
 
-            <!-- 下方畫布區 (與周圍背景融為一體，設定 relative 作為定位基準) -->
-            <div class="relative w-full flex-grow flex justify-center items-center">
-                
-                <!-- 畫布內部絕對定位：金屬材料選擇器與動能開關 -->
-                <div class="absolute top-4 left-10 flex flex-col gap-4 z-10">
-                    <div class="flex items-center gap-3">
-                        <span class="classic-text text-[#fde047] text-[24px] tracking-wider">金屬材料(功函數)</span>
-                        <select id="metalSelect" class="text-[16px] py-1 px-2 cursor-pointer">
-                            <option value="2.3" selected>鈉 (2.3 eV)</option>
-                            <option value="4.3">鋅 (4.3 eV)</option>
-                            <option value="4.7">銅 (4.7 eV)</option>
-                            <option value="5.1">金 (5.1 eV)</option>
-                        </select>
-                    </div>
+            <!-- 下方畫布區 -->
+            <div class="w-full flex-grow flex justify-center items-center">
+                <!-- 【方案一核心】：強制鎖定畫布的原始長寬比例 (1100 / 560)，內部改用絕對定位與百分比 -->
+                <div class="relative w-full max-w-[1100px]" style="aspect-ratio: 1100 / 560;">
                     
-                    <!-- 區分電子動能的開關 -->
-                    <div class="flex items-center gap-3 ml-2">
-                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input type="checkbox" name="toggle" id="keToggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                            <label for="keToggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                    <!-- 畫布內部絕對定位：金屬材料選擇器與動能開關 -->
+                    <div class="absolute top-4 left-10 flex flex-col gap-4 z-10">
+                        <div class="flex items-center gap-3">
+                            <span class="classic-text text-[#fde047] text-[24px] tracking-wider">金屬材料(功函數)</span>
+                            <select id="metalSelect" class="text-[16px] py-1 px-2 cursor-pointer">
+                                <option value="2.3" selected>鈉 (2.3 eV)</option>
+                                <option value="4.3">鋅 (4.3 eV)</option>
+                                <option value="4.7">銅 (4.7 eV)</option>
+                                <option value="5.1">金 (5.1 eV)</option>
+                            </select>
                         </div>
-                        <label for="keToggle" class="classic-text text-[#f8fafc] text-[18px] cursor-pointer">區分電子動能</label>
-                    </div>
-                </div>
-
-                <!-- 徹底加大 Canvas 的高度至 560，騰出專屬空間給滑桿 -->
-                <canvas id="photoelectricCanvas" width="1100" height="560" class="w-full h-auto"></canvas>
-
-                <!-- 畫布內部絕對定位：外加電壓滑桿 -->
-                <!-- 【重點修改】使用 top-[62%] 百分比定位，解決不同視窗大小的跑位問題 -->
-                <!-- 定位大約落在電池上方、玻璃管下方的區塊 -->
-                <div class="absolute top-[62%] left-[30%] transform -translate-x-1/2 flex items-start z-10">
-                    <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
-                    <div class="flex flex-col w-40">
-                        <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
-                        <div class="flex justify-between w-full mt-2 classic-text text-[20px]">
-                            <span class="text-[#ef4444]">逆向</span>
-                            <span class="text-[#3b82f6]">順向</span>
+                        
+                        <!-- 區分電子動能的開關 -->
+                        <div class="flex items-center gap-3 ml-2">
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                <input type="checkbox" name="toggle" id="keToggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                                <label for="keToggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                            </div>
+                            <label for="keToggle" class="classic-text text-[#f8fafc] text-[18px] cursor-pointer">區分電子動能</label>
                         </div>
                     </div>
-                    <span id="voltageValueDisplayUI" class="hidden">0.0 V</span>
+
+                    <!-- Canvas 緊貼這個鎖定比例的容器 -->
+                    <canvas id="photoelectricCanvas" width="1100" height="560" class="absolute inset-0 w-full h-full"></canvas>
+
+                    <!-- 畫布內部絕對定位：外加電壓滑桿 -->
+                    <!-- 【重點】：將絕對像素 328px 轉化為百分比 58.57% (328/560)，它會永遠精準跟隨畫布縮放！ -->
+                    <div class="absolute left-[30%] transform -translate-x-1/2 flex items-start z-10" style="top: 58.57%;">
+                        <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
+                        <div class="flex flex-col w-40">
+                            <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
+                            <div class="flex justify-between w-full mt-2 classic-text text-[20px]">
+                                <span class="text-[#ef4444]">逆向</span>
+                                <span class="text-[#3b82f6]">順向</span>
+                            </div>
+                        </div>
+                        <span id="voltageValueDisplayUI" class="hidden">0.0 V</span>
+                    </div>
+
                 </div>
             </div>
 
@@ -498,10 +501,11 @@
             // 使用非線性曲線，讓小電流時視覺更明顯
             const visualBrightness = Math.pow(bulbBrightness, 0.4);
 
-            // 將燈泡向左平移，使導線連接底座。原為 tubeX - 40，現向左移 22px。
-            const wireX = tubeX - 62; // 燈泡的 x 座標
+            // 燈泡 x 座標
+            const wireX = tubeX - 62; 
             const bulbY = (plateY + plateHeight / 2 + circuitWireY) / 2;
-            const circuitWireX = tubeX - 40; // 垂直導線的 x 座標 (還原回原來位置)
+            // 垂直導線的 x 座標 (維持在原來位置)
+            const circuitWireX = tubeX - 40; 
 
             ctx.strokeStyle = '#FFC000'; 
             ctx.lineWidth = 4;
@@ -524,7 +528,7 @@
             ctx.lineTo(centerX + 40, circuitWireY);
             ctx.stroke();
 
-            // 繪製指示燈泡 (向左旋轉 90 度，位置在 wireX)
+            // 繪製指示燈泡 (向左旋轉 90 度，中心點定位於 wireX)
             ctx.save();
             ctx.translate(wireX, bulbY);
             ctx.rotate(-Math.PI / 2);
@@ -565,15 +569,16 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // 5. 燈泡底座
+            // 5. 燈泡底座 (連結到導線)
+            // 將底座稍微畫大一點點連接到電路導線上
             ctx.fillStyle = '#64748b';
-            ctx.fillRect(-10, 18, 20, 8);
+            ctx.fillRect(-10, 18, 20, 12);
             ctx.strokeStyle = '#475569';
-            ctx.strokeRect(-10, 18, 20, 8);
+            ctx.strokeRect(-10, 18, 20, 12);
             
             ctx.restore();
 
-            // 垂直文字「燈泡」，位置也跟著向左平移
+            // 垂直文字「燈泡」
             ctx.fillStyle = '#f8fafc';
             ctx.font = '20px "Times New Roman", PMingLiU, serif';
             ctx.textAlign = 'center';
