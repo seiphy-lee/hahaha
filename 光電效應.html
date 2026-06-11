@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>光電效應模擬動畫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            /* 採用深色背景，與截圖一致 */
+            background-color: #0b1120; 
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        /* 針對特定標籤與數字使用截圖中的襯線字體 (Serif) */
+        .classic-text {
+            font-family: 'Times New Roman', 'PMingLiU', 'KaiTi', serif;
+        }
+
+        /* 自訂滑桿外觀 (基礎設定) */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 2px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        /* 針對頻率滑桿加入光譜漸進彩色 (紫外線區漸進成灰色) */
+        input[type=range]#frequencySlider {
+            height: 4px;
+            background: linear-gradient(to right, 
+                #ff0000 0%,     /* 紅光 */
+                #ff7f00 12%,    /* 橙光 */
+                #ffff00 24%,    /* 黃光 */
+                #00ff00 38%,    /* 綠光 */
+                #00ffff 50%,    /* 青光 */
+                #0000ff 62%,    /* 藍光 */
+                #8a2be2 75%,    /* 紫光 */
+                #888888 90%,    /* 進入紫外線，轉灰 */
+                #555555 100%);  /* 深灰 */
+        }
+
+        /* 針對強度滑桿隱藏預設軌道顏色，以便顯示自訂的形狀與顏色 */
+        input[type=range]#intensitySlider {
+            background: transparent !important;
+        }
+        input[type=range]#intensitySlider::-webkit-slider-runnable-track {
+            background: transparent !important;
+        }
+        input[type=range]#intensitySlider::-moz-range-track {
+            background: transparent !important;
+        }
+
+        /* 針對電壓滑桿設定左紅右藍的雙色背景 */
+        input[type=range]#voltageSlider {
+            height: 4px;
+            background: linear-gradient(to right, #ef4444 50%, #3b82f6 50%);
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* 自訂下拉選單 */
+        select {
+            background-color: #334155;
+            color: #e2e8f0;
+            border: 1px solid #475569;
+            border-radius: 4px;
+            padding: 4px 8px;
+            outline: none;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        /* 切換開關樣式 */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
+        }
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #e2e8f0;
+            transition: all 0.3s;
+        }
+        .toggle-label {
+            background-color: #cbd5e0;
+            border-radius: 9999px;
+            transition: all 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 主容器：分為左右兩大欄 -->
+    <div class="max-w-[1400px] w-full flex flex-col lg:flex-row gap-5 h-full">
+        
+        <!-- 左側欄 (加寬以容納放大的字體) -->
+        <div class="w-full lg:w-[380px] shrink-0 flex flex-col gap-5">
+            <!-- 標題區塊 -->
+            <div class="bg-[#0f172a] border border-[#1e293b] rounded-lg p-5 shadow-lg text-center">
+                <h1 class="text-2xl font-bold text-slate-100 leading-snug">
+                    光電效應模擬<br>
+                    <span class="text-slate-300 text-lg font-normal">(台中二中 阿發老師設計)</span>
+                </h1>
+            </div>
+
+            <!-- 物理參數區塊 -->
+            <div class="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 shadow-lg flex-grow flex flex-col">
+                <!-- 將原本在標題區的敘述移動至此 -->
+                <p class="text-[14px] text-[#FFFF99] mb-6 leading-relaxed text-justify">
+                    探索光頻率、強度、功函數與外加電場如何影響電子的發射與運動。
+                </p>
+
+                <h3 class="text-[32px] font-bold text-[#FFFF00] mb-8 text-center leading-tight">物理參數<br><span class="font-normal text-[24px]">(Parameters)</span></h3>
+                
+                <div class="space-y-8 flex-1 font-medium">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-300 text-[21px]">光子能量 :</span> 
+                        <span id="photonEnergy" class="font-bold text-[#06b6d4] text-[22px]">2.10 eV</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-300 text-[21px]">功函數 (W):</span> 
+                        <span id="workFunction" class="font-bold text-[#c084fc] text-[22px]">2.30 eV</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-300 text-[21px]">最大動能 (K<sub>max</sub>):</span> 
+                        <span id="maxKineticEnergy" class="text-slate-500 text-[18px]">0.00 eV (未激發)</span>
+                    </div>
+                    
+                    <div class="border-t border-slate-700/50 pt-8 mt-8 space-y-8">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-300 text-[21px]">截止電壓 (V<sub>s</sub>):</span> 
+                            <span id="stoppingVoltage" class="font-bold text-[#ef4444] text-[22px]">0.00 V</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-300 text-[21px]">外加電壓 (V):</span> 
+                            <span id="currentAppliedVolts" class="font-bold text-[#eab308] text-[22px]">0.00 V</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側欄：控制項與畫布 -->
+        <div class="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-lg flex flex-col p-6 relative flex-grow">
+            
+            <!-- 上方控制滑桿區 -->
+            <div class="flex justify-around items-center mb-8 pt-2">
+                <!-- 光強度控制 -->
+                <div class="flex flex-col items-center gap-4 w-72">
+                    <div class="flex items-baseline gap-4 classic-text">
+                        <span class="text-[#fde047] text-lg tracking-wider">入射光強度</span>
+                        <span id="intensityValue" class="text-3xl text-white">56 %</span>
+                    </div>
+                    <div class="w-full flex flex-col">
+                        <!-- 自訂粗細漸變的背景軌道與透明滑桿 -->
+                        <div class="w-full relative h-6 flex items-center">
+                            <div id="intensityTrackBg" class="absolute left-0 w-full h-3" style="clip-path: polygon(0 50%, 100% 0%, 100% 100%); background-color: rgb(255, 255, 0);"></div>
+                            <input type="range" id="intensitySlider" min="0" max="100" step="1" value="56" class="w-full absolute z-10 appearance-none bg-transparent">
+                        </div>
+                        <div class="flex justify-between text-[22px] w-full classic-text mt-1">
+                            <span id="labelWeak" style="color: rgb(255, 255, 0);">弱</span>
+                            <span id="labelStrong" style="color: rgb(255, 255, 0);">強</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 光頻率控制 -->
+                <div class="flex flex-col items-center gap-4 w-[28rem]">
+                    <div class="flex items-baseline gap-4 classic-text">
+                        <span class="text-[#fde047] text-lg tracking-wider">入射光頻率</span>
+                        <span id="frequencyValue" class="text-3xl text-white">740 THz</span>
+                        <span id="wavelengthValue" class="text-xl text-white ml-2">(波長 405 nm)</span>
+                    </div>
+                    <div class="w-full">
+                        <!-- 範圍改為 380 ~ 1000 THz，對應紅光到紫外線 -->
+                        <input type="range" id="frequencySlider" min="380" max="1000" step="1" value="740" class="w-full">
+                        <div class="flex justify-between text-[22px] text-white mt-3 classic-text w-full">
+                            <span>紅光</span>
+                            <span>紫外線</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下方畫布區 (與周圍背景融為一體，設定 relative 作為定位基準) -->
+            <div class="relative w-full flex-grow flex justify-center items-center">
+                
+                <!-- 畫布內部絕對定位：金屬材料選擇器與動能開關 -->
+                <div class="absolute top-4 left-10 flex flex-col gap-4 z-10">
+                    <div class="flex items-center gap-3">
+                        <span class="classic-text text-[#fde047] text-[24px] tracking-wider">金屬材料(功函數)</span>
+                        <select id="metalSelect" class="text-[16px] py-1 px-2 cursor-pointer">
+                            <option value="2.3" selected>鈉 (2.3 eV)</option>
+                            <option value="4.3">鋅 (4.3 eV)</option>
+                            <option value="4.7">銅 (4.7 eV)</option>
+                            <option value="5.1">金 (5.1 eV)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 區分電子動能的開關 -->
+                    <div class="flex items-center gap-3 ml-2">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="keToggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                            <label for="keToggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                        <label for="keToggle" class="classic-text text-[#f8fafc] text-[18px] cursor-pointer">區分電子動能</label>
+                    </div>
+                </div>
+
+                <!-- 徹底加大 Canvas 的高度至 560，騰出專屬空間給滑桿 -->
+                <canvas id="photoelectricCanvas" width="1100" height="560" class="w-full h-auto"></canvas>
+
+                <!-- 畫布內部絕對定位：外加電壓滑桿 -->
+                <!-- 【重點修改】使用 top-[62%] 百分比定位，解決不同視窗大小的跑位問題 -->
+                <!-- 定位大約落在電池上方、玻璃管下方的區塊 -->
+                <div class="absolute top-[62%] left-[30%] transform -translate-x-1/2 flex items-start z-10">
+                    <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
+                    <div class="flex flex-col w-40">
+                        <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
+                        <div class="flex justify-between w-full mt-2 classic-text text-[20px]">
+                            <span class="text-[#ef4444]">逆向</span>
+                            <span class="text-[#3b82f6]">順向</span>
+                        </div>
+                    </div>
+                    <span id="voltageValueDisplayUI" class="hidden">0.0 V</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('photoelectricCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 元素綁定
+        const frequencySlider = document.getElementById('frequencySlider');
+        const frequencyValueDisplay = document.getElementById('frequencyValue');
+        const wavelengthValueDisplay = document.getElementById('wavelengthValue');
+        const intensitySlider = document.getElementById('intensitySlider');
+        const intensityValueDisplay = document.getElementById('intensityValue');
+        const metalSelect = document.getElementById('metalSelect');
+        const voltageSlider = document.getElementById('voltageSlider');
+        const keToggle = document.getElementById('keToggle');
+        
+        // 數據顯示面板綁定
+        const photonEnergyDisplay = document.getElementById('photonEnergy');
+        const workFunctionDisplay = document.getElementById('workFunction');
+        const maxKineticEnergyDisplay = document.getElementById('maxKineticEnergy');
+        const stoppingVoltageDisplay = document.getElementById('stoppingVoltage');
+        const voltageValueDisplayUI = document.getElementById('voltageValueDisplayUI');
+        const currentAppliedVoltsDisplay = document.getElementById('currentAppliedVolts');
+
+        // 物理常數
+        const h = 4.135667696e-15; 
+        const c = 2.99792458e8; 
+        const e = 1; 
+
+        // 模擬狀態
+        let frequency = 0, intensity = 0, workFunction = 0;
+        let photonEnergy = 0, maxKineticEnergy = 0, stoppingVoltage = 0, wavelength = 0;
+        let appliedVoltage = 0; 
+        let distinguishKE = false;
+
+        let electrons = [];
+        let photons = [];
+        
+        let lastTime = 0;
+        let photonAccumulator = 0;
+
+        // --- 畫布座標設定 ---
+        const tubeX = 120; 
+        const tubeY = 160;
+        const tubeWidth = 420;
+        const tubeHeight = 180;
+        
+        const plateHeight = 150;
+        const plateY = tubeY + (tubeHeight - plateHeight) / 2; 
+
+        // 左邊金屬板 (陰極)
+        const cathodeWidth = 10;
+        const cathodeX = tubeX + 20;   
+        const cathodeInnerX = cathodeX + cathodeWidth; 
+        
+        // 右邊金屬板 (陽極)
+        const anodeWidth = 10;
+        const anodeX = tubeX + tubeWidth - 20 - anodeWidth; 
+        
+        const sourceX = 650; 
+        const sourceY = 60;
+        
+        // 底部電路水平線高度
+        const circuitWireY = 470;
+
+        function calculatePhysics() {
+            frequency = parseFloat(frequencySlider.value);
+            intensity = parseFloat(intensitySlider.value);
+            workFunction = parseFloat(metalSelect.value);
+            appliedVoltage = parseFloat(voltageSlider.value);
+
+            wavelength = (c / (frequency * 1e12)) * 1e9;
+            photonEnergy = h * frequency * 1e12;
+            maxKineticEnergy = Math.max(0, photonEnergy - workFunction);
+            stoppingVoltage = maxKineticEnergy / e; 
+
+            frequencyValueDisplay.textContent = `${frequency} THz`;
+            wavelengthValueDisplay.textContent = `(波長 ${wavelength.toFixed(0)} nm)`;
+            intensityValueDisplay.textContent = `${intensity} %`;
+            voltageValueDisplayUI.textContent = `${appliedVoltage.toFixed(1)} V`;
+            
+            photonEnergyDisplay.textContent = `${photonEnergy.toFixed(2)} eV`;
+            workFunctionDisplay.textContent = `${workFunction.toFixed(2)} eV`;
+            currentAppliedVoltsDisplay.textContent = `${appliedVoltage.toFixed(2)} V`;
+            
+            if (maxKineticEnergy > 0.005) {
+                maxKineticEnergyDisplay.innerHTML = `${maxKineticEnergy.toFixed(2)} eV`;
+                maxKineticEnergyDisplay.className = 'font-bold text-[#4ade80] text-[22px]';
+                stoppingVoltageDisplay.innerHTML = `${stoppingVoltage.toFixed(2)} V`;
+            } else {
+                maxKineticEnergyDisplay.innerHTML = `0.00 eV (未激發)`;
+                maxKineticEnergyDisplay.className = 'font-medium text-slate-500 text-[18px]';
+                stoppingVoltageDisplay.innerHTML = `0.00 V`;
+            }
+
+            // 更新強度滑桿與文字的顏色
+            const colorObj = wavelengthToColor(wavelength, 250); 
+            document.getElementById('intensityTrackBg').style.backgroundColor = colorObj.solid;
+            document.getElementById('labelWeak').style.color = colorObj.solid;
+            document.getElementById('labelStrong').style.color = colorObj.solid;
+        }
+
+        function wavelengthToColor(wavelength, intensity) {
+            let r, g, b;
+            if (wavelength >= 380 && wavelength < 440) {
+                r = -(wavelength - 440) / (440 - 380); g = 0; b = 1;
+            } else if (wavelength >= 440 && wavelength < 490) {
+                r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
+            } else if (wavelength >= 490 && wavelength < 510) {
+                r = 0; g = 1; b = -(wavelength - 510) / (510 - 490);
+            } else if (wavelength >= 510 && wavelength < 580) {
+                r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
+            } else if (wavelength >= 580 && wavelength < 645) {
+                r = 1; g = -(wavelength - 645) / (645 - 580); b = 0;
+            } else if (wavelength >= 645 && wavelength <= 750) {
+                r = 1; g = 0; b = 0;
+            } else if (wavelength < 380) {
+                r = 0.5; g = 0.5; b = 0.5; 
+            } else {
+                r = 1.0; g = 0.3; b = 0.3; 
+            }
+            
+            let a = intensity / 250; 
+            if (wavelength < 380 || wavelength > 750) a *= 0.35; 
+            
+            return {
+                fill: `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`,
+                solid: `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`
+            };
+        }
+
+        class Electron {
+            constructor(x, y, ke) {
+                this.x = x;
+                this.y = y;
+                this.radius = 3;
+                
+                // 決定電子顏色
+                this.originalKE = ke; // 記錄原始動能以便重新著色
+                this.setColor();
+                
+                this.vx = Math.sqrt(ke) * 2.5; 
+                this.vy = (Math.random() - 0.5) * (this.vx * 0.3); 
+                this.active = true;
+            }
+            
+            setColor() {
+                if (distinguishKE && maxKineticEnergy > 0) {
+                    // 將動能比例映射到顏色：#00FFFF(低動能) -> #FF66FF(高動能)
+                    const ratio = Math.min(1, Math.max(0, this.originalKE / maxKineticEnergy));
+                    const r = Math.round(ratio * 255);
+                    const g = Math.round(255 - ratio * 153); // 255 漸變到 102 (即 hex 66)
+                    const b = 255; 
+                    this.color = `rgb(${r}, ${g}, ${b})`;
+                } else {
+                    this.color = '#FFFFFF';
+                }
+            }
+
+            update() {
+                // 精確計算加速度，確保當 appliedVoltage = -Vstop 時，具備最大動能的電子恰好在抵達陽極前速度歸零
+                const travelDist = anodeX - this.radius - cathodeInnerX;
+                const acceleration = appliedVoltage * (Math.pow(2.5, 2) / (2 * travelDist));
+                
+                this.vx += acceleration;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x >= anodeX - this.radius) {
+                    this.active = false; 
+                } else if (this.x <= cathodeInnerX + this.radius && this.vx < 0) {
+                    this.active = false; 
+                } else if (this.y < tubeY || this.y > tubeY + tubeHeight) {
+                    this.active = false; 
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        class Photon {
+            constructor(x, y, targetX, targetY, color) {
+                this.x = x;
+                this.y = y;
+                this.targetX = targetX; 
+                this.targetY = targetY;
+                this.radius = 2.5;
+                this.color = color;
+                this.speed = 8;
+                this.active = true;
+                
+                const dx = targetX - x;
+                const dy = targetY - y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                this.vx = (dx / dist) * this.speed;
+                this.vy = (dy / dist) * this.speed;
+            }
+
+            update() {
+                if (this.x + this.vx <= this.targetX) {
+                    this.active = false;
+                    if (maxKineticEnergy > 0) {
+                        const ke = Math.random() * maxKineticEnergy; 
+                        electrons.push(new Electron(this.targetX, this.y, ke));
+                    }
+                } else {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function drawCircuitAndBattery() {
+            const centerX = tubeX + tubeWidth / 2;
+            
+            // 計算電路中的動態電流大小以決定燈泡亮度
+            let currentI = 0;
+            if (maxKineticEnergy > 0 && intensity > 0) {
+                if (appliedVoltage >= -stoppingVoltage) {
+                    const iSat = intensity * 1.5;
+                    currentI = iSat * (1 - Math.exp(-(appliedVoltage + stoppingVoltage) * 2.5));
+                }
+            }
+            // 飽和電流最大值為 100 * 1.5 = 150，換算為 0~1 的亮度
+            let bulbBrightness = Math.min(1, Math.max(0, currentI / 150));
+            // 使用非線性曲線，讓小電流時視覺更明顯
+            const visualBrightness = Math.pow(bulbBrightness, 0.4);
+
+            // 將燈泡向左平移，使導線連接底座。原為 tubeX - 40，現向左移 22px。
+            const wireX = tubeX - 62; // 燈泡的 x 座標
+            const bulbY = (plateY + plateHeight / 2 + circuitWireY) / 2;
+            const circuitWireX = tubeX - 40; // 垂直導線的 x 座標 (還原回原來位置)
+
+            ctx.strokeStyle = '#FFC000'; 
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            
+            // 左側陰極走線 (上段接至垂直導線)
+            ctx.moveTo(cathodeX + cathodeWidth/2, plateY + plateHeight / 2);
+            ctx.lineTo(circuitWireX, plateY + plateHeight / 2);
+            ctx.lineTo(circuitWireX, bulbY - 10);
+            
+            // 左側陰極走線 (下段由垂直導線接出)
+            ctx.moveTo(circuitWireX, bulbY + 10);
+            ctx.lineTo(circuitWireX, circuitWireY);
+            ctx.lineTo(centerX - 40, circuitWireY);
+            
+            // 右側陽極走線
+            ctx.moveTo(anodeX + anodeWidth/2, plateY + plateHeight / 2);
+            ctx.lineTo(tubeX + tubeWidth + 40, plateY + plateHeight / 2);
+            ctx.lineTo(tubeX + tubeWidth + 40, circuitWireY);
+            ctx.lineTo(centerX + 40, circuitWireY);
+            ctx.stroke();
+
+            // 繪製指示燈泡 (向左旋轉 90 度，位置在 wireX)
+            ctx.save();
+            ctx.translate(wireX, bulbY);
+            ctx.rotate(-Math.PI / 2);
+
+            // 1. 玻璃泡內部背景
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+            ctx.fill();
+
+            // 2. 燈泡光暈 (發光效果)
+            if (visualBrightness > 0) {
+                ctx.beginPath();
+                ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(253, 224, 71, ${visualBrightness})`; // yellow-300
+                ctx.fill();
+                ctx.shadowBlur = 15 * visualBrightness;
+                ctx.shadowColor = '#fde047';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // 3. 玻璃泡外殼
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 4. 鎢絲 (M字型)
+            ctx.beginPath();
+            ctx.moveTo(-6, 10);
+            ctx.lineTo(-4, -5);
+            ctx.lineTo(0, -10);
+            ctx.lineTo(4, -5);
+            ctx.lineTo(6, 10);
+            ctx.strokeStyle = bulbBrightness > 0 ? '#fef08a' : '#64748b'; 
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 5. 燈泡底座
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(-10, 18, 20, 8);
+            ctx.strokeStyle = '#475569';
+            ctx.strokeRect(-10, 18, 20, 8);
+            
+            ctx.restore();
+
+            // 垂直文字「燈泡」，位置也跟著向左平移
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '20px "Times New Roman", PMingLiU, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('燈', wireX - 35, bulbY - 12);
+            ctx.fillText('泡', wireX - 35, bulbY + 12);
+
+            // 繪製中央電池
+            ctx.beginPath();
+            ctx.strokeStyle = '#FFFFFF'; 
+            if (Math.abs(appliedVoltage) > 0.05) {
+                const isForward = appliedVoltage > 0;
+                
+                ctx.strokeStyle = '#FFC000';
+                ctx.moveTo(centerX - 40, circuitWireY);
+                ctx.lineTo(centerX - 6, circuitWireY);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX + 40, circuitWireY);
+                ctx.lineTo(centerX + 6, circuitWireY);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#FFFFFF';
+                if (isForward) {
+                    ctx.beginPath(); ctx.lineWidth = 7;
+                    ctx.moveTo(centerX - 6, circuitWireY - 14); ctx.lineTo(centerX - 6, circuitWireY + 14);
+                    ctx.stroke();
+                    ctx.beginPath(); ctx.lineWidth = 2.5;
+                    ctx.moveTo(centerX + 6, circuitWireY - 26); ctx.lineTo(centerX + 6, circuitWireY + 26);
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.lineWidth = 2.5;
+                    ctx.moveTo(centerX - 6, circuitWireY - 26); ctx.lineTo(centerX - 6, circuitWireY + 26);
+                    ctx.stroke();
+                    ctx.beginPath(); ctx.lineWidth = 7;
+                    ctx.moveTo(centerX + 6, circuitWireY - 14); ctx.lineTo(centerX + 6, circuitWireY + 14);
+                    ctx.stroke();
+                }
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(centerX - 40, circuitWireY);
+                ctx.lineTo(centerX + 40, circuitWireY);
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = '#f8fafc'; 
+            ctx.font = '22px "Times New Roman", PMingLiU, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${appliedVoltage.toFixed(1)} V`, centerX, circuitWireY + 45);
+        }
+
+        // 繪製電流對電壓 (I-V) 圖表
+        function drawGraph() {
+            const Ox = 850; // 原點 X
+            const Oy = 460; // 原點 Y
+            const axisColor = '#f8fafc';
+            
+            // 繪製 X, Y 座標軸
+            ctx.strokeStyle = axisColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            // Y 軸 (電流)
+            ctx.moveTo(Ox, Oy);
+            ctx.lineTo(Ox, 150);
+            ctx.lineTo(Ox - 6, 160); // 箭頭左
+            ctx.moveTo(Ox, 150);
+            ctx.lineTo(Ox + 6, 160); // 箭頭右
+            
+            // X 軸 (電壓)
+            ctx.moveTo(680, Oy);
+            ctx.lineTo(1050, Oy);
+            ctx.lineTo(1040, Oy - 6); // 箭頭上
+            ctx.moveTo(1050, Oy);
+            ctx.lineTo(1040, Oy + 6); // 箭頭下
+            ctx.stroke();
+
+            // 標示文字
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '20px "Times New Roman", PMingLiU, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('電流', Ox, 135);
+            ctx.fillText('電壓', 1050, Oy - 20);
+            
+            ctx.fillStyle = '#ef4444'; // 逆向 (Red)
+            ctx.fillText('逆向', 730 - 40, Oy + 30); // 690
+            
+            ctx.fillStyle = '#3b82f6'; // 順向 (Blue)
+            ctx.fillText('順向', 980 + 40, Oy + 30); // 1020
+
+            // 繪製 I-V 曲線
+            if (maxKineticEnergy > 0 && intensity > 0) {
+                const vScale = 60; // 每 1V 代表的像素放大 2 倍
+                const iScale = 1.5; // 每 1% 強度代表的像素
+                const iSat = intensity * iScale; // 飽滿電流高度
+                const vStopPx = stoppingVoltage * vScale; // 截止電壓位置
+                
+                const startX = Ox - vStopPx; // 曲線起點 (電流為0的地方)
+                
+                // 曲線顏色跟隨光色
+                const colorObj = wavelengthToColor(wavelength, 250);
+                ctx.strokeStyle = colorObj.solid;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                
+                for (let x = startX; x <= 1040; x++) {
+                    let v = (x - Ox) / vScale;
+                    let current = 0;
+                    if (v >= -stoppingVoltage) {
+                        current = iSat * (1 - Math.exp(-(v + stoppingVoltage) * 2.5));
+                    }
+                    let y = Oy - current;
+                    
+                    if (x === startX) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+
+                // 動態標示截止電壓的刻度與文字
+                ctx.beginPath();
+                ctx.moveTo(startX, Oy - 6);
+                ctx.lineTo(startX, Oy + 6);
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = '#fde047'; // 黃色
+                ctx.font = '32px "Times New Roman", PMingLiU, serif'; // 放大為 2 倍
+                ctx.textAlign = 'center';
+                ctx.fillText(`${stoppingVoltage.toFixed(2)} V`, startX, Oy + 35); 
+
+                // 標示當前操作點 (隨著滑桿即時移動的圓點)
+                let currentV = appliedVoltage;
+                let currentI = 0;
+                if (currentV >= -stoppingVoltage) {
+                    currentI = iSat * (1 - Math.exp(-(currentV + stoppingVoltage) * 2.5));
+                }
+                let px = Ox + currentV * vScale;
+                let py = Oy - currentI;
+                
+                if(px >= 680 && px <= 1050) {
+                    ctx.beginPath();
+                    ctx.arc(px, py, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fde047'; 
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawCircuitAndBattery();
+            drawGraph(); 
+
+            // 玻璃管背景色填滿
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+            ctx.beginPath();
+            ctx.roundRect(tubeX, tubeY, tubeWidth, tubeHeight, 10);
+            ctx.fill();
+
+            const colorObj = wavelengthToColor(wavelength, intensity);
+            const angle = Math.atan2((plateY + plateHeight/2) - sourceY, cathodeInnerX - sourceX);
+
+            const frontDist = 30;
+            const frontX = sourceX + Math.cos(angle) * frontDist;
+            const frontY = sourceY + Math.sin(angle) * frontDist;
+
+            // 在畫布上新增「入射光源」文字
+            ctx.fillStyle = '#f8fafc'; 
+            ctx.font = '24px "Times New Roman", PMingLiU, serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('入射光源', sourceX + 15, sourceY + 79);
+
+            // 繪製光束
+            ctx.fillStyle = colorObj.fill;
+            ctx.beginPath();
+            const dx = Math.sin(angle) * 35; 
+            const dy = -Math.cos(angle) * 35;
+            ctx.moveTo(frontX - dx, frontY - dy);
+            ctx.lineTo(cathodeInnerX, plateY); 
+            ctx.lineTo(cathodeInnerX, plateY + plateHeight); 
+            ctx.lineTo(frontX + dx, frontY + dy);
+            ctx.closePath();
+            ctx.fill();
+
+            // 繪製光子 (圖層在金屬板下方)
+            photons.forEach(photon => { photon.update(); photon.draw(); });
+            photons = photons.filter(photon => photon.active);
+
+            // 繪製陰極與陽極金屬板
+            ctx.fillStyle = '#64748b'; 
+            ctx.fillRect(cathodeX, plateY, cathodeWidth, plateHeight);
+            ctx.strokeStyle = '#94a3b8'; 
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cathodeX, plateY, cathodeWidth, plateHeight);
+
+            ctx.fillStyle = '#64748b'; 
+            ctx.fillRect(anodeX, plateY, anodeWidth, plateHeight);
+            ctx.strokeRect(anodeX, plateY, anodeWidth, plateHeight);
+
+            // 繪製光源燈罩
+            ctx.save();
+            ctx.translate(sourceX, sourceY);
+            ctx.rotate(angle);
+            ctx.fillStyle = '#475569'; 
+            ctx.beginPath();
+            ctx.moveTo(30, -35); 
+            ctx.lineTo(30, 35);
+            ctx.lineTo(-10, 16);  
+            ctx.lineTo(-25, 16);
+            ctx.lineTo(-25, -16);
+            ctx.lineTo(-10, -16);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // 繪製電子 (圖層在玻璃框之下)
+            electrons.forEach(electron => { electron.update(); electron.draw(); });
+            electrons = electrons.filter(electron => electron.active);
+
+            // 玻璃管青色外框放在最後繪製，確保會蓋在電子之上
+            ctx.strokeStyle = '#00FFFF'; 
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(tubeX, tubeY, tubeWidth, tubeHeight, 10);
+            ctx.stroke();
+        }
+
+        function animate(currentTime) {
+            drawScene();
+
+            if (!lastTime) lastTime = currentTime;
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            if (intensity > 0) {
+                const expectedPhotonsPerSecond = intensity * 0.45;
+                photonAccumulator += expectedPhotonsPerSecond * (deltaTime / 1000);
+                if (photonAccumulator > 4) photonAccumulator = 4;
+
+                const angle = Math.atan2((plateY + plateHeight/2) - sourceY, cathodeInnerX - sourceX);
+                const frontDist = 30;
+                const frontX = sourceX + Math.cos(angle) * frontDist;
+                const frontY = sourceY + Math.sin(angle) * frontDist;
+
+                while (photonAccumulator >= 1) {
+                    const targetY = plateY + Math.random() * plateHeight;
+                    const colorObj = wavelengthToColor(wavelength, intensity);
+                    
+                    const offset = (Math.random() - 0.5) * 50; 
+                    const spawnX = frontX + Math.sin(angle) * offset;
+                    const spawnY = frontY - Math.cos(angle) * offset;
+
+                    photons.push(new Photon(spawnX, spawnY, cathodeInnerX, targetY, colorObj.solid));
+                    photonAccumulator -= 1;
+                }
+            } else {
+                photonAccumulator = 0; 
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // 事件監聽
+        frequencySlider.addEventListener('input', calculatePhysics);
+        intensitySlider.addEventListener('input', calculatePhysics);
+        metalSelect.addEventListener('change', calculatePhysics);
+        voltageSlider.addEventListener('input', calculatePhysics);
+        
+        // 監聽動能開關
+        keToggle.addEventListener('change', function() {
+            distinguishKE = this.checked;
+            // 更新畫面上已存在的電子顏色
+            electrons.forEach(electron => electron.setColor());
+        });
+
+        // 頁面初始化時執行
+        calculatePhysics();
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
