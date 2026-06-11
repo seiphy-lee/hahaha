@@ -105,13 +105,13 @@
             background-color: #68D391;
         }
         .toggle-checkbox {
-            right: 0;
+            right: 20px; /* 修正：讓未選取(關閉)時，小白圓正確停留在左側 */
             z-index: 1;
-            border-color: #e2e8f0;
+            border-color: #374151; /* 配合底色加深邊框顏色 */
             transition: all 0.3s;
         }
         .toggle-label {
-            background-color: #cbd5e0;
+            background-color: #374151; /* 修正：將關閉時的底色調得更灰黑 */
             border-radius: 9999px;
             transition: all 0.3s;
         }
@@ -239,14 +239,13 @@
                     </div>
 
                     <!-- Canvas 緊貼這個鎖定比例的容器 -->
-                    <canvas id="photoelectricCanvas" width="1100" height="560" class="absolute inset-0 w-full h-full"></canvas>
+                <canvas id="photoelectricCanvas" width="1100" height="560" class="absolute inset-0 w-full h-full"></canvas>
 
-                    <!-- 畫布內部絕對定位：外加電壓滑桿 -->
-                    <!-- 【重點】：將絕對像素 328px 轉化為百分比 58.57% (328/560)，它會永遠精準跟隨畫布縮放！ -->
-                    <div class="absolute left-[30%] transform -translate-x-1/2 flex items-start z-10" style="top: 58.57%;">
-                        <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
-                        <div class="flex flex-col w-40">
-                            <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
+                <!-- 畫布內部絕對定位：外加電壓滑桿 -->
+                <div class="absolute left-[30%] transform -translate-x-1/2 flex items-start z-10" style="top: 68%;">
+                    <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
+                    <div class="flex flex-col w-40">
+                        <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
                             <div class="flex justify-between w-full mt-2 classic-text text-[20px]">
                                 <span class="text-[#ef4444]">逆向</span>
                                 <span class="text-[#3b82f6]">順向</span>
