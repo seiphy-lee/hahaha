@@ -9,8 +9,9 @@
     <!-- 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <!-- 引入 Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 引入 Babel (指定穩定版本，避免最新版產生預期外的模組語法) -->
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
     
     <!-- 引入 xlsx-js-style (支援樣式匯出) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
@@ -48,7 +49,8 @@
         };
     </script>
 
-    <script type="text/babel">
+    <!-- 加入 data-presets="env,react" 強制使用傳統編譯，防止產生 import 語法 -->
+    <script type="text/babel" data-presets="env,react">
         // --- 1. Firebase Config & Init ---
         const firebaseConfig = {
            apiKey: "AIzaSyAmqdU3AimELr5sa9FIFd_eb5zbM0nCFkI",
