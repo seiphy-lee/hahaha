@@ -85,19 +85,19 @@
         // 「目前時間」；老師端則用「現在時間 - 最後一次回報時間」是否超過容忍時間來判斷是否
         // 還在線上。如此一來，不論學生是正常按「登出」、關閉分頁，還是直接關機斷網，只要心跳
         // 停止超過容忍時間，系統都會自動將其顯示為離線，不再需要倚賴不一定會被觸發的事件。
-        const HEARTBEAT_INTERVAL_MS = 15000; // 學生端每 15 秒回報一次心跳
-        const OFFLINE_THRESHOLD_MS = 40000;  // 超過 40 秒沒收到心跳，即視為離線（約可容忍 2~3 次心跳遺失）
+        const HEARTBEAT_INTERVAL_MS = 8000;  // 學生端每 8 秒回報一次心跳
+        const OFFLINE_THRESHOLD_MS = 20000;  // 超過 20 秒沒收到心跳，即視為離線（約可容忍 2 次心跳遺失）
 
         // 判斷某位學生（依姓名）目前是否在線上
+        // 注意：只要找不到「有效且未逾時」的心跳時間，一律視為離線（安全預設值），
+        // 不會像之前的版本一樣，把沒有心跳資訊的舊資料誤判成「永遠在線上」。
         function isStudentOnline(onlineStudents, studentName, nowMs) {
             if (!onlineStudents) return false;
             return Object.values(onlineStudents).some(entry => {
-                if (!entry) return false;
-                // 向下相容舊資料格式（只存姓名字串、沒有心跳時間資訊）
-                if (typeof entry === 'string') return entry === studentName;
+                if (!entry || typeof entry !== 'object') return false; // 沒有心跳資訊，無法確認在線，視為離線
                 if (entry.name !== studentName) return false;
                 const ts = entry.lastSeen;
-                if (!ts) return false;
+                if (!ts) return false; // 心跳尚未寫入完成，視為離線，下一次心跳成功後會自動變成在線
                 const lastSeenMs = typeof ts.toMillis === 'function' ? ts.toMillis() : (ts.seconds ? ts.seconds * 1000 : 0);
                 return (nowMs - lastSeenMs) < OFFLINE_THRESHOLD_MS;
             });
@@ -107,8 +107,7 @@
         function countOnlineStudents(onlineStudents, nowMs) {
             if (!onlineStudents) return 0;
             return Object.values(onlineStudents).filter(entry => {
-                if (!entry) return false;
-                if (typeof entry === 'string') return true; // 向下相容舊資料格式
+                if (!entry || typeof entry !== 'object') return false;
                 const ts = entry.lastSeen;
                 if (!ts) return false;
                 const lastSeenMs = typeof ts.toMillis === 'function' ? ts.toMillis() : (ts.seconds ? ts.seconds * 1000 : 0);
@@ -446,7 +445,7 @@
             // （即使 Firestore 沒有新資料寫入，畫面也會每幾秒重新檢查一次心跳時間）
             const [nowTick, setNowTick] = React.useState(Date.now());
             React.useEffect(() => {
-                const timer = setInterval(() => setNowTick(Date.now()), 5000);
+                const timer = setInterval(() => setNowTick(Date.now()), 3000);
                 return () => clearInterval(timer);
             }, []);
 
