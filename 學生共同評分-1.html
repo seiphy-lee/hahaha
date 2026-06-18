@@ -487,7 +487,9 @@
 
             const addSingleGroup = async () => {
                 if (!newGroupName.trim()) return;
-                const newGroup = { id: `g${Date.now()}`, name: newGroupName };
+                // ID 加入隨機字串，避免短時間內快速新增時可能與其他組別 ID 重複
+                // （重複的組別 ID 會導致學生對 A 組的評分被誤判成也對 B 組評過分）
+                const newGroup = { id: `g${Date.now()}_${Math.random().toString(36).substr(2,5)}`, name: newGroupName };
                 await updateSession({ groups: [...(session.groups||[]), newGroup] });
                 setNewGroupName('');
             };
@@ -1122,10 +1124,18 @@
 
             React.useEffect(() => {
                 if (registeredName && session?.currentGroupId) {
+                    // 注意：這裡務必排除 isDeleted=true 的評分紀錄。
+                    // 如果不排除，一旦某筆評分被老師在「監控評分與修正分數」標記為「不採計」，
+                    // 或因任何原因產生了不該存在的評分紀錄，學生畫面會永遠卡在「已評分」，
+                    // 即使登出重登、甚至重開機都無法恢復（因為問題在資料庫端，不是裝置端）。
                     const unsub = db.collection('sessions').doc(roomName).collection('votes')
                         .where('groupId', '==', session.currentGroupId)
                         .where('userId', '==', user.uid)
-                        .onSnapshot(snap => setHasVoted(!snap.empty));
+                        .where('isDeleted', '==', false)
+                        .onSnapshot(
+                            snap => setHasVoted(!snap.empty),
+                            err => console.error("讀取評分狀態失敗", err)
+                        );
                     return () => unsub();
                 } else {
                     setHasVoted(false);
@@ -1148,7 +1158,11 @@
                 if (session.criteria.some(c => scores[c.id] === undefined)) { alert("請完成所有評分項目！"); return; }
                 setSubmitting(true);
                 try {
-                    await db.collection('sessions').doc(roomName).collection('votes').add({
+                    // 改用「組別ID_學生ID」作為固定的評分文件 ID，而不是讓系統隨機產生新的 ID。
+                    // 這樣同一位學生對同一組別最多只會有一筆評分紀錄，不會因為連點兩次送出、
+                    // 網路重試等原因而產生重複評分（重複評分不僅會讓畫面卡住，也會讓平均分數被重複計入）。
+                    const voteId = `${session.currentGroupId}_${user.uid}`;
+                    await db.collection('sessions').doc(roomName).collection('votes').doc(voteId).set({
                         userId: user.uid, 
                         userName: registeredName, 
                         groupId: session.currentGroupId, 
