@@ -168,7 +168,7 @@
                 return () => unsub();
             }, [currentRoom, role]);
 
-            // --- 老師登入/建立房間邏輯 (安全性升級版) ---
+            // --- 老師登入/建立房間邏輯 ---
             const handleTeacherAuth = async () => {
                 if (!inputRoomName.trim() || !inputPassword.trim()) {
                     setErrorMsg("請輸入班級代號或暱稱與管理密碼！");
@@ -195,40 +195,17 @@
                     
                     const roomID = inputRoomName.trim();
                     const roomRef = db.collection('sessions').doc(roomID);
-                    const secretRef = db.collection('room_secrets').doc(roomID); // 新增獨立的密碼存放集合
                     const docSnap = await roomRef.get();
 
                     if (docSnap.exists) {
                         // 房間已存在，檢查密碼
-                        const secretSnap = await secretRef.get();
-                        let isPasswordCorrect = false;
-
-                        if (secretSnap.exists) {
-                            // 1. 如果新的安全抽屜有密碼，以新抽屜為準
-                            isPasswordCorrect = (secretSnap.data().password === inputPassword);
-                        } else if (docSnap.data().roomPassword) {
-                            // 2. 相容舊版教室：如果舊資料裡有密碼，先驗證
-                            isPasswordCorrect = (docSnap.data().roomPassword === inputPassword);
-                            
-                            // 【安全性升級】自動幫舊教室把密碼搬到安全的獨立抽屜，並刪除舊資料中會暴露的密碼
-                            if (isPasswordCorrect) {
-                                await secretRef.set({ password: inputPassword });
-                                await roomRef.update({ roomPassword: firebase.firestore.FieldValue.delete() });
-                            }
-                        } else {
-                            throw new Error("無法驗證密碼，可能房間資料異常。");
-                        }
-
-                        if (!isPasswordCorrect) {
+                        if (docSnap.data().roomPassword !== inputPassword) {
                             throw new Error("密碼錯誤！這間教室屬於其他老師，或者您輸入了錯誤的密碼。");
                         }
                     } else {
                         // 房間不存在，自動建立新的
-                        // 【安全性升級】將密碼存入獨立的集合，不與學生公開資料混在一起
-                        await secretRef.set({ password: inputPassword });
-                        
-                        // 建立不包含密碼的教室基礎資料
                         const initialData = {
+                            roomPassword: inputPassword,
                             status: 'setup',
                             currentGroupId: null,
                             showResults: false,
@@ -236,7 +213,7 @@
                             groups: [],
                             students: [],
                             studentMappings: {}, 
-                            onlineStudents: {}, 
+                            onlineStudents: {}, // 新增：用來記錄即時上線狀態
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         };
                         await roomRef.set(initialData);
