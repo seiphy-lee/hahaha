@@ -264,14 +264,28 @@
 
             if (!session) return <div className="h-screen flex items-center justify-center text-gray-500 font-bold">連結教室中...</div>;
 
-            // ── 選擇姓名 ──
+            // ── 選擇姓名（使用 Transaction 防止多人同時搶同一姓名）──
+            const [registering, setRegistering] = React.useState(false);
             const handleRegister = async () => {
-                if (!selectedName) return;
-                const isTaken = Object.values(session.studentMappings || {}).includes(selectedName);
-                if (isTaken) { alert("此姓名已被其他裝置綁定！"); return; }
-                const update = {};
-                update[`studentMappings.${user.uid}`] = selectedName;
-                await db.collection('sessions').doc(roomName).update(update);
+                if (!selectedName || registering) return;
+                setRegistering(true);
+                try {
+                    const roomRef = db.collection('sessions').doc(roomName);
+                    await db.runTransaction(async (transaction) => {
+                        const snap = await transaction.get(roomRef);
+                        if (!snap.exists) throw new Error("教室不存在");
+                        const mappings = snap.data().studentMappings || {};
+                        const isTaken = Object.values(mappings).includes(selectedName);
+                        if (isTaken) throw new Error("此姓名剛剛已被其他同學選走！請重新選擇。");
+                        const update = {};
+                        update[`studentMappings.${user.uid}`] = selectedName;
+                        transaction.update(roomRef, update);
+                    });
+                } catch(e) {
+                    alert(e.message);
+                } finally {
+                    setRegistering(false);
+                }
             };
 
             // ── 送出評分 ──
@@ -312,9 +326,9 @@
                                     <option value="">-- 請選擇你的姓名 --</option>
                                     {availableStudents.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
-                                <button onClick={handleRegister} disabled={!selectedName}
+                                <button onClick={handleRegister} disabled={!selectedName || registering}
                                     className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-md hover:bg-orange-600 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95 text-lg">
-                                    確認，我是這位學生
+                                    {registering ? '確認中...' : '確認，我是這位學生'}
                                 </button>
                             </div>
                         )}

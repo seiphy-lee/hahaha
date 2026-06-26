@@ -386,6 +386,20 @@
                 await updateSession({ students: newStudents });
             };
 
+            const handleUnbindStudent = async (studentName) => {
+                if (!confirm(`確定要解除「${studentName}」的姓名綁定嗎？\n該學生的畫面將跳回選擇姓名，評分紀錄不受影響。`)) return;
+                // 找出對應此姓名的 UID
+                const mappings = session.studentMappings || {};
+                const uid = Object.keys(mappings).find(k => mappings[k] === studentName);
+                if (!uid) { alert("找不到對應的綁定紀錄"); return; }
+                // 同時清除綁定和上線狀態
+                const update = {};
+                update[`studentMappings.${uid}`] = firebase.firestore.FieldValue.delete();
+                update[`onlineStudents.${uid}`]  = firebase.firestore.FieldValue.delete();
+                await db.collection('sessions').doc(roomName).update(update);
+                alert(`已解除「${studentName}」的綁定，該學生可以重新選擇姓名。`);
+            };
+
             const handleClearStudents = async () => {
                 if (!confirm("警告：確定要清空所有學生名單嗎？這將導致所有學生需重新登入綁定。")) return;
                 await updateSession({ students: [], studentMappings: {}, onlineStudents: {} });
@@ -676,10 +690,17 @@
                                 </div>
                                 <div className="bg-orange-50/50 p-3 rounded-lg h-48 overflow-y-auto flex flex-wrap gap-2 mt-4 border border-orange-100 shadow-inner">
                                     {(session.students||[]).map(s => {
-                                        const isOnline = isStudentOnline(session.onlineStudents, s, nowTick);
+                                        const isOnline  = isStudentOnline(session.onlineStudents, s, nowTick);
+                                        const isBound   = Object.values(session.studentMappings||{}).includes(s);
                                         return (
                                             <span key={s} className={`text-xs px-2 py-1.5 rounded-lg border flex items-center gap-1 font-bold ${isOnline?'bg-green-100 text-green-700 border-green-200 shadow-sm':'bg-white text-gray-500 border-orange-200'}`}>
-                                                {s} <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500 ml-1"><Icons.X /></button>
+                                                {s}
+                                                {isBound && (
+                                                    <button onClick={()=>handleUnbindStudent(s)}
+                                                        className="ml-1 text-blue-400 hover:text-blue-600"
+                                                        title="解除此學生的姓名綁定">🔓</button>
+                                                )}
+                                                <button onClick={()=>handleRemoveStudent(s)} className="text-gray-400 hover:text-red-500 ml-0.5"><Icons.X /></button>
                                             </span>
                                         );
                                     })}
