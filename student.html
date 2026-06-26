@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課堂共同評分系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.0/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #fffbeb; }
+        ::-webkit-scrollbar-thumb { background: #fcd34d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+    </style>
+</head>
+<body class="bg-amber-50 text-gray-800">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="env,react">
+
+        // ── Firebase 設定 ──────────────────────────────────────────────
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmqdU3AimELr5sa9FIFd_eb5zbM0nCFkI",
+            authDomain: "evaluate-each-other-5d4bf.firebaseapp.com",
+            projectId: "evaluate-each-other-5d4bf",
+            storageBucket: "evaluate-each-other-5d4bf.firebasestorage.app",
+            messagingSenderId: "323924183931",
+            appId: "1:323924183931:web:945c1feceaa4593d000bde",
+            measurementId: "G-GBZKXN3H26"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db   = firebase.firestore();
+        const auth = firebase.auth();
+
+        // ── 心跳設定 ──────────────────────────────────────────────────
+        const HEARTBEAT_INTERVAL_MS = 8000;
+        const OFFLINE_THRESHOLD_MS  = 20000;
+
+        // ── Icons ──────────────────────────────────────────────────────
+        const Icons = {
+            Award:       () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>,
+            User:        () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            Users:       () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            CheckCircle: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            LogOut:      () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+            BarChart3:   () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>,
+            X:           () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+            Google:      () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16.1 19 13 24 13c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34.1 6.6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.4 35.4 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.3C9.7 35.7 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.6l6.2 5.2C37.4 38.8 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>,
+        };
+
+        // ══════════════════════════════════════════════════════════════
+        //  App 主元件（學生端）
+        // ══════════════════════════════════════════════════════════════
+        function App() {
+            // 從網址取得 ?room=xxx
+            const urlParams   = new URLSearchParams(window.location.search);
+            const roomName    = urlParams.get('room');
+
+            const [user,        setUser]        = React.useState(null);
+            const [loading,     setLoading]     = React.useState(true);
+            const [role,        setRole]        = React.useState(null); // 'student' | null
+            const [sessionData, setSessionData] = React.useState(null);
+            const [errorMsg,    setErrorMsg]    = React.useState(null);
+
+            // 沒有 ?room 參數：顯示提示，不提供任何入口
+            if (!roomName) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-200 p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border-t-4 border-orange-300">
+                            <div className="text-5xl mb-4">🔗</div>
+                            <h1 className="text-xl font-bold text-gray-700 mb-2">請使用老師提供的連結進入</h1>
+                            <p className="text-gray-400 text-sm">此頁面需要老師提供的專屬連結才能使用。</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 監聽登入狀態
+            React.useEffect(() => {
+                return auth.onAuthStateChanged(u => {
+                    // 只接受 Google 登入（非匿名）
+                    if (u && !u.isAnonymous) {
+                        setUser(u);
+                    } else {
+                        setUser(null);
+                    }
+                    setLoading(false);
+                });
+            }, []);
+
+            // 登入後驗證教室是否存在
+            React.useEffect(() => {
+                if (!user || role) return;
+                db.collection('sessions').doc(roomName).get().then(snap => {
+                    if (snap.exists) {
+                        setRole('student');
+                        setErrorMsg(null);
+                    } else {
+                        setErrorMsg(`找不到教室「${roomName}」，請確認老師提供的連結是否正確。`);
+                        auth.signOut();
+                    }
+                }).catch(e => setErrorMsg("連線錯誤：" + e.message));
+            }, [user, role, roomName]);
+
+            // 監聽教室資料
+            React.useEffect(() => {
+                if (!roomName || !role) return;
+                const unsub = db.collection('sessions').doc(roomName).onSnapshot(snap => {
+                    if (snap.exists) setSessionData(snap.data());
+                }, err => console.error("監聽失敗", err));
+                return () => unsub();
+            }, [roomName, role]);
+
+            // Google 登入
+            const handleGoogleLogin = async () => {
+                try {
+                    setErrorMsg(null);
+                    setLoading(true);
+                    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+                } catch(e) {
+                    if (e.code === 'auth/unauthorized-domain') {
+                        setErrorMsg(`網域未授權！請至 Firebase Console 新增：${window.location.hostname}`);
+                    } else {
+                        setErrorMsg(`登入錯誤：${e.message}`);
+                    }
+                    setLoading(false);
+                }
+            };
+
+            // 登出
+            const handleLogout = async () => {
+                if (user && roomName) {
+                    try {
+                        const update = {};
+                        update[`onlineStudents.${user.uid}`] = firebase.firestore.FieldValue.delete();
+                        await db.collection('sessions').doc(roomName).update(update);
+                    } catch(e) { console.error("清除上線狀態失敗", e); }
+                }
+                await auth.signOut();
+                setUser(null); setRole(null); setSessionData(null);
+            };
+
+            if (loading) return <div className="h-screen flex items-center justify-center font-bold text-gray-500">載入系統中...</div>;
+
+            // ── 未登入：顯示 Google 登入畫面 ──
+            if (!user || !role) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-200 p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md animate-fade-in text-center border-t-4 border-orange-500">
+                            <div className="flex justify-center text-orange-500 mb-4 scale-125"><Icons.Users /></div>
+                            <h1 className="text-xl font-bold mb-2 text-gray-800">準備進入教室</h1>
+                            <h2 className="text-2xl font-black text-orange-600 mb-4">{roomName}</h2>
+                            <p className="text-gray-500 mb-6 text-sm">為了確保評分公平性，請使用您的 Google 帳號登入</p>
+                            {errorMsg && (
+                                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 mb-4 text-left border border-red-100">
+                                    <div className="mt-0.5"><Icons.X /></div><span>{errorMsg}</span>
+                                </div>
+                            )}
+                            <button onClick={handleGoogleLogin}
+                                className="w-full py-4 bg-orange-500 text-white rounded-xl hover:bg-orange-600 flex items-center justify-center gap-3 font-bold transition shadow-lg active:scale-95 text-lg">
+                                <Icons.Google /> Google 帳號登入
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // ── 已登入：顯示學生評分介面 ──
+            return (
+                <div className="min-h-screen bg-amber-50 pb-10">
+                    <header className="bg-white shadow px-4 py-3 sticky top-0 z-20 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-orange-600 font-bold text-xl md:text-2xl truncate">
+                            <Icons.Award /> 學生共同評分系統
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-gray-500 bg-orange-50 px-3 py-1 rounded-full hidden md:inline-block border border-orange-100">
+                                {user.displayName}
+                            </span>
+                            <span className="text-sm font-bold px-3 py-1 rounded-full hidden md:inline-block bg-amber-100 text-amber-800">學生</span>
+                            <button onClick={handleLogout} className="text-red-500 hover:bg-red-50 px-3 py-1 rounded flex items-center gap-1 font-bold text-sm transition border border-red-100">
+                                <Icons.LogOut /> 登出
+                            </button>
+                        </div>
+                    </header>
+                    <main className="max-w-2xl mx-auto p-4">
+                        {sessionData
+                            ? <StudentView session={sessionData} user={user} roomName={roomName} />
+                            : <div className="h-64 flex items-center justify-center text-gray-400 font-bold">連結教室中...</div>
+                        }
+                    </main>
+                </div>
+            );
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        //  StudentView（原版完整保留）
+        // ══════════════════════════════════════════════════════════════
+        function StudentView({ session, user, roomName }) {
+            const [selectedName, setSelectedName] = React.useState('');
+            const [hasVoted,     setHasVoted]     = React.useState(false);
+            const [scores,       setScores]       = React.useState({});
+            const [submitting,   setSubmitting]   = React.useState(false);
+
+            const registeredName = session?.studentMappings?.[user.uid];
+
+            // ── 心跳機制 ──
+            React.useEffect(() => {
+                if (registeredName && user && roomName) {
+                    const sendHeartbeat = () => {
+                        db.collection('sessions').doc(roomName).update({
+                            [`onlineStudents.${user.uid}`]: {
+                                name:     registeredName,
+                                lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+                            }
+                        }).catch(e => console.error("更新上線狀態失敗", e));
+                    };
+                    sendHeartbeat();
+                    const timer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+
+                    const handleVisibility = () => { if (!document.hidden) sendHeartbeat(); };
+                    document.addEventListener('visibilitychange', handleVisibility);
+
+                    const handleOffline = () => {
+                        db.collection('sessions').doc(roomName).update({
+                            [`onlineStudents.${user.uid}`]: firebase.firestore.FieldValue.delete()
+                        }).catch(e => console.error(e));
+                    };
+                    window.addEventListener('beforeunload', handleOffline);
+
+                    return () => {
+                        clearInterval(timer);
+                        window.removeEventListener('beforeunload', handleOffline);
+                        document.removeEventListener('visibilitychange', handleVisibility);
+                        handleOffline();
+                    };
+                }
+            }, [registeredName, user, roomName]);
+
+            // ── 監聽自己的評分狀態 ──
+            React.useEffect(() => {
+                if (registeredName && session?.currentGroupId) {
+                    const unsub = db.collection('sessions').doc(roomName).collection('votes')
+                        .where('groupId', '==', session.currentGroupId)
+                        .where('userId',  '==', user.uid)
+                        .where('isDeleted','==', false)
+                        .onSnapshot(
+                            snap => setHasVoted(!snap.empty),
+                            err  => console.error("讀取評分狀態失敗", err)
+                        );
+                    return () => unsub();
+                } else {
+                    setHasVoted(false);
+                    setScores({});
+                }
+            }, [session?.currentGroupId, user.uid, registeredName, roomName]);
+
+            if (!session) return <div className="h-screen flex items-center justify-center text-gray-500 font-bold">連結教室中...</div>;
+
+            // ── 選擇姓名 ──
+            const handleRegister = async () => {
+                if (!selectedName) return;
+                const isTaken = Object.values(session.studentMappings || {}).includes(selectedName);
+                if (isTaken) { alert("此姓名已被其他裝置綁定！"); return; }
+                const update = {};
+                update[`studentMappings.${user.uid}`] = selectedName;
+                await db.collection('sessions').doc(roomName).update(update);
+            };
+
+            // ── 送出評分 ──
+            const submitVote = async () => {
+                if (session.criteria.some(c => scores[c.id] === undefined)) { alert("請完成所有評分項目！"); return; }
+                setSubmitting(true);
+                try {
+                    const voteId = `${session.currentGroupId}_${user.uid}`;
+                    await db.collection('sessions').doc(roomName).collection('votes').doc(voteId).set({
+                        userId:    user.uid,
+                        userName:  registeredName,
+                        groupId:   session.currentGroupId,
+                        scores,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        isDeleted: false
+                    });
+                    setHasVoted(true);
+                } catch(e) { alert("送出失敗，請再試一次。"); }
+                finally    { setSubmitting(false); }
+            };
+
+            // ── 尚未選擇姓名 ──
+            if (!registeredName) {
+                const availableStudents = (session.students || []).filter(name => !Object.values(session.studentMappings || {}).includes(name));
+                return (
+                    <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center mt-10 animate-fade-in border-t-4 border-orange-500">
+                        <div className="flex justify-center text-orange-500 mb-4 scale-110"><Icons.User /></div>
+                        <h2 className="text-2xl font-bold mb-2 text-gray-800">歡迎進入教室</h2>
+                        <p className="text-gray-500 mb-6 text-sm font-medium">請從名單中選擇你的名字進行綁定</p>
+                        {(session.students||[]).length === 0 ? (
+                            <div className="text-center text-amber-600 bg-amber-50 p-4 rounded-lg font-bold border border-amber-200">
+                                老師尚未建立學生名單，請稍候...
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <select className="w-full p-4 border-2 border-orange-200 rounded-xl bg-orange-50/50 focus:border-orange-500 focus:bg-white transition-colors outline-none font-bold text-gray-700 shadow-sm"
+                                    value={selectedName} onChange={e=>setSelectedName(e.target.value)}>
+                                    <option value="">-- 請選擇你的姓名 --</option>
+                                    {availableStudents.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <button onClick={handleRegister} disabled={!selectedName}
+                                    className="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-md hover:bg-orange-600 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95 text-lg">
+                                    確認，我是這位學生
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            }
+
+            // ── 等待老師開始評分 ──
+            if (!session.currentGroupId) {
+                return (
+                    <div className="max-w-md mx-auto mt-16 text-center animate-fade-in">
+                        <div className="bg-white rounded-2xl p-10 shadow-lg border-t-4 border-orange-300">
+                            <div className="text-5xl mb-4">⏳</div>
+                            <p className="text-xl font-bold text-gray-600 mb-2">你好，{registeredName}！</p>
+                            <p className="text-gray-400 font-medium">等待老師開始評分...</p>
+                        </div>
+
+                        {/* 已公佈排行榜時顯示 */}
+                        {session.showResults && <ResultsBoard session={session} roomName={roomName} />}
+                    </div>
+                );
+            }
+
+            const currentGroup = (session.groups||[]).find(g => g.id === session.currentGroupId);
+
+            // ── 已完成評分 ──
+            if (hasVoted) {
+                return (
+                    <div className="max-w-md mx-auto mt-16 text-center animate-fade-in">
+                        <div className="bg-white rounded-2xl p-10 shadow-lg border-t-4 border-green-400">
+                            <div className="flex justify-center text-green-500 mb-4 scale-150"><Icons.CheckCircle /></div>
+                            <p className="text-xl font-bold text-gray-700 mb-1">評分完成！</p>
+                            <p className="text-gray-500 font-medium">你已完成對「{currentGroup?.name}」的評分</p>
+                            <p className="text-gray-400 text-sm mt-4">等待老師進行下一步...</p>
+                        </div>
+                        {session.showResults && <ResultsBoard session={session} roomName={roomName} />}
+                    </div>
+                );
+            }
+
+            // ── 評分介面 ──
+            return (
+                <div className="animate-fade-in">
+                    <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border-t-4 border-orange-500">
+                        <h2 className="text-2xl font-black text-gray-800 mb-1">正在評分</h2>
+                        <p className="text-orange-600 font-bold text-xl">{currentGroup?.name}</p>
+                        <p className="text-gray-400 text-sm mt-1">評分者：{registeredName}</p>
+                    </div>
+
+                    <div className="space-y-4 mb-6">
+                        {(session.criteria||[]).map(c => (
+                            <div key={c.id} className="bg-white rounded-xl shadow p-5 border border-orange-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="font-bold text-lg text-gray-800">{c.name}</span>
+                                    <span className="text-2xl font-black text-orange-500">
+                                        {scores[c.id] !== undefined ? scores[c.id] : '-'} <span className="text-sm text-gray-400">/ {c.max}</span>
+                                    </span>
+                                </div>
+                                <input type="range" min="0" max={c.max} step="1"
+                                    value={scores[c.id] !== undefined ? scores[c.id] : 0}
+                                    onChange={e => setScores(prev => ({...prev, [c.id]: parseInt(e.target.value)}))}
+                                    className="w-full accent-orange-500 cursor-pointer"
+                                    onTouchStart={e => { if (scores[c.id]===undefined) setScores(prev=>({...prev,[c.id]:0})); }}
+                                />
+                                <div className="flex justify-between text-xs text-gray-400 mt-1 font-bold">
+                                    <span>0</span><span>{Math.floor(c.max/2)}</span><span>{c.max}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button onClick={submitVote} disabled={submitting || session.criteria.some(c=>scores[c.id]===undefined)}
+                        className="w-full py-5 bg-orange-500 text-white rounded-xl font-black text-xl hover:bg-orange-600 disabled:bg-gray-300 transition shadow-lg active:scale-95 disabled:shadow-none">
+                        {submitting ? '送出中...' : '✅ 確認送出評分'}
+                    </button>
+                    <p className="text-center text-xs text-gray-400 mt-3">請確認所有項目都已滑動評分後再送出</p>
+                </div>
+            );
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        //  ResultsBoard（學生版，無管理員功能）
+        // ══════════════════════════════════════════════════════════════
+        function ResultsBoard({ session, roomName }) {
+            const [votes, setVotes] = React.useState([]);
+            React.useEffect(() => {
+                const unsub = db.collection('sessions').doc(roomName).collection('votes').onSnapshot(snap => {
+                    const data = [];
+                    snap.forEach(d => data.push({id:d.id,...d.data()}));
+                    setVotes(data);
+                });
+                return () => unsub();
+            }, [roomName]);
+
+            const criteria  = session.criteria || [];
+            const groups    = session.groups   || [];
+            const allVotes  = votes.filter(v=>!v.isDeleted);
+
+            const results = groups.map(g => {
+                const gVotes = allVotes.filter(v=>v.groupId===g.id);
+                if (!gVotes.length) return {...g, avg:0};
+                const totals = gVotes.map(v => { let t=0; criteria.forEach(c=>t+=(v.scores[c.id]||0)); return t; });
+                return {...g, avg: parseFloat((totals.reduce((a,b)=>a+b,0)/totals.length).toFixed(2))};
+            }).sort((a,b)=>b.avg-a.avg);
+
+            return (
+                <div className="mt-6 bg-white p-6 rounded-2xl shadow-lg border border-orange-100 animate-fade-in">
+                    <h2 className="text-2xl font-black flex items-center gap-2 text-orange-900 mb-6">
+                        <Icons.BarChart3 /> 排行榜
+                    </h2>
+                    <div className="space-y-4">
+                        {results.map((g,i) => (
+                            <div key={g.id} className={`flex justify-between items-center p-5 rounded-2xl transition-all shadow-sm ${i===0?'bg-gradient-to-r from-amber-50 to-orange-100 border-2 border-orange-300 transform scale-105 shadow-md':'border border-orange-100 bg-white'}`}>
+                                <div className="flex items-center gap-5">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white shadow ${i===0?'bg-yellow-400':i===1?'bg-gray-400':i===2?'bg-amber-500':'bg-orange-200 text-orange-600'}`}>{i+1}</div>
+                                    <span className={`text-xl ${i===0?'font-black text-gray-900':'font-bold text-gray-800'}`}>{g.name}</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-4xl font-black block ${i===0?'text-amber-600':'text-orange-600'}`}>{g.avg}</span>
+                                    <span className="text-sm font-bold text-gray-400">平均總分</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
