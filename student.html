@@ -247,6 +247,12 @@
             // ── 監聽自己的評分狀態 ──
             React.useEffect(() => {
                 if (registeredName && session?.currentGroupId) {
+                    // 切換到新組別時，將所有評分項目初始化為 0
+                    // 這樣滑桿一開始就停在 0，學生直接滑動即可，不需要先觸碰才算填過
+                    const initialScores = {};
+                    (session.criteria || []).forEach(c => { initialScores[c.id] = 0; });
+                    setScores(initialScores);
+
                     const unsub = db.collection('sessions').doc(roomName).collection('votes')
                         .where('groupId', '==', session.currentGroupId)
                         .where('userId',  '==', user.uid)
@@ -388,10 +394,9 @@
                                     </span>
                                 </div>
                                 <input type="range" min="0" max={c.max} step="1"
-                                    value={scores[c.id] !== undefined ? scores[c.id] : 0}
+                                    value={scores[c.id] ?? 0}
                                     onChange={e => setScores(prev => ({...prev, [c.id]: parseInt(e.target.value)}))}
                                     className="w-full accent-orange-500 cursor-pointer"
-                                    onTouchStart={e => { if (scores[c.id]===undefined) setScores(prev=>({...prev,[c.id]:0})); }}
                                 />
                                 <div className="flex justify-between text-xs text-gray-400 mt-1 font-bold">
                                     <span>0</span><span>{Math.floor(c.max/2)}</span><span>{c.max}</span>
@@ -400,11 +405,11 @@
                         ))}
                     </div>
 
-                    <button onClick={submitVote} disabled={submitting || session.criteria.some(c=>scores[c.id]===undefined)}
+                    <button onClick={submitVote} disabled={submitting}
                         className="w-full py-5 bg-orange-500 text-white rounded-xl font-black text-xl hover:bg-orange-600 disabled:bg-gray-300 transition shadow-lg active:scale-95 disabled:shadow-none">
                         {submitting ? '送出中...' : '✅ 確認送出評分'}
                     </button>
-                    <p className="text-center text-xs text-gray-400 mt-3">請確認所有項目都已滑動評分後再送出</p>
+                    <p className="text-center text-xs text-gray-400 mt-3">滑桿預設為 0 分，請依實際表現調整後送出</p>
                 </div>
             );
         }
