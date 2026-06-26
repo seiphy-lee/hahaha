@@ -445,7 +445,7 @@
             };
 
             // 學生用的邀請連結（指向同目錄下的 index.html）
-            const studentPageUrl = `${window.location.origin}${window.location.pathname.replace('teacher.html','index.html')}?room=${encodeURIComponent(roomName)}`;
+            const studentPageUrl = `${window.location.origin}${window.location.pathname.replace('teacher.html','學生評分連結.html')}?room=${encodeURIComponent(roomName)}`;
             const handleCopyLink = () => {
                 const el = document.createElement('textarea');
                 el.value = studentPageUrl;
