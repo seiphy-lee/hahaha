@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水波分子運動模擬</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自訂樣式以確保畫布容器正確顯示 */
+        #canvas-container {
+            width: 100%;
+            height: 600px; /* 設定畫布高度，放大 1.5 倍 */
+            position: relative;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #f0f8ff; /* 淡藍色背景代表天空/空氣 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex flex-col items-center p-4 md:p-8">
+
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-[1600px] p-6 flex flex-col gap-6">
+        <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800">
+            水波傳遞時水分子的運動模擬(臺中二中 阿發老師 設計))
+        </h1>
+        
+        <p class="text-gray-600 text-sm md:text-base mb-2">
+            根據說明，水波傳播時，水分子運動的軌跡近似圓周運動，故水波是混合波（具有橫向與縱向的分量）。<br>
+            觀察圓圈上的紅點（水分子），以及紅色箭頭表示的瞬間運動方向。
+        </p>
+
+        <div id="canvas-container" class="rounded-lg overflow-hidden border border-gray-300 shadow-inner">
+            <canvas id="waveCanvas"></canvas>
+        </div>
+
+        <div class="flex flex-col md:flex-row items-center justify-center gap-4 bg-gray-50 p-4 rounded-lg">
+            <label for="amplitudeSlider" class="font-medium text-gray-700 whitespace-nowrap">
+                振幅 (分子圓周半徑): <span id="amplitudeValue" class="text-blue-600 font-bold">54</span>
+            </label>
+            <input 
+                type="range" 
+                id="amplitudeSlider" 
+                min="18" 
+                max="108" 
+                value="54" 
+                class="w-full md:w-64 cursor-pointer"
+            >
+        </div>
+        
+        <div class="text-xs text-gray-500 mt-2 flex justify-between">
+             <span>波的前進方向 ➔</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const amplitudeSlider = document.getElementById('amplitudeSlider');
+        const amplitudeValueDisplay = document.getElementById('amplitudeValue');
+
+        let width, height;
+        
+        // 物理參數 (配合畫布放大，參數也等比例放大)
+        let amplitude = parseInt(amplitudeSlider.value); // 振幅 (A)，也是圓的半徑
+        const wavelength = 720; // 波長 (λ)：配合畫面寬度放大 1.8 倍
+        const waveSpeed = 2; // 波速 (v)
+        const waveNumber = (2 * Math.PI) / wavelength; //  wavenumber (k)
+        const angularFrequency = waveSpeed * waveNumber; // 角頻率 (ω)
+        
+        let time = 0;
+        
+        // 分子設定
+        const particleCount = 6; // 畫面中顯示幾個具有軌跡的代表性分子
+        let particlePositions = []; // 儲存這些分子的基礎水平位置 (x0)
+
+        function resize() {
+            // 設定內部繪圖尺寸與實際顯示尺寸相符以避免模糊
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            width = canvas.width;
+            height = canvas.height;
+            
+            // 均勻分佈代表性分子的位置
+            particlePositions = [];
+            const spacing = width / particleCount;
+            for (let i = 0; i <= particleCount; i++) {
+                particlePositions.push(i * spacing);
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        amplitudeSlider.addEventListener('input', function() {
+            amplitude = parseInt(this.value);
+            amplitudeValueDisplay.textContent = amplitude;
+        });
+
+        function drawArrow(x, y, dx, dy, color) {
+            const headLength = 10; // 箭頭頭部大小
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + dx, y + dy);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 畫箭頭頭部
+            ctx.beginPath();
+            ctx.moveTo(x + dx, y + dy);
+            ctx.lineTo(x + dx - headLength * Math.cos(angle - Math.PI / 6), y + dy - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x + dx - headLength * Math.cos(angle + Math.PI / 6), y + dy - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function draw() {
+            // 清除畫布，下方畫上淺藍色代表水體
+            ctx.clearRect(0, 0, width, height);
+            
+            const centerY = height / 2;
+            
+            // 1. 畫水平基準線 (虛線)
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]); // 恢復實線
+
+            // 2. 畫水波表面曲線
+            // 為了畫出平滑的曲線，我們需要很多點 (將步進值設定為 2)
+            ctx.beginPath();
+            
+            // 加入 padding (緩衝區)，讓繪圖起點從畫面最左邊「更外面」開始算
+            // 這樣水分子往右擺動時，左側邊緣就不會露出空白了
+            const padding = 250; 
+            
+            for (let x0 = -padding; x0 <= width + padding; x0 += 2) {
+                // 水分子圓周運動方程式
+                const phase = waveNumber * x0 - angularFrequency * time;
+                const actualX = x0 - amplitude * Math.sin(phase);
+                const actualY = centerY - amplitude * Math.cos(phase);
+                
+                if (x0 === -padding) {
+                    ctx.moveTo(actualX, actualY);
+                } else {
+                    ctx.lineTo(actualX, actualY);
+                }
+            }
+            ctx.strokeStyle = '#00aaff'; // 水波顏色
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 填滿水體 (從波浪線往下填滿，要記得包含 padding 的範圍)
+            ctx.lineTo(width + padding, height);
+            ctx.lineTo(-padding, height);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(173, 216, 230, 0.5)'; // 淺藍色半透明
+            ctx.fill();
+
+            // 3. 畫代表性水分子的軌跡與箭頭
+            particlePositions.forEach(x0 => {
+                const phase = waveNumber * x0 - angularFrequency * time;
+                
+                // 該分子的實際位置
+                const currentX = x0 - amplitude * Math.sin(phase);
+                const currentY = centerY - amplitude * Math.cos(phase);
+
+                // 畫圓周軌跡
+                ctx.beginPath();
+                ctx.arc(x0, centerY, amplitude, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // 畫代表水分子的點
+                ctx.beginPath();
+                ctx.arc(currentX, currentY, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+
+                // 畫運動方向箭頭 (速度向量)
+                // 速度是位移對時間的微分
+                // vx = dx/dt = A * ω * cos(k*x0 - ω*t)
+                // vy = dy/dt = -A * ω * sin(k*x0 - ω*t)
+                const vx = amplitude * angularFrequency * Math.cos(phase);
+                const vy = -amplitude * angularFrequency * Math.sin(phase);
+                
+                // 將速度向量縮小比例以便繪圖，配合大畫布稍微加長箭頭
+                const arrowScale = 10; 
+                
+                // 為了與教材圖片相符，特別強調特定位置的箭頭方向
+                // 我們只畫出主要的速度分量箭頭 (如圖中的紅色箭頭)
+                drawArrow(currentX, currentY, vx * arrowScale, vy * arrowScale, '#ff0055');
+            });
+
+            time += 0.5; // 控制動畫速度
+            requestAnimationFrame(draw);
+        }
+
+        // 啟動動畫
+        window.onload = () => {
+            draw();
+        };
+
+    </script>
+</body>
+</html>
