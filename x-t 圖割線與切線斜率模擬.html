@@ -9,7 +9,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            background-color: #fffbeb; /* 活潑淺黃背景 */
             margin: 0;
             display: flex;
             justify-content: center;
@@ -20,36 +20,48 @@
         .container {
             background-color: white;
             padding: 1.5rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 900px;
+            max-width: 1000px;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.25rem;
         }
         /* D3 繪圖相關樣式 */
         .line-main {
             fill: none;
-            stroke: #2563eb; /* 藍色 */
-            stroke-width: 2.5;
+            stroke: #3b82f6; /* 亮藍色主曲線 */
+            stroke-width: 3.5;
         }
         .line-secant {
             fill: none;
-            stroke: #ea580c; /* 橘色 */
-            stroke-width: 2;
-            stroke-dasharray: 5,5; /* 虛線效果 */
+            stroke: #f97316; /* 亮橘色割線 */
+            stroke-width: 2.5;
+            stroke-dasharray: 6,6;
         }
         .point {
-            fill: #dc2626; /* 紅色 */
-            cursor: pointer;
-        }
-        .point:hover {
-            stroke: #991b1b;
+            fill: #ef4444; /* 亮紅色控制點 */
+            cursor: grab;
+            stroke: white;
             stroke-width: 2;
         }
+        .point:active {
+            cursor: grabbing;
+        }
+        .point:hover {
+            stroke: #b91c1c;
+            stroke-width: 3;
+            r: 9;
+            transition: all 0.2s;
+        }
         .axis text {
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            fill: #4b5563;
+        }
+        .axis path, .axis line {
+            stroke: #9ca3af;
         }
         .grid line {
             stroke: #e5e7eb;
@@ -61,102 +73,125 @@
         }
         /* 控制面板的輸入框樣式 */
         input[type="number"] {
-            width: 60px;
+            width: 55px; 
             text-align: center;
-            border: 1px solid #d1d5db;
-            border-radius: 0.25rem;
+            border: 2px solid #fdba74;
+            border-radius: 0.5rem;
             padding: 0.25rem;
+            background-color: #fffaf0;
+            font-weight: bold;
+            color: #c2410c;
+            transition: all 0.2s;
         }
-        /* 隱藏 Chrome/Safari 數字輸入框的上下箭頭 */
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #ea580c;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.2);
+        }
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
             -webkit-appearance: none; 
             margin: 0; 
+        }
+        /* 縮放滑桿樣式 */
+        input[type=range] {
+            accent-color: #f97316;
+            height: 6px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1 class="text-2xl font-bold text-center text-gray-800">x-t 圖割線與切線斜率模擬 <span class="text-blue-600 text-xl font-medium">(台中二中 阿發老師 設計)</span></h1>
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 tracking-tight">
+            x-t 圖割線與切線斜率模擬 
+            <span class="text-blue-600 text-xl font-bold ml-2 align-middle drop-shadow-sm">(台中二中 阿發老師 設計)</span>
+        </h1>
         
-        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-                <!-- 函數定義區 -->
-                <div class="flex items-center gap-2 text-lg font-mono flex-wrap justify-center">
-                    <span class="font-bold text-gray-700">x(t) = </span>
-                    <input type="number" id="coeff-a" value="0" step="0.1"> <span class="text-sm text-gray-500">t³</span> <span class="text-gray-400">+</span>
-                    <input type="number" id="coeff-b" value="1" step="0.1"> <span class="text-sm text-gray-500">t²</span> <span class="text-gray-400">+</span>
-                    <input type="number" id="coeff-c" value="0" step="0.1"> <span class="text-sm text-gray-500">t</span> <span class="text-gray-400">+</span>
-                    <input type="number" id="coeff-d" value="0" step="0.1">
-                </div>
+        <div class="bg-orange-50 p-3 rounded-xl border-2 border-orange-200 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-4">
+            
+            <!-- 函數定義區 -->
+            <div class="flex items-center gap-2 text-lg font-mono flex-wrap justify-center">
+                <span class="font-extrabold text-orange-900 mr-1">x(t) = </span>
+                <input type="number" id="coeff-a" value="0" step="0.1"> <span class="text-base font-bold text-orange-500">t³</span> <span class="text-orange-400 font-bold">+</span>
+                <input type="number" id="coeff-b" value="1" step="0.1"> <span class="text-base font-bold text-orange-500">t²</span> <span class="text-orange-400 font-bold">+</span>
+                <input type="number" id="coeff-c" value="0" step="0.1"> <span class="text-base font-bold text-orange-500">t</span> <span class="text-orange-400 font-bold">+</span>
+                <input type="number" id="coeff-d" value="0" step="0.1">
+            </div>
+            
+            <!-- 提示與縮放控制區 -->
+            <div class="flex items-center gap-4 flex-wrap justify-center mt-2 md:mt-0">
+                <span class="text-xs font-semibold text-orange-600/80 hidden md:inline bg-orange-100 px-2 py-1 rounded-md">提示: 修改係數自動更新</span>
                 
-                <!-- 縮放控制區 -->
-                <div class="flex items-center gap-2">
-                    <label for="zoom-slider" class="text-sm font-semibold text-gray-600 whitespace-nowrap">畫面縮放:</label>
-                    <input type="range" id="zoom-slider" min="0.5" max="5" value="1" step="0.1" class="w-32 cursor-pointer">
-                    <span id="zoom-value" class="text-sm text-gray-500 font-mono w-8 text-right">1.0x</span>
+                <div class="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-orange-100">
+                    <label for="zoom-y-slider" class="text-sm font-bold text-orange-800 whitespace-nowrap">x軸 (位置) 縮放:</label>
+                    <input type="range" id="zoom-y-slider" min="1" max="5" value="1" step="0.1" class="w-20 cursor-pointer">
+                    <span id="zoom-y-value" class="text-sm text-orange-700 font-bold font-mono w-8 text-right">1.0x</span>
+                </div>
+
+                <div class="flex items-center gap-2 bg-white/60 px-3 py-1.5 rounded-lg border border-orange-100">
+                    <label for="zoom-x-slider" class="text-sm font-bold text-orange-800 whitespace-nowrap">t軸 (時間) 縮放:</label>
+                    <input type="range" id="zoom-x-slider" min="0.5" max="5" value="1" step="0.1" class="w-20 cursor-pointer">
+                    <span id="zoom-x-value" class="text-sm text-orange-700 font-bold font-mono w-8 text-right">1.0x</span>
                 </div>
             </div>
-            <p class="text-xs text-center text-gray-400 mt-2">提示：修改上方係數後，圖表會自動更新。</p>
         </div>
         
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-wrap justify-around items-center gap-4">
-            <div class="text-center">
-                <span class="block text-sm text-gray-500 font-semibold">點 A (t₁, x₁)</span>
-                <span id="coord-a" class="block text-lg font-bold text-blue-700 font-mono">(1.00, 1.00)</span>
+        <!-- 數值顯示區 (修復了不小心多出來的 </div>) -->
+        <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-5 flex flex-wrap justify-around items-center gap-4 shadow-sm">
+            <div class="text-center flex-1">
+                <span class="block text-2xl text-amber-800 font-black uppercase tracking-wider mb-2 drop-shadow-sm">點 A (t₁, x₁)</span>
+                <span id="coord-a" class="block text-3xl font-black text-blue-600 font-mono drop-shadow-sm">(1.00, 1.00)</span>
             </div>
-            <div class="text-center">
-                <span class="block text-sm text-gray-500 font-semibold">點 B (t₂, x₂)</span>
-                <span id="coord-b" class="block text-lg font-bold text-blue-700 font-mono">(3.00, 9.00)</span>
+            <div class="text-center md:border-l-2 md:border-amber-200 md:pl-6 flex-1">
+                <span class="block text-2xl text-amber-800 font-black uppercase tracking-wider mb-2 drop-shadow-sm">點 B (t₂, x₂)</span>
+                <span id="coord-b" class="block text-3xl font-black text-blue-600 font-mono drop-shadow-sm">(3.00, 9.00)</span>
             </div>
-            <div class="text-center md:border-l-2 md:border-blue-200 md:pl-6 w-full md:w-auto">
-                <span id="slope-label" class="block text-sm text-gray-500 font-semibold">割線斜率 (Δx / Δt)</span>
-                <span id="slope-value" class="block text-2xl font-bold text-orange-600 font-mono">4.00</span>
+            <div class="text-center md:border-l-2 md:border-amber-200 md:pl-6 flex-1 relative">
+                <span id="slope-label" class="block text-2xl text-amber-800 font-black uppercase tracking-wider mb-2 drop-shadow-sm">割線斜率 (Δx / Δt)</span>
+                <span id="slope-value" class="block text-5xl font-black text-orange-600 font-mono drop-shadow-md">4.00</span>
             </div>
         </div>
 
-        <!-- 修改高度比例，讓畫面更緊湊 -->
-        <div id="chart-container" class="relative w-full aspect-[21/9] border border-gray-100 rounded-lg overflow-hidden bg-white shadow-inner"></div>
+        <div id="chart-container" class="relative w-full aspect-[21/9] border-2 border-gray-200 rounded-2xl overflow-hidden bg-white shadow-inner"></div>
         
-        <p class="text-center text-sm text-gray-500">操作說明：拖曳圖表上的<span class="text-red-500 font-bold">紅點</span>來觀察割線斜率的變化。</p>
+        <p class="text-center text-sm font-semibold text-gray-500">
+            操作說明：拖曳圖表上的<span class="text-red-500 font-black px-1 text-base">紅點</span>來觀察割線斜率的變化。
+        </p>
     </div>
 
     <script>
-        // --- 1. 取得 DOM 元素與設定變數 ---
         const container = d3.select("#chart-container");
         const coordAEl = document.getElementById('coord-a');
         const coordBEl = document.getElementById('coord-b');
         const slopeLabelEl = document.getElementById('slope-label');
         const slopeValueEl = document.getElementById('slope-value');
-        const zoomSlider = document.getElementById('zoom-slider');
-        const zoomValueEl = document.getElementById('zoom-value');
+        
+        const zoomXSlider = document.getElementById('zoom-x-slider');
+        const zoomXValueEl = document.getElementById('zoom-x-value');
+        const zoomYSlider = document.getElementById('zoom-y-slider');
+        const zoomYValueEl = document.getElementById('zoom-y-value');
         
         const inputA = document.getElementById('coeff-a');
         const inputB = document.getElementById('coeff-b');
         const inputC = document.getElementById('coeff-c');
         const inputD = document.getElementById('coeff-d');
 
-        // 圖表邊距設定
-        const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-        // 使用固定的內部坐標系大小，方便運算
-        const SVG_WIDTH = 800;
-        const SVG_HEIGHT = 400;
+        const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+        const SVG_WIDTH = 900;
+        const SVG_HEIGHT = 450;
         const innerWidth = SVG_WIDTH - margin.left - margin.right;
         const innerHeight = SVG_HEIGHT - margin.top - margin.bottom;
 
-        // 初始狀態變數
         let t1 = 1;
         let t2 = 3;
-        let zoomLevel = parseFloat(zoomSlider.value);
+        let zoomLevelX = parseFloat(zoomXSlider.value);
+        let zoomLevelY = parseFloat(zoomYSlider.value);
 
-        // 基礎座標範圍 (當 zoom = 1 時)，將 X 軸改為從 0 開始
-        const BASE_DOMAIN_X = [0, 5];
-        const BASE_DOMAIN_Y = [-5, 20];
+        const BASE_DOMAIN_X = [0, 5]; // t 強制從 0 開始
 
-        // --- 2. 核心邏輯函式 ---
-
-        // 根據輸入框取得目前的函數 f(t)
+        // 計算 x(t)
         function f(t) {
             const a = parseFloat(inputA.value) || 0;
             const b = parseFloat(inputB.value) || 0;
@@ -165,7 +200,7 @@
             return a * Math.pow(t, 3) + b * Math.pow(t, 2) + c * t + d;
         }
 
-        // 計算函數的一階導數 f'(t)，用來求切線斜率
+        // 計算 f'(t) (導數)
         function fPrime(t) {
             const a = parseFloat(inputA.value) || 0;
             const b = parseFloat(inputB.value) || 0;
@@ -173,118 +208,96 @@
             return 3 * a * Math.pow(t, 2) + 2 * b * t + c;
         }
 
-        // --- 3. D3 圖表初始化 ---
-        
-        // 建立 SVG 畫布
         const svg = container.append("svg")
             .attr("width", "100%")
             .attr("height", "100%")
             .attr("viewBox", `0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`)
             .attr("preserveAspectRatio", "xMidYMid meet");
 
-        // 建立一個有裁切區域的群組，防止圖形超出座標軸範圍
         svg.append("defs").append("clipPath")
             .attr("id", "clip")
             .append("rect")
             .attr("width", innerWidth)
             .attr("height", innerHeight);
 
-        // 主要繪圖群組
         const g = svg.append("g")
             .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        // 包含曲線和點的群組，套用裁切
-        const plotArea = g.append("g")
-            .attr("clip-path", "url(#clip)");
+        const plotArea = g.append("g").attr("clip-path", "url(#clip)");
 
-        // 初始化比例尺 (Scale)
         const xScale = d3.scaleLinear().range([0, innerWidth]);
         const yScale = d3.scaleLinear().range([innerHeight, 0]);
 
-        // 建立座標軸的群組
-        const xAxisG = g.append("g")
-            .attr("class", "axis text-gray-700")
-            .attr("transform", `translate(0,${innerHeight})`);
-        const yAxisG = g.append("g")
-            .attr("class", "axis text-gray-700");
-            
-        // 建立網格線的群組
+        const xAxisG = g.append("g").attr("class", "axis").attr("transform", `translate(0,${innerHeight})`);
+        const yAxisG = g.append("g").attr("class", "axis");
         const xGridG = g.append("g").attr("class", "grid").attr("transform", `translate(0,${innerHeight})`);
         const yGridG = g.append("g").attr("class", "grid");
 
         // 座標軸標籤
         g.append("text")
             .attr("x", innerWidth / 2)
-            .attr("y", innerHeight + 35)
-            .attr("fill", "currentColor")
+            .attr("y", innerHeight + 40)
+            .attr("fill", "#374151")
             .style("text-anchor", "middle")
-            .style("font-size", "14px")
+            .style("font-size", "15px")
+            .style("font-weight", "bold")
             .text("時間 t");
 
         g.append("text")
             .attr("transform", "rotate(-90)")
-            .attr("y", -35)
+            .attr("y", -45)
             .attr("x", -innerHeight / 2)
-            .attr("fill", "currentColor")
+            .attr("fill", "#374151")
             .style("text-anchor", "middle")
-            .style("font-size", "14px")
+            .style("font-size", "15px")
+            .style("font-weight", "bold")
             .text("位置 x");
 
-        // --- 4. 繪製元素初始化 ---
+        const mainLinePath = plotArea.append("path").attr("class", "line-main");
+        const secantLine = plotArea.append("line").attr("class", "line-secant");
+        const pointA = plotArea.append("circle").attr("class", "point").attr("r", 8);
+        const pointB = plotArea.append("circle").attr("class", "point").attr("r", 8);
 
-        // 主曲線
-        const mainLinePath = plotArea.append("path")
-            .attr("class", "line-main");
-
-        // 割線
-        const secantLine = plotArea.append("line")
-            .attr("class", "line-secant");
-
-        // 控制點 A 與 B
-        const pointA = plotArea.append("circle").attr("class", "point").attr("r", 6);
-        const pointB = plotArea.append("circle").attr("class", "point").attr("r", 6);
-
-        // --- 5. 更新圖表的函式 (核心渲染邏輯) ---
         function updateChart(fullUpdate = true) {
-            // 如果需要完整更新 (例如改變縮放或改變函數係數)
             if (fullUpdate) {
-                // 計算新的座標範圍 (基於 zoomLevel 縮放)
+                // 處理水平 t 軸 (X軸) 縮放
                 const currentDomainX = [
-                    BASE_DOMAIN_X[0] / zoomLevel, 
-                    BASE_DOMAIN_X[1] / zoomLevel
+                    BASE_DOMAIN_X[0] / zoomLevelX, 
+                    BASE_DOMAIN_X[1] / zoomLevelX
                 ];
                 
-                // 1. 優先計算曲線路徑的點
+                // 產生取樣點，找出可視範圍內的曲線高低點
                 const tMin = currentDomainX[0];
                 const tMax = currentDomainX[1];
                 const step = (tMax - tMin) / 200; 
                 const lineData = d3.range(tMin, tMax + step, step).map(t => ({ t: t, x: f(t) }));
 
-                // 2. 動態計算 Y 軸範圍：找出範圍內的最高和最低點
+                // 自動計算目前的垂直 Y 軸極值
                 const yMin = d3.min(lineData, d => d.x);
                 const yMax = d3.max(lineData, d => d.x);
+                const baseRange = yMax - yMin;
+                const padding = baseRange === 0 ? 1 : baseRange * 0.1;
                 
-                // 上下預留 10% 的邊距，確保兩顆紅點絕對不會超出畫面
-                const yRange = yMax - yMin;
-                const padding = yRange === 0 ? 1 : yRange * 0.1;
+                const baseMinY = yMin - padding;
+                const baseMaxY = yMax + padding;
                 
+                // 處理垂直 x 軸 (Y軸) 縮放
+                const scaledRangeY = (baseMaxY - baseMinY) / zoomLevelY;
                 const currentDomainY = [
-                    yMin - padding, 
-                    yMax + padding
+                    baseMinY, 
+                    baseMinY + scaledRangeY
                 ];
 
-                // 更新比例尺
                 xScale.domain(currentDomainX);
                 yScale.domain(currentDomainY);
 
-                // 更新座標軸與網格
+                // 更新畫面中的座標軸與格線
                 xAxisG.call(d3.axisBottom(xScale));
                 yAxisG.call(d3.axisLeft(yScale));
-                
                 xGridG.call(d3.axisBottom(xScale).tickSize(-innerHeight).tickFormat(""));
                 yGridG.call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(""));
                 
-                // 3. 繪製曲線路徑
+                // 繪製藍色曲線
                 const lineGenerator = d3.line()
                     .x(d => xScale(d.t))
                     .y(d => yScale(d.x))
@@ -295,33 +308,27 @@
                     .attr("d", lineGenerator);
             }
 
-            // --- 以下為每次更新都會執行的部分 (例如拖曳點) ---
-
-            // 計算當前的 x1, x2 值
             const x1 = f(t1);
             const x2 = f(t2);
 
-            // 更新點的位置
             pointA.attr("cx", xScale(t1)).attr("cy", yScale(x1));
             pointB.attr("cx", xScale(t2)).attr("cy", yScale(x2));
 
-            // 更新割線或切線與斜率計算
             let slope = 0;
             let isTangent = false;
 
-            // 當兩點距離極近（或重疊）時，轉換為切線
+            // 判斷是否重疊 (切線) - 小於 0.01 視為重疊
             if (Math.abs(t1 - t2) < 0.01) {
                 isTangent = true;
-                slope = fPrime(t1); // 代入導數求切線斜率
+                slope = fPrime(t1);
             } else {
-                slope = (x2 - x1) / (t2 - t1); // 一般割線斜率
+                slope = (x2 - x1) / (t2 - t1);
             }
                 
-            // 延伸割線或切線到畫面邊緣
+            // 繪製割/切線 (延伸出畫面)
             const domainX = xScale.domain();
-            const ext_t1 = domainX[0] - 10; // 稍微超出範圍確保畫滿
+            const ext_t1 = domainX[0] - 10;
             const ext_x1 = slope * (ext_t1 - t1) + x1;
-            
             const ext_t2 = domainX[1] + 10;
             const ext_x2 = slope * (ext_t2 - t1) + x1;
 
@@ -330,66 +337,59 @@
                 .attr("x2", xScale(ext_t2)).attr("y2", yScale(ext_x2))
                 .style("display", "block");
                 
-            // 根據是割線還是切線，改變視覺樣式與標籤
+            // 更新 UI 文字與樣式 (切線綠色實線 / 割線橘色虛線)
             if (isTangent) {
-                secantLine.attr("stroke-dasharray", "none").style("stroke", "#16a34a"); // 綠色實線代表切線
+                secantLine.attr("stroke-dasharray", "none").style("stroke", "#10b981"); 
                 slopeLabelEl.textContent = "切線斜率 (dx / dt)";
-                slopeValueEl.className = "block text-2xl font-bold text-green-600 font-mono";
+                slopeValueEl.className = "block text-5xl font-black text-emerald-500 font-mono drop-shadow-md";
             } else {
-                secantLine.attr("stroke-dasharray", "5,5").style("stroke", "#ea580c"); // 橘色虛線代表割線
+                secantLine.attr("stroke-dasharray", "6,6").style("stroke", "#f97316");
                 slopeLabelEl.textContent = "割線斜率 (Δx / Δt)";
-                slopeValueEl.className = "block text-2xl font-bold text-orange-600 font-mono";
+                slopeValueEl.className = "block text-5xl font-black text-orange-600 font-mono drop-shadow-md";
             }
 
-            // 更新 HTML 顯示數值
             coordAEl.textContent = `(${t1.toFixed(2)}, ${x1.toFixed(2)})`;
             coordBEl.textContent = `(${t2.toFixed(2)}, ${x2.toFixed(2)})`;
-            slopeValueEl.textContent = slope.toFixed(2);
+            
+            slopeValueEl.textContent = Math.abs(slope) < 0.001 ? "0.00" : slope.toFixed(2);
         }
 
-        // --- 6. 事件綁定 (拖曳與輸入改變) ---
-
-        // 點的拖曳行為
         function createDragBehavior(isPointA) {
             return d3.drag().on("drag", (event) => {
-                // 將滑鼠在 SVG 的 X 座標反推回 t 值
                 let newT = xScale.invert(event.x);
-                
-                // 將時間點四捨五入到小數點後第二位，幫助使用者更容易將兩點重合
                 newT = Math.round(newT * 100) / 100;
                 
-                // 限制拖曳範圍在目前的畫布內，且確保 t >= 0
                 const domainX = xScale.domain();
+                // 強制限制 t 必須大於等於 0，且不出現在畫面外
                 newT = Math.max(0, Math.max(domainX[0], Math.min(domainX[1], newT)));
                 
-                if (isPointA) {
-                    t1 = newT;
-                } else {
-                    t2 = newT;
-                }
-                updateChart(false); // 拖曳時只需要更新點和線，不用重畫曲線和座標軸
+                if (isPointA) { t1 = newT; } else { t2 = newT; }
+                updateChart(false); 
             });
         }
 
         pointA.call(createDragBehavior(true));
         pointB.call(createDragBehavior(false));
 
-        // 綁定輸入框改變事件 (改變係數時重新繪圖)
         const inputs = [inputA, inputB, inputC, inputD];
         inputs.forEach(input => {
-            input.addEventListener('input', () => {
-                updateChart(true);
-            });
+            input.addEventListener('input', () => { updateChart(true); });
         });
 
-        // 綁定縮放滑桿事件
-        zoomSlider.addEventListener('input', (e) => {
-            zoomLevel = parseFloat(e.target.value);
-            zoomValueEl.textContent = zoomLevel.toFixed(1) + 'x';
-            updateChart(true); // 縮放時需要完整更新
+        // 綁定時間軸(水平)縮放
+        zoomXSlider.addEventListener('input', (e) => {
+            zoomLevelX = parseFloat(e.target.value);
+            zoomXValueEl.textContent = zoomLevelX.toFixed(1) + 'x';
+            updateChart(true);
         });
 
-        // --- 7. 啟動 ---
+        // 綁定位置軸(垂直)縮放
+        zoomYSlider.addEventListener('input', (e) => {
+            zoomLevelY = parseFloat(e.target.value);
+            zoomYValueEl.textContent = zoomLevelY.toFixed(1) + 'x';
+            updateChart(true);
+        });
+
         updateChart(true);
 
     </script>
