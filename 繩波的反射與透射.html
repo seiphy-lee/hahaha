@@ -3,51 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高中物理：繩波反射與透射模擬</title>
+    <title>高中物理：繩波的反射與透射</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 p-4 md:p-8 flex flex-col items-center min-h-screen font-sans">
-
-    <div class="w-full max-w-5xl bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-2">繩波的反射與透射</h1>
+    <style>
+        body {
+            /* 充滿活力的全螢幕漸層背景 */
+            background: linear-gradient(120deg, #ffe2ed 0%, #e0e7ff 50%, #ccfbf1 100%);
+        }
+        .mode-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mode-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .active-btn {
+            /* 活潑的紫粉紅漸層頁籤 */
+            background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+            color: white;
+            box-shadow: 0 6px 20px -3px rgba(236, 72, 153, 0.5);
+            border-color: transparent !important;
+        }
         
-        <div class="flex flex-col gap-4 mb-6">
+        /* 讓畫布有立體內凹感 */
+        .canvas-container {
+            box-shadow: inset 0 4px 12px rgba(0,0,0,0.06), 0 10px 20px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center min-h-screen font-sans">
+
+    <div class="w-full max-w-5xl bg-white/70 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] shadow-2xl shadow-indigo-200/50 border border-white">
+        <!-- 標題與阿發老師專屬署名 -->
+        <h1 class="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-700 to-purple-600 mb-6 border-b-2 border-purple-200/50 pb-4 flex items-baseline flex-wrap">
+            繩波的反射與透射
+            <span class="text-[#0000FF] ml-4 text-[0.8em] font-normal drop-shadow-sm">(臺中二中 阿發老師 設計)</span>
+        </h1>
+        
+        <div class="flex flex-col gap-5 mb-6">
             
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <button id="btnFixed" class="mode-btn px-4 py-2 font-semibold rounded shadow transition bg-blue-600 text-white">固定端反射</button>
-                <button id="btnFree" class="mode-btn px-4 py-2 font-semibold rounded shadow transition bg-gray-200 text-gray-700 hover:bg-gray-300">自由端反射</button>
-                <button id="btnL2H" class="mode-btn px-4 py-2 font-semibold rounded shadow transition bg-gray-200 text-gray-700 hover:bg-gray-300">輕繩傳重繩</button>
-                <button id="btnH2L" class="mode-btn px-4 py-2 font-semibold rounded shadow transition bg-gray-200 text-gray-700 hover:bg-gray-300">重繩傳輕繩</button>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button id="btnFixed" class="mode-btn active-btn px-4 py-3 font-bold rounded-2xl text-center border border-transparent text-lg">固定端反射</button>
+                <button id="btnFree" class="mode-btn bg-white/80 text-slate-600 border border-slate-200 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 px-4 py-3 font-bold rounded-2xl text-center text-lg">自由端反射</button>
+                <button id="btnL2H" class="mode-btn bg-white/80 text-slate-600 border border-slate-200 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 px-4 py-3 font-bold rounded-2xl text-center text-lg">輕繩傳重繩</button>
+                <button id="btnH2L" class="mode-btn bg-white/80 text-slate-600 border border-slate-200 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 px-4 py-3 font-bold rounded-2xl text-center text-lg">重繩傳輕繩</button>
             </div>
             
-            <div class="bg-blue-50 p-3 rounded text-blue-800 font-bold border border-blue-100">
+            <div class="bg-gradient-to-r from-amber-100 to-orange-50 p-4 rounded-2xl text-amber-900 font-bold border border-amber-200 shadow-sm text-lg">
                 目前模式：<span id="statusText">反射波形左右相反、上下顛倒</span>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 p-6 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-3xl border border-cyan-100 shadow-inner">
                 <div class="flex flex-col">
-                    <label for="speedSlider" class="text-gray-700 font-semibold mb-2 text-sm">
-                        入射波速: <span id="speedValue" class="text-blue-600 font-bold ml-1">中</span>
+                    <label for="speedSlider" class="text-slate-700 font-bold mb-3 text-base flex justify-between">
+                        <span>入射波速: <span id="speedValue" class="text-indigo-600 font-black ml-1">中</span></span>
                     </label>
-                    <input type="range" id="speedSlider" min="1" max="15" value="5" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                    <input type="range" id="speedSlider" min="1" max="15" value="5" class="w-full h-3 bg-cyan-200 rounded-lg appearance-none cursor-pointer accent-fuchsia-500 hover:accent-fuchsia-400 transition-all">
                 </div>
 
                 <div class="flex flex-col">
-                    <label for="widthSlider" class="text-gray-700 font-semibold mb-2 text-sm">
-                        波長 (脈衝寬度): <span id="widthValue" class="text-blue-600 font-bold ml-1">中</span>
+                    <label for="widthSlider" class="text-slate-700 font-bold mb-3 text-base flex justify-between">
+                        <span>波長 (脈衝寬度): <span id="widthValue" class="text-indigo-600 font-black ml-1">中</span></span>
                     </label>
-                    <input type="range" id="widthSlider" min="20" max="80" value="50" class="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer">
+                    <!-- 滑桿最大值放大到240 (對應原本 80 的三倍，波長可拉得極長) -->
+                    <input type="range" id="widthSlider" min="20" max="240" value="90" class="w-full h-3 bg-cyan-200 rounded-lg appearance-none cursor-pointer accent-fuchsia-500 hover:accent-fuchsia-400 transition-all">
                 </div>
             </div>
 
-            <div class="flex gap-2 items-center">
-                <button id="btnStart" class="px-6 py-2 bg-green-500 text-white font-bold rounded shadow hover:bg-green-600 transition">發射波 / 重置</button>
-                <button id="btnPause" class="px-6 py-2 bg-yellow-500 text-white font-bold rounded shadow transition disabled:opacity-50 cursor-not-allowed" disabled>暫停</button>
-                <span id="stepHint" class="text-gray-500 text-sm ml-2">提示：播放時按「空白鍵」暫停，暫停時按「空白鍵」可單步播放</span>
+            <div class="flex flex-wrap gap-4 items-center mt-2">
+                <button id="btnStart" class="px-6 py-3 bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold rounded-2xl shadow-lg shadow-teal-200/60 hover:scale-105 transition-all text-lg">發射波 / 重置</button>
+                <button id="btnPause" class="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200/60 transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none cursor-not-allowed text-lg" disabled>暫停</button>
+                <span id="stepHint" class="text-slate-600 text-sm font-medium ml-2 bg-white/70 px-4 py-2 rounded-xl border border-white">✨ 提示：播放時按「空白鍵」暫停，暫停時按「空白鍵」可單步播放</span>
             </div>
         </div>
 
-        <div class="relative w-full overflow-hidden bg-white border-2 border-gray-100 rounded-lg shadow-inner" style="height: 400px;">
+        <!-- 畫布底色改為溫暖的奶油/淡粉色漸層，搭配純白立體粗框 -->
+        <div class="canvas-container relative w-full overflow-hidden bg-gradient-to-br from-[#fffdf5] to-[#ffeaf2] border-8 border-white rounded-[2rem]" style="height: 450px;">
             <canvas id="waveCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
         </div>
     </div>
@@ -56,7 +87,6 @@
         const canvas = document.getElementById('waveCanvas');
         const ctx = canvas.getContext('2d');
         
-        // 模式參數設定 (物理學反射與透射係數)
         const modes = {
             'fixed': { name: '固定端反射', R: -1, T: 0, v2Ratio: 1, text: "反射波形左右相反、上下顛倒" },
             'free': { name: '自由端反射', R: 1, T: 0, v2Ratio: 1, text: "反射波形左右相反、上下不顛倒" },
@@ -74,25 +104,29 @@
         let ropeStartY = 0;
         let boundaryX = 0;
 
+        // 計算初始寬度：基底寬度 0.05，預設滑桿為 90
+        const baseW = 0.05;
+        const initialRatio = 90 / 50;
         let waveParams = {
             v: 5,        
-            A: -80,      
-            width: 0.001 
+            A: -90,      
+            width: 2.5 / (90 * 90) // 對應滑桿預設值 90
         };
         
-        let activeWave = null; 
+        let incidentWave = null;
+        let reflectedWave = null;
+        let transmittedWave = null;
 
+        // 頁籤切換事件
         document.querySelectorAll('.mode-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                // 更新按鈕樣式
                 document.querySelectorAll('.mode-btn').forEach(b => {
-                    b.classList.remove('bg-blue-600', 'text-white');
-                    b.classList.add('bg-gray-200', 'text-gray-700');
+                    b.classList.remove('active-btn');
+                    b.classList.add('bg-white/80', 'text-slate-600', 'border-slate-200', 'hover:bg-pink-50', 'hover:text-pink-600', 'hover:border-pink-200');
                 });
-                e.target.classList.remove('bg-gray-200', 'text-gray-700');
-                e.target.classList.add('bg-blue-600', 'text-white');
+                e.target.classList.remove('bg-white/80', 'text-slate-600', 'border-slate-200', 'hover:bg-pink-50', 'hover:text-pink-600', 'hover:border-pink-200');
+                e.target.classList.add('active-btn');
                 
-                // 更新模式
                 const id = e.target.id;
                 if (id === 'btnFixed') currentMode = 'fixed';
                 if (id === 'btnFree') currentMode = 'free';
@@ -101,33 +135,48 @@
                 
                 document.getElementById('statusText').innerText = modes[currentMode].text;
                 
-                // 重新計算邊界並重置波
                 resizeCanvas();
                 resetWave();
             });
         });
 
+        // 波速滑桿
         document.getElementById('speedSlider').addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
             waveParams.v = val;
-            if (activeWave) activeWave.v = val;
+            
             const textObj = document.getElementById('speedValue');
             if (val <= 4) textObj.innerText = "慢";
             else if (val >= 10) textObj.innerText = "快";
             else textObj.innerText = "中";
+
+            if (incidentWave) {
+                // 如果已經在行進中調整波速，必須重置波才能保持物理同步不穿幫
+                resetWave(); 
+            }
         });
 
+        // 波長滑桿 (支援 1.5倍 以上加長)
         document.getElementById('widthSlider').addEventListener('input', (e) => {
             const val = parseInt(e.target.value);
-            const newW = 0.05 / val;
+            // 確保視覺上與滑桿數值成真正的平方反比關係 (讓波可以拉得極長)
+            const newW = 2.5 / (val * val);
             waveParams.width = newW;
-            if (activeWave) {
-                activeWave.w = newW;
-                if (isPaused) drawFrame();
+            
+            if (incidentWave) {
+                incidentWave.w = newW;
+                reflectedWave.w = newW;
+                if (transmittedWave) {
+                    const vRatio = modes[currentMode].v2Ratio;
+                    transmittedWave.w = newW / (vRatio * vRatio);
+                }
             }
+            if (isPaused || (!isPlaying)) drawFrame();
+            
             const textObj = document.getElementById('widthValue');
-            if (val <= 40) textObj.innerText = "短";
-            else if (val >= 60) textObj.innerText = "長";
+            // 配合 20~240 範圍
+            if (val <= 80) textObj.innerText = "短";
+            else if (val >= 160) textObj.innerText = "長";
             else textObj.innerText = "中";
         });
 
@@ -142,6 +191,7 @@
 
         btnPause.addEventListener('click', togglePause);
 
+        // 空白鍵單步播放與暫停
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' && isPlaying) {
                 e.preventDefault(); 
@@ -166,17 +216,17 @@
         function updatePauseButtonUI() {
             btnPause.disabled = !isPlaying;
             if (!isPlaying) {
-                btnPause.classList.add('opacity-50', 'cursor-not-allowed');
+                btnPause.className = "px-6 py-3 bg-slate-300 text-white font-bold rounded-2xl transition-all opacity-50 cursor-not-allowed text-lg";
                 btnPause.innerText = "暫停";
                 return;
             }
-            btnPause.classList.remove('opacity-50', 'cursor-not-allowed');
+            
             if (isPaused) {
                 btnPause.innerText = "繼續 (空白鍵)";
-                btnPause.classList.replace('bg-yellow-500', 'bg-blue-500');
+                btnPause.className = "px-6 py-3 bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all hover:scale-105 text-lg";
             } else {
                 btnPause.innerText = "暫停 (空白鍵)";
-                btnPause.classList.replace('bg-blue-500', 'bg-yellow-500');
+                btnPause.className = "px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-2xl shadow-lg shadow-orange-200 transition-all hover:scale-105 text-lg";
             }
         }
 
@@ -187,29 +237,36 @@
             canvasHeight = canvas.height;
             ropeStartY = canvasHeight / 2;
             
-            // 動態邊界：如果需要展示透射波，就把牆壁移到中間
             if (currentMode === 'fixed' || currentMode === 'free') {
-                boundaryX = canvasWidth - 100;
+                boundaryX = canvasWidth - 100; // 靠右邊
             } else {
-                boundaryX = canvasWidth / 2; 
+                boundaryX = canvasWidth / 2;   // 放在正中間展示透射
             }
             if (!isPlaying && !isPaused) drawFrame();
         }
         window.addEventListener('resize', resizeCanvas);
 
+        // 不對稱波形高斯函數 (前陡後緩)
         function getWaveY(x, waveCenter, dir, A, w) {
             const dx = x - waveCenter;
             const isFront = (dx * dir > 0); 
+            // 進行方向衰減較快(陡峭)，後方衰減較慢(平緩)
             const effectiveW = isFront ? w * 2.5 : w * 0.4;
             return A * Math.exp(-effectiveW * dx * dx);
         }
 
         function updatePhysics() {
-            if (!activeWave) return;
-            activeWave.x += activeWave.v;
+            if (!incidentWave) return;
             
-            // 當波遠離畫面邊界時結束
-            if (activeWave.x > canvasWidth * 2) {
+            incidentWave.x += incidentWave.v;
+            reflectedWave.x += reflectedWave.v;
+            
+            if (transmittedWave) {
+                transmittedWave.x += transmittedWave.v;
+            }
+            
+            // 讓波走遠一點再停止，避免超長波長被提早截斷
+            if (incidentWave.x > canvasWidth * 3) {
                 isPlaying = false;
                 isPaused = false;
                 updatePauseButtonUI();
@@ -228,38 +285,72 @@
             isPaused = false;
             updatePauseButtonUI();
             
-            activeWave = { 
-                x: -150, 
+            const startX = -150;
+            
+            // 1. 真正的入射波
+            incidentWave = { 
+                x: startX, 
                 v: waveParams.v, 
                 A: waveParams.A, 
-                w: waveParams.width 
+                w: waveParams.width,
+                dir: 1
             };
+            
+            // 距離邊界的總路程
+            const distToBoundary = boundaryX - startX;
+            
+            // 2. 虛擬的反射波 (鏡像法)，藏在牆後
+            reflectedWave = {
+                x: boundaryX + distToBoundary,
+                v: -waveParams.v,
+                A: waveParams.A * modes[currentMode].R,
+                w: waveParams.width,
+                dir: -1
+            };
+
+            // 3. 透射波處理 【核心除錯點：完美同步】
+            if (currentMode === 'L2H' || currentMode === 'H2L') {
+                const vRatio = modes[currentMode].v2Ratio;
+                // 為了讓透射波跟入射波在同一瞬間到達 boundaryX，
+                // 必須根據它的波速比例，回推它的起跑點 (可能藏在畫面外很遠的地方)
+                const transmittedStartX = boundaryX - (distToBoundary * vRatio);
+
+                transmittedWave = {
+                    x: transmittedStartX, // 根據時間差反推的正確起始點！
+                    v: waveParams.v * vRatio,
+                    A: waveParams.A * modes[currentMode].T,
+                    w: waveParams.width / (vRatio * vRatio), 
+                    dir: 1
+                };
+            } else {
+                transmittedWave = null;
+            }
+
             drawFrame();
         }
 
         function drawBoundary() {
             if (currentMode === 'fixed') {
-                // 初版的完美紅磚牆
-                ctx.fillStyle = '#a55c5c'; 
+                ctx.fillStyle = '#b95c5c'; 
                 const brickWidth = 40;
-                const brickHeight = 20;
+                const brickHeight = 22;
+                // 完美的垂直向上疊加紅磚牆 (無交叉)
                 for (let y = 0; y < canvas.height; y += brickHeight) {
-                    const offsetX = (y / brickHeight) % 2 === 0 ? 0 : -10;
-                    ctx.fillRect(boundaryX + offsetX, y, brickWidth, brickHeight - 2);
+                    ctx.fillRect(boundaryX, y, brickWidth, brickHeight - 2);
                 }
             } else if (currentMode === 'free') {
-                // 自由端的鐵桿與環
-                ctx.fillStyle = '#5c4033'; 
+                ctx.fillStyle = '#78513b'; 
                 ctx.fillRect(boundaryX - 5, 0, 10, canvas.height);
                 
                 let ringY = ropeStartY;
-                if (activeWave) {
-                    ringY += getWaveY(boundaryX, activeWave.x, 1, activeWave.A, activeWave.w);
-                    ringY += getWaveY(boundaryX, 2 * boundaryX - activeWave.x, -1, activeWave.A * modes[currentMode].R, activeWave.w);
+                if (incidentWave && reflectedWave) {
+                    const y1 = getWaveY(boundaryX, incidentWave.x, incidentWave.dir, incidentWave.A, incidentWave.w);
+                    const y2 = getWaveY(boundaryX, reflectedWave.x, reflectedWave.dir, reflectedWave.A, reflectedWave.w);
+                    ringY += (y1 + y2);
                 }
 
-                ctx.strokeStyle = '#9ca3af'; 
-                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#cbd5e1'; 
+                ctx.lineWidth = 5;
                 ctx.beginPath();
                 ctx.ellipse(boundaryX, ringY, 15, 8, 0, 0, Math.PI * 2);
                 ctx.stroke();
@@ -267,18 +358,18 @@
         }
 
         function drawRope() {
-            // 繪製左半邊 (入射區段)
+            // 繪製左半段 (入射與反射的完美數學疊加)
             ctx.beginPath();
             for (let x = 0; x <= boundaryX; x++) {
                 let y = ropeStartY;
-                if (activeWave) {
-                    // 入射波 + 虛擬的反射波 (鏡像法)
-                    y += getWaveY(x, activeWave.x, 1, activeWave.A, activeWave.w);
-                    const refX = 2 * boundaryX - activeWave.x;
-                    y += getWaveY(x, refX, -1, activeWave.A * modes[currentMode].R, activeWave.w);
+                if (incidentWave && reflectedWave) {
+                    // 入射與反射在數學上疊加
+                    const y_in = getWaveY(x, incidentWave.x, incidentWave.dir, incidentWave.A, incidentWave.w);
+                    const y_ref = getWaveY(x, reflectedWave.x, reflectedWave.dir, reflectedWave.A, reflectedWave.w);
+                    y += (y_in + y_ref);
                 }
                 
-                // 固定端強制鎖死在平衡位置，杜絕物理錯誤
+                // 固定端強制歸零點
                 if (currentMode === 'fixed' && x === boundaryX) {
                     y = ropeStartY; 
                 }
@@ -287,39 +378,33 @@
                 else ctx.lineTo(x, y);
             }
             
-            // 決定左繩子的粗細顏色
             if (currentMode === 'H2L') {
-                ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 12; // 重繩
+                ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 14; 
             } else if (currentMode === 'L2H') {
-                ctx.strokeStyle = '#d4a373'; ctx.lineWidth = 4;  // 輕繩
+                ctx.strokeStyle = '#d4a373'; ctx.lineWidth = 5;  
             } else {
-                ctx.strokeStyle = '#c49c71'; ctx.lineWidth = 6;  // 一般繩
+                ctx.strokeStyle = '#c49c71'; ctx.lineWidth = 7;  
             }
             ctx.lineJoin = 'round';
             ctx.stroke();
 
-            // 繪製右半邊 (透射區段，只有在有透射模式時畫)
+            // 繪製右半段 (透射) 【核心除錯點：移除 if 判斷，信任數學自動疊加】
             if (currentMode === 'L2H' || currentMode === 'H2L') {
                 ctx.beginPath();
                 for (let x = boundaryX; x <= canvasWidth; x++) {
                     let y = ropeStartY;
-                    if (activeWave) {
-                        const vRatio = modes[currentMode].v2Ratio;
-                        // 透射波位置：依據波速比例推算
-                        const transX = boundaryX + (activeWave.x - boundaryX) * vRatio;
-                        // 波長與波速成正比，在公式中 w 與寬度的平方成反比
-                        const transW = activeWave.w / (vRatio * vRatio);
-                        
-                        y += getWaveY(x, transX, 1, activeWave.A * modes[currentMode].T, transW);
+                    if (transmittedWave) {
+                        // 讓高斯函數自然從邊界平滑浮現，不再斷裂！
+                        y += getWaveY(x, transmittedWave.x, transmittedWave.dir, transmittedWave.A, transmittedWave.w);
                     }
                     if (x === boundaryX) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
                 
                 if (currentMode === 'L2H') {
-                    ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 12; // 重繩
+                    ctx.strokeStyle = '#8b5a2b'; ctx.lineWidth = 14; 
                 } else {
-                    ctx.strokeStyle = '#d4a373'; ctx.lineWidth = 4;  // 輕繩
+                    ctx.strokeStyle = '#d4a373'; ctx.lineWidth = 5;  
                 }
                 ctx.stroke();
             }
@@ -327,85 +412,79 @@
             // 繪製連接處繩結
             ctx.beginPath();
             if (currentMode === 'fixed') {
-                ctx.arc(boundaryX, ropeStartY, 8, 0, Math.PI * 2);
-                ctx.fillStyle = '#3b82f6'; // 藍色鎖死
+                ctx.arc(boundaryX, ropeStartY, 9, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6'; // 鮮明藍色固定結
             } else if (currentMode === 'free') {
                 let endY = ropeStartY;
-                if (activeWave) {
-                    endY += getWaveY(boundaryX, activeWave.x, 1, activeWave.A, activeWave.w);
-                    endY += getWaveY(boundaryX, 2 * boundaryX - activeWave.x, -1, activeWave.A * modes[currentMode].R, activeWave.w);
+                if (incidentWave && reflectedWave) {
+                    endY += getWaveY(boundaryX, incidentWave.x, incidentWave.dir, incidentWave.A, incidentWave.w);
+                    endY += getWaveY(boundaryX, reflectedWave.x, reflectedWave.dir, reflectedWave.A, reflectedWave.w);
                 }
-                ctx.arc(boundaryX, endY, 6, 0, Math.PI * 2);
+                ctx.arc(boundaryX, endY, 7, 0, Math.PI * 2);
                 ctx.fillStyle = '#6b4c3a'; 
             } else {
-                // 輕重繩交界處
                 let endY = ropeStartY;
-                if (activeWave) {
-                    endY += getWaveY(boundaryX, activeWave.x, 1, activeWave.A, activeWave.w);
-                    endY += getWaveY(boundaryX, 2 * boundaryX - activeWave.x, -1, activeWave.A * modes[currentMode].R, activeWave.w);
+                if (incidentWave && reflectedWave) {
+                    endY += getWaveY(boundaryX, incidentWave.x, incidentWave.dir, incidentWave.A, incidentWave.w);
+                    endY += getWaveY(boundaryX, reflectedWave.x, reflectedWave.dir, reflectedWave.A, reflectedWave.w);
                 }
-                ctx.arc(boundaryX, endY, 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#1f2937'; 
+                ctx.arc(boundaryX, endY, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#334155'; 
             }
             ctx.fill();
         }
 
         function drawArrowAndLabel() {
-            if (!activeWave || !isPlaying) return;
+            if (!incidentWave || !isPlaying) return;
             
-            const x_p = activeWave.x;
-            const x_ref = 2 * boundaryX - activeWave.x;
-            
-            // 繪製入射波標籤
-            if (x_p > 20 && x_p <= boundaryX + 20) {
-                drawSingleLabel(x_p, ropeStartY + activeWave.A, "入射波", 1, activeWave.A < 0);
+            // 入射波標籤
+            if (incidentWave.x > 20 && incidentWave.x <= boundaryX + 20) {
+                drawSingleLabel(incidentWave.x, ropeStartY + getWaveY(incidentWave.x, incidentWave.x, incidentWave.dir, incidentWave.A, incidentWave.w), "入射波", 1, incidentWave.A < 0);
             }
             
-            // 繪製反射波標籤
-            if (x_ref >= 20 && x_ref < boundaryX - 20) {
-                const refA = activeWave.A * modes[currentMode].R;
-                drawSingleLabel(x_ref, ropeStartY + refA, "反射波", -1, refA < 0);
+            // 反射波標籤
+            if (reflectedWave.x >= 20 && reflectedWave.x < boundaryX - 20) {
+                // 利用反射係數 R 判斷正負，確保標籤不會指錯邊
+                const isPeakUp = (incidentWave.A * modes[currentMode].R) < 0; 
+                drawSingleLabel(reflectedWave.x, ropeStartY + getWaveY(reflectedWave.x, reflectedWave.x, reflectedWave.dir, reflectedWave.A, reflectedWave.w), "反射波", -1, isPeakUp);
             }
             
-            // 繪製透射波標籤
-            if (currentMode === 'L2H' || currentMode === 'H2L') {
-                const vRatio = modes[currentMode].v2Ratio;
-                const x_t = boundaryX + (activeWave.x - boundaryX) * vRatio;
-                if (x_t >= boundaryX + 20 && x_t < canvasWidth - 20) {
-                    const transA = activeWave.A * modes[currentMode].T;
-                    drawSingleLabel(x_t, ropeStartY + transA, "透射波", 1, transA < 0);
-                }
+            // 透射波標籤
+            if (transmittedWave && transmittedWave.x >= boundaryX + 20 && transmittedWave.x < canvasWidth - 20) {
+                // 透射波永遠和原來的 A 同向，所以直接用 original A 判斷
+                drawSingleLabel(transmittedWave.x, ropeStartY + getWaveY(transmittedWave.x, transmittedWave.x, transmittedWave.dir, transmittedWave.A, transmittedWave.w), "透射波", 1, incidentWave.A < 0);
             }
         }
 
         function drawSingleLabel(x, peakY, text, dir, isPeakUp) {
-            ctx.fillStyle = '#1f2937';
-            ctx.font = 'bold 16px sans-serif';
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 17px sans-serif';
             ctx.textAlign = 'center';
             
             let textY, arrowY;
+            // 標籤動態浮動，確保不遮擋波形
             if (isPeakUp) {
-                arrowY = peakY - 30;
-                textY = peakY - 45;
+                arrowY = peakY - 35;
+                textY = peakY - 50;
             } else {
-                arrowY = peakY + 30;
-                textY = peakY + 50;
+                arrowY = peakY + 35;
+                textY = peakY + 55;
             }
             
             ctx.fillText(text, x, textY);
             
             ctx.beginPath();
-            ctx.moveTo(x - dir * 20, arrowY);
+            ctx.moveTo(x - dir * 22, arrowY);
             ctx.lineTo(x + dir * 15, arrowY);
-            ctx.strokeStyle = '#ef4444'; 
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#f43f5e'; 
+            ctx.lineWidth = 3.5;
             ctx.stroke();
             
             ctx.beginPath();
             ctx.moveTo(x + dir * 18, arrowY);
             ctx.lineTo(x + dir * 6, arrowY - 6);
             ctx.lineTo(x + dir * 6, arrowY + 6);
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = '#f43f5e';
             ctx.fill();
         }
 
