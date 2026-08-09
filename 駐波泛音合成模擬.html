@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>駐波與泛音合成模擬器</title>
+    <!-- 匯入 Tailwind CSS 來快速美化介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ========================================= */
+        /* 共用基礎樣式 */
+        /* ========================================= */
+        body {
+            background-color: #1e293b; /* Tailwind slate-800 */
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1100px;
+            background-color: #0f172a; /* Tailwind slate-900 */
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 頂部導覽列 --- */
+        .app-header {
+            padding: 16px 24px;
+            background-color: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* 在小螢幕上允許換行 */
+            gap: 16px;
+        }
+
+        .header-title-area h1 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin: 0 0 4px 0;
+            letter-spacing: 0.02em;
+        }
+
+        .header-title-area p {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin: 0;
+            max-width: 600px;
+            line-height: 1.4;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tab-btn {
+            background-color: transparent;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            color: white;
+            border-color: #475569;
+        }
+
+        .tab-btn.active {
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        /* ========================================= */
+        /* 分頁 1 專用樣式 (簡潔版) */
+        /* ========================================= */
+        .tab-content {
+            display: none; /* 預設隱藏，由 JS 控制顯示 */
+        }
+        .tab-content.active {
+            display: flex; /* 第一個分頁使用 flex 排版 */
+        }
+
+        #tab-simple {
+            flex-direction: column;
+        }
+        @media (min-width: 768px) {
+            #tab-simple { flex-direction: row; }
+        }
+
+        #tab-simple input[type=range] {
+            accent-color: #3b82f6;
+        }
+        
+        .simple-canvas-container {
+            flex: 1;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .simple-control-panel {
+            width: 100%;
+            background-color: #1e293b;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            border-top: 1px solid #334155;
+        }
+        @media (min-width: 768px) {
+            .simple-control-panel {
+                width: 320px;
+                border-top: none;
+                border-left: 1px solid #334155;
+            }
+        }
+
+        /* ========================================= */
+        /* 分頁 2 專用樣式 (進階專業版 - 阿發老師風格) */
+        /* ========================================= */
+        .pro-app {
+            --bg: #0a0e13;
+            --panel: #111820;
+            --panel2: #0d131a;
+            --border: #20303f;
+            --text: #dce6ef;
+            --dim: #7c8ea1;
+            --accent: #5eead4;
+            --amber: #fbbf24;
+            --mono: 'SFMono-Regular','JetBrains Mono',Menlo,Consolas,monospace;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: 20px;
+            width: 100%;
+            background: radial-gradient(1200px 600px at 50% -10%, #0f1822 0%, var(--bg) 55%);
+        }
+
+        .pro-app .stage {
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 14px; 
+            margin-bottom: 20px;
+        }
+        @media (max-width: 760px){ 
+            .pro-app .stage { grid-template-columns: 1fr; } 
+        }
+
+        .pro-app .scope {
+            background: var(--panel); 
+            border: 1px solid var(--border); 
+            border-radius: 12px;
+            padding: 14px 14px 10px;
+        }
+        .pro-app .scope h2 {
+            font-family: var(--mono); font-size: 11px; letter-spacing: .1em; 
+            color: var(--dim); margin: 0 0 10px; 
+            display: flex; justify-content: space-between; align-items: baseline;
+            text-transform: uppercase;
+        }
+        .pro-app .scope h2 span.tag { color: var(--accent); font-size: 10px; }
+        
+        /* --- 修改：讓 Canvas 父容器相對定位，以便放 Loading --- */
+        .pro-app .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--panel2);
+        }
+        .pro-app canvas { 
+            width: 100%; height: 100%; display: block; 
+        }
+        
+        /* --- 新增：API Loading 遮罩 --- */
+        .pro-app .loading-mask {
+            position: absolute;
+            inset: 0;
+            background: rgba(13, 19, 26, 0.7); /* 半透明 --panel2 背景 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            font-size: 12px;
+            font-family: var(--mono);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .pro-app .loading-mask.active {
+            opacity: 1;
+        }
+
+        .pro-app .legend {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; 
+            margin-top: 10px; font-family: var(--mono); font-size: 10.5px; color: var(--dim);
+        }
+        .pro-app .legend .item { display: inline-flex; align-items: center; }
+        .pro-app .legend .dot {
+            display: inline-block; width: 16px; height: 16px; border-radius: 50%; 
+            margin-right: 6px; cursor: pointer; border: 1.5px solid rgba(255,255,255,0.15); 
+            transition: transform .1s;
+        }
+        .pro-app .legend .dot:hover { transform: scale(1.12); }
+        .pro-app .legend .divider {
+            width: 1px; height: 14px; background: var(--border); margin: 0 2px;
+        }
+
+        .pro-app .controls {
+            background: var(--panel); border: 1px solid var(--border); 
+            border-radius: 12px; padding: 16px;
+        }
+        .pro-app .transport {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 18px; 
+            padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px;
+        }
+        
+        .pro-app #proPlayBtn {
+            background: var(--accent); color: #04201c; border: none; border-radius: 8px;
+            font-weight: 700; font-size: 14px; padding: 11px 20px; cursor: pointer;
+            transition: background .15s;
+        }
+        .pro-app #proPlayBtn.playing { background: var(--amber); }
+        
+        .pro-app .slider-field {
+            display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); flex: 1;
+        }
+        .pro-app .slider-field .readout {
+            font-family: var(--mono); color: var(--text); min-width: 64px; text-align: right;
+        }
+
+        .pro-app .presets {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+        }
+        .pro-app .presets button {
+            background: transparent; border: 1px solid var(--border); color: var(--dim);
+            font-size: 11.5px; padding: 7px 12px; border-radius: 20px; cursor: pointer;
+            transition: all .2s;
+        }
+        .pro-app .presets button:hover { border-color: var(--accent); color: var(--text); }
+        
+        /* 音色按鈕發光效果 */
+        .pro-app .presets button.active-preset {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 10px rgba(94, 234, 212, 0.4), inset 0 0 5px rgba(94, 234, 212, 0.2);
+            text-shadow: 0 0 5px rgba(94, 234, 212, 0.5);
+        }
+
+        /* 旋律按鈕發光效果 */
+        .pro-app .presets button.active-melody {
+            border-color: var(--amber);
+            color: var(--amber);
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.5), inset 0 0 6px rgba(251, 191, 36, 0.3);
+            text-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+            animation: pulse-glow 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 12px rgba(251, 191, 36, 0.5), inset 0 0 6px rgba(251, 191, 36, 0.3); }
+            100% { box-shadow: 0 0 18px rgba(251, 191, 36, 0.8), inset 0 0 10px rgba(251, 191, 36, 0.5); }
+        }
+
+        .pro-app .harmonics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px;
+        }
+        .pro-app .hrow {
+            background: var(--panel2); border: 1px solid var(--border); 
+            border-left: 4px solid var(--swatch, var(--accent));
+            border-radius: 8px; padding: 10px 12px;
+        }
+        .pro-app .hrow .top {
+            display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;
+        }
+        .pro-app .hrow .name { font-size: 12.5px; font-weight: 600; color: white;}
+        .pro-app .hrow .freq { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+        .pro-app .hrow .row2 { display: flex; align-items: center; gap: 10px; }
+        .pro-app .hrow .val { font-family: var(--mono); font-size: 11.5px; color: var(--text); min-width: 36px; text-align: right; }
+
+        /* 自訂 Pro 版拉桿樣式 */
+        .pro-app input[type=range] {
+            -webkit-appearance: none; appearance: none; height: 5px; 
+            background: #1c2733; border-radius: 3px; outline: none; flex: 1;
+        }
+        .pro-app input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; 
+            background: var(--swatch, var(--accent)); cursor: pointer; border: 2px solid #04201c;
+            transition: transform .1s;
+        }
+        /* 基音滑桿：八度音刻度容器 */
+        .pro-app .slider-wrap {
+            position: relative; flex: 1; display: flex; align-items: center;
+        }
+        .pro-app .slider-wrap input[type=range] { width: 100%; }
+        .pro-app .slider-ticks {
+            position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none;
+        }
+        .pro-app .slider-ticks .tick {
+            position: absolute; top: 2px; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .pro-app .slider-ticks .tick .bar { width: 1px; height: 5px; background: var(--dim); opacity: .6; }
+        .pro-app .slider-ticks .tick .lbl {
+            font-size: 9.5px; color: var(--dim); margin-top: 1px; font-family: var(--mono);
+        }
+        .pro-app .slider-ticks .tick.root .bar { background: var(--accent); opacity: 1; height: 7px; }
+        .pro-app .slider-ticks .tick.root .lbl { color: var(--accent); font-weight: 700; }
+        /* 卡榫感：吸附到音符瞬間，滑塊放大回彈一下 */
+        .pro-app input[type=range].snapped::-webkit-slider-thumb { transform: scale(1.35); }
+        .pro-app footer {
+            margin-top: 16px; font-size: 11.5px; color: var(--dim); line-height: 1.7; 
+            font-family: var(--mono); text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- 頂部共用導覽列 -->
+        <header class="app-header">
+            <div class="header-title-area">
+                <h1>駐波泛音合成模擬器(臺中二中 阿發老師 設計)</h1>
+                <p>兩端固定弦的振動模式滿足 <b>fₙ = n·f₁</b>：n=1 為<b>基音</b>，n≥2 為<b>泛音</b>。拖動下方滑桿，左側觀看駐波形狀，右側聽見音色如何隨比例改變。</p>
+            </div>
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('simple', this)">基礎概念版</button>
+                <button class="tab-btn" onclick="switchTab('pro', this)">進階專業版 (API計算)</button>
+            </div>
+        </header>
+
+        <!-- ========================================= -->
+        <!-- 分頁 1：基礎概念版 -->
+        <!-- ========================================= -->
+        <div id="tab-simple" class="tab-content active">
+            <!-- 左側：視覺化 Canvas 區塊 -->
+            <div class="simple-canvas-container">
+                <h2 class="text-xl font-bold mb-4 text-blue-400">合成波形 (駐波)</h2>
+                <div class="relative w-full aspect-video bg-black rounded-lg border border-slate-700 overflow-hidden shadow-inner flex-1">
+                    <canvas id="simpleWaveCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 text-center">視覺動態已放慢，以清楚呈現駐波變化</p>
+            </div>
+
+            <!-- 右側：控制面板區塊 -->
+            <div class="simple-control-panel">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-blue-400">控制面板</h2>
+                    <button id="simplePlayBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 text-sm rounded-full transition-colors shadow-lg">
+                        播放聲音
+                    </button>
+                </div>
+
+                <div class="space-y-5 flex-1 overflow-y-auto pr-2" id="slidersContainer">
+                    <!-- 滑桿由 JS 產生 -->
+                </div>
+                
+                <div class="mt-6 pt-4 border-t border-slate-700">
+                    <label class="text-sm text-slate-300 flex justify-between">
+                        <span>基音頻率 (Hz)</span>
+                        <span id="baseFreqDisplay">220</span>
+                    </label>
+                    <input type="range" id="baseFreqSlider" min="110" max="440" value="220" class="w-full mt-2">
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================= -->
+        <!-- 分頁 2：進階專業版 -->
+        <!-- ========================================= -->
+        <div id="tab-pro" class="tab-content">
+            <div class="pro-app">
+                <div class="stage">
+                  <section class="scope">
+                    <h2>駐波模式（弦振動 · 慢動作）<span class="tag">SPATIAL</span></h2>
+                    <!-- 修改：加入容器以放置 loading -->
+                    <div class="canvas-container">
+                        <canvas id="proStringCanvas"></canvas>
+                    </div>
+                    <div class="legend" id="proStringLegend"></div>
+                  </section>
+                  <section class="scope">
+                    <h2>合成聲波（一個週期 · 由 GAS 運算）<span class="tag">TIME DOMAIN</span></h2>
+                    <!-- 修改：加入容器以放置 loading -->
+                    <div class="canvas-container">
+                        <canvas id="proWaveCanvas"></canvas>
+                        <div id="apiLoadingMask" class="loading-mask">
+                            <span class="animate-pulse">API 計算中...</span>
+                        </div>
+                    </div>
+                  </section>
+                </div>
+              
+                <div class="controls">
+                  <div class="transport">
+                    <button id="proPlayBtn">▶ 播放合成音</button>
+                    <div class="slider-field">
+                      <span>基音 f₁</span>
+                      <div class="slider-wrap">
+                        <input type="range" id="f0Slider" min="262" max="523" value="262" step="1">
+                        <div class="slider-ticks" id="f0Ticks"></div>
+                      </div>
+                      <span class="readout" id="f0Val">262 Hz</span>
+                    </div>
+                    <div class="slider-field">
+                      <span>動畫速度</span>
+                      <input type="range" id="speedSlider" min="25" max="200" value="100" step="5">
+                      <span class="readout" id="speedVal">1.0×</span>
+                    </div>
+                  </div>
+              
+                  <div class="presets" id="proPresets">
+                    <button data-preset="pure" class="active-preset">純音</button>
+                    <button data-preset="demo">示範疊加</button>
+                    <button data-preset="odd">方波 (奇次諧波)</button>
+                    <button data-preset="saw">鋸齒波 (1/n)</button>
+                    <button data-preset="string">弦樂音色</button>
+                    
+                    <button id="btnMelodyStar">🎵 小星星</button>
+                    <button id="btnMelodyBee">🎵 小蜜蜂</button>
+                    <button id="btnMelodyTiger">🎵 兩隻老虎</button>
+                    <button id="btnMelodySheep">🎵 小綿羊</button>
+                  </div>
+              
+                  <div class="harmonics-grid" id="harmonicsGrid"></div>
+                </div>
+              
+                <footer>
+                  n=1 基音 | n≥2 第 n 諧音／第 (n−1) 泛音，頻率 = n × f₁ | 合成聲波振幅已依目前總振幅自動正規化，避免破音。
+                </footer>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // =========================================
+        // 系統與分頁邏輯
+        // =========================================
+        let isSimpleActive = true; // 預設顯示基礎概念版
+        let isProActive = false;
+
+        function switchTab(tabId, btnElement) {
+            // 切換按鈕樣式
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+
+            // 隱藏所有分頁內容
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            
+            // 處理切換邏輯 (停止聲音)
+            if (tabId === 'simple') {
+                document.getElementById('tab-simple').classList.add('active');
+                if (proPlaying) stopProAudio();
+                if (isMelodyPlaying) stopMelody();
+                isSimpleActive = true;
+                isProActive = false;
+                resizeSimpleCanvas();
+            } else if (tabId === 'pro') {
+                document.getElementById('tab-pro').classList.add('active');
+                if (simpleIsPlaying) stopSimpleAudio();
+                isSimpleActive = false;
+                isProActive = true;
+                resizeProCanvas();
+                // 切換到進階版時，觸發一次後端運算以確保波形正確
+                fetchWaveDataFromBackend(proAmps);
+            }
+        }
+
+        // =========================================
+        // 基礎版 JS (Tab 1)
+        // =========================================
+        const simpleCanvas = document.getElementById('simpleWaveCanvas');
+        const simpleCtx = simpleCanvas.getContext('2d');
+        const simplePlayBtn = document.getElementById('simplePlayBtn');
+        
+        let simpleAudioContext = null;
+        let simpleMasterGain = null;
+        let simpleOscillators = [];
+        let simpleGains = [];
+        let simpleIsPlaying = false;
+        let simpleBaseFreq = 220; 
+        let simpleVisualTime = 0;
+        let simpleAmps = [1.0, 0, 0, 0, 0, 0]; 
+        const simpleLabels = ['基音 (1st Harmonic)', '第一泛音 (2nd Harmonic)', '第二泛音 (3rd Harmonic)', '第三泛音 (4th Harmonic)', '第四泛音 (5th Harmonic)', '第五泛音 (6th Harmonic)'];
+
+        function resizeSimpleCanvas() {
+            if(!isSimpleActive) return;
+            simpleCanvas.width = simpleCanvas.clientWidth;
+            simpleCanvas.height = simpleCanvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeSimpleCanvas);
+        setTimeout(resizeSimpleCanvas, 100); 
+
+        // 建立滑桿
+        const slidersContainer = document.getElementById('slidersContainer');
+        simpleLabels.forEach((label, index) => {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <div class="flex justify-between text-sm text-slate-300 mb-1">
+                    <span>${label}</span>
+                    <span id="simple-val-${index}">${(simpleAmps[index] * 100).toFixed(0)}%</span>
+                </div>
+                <input type="range" id="simple-slider-${index}" min="0" max="1" step="0.01" value="${simpleAmps[index]}" class="w-full">
+            `;
+            slidersContainer.appendChild(div);
+
+            document.getElementById(`simple-slider-${index}`).addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                simpleAmps[index] = val;
+                document.getElementById(`simple-val-${index}`).innerText = `${(val * 100).toFixed(0)}%`;
+                if (simpleIsPlaying && simpleGains[index]) {
+                    simpleGains[index].gain.setTargetAtTime(val, simpleAudioContext.currentTime, 0.05);
+                }
+            });
+        });
+
+        document.getElementById('baseFreqSlider').addEventListener('input', (e) => {
+            simpleBaseFreq = parseFloat(e.target.value);
+            document.getElementById('baseFreqDisplay').innerText = simpleBaseFreq;
+            if (simpleIsPlaying) {
+                simpleOscillators.forEach((osc, index) => {
+                    osc.frequency.setTargetAtTime(simpleBaseFreq * (index + 1), simpleAudioContext.currentTime, 0.05);
+                });
+            }
+        });
+
+        function initSimpleAudio() {
+            simpleAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            simpleMasterGain = simpleAudioContext.createGain();
+            simpleMasterGain.gain.value = 0.2; 
+            simpleMasterGain.connect(simpleAudioContext.destination);
+
+            for (let i = 0; i < 6; i++) {
+                const osc = simpleAudioContext.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = simpleBaseFreq * (i + 1); 
+                const gain = simpleAudioContext.createGain();
+                gain.gain.value = simpleAmps[i];
+                osc.connect(gain); gain.connect(simpleMasterGain);
+                osc.start();
+                simpleOscillators.push(osc); simpleGains.push(gain);
+            }
+        }
+
+        function stopSimpleAudio() {
+            simpleOscillators.forEach(osc => osc.stop());
+            simpleOscillators = []; simpleGains = [];
+            if(simpleAudioContext) simpleAudioContext.close();
+            simpleAudioContext = null;
+            
+            simpleIsPlaying = false;
+            simplePlayBtn.innerText = '播放聲音';
+            simplePlayBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
+            simplePlayBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+        }
+
+        simplePlayBtn.addEventListener('click', () => {
+            if (!simpleIsPlaying) {
+                initSimpleAudio();
+                simplePlayBtn.innerText = '停止聲音';
+                simplePlayBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                simplePlayBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+                simpleIsPlaying = true;
+            } else {
+                stopSimpleAudio();
+            }
+        });
+
+        // =========================================
+        // 專業版 JS (Tab 2) - 支援後端 API
+        // =========================================
+        const N = 8;
+        const proAmps = new Array(N+1).fill(0); 
+        const proVisible = new Array(N+1).fill(true); 
+        let proSumVisible = true; 
+        let proF0 = 262;
+        let proSpeedMult = 1.0;
+        let proPlaying = false;
+        let proAudioCtx = null, proMasterGain = null;
+        const proOscillators = new Array(N+1).fill(null);
+        const proGains = new Array(N+1).fill(null);
+        const proPlayBtn = document.getElementById('proPlayBtn');
+        const f0Slider = document.getElementById('f0Slider');
+        const f0Val = document.getElementById('f0Val');
+        const apiLoadingMask = document.getElementById('apiLoadingMask');
+
+        // 初始狀態：純音
+        proAmps[1] = 1.0;
+
+        // --- 新增：後端 API 變數與函式 ---
+        // 請將下方引號內的網址替換為你在 GAS 部署後獲得的「網頁應用程式」URL
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzorQSPQtiXISdHR5irjdSbpCUnNG5775ZMVORY70RcjvJbe5qleOBU4wow1WNpLww8/exec"; 
+        
+        // 儲存從後端取回的波形 Y 軸座標 (預設長度與原本畫布繪製步數相同)
+        let cachedWavePoints = new Array(201).fill(0); 
+        let isFetching = false; 
+        let pendingFetch = null; // 用於 debounce 防抖動，避免拉桿時狂發請求
+
+        async function fetchWaveDataFromBackend(currentAmps) {
+            // 防抖動：如果在很短的時間內連續觸發，只會執行最後一次
+            if (pendingFetch) clearTimeout(pendingFetch);
+            
+            pendingFetch = setTimeout(async () => {
+                isFetching = true;
+                apiLoadingMask.classList.add('active'); // 顯示 loading 遮罩
+                
+                try {
+                    // 將振幅資料準備好，前 9 個元素 (n=0~8) 傳給後端
+                    const ampsToPost = currentAmps.slice(0, N + 1);
+                    
+                    // --- 真實 fetch 請求 ---
+                    const response = await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ amps: ampsToPost })
+                    });
+                    const result = await response.json();
+                    if(result.status === "success") {
+                        cachedWavePoints = result.data;
+                    }
+
+                } catch (error) {
+                    console.error("API 呼叫失敗，請檢查網路或 GAS URL 是否正確:", error);
+                } finally {
+                    isFetching = false;
+                    apiLoadingMask.classList.remove('active'); // 隱藏 loading 遮罩
+                }
+            }, 100); // 延遲 100 毫秒才發送，防抖動
+        }
+        // ------------------------------------
+
+        function harmonicColor(n){
+            const hue = (n-1)/(N-1)*255;
+            return `hsl(${hue} 82% 60%)`;
+        }
+
+        // --- UI 建構 ---
+        const grid = document.getElementById('harmonicsGrid');
+        const legend = document.getElementById('proStringLegend');
+        const proRows = [];
+        
+        for(let n=1;n<=N;n++){
+            const color = harmonicColor(n);
+            const row = document.createElement('div');
+            row.className = 'hrow';
+            row.style.setProperty('--swatch', color);
+            const label = n===1 ? '基音' : `第${n}諧音 / 第${n-1}泛音`;
+            row.innerHTML = `
+              <div class="top">
+                <span class="name">n=${n} · ${label}</span>
+                <span class="freq" data-freq>${n*proF0} Hz</span>
+              </div>
+              <div class="row2">
+                <input type="range" min="0" max="100" step="1" value="${Math.round(proAmps[n]*100)}" data-amp="${n}">
+                <span class="val" data-val>${Math.round(proAmps[n]*100)}%</span>
+              </div>`;
+            grid.appendChild(row);
+            proRows.push(row);
+
+            const legendItem = document.createElement('span');
+            legendItem.className = 'item';
+            legendItem.innerHTML = `<span class="dot" data-n="${n}" style="background:${color}"></span>n=${n}`;
+            legend.appendChild(legendItem);
+            const legendDot = legendItem.querySelector('.dot');
+            legendDot.addEventListener('click', ()=>{
+                proVisible[n] = !proVisible[n];
+                legendDot.style.background = proVisible[n] ? color : '#4a5563';
+            });
+
+            const slider = row.querySelector('input[type=range]');
+            // 修改：拖動過程即時更新聲音和顯示數字，但「放開滑鼠(change)」才向後端請求重新計算
+            slider.addEventListener('input', ()=>{
+                proAmps[n] = slider.value/100;
+                row.querySelector('[data-val]').textContent = slider.value + '%';
+                updateAudioLive();
+            });
+            slider.addEventListener('change', ()=>{
+                fetchWaveDataFromBackend(proAmps);
+            });
+        }
+
+        // Divider & Sum toggle
+        const divider = document.createElement('span');
+        divider.className = 'divider';
+        legend.appendChild(divider);
+        const sumItem = document.createElement('span');
+        sumItem.className = 'item';
+        sumItem.innerHTML = `<span class="dot" style="background:#ffffff"></span>合成波`;
+        legend.appendChild(sumItem);
+        const sumDot = sumItem.querySelector('.dot');
+        sumDot.addEventListener('click', ()=>{
+            proSumVisible = !proSumVisible;
+            sumDot.style.background = proSumVisible ? '#ffffff' : '#4a5563';
+        });
+
+        function refreshFreqLabels(){
+            proRows.forEach((row,idx)=>{
+                row.querySelector('[data-freq]').textContent = Math.round((idx+1)*proF0) + ' Hz';
+            });
+        }
+        function refreshAmpSliders(){
+            proRows.forEach((row,idx)=>{
+                const n = idx+1;
+                const slider = row.querySelector('input[type=range]');
+                slider.value = Math.round(proAmps[n]*100);
+                row.querySelector('[data-val]').textContent = slider.value + '%';
+            });
+        }
+
+        // --- 基音滑桿：八度音刻度與吸附(卡榫) ---
+        const OCTAVE_NOTES = [
+            { name: 'C', freq: 261.63 },
+            { name: 'D', freq: 293.66 },
+            { name: 'E', freq: 329.63 },
+            { name: 'F', freq: 349.23 },
+            { name: 'G', freq: 392.00 },
+            { name: 'A', freq: 440.00 },
+            { name: 'B', freq: 493.88 },
+            { name: 'C', freq: 523.25 },
+        ];
+        const F0_SNAP_HZ = 6; 
+
+        function renderF0Ticks() {
+            const min = +f0Slider.min, max = +f0Slider.max;
+            const container = document.getElementById('f0Ticks');
+            container.innerHTML = '';
+            OCTAVE_NOTES.forEach((note, i) => {
+                const pct = (note.freq - min) / (max - min) * 100;
+                const el = document.createElement('div');
+                el.className = 'tick' + (i === 0 || i === OCTAVE_NOTES.length - 1 ? ' root' : '');
+                el.style.left = pct + '%';
+                el.innerHTML = `<div class="bar"></div><div class="lbl">${note.name}</div>`;
+                container.appendChild(el);
+            });
+        }
+        renderF0Ticks();
+
+        // --- Controls ---
+        f0Slider.addEventListener('input', ()=>{
+            let val = +f0Slider.value;
+            const nearNote = OCTAVE_NOTES.find(note => Math.abs(val - note.freq) <= F0_SNAP_HZ);
+            if (nearNote) {
+                val = Math.round(nearNote.freq);
+                f0Slider.value = val;
+                f0Slider.classList.add('snapped');
+                clearTimeout(f0Slider._snapTimer);
+                f0Slider._snapTimer = setTimeout(()=> f0Slider.classList.remove('snapped'), 120);
+            }
+            proF0 = val;
+            f0Val.textContent = proF0 + ' Hz';
+            refreshFreqLabels();
+            updateAudioLive();
+        });
+
+        document.getElementById('speedSlider').addEventListener('input', (e)=>{
+            proSpeedMult = e.target.value/100;
+            document.getElementById('speedVal').textContent = proSpeedMult.toFixed(2) + '×';
+        });
+
+        // --- 預設音色與發光控制 ---
+        const PRESETS = {
+            pure:   [0, 1, 0, 0, 0, 0, 0, 0, 0],
+            demo:   [0, 1, 0.3, 0.15, 0.1, 0, 0, 0, 0],
+            odd:    [0, 1, 0, 0.33, 0, 0.2, 0, 0.14, 0],
+            saw:    [0, 1, 0.5, 0.33, 0.25, 0.2, 0.17, 0.14, 0.13],
+            string: [0, 1, 0.5, 0.3, 0.2, 0.12, 0.08, 0.05, 0.03]
+        };
+
+        const presetButtons = document.querySelectorAll('#proPresets button[data-preset]');
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                presetButtons.forEach(b => b.classList.remove('active-preset'));
+                btn.classList.add('active-preset');
+
+                const key = btn.dataset.preset;
+                const values = PRESETS[key];
+                for(let n=1;n<=N;n++) proAmps[n] = values[n];
+                
+                refreshAmpSliders();
+                updateAudioLive();
+                // 修改：切換預設音色時，向 API 請求新的合成波資料
+                fetchWaveDataFromBackend(proAmps);
+            });
+        });
+
+        // --- 音訊引擎 (Pro) ---
+        function totalProAmp(){
+            let s=0; for(let n=1;n<=N;n++) s+=proAmps[n]; return s;
+        }
+
+        function startProAudio(){
+            if(!proAudioCtx) proAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+            if(proAudioCtx.state==='suspended') proAudioCtx.resume();
+            
+            if (!proMasterGain) {
+                proMasterGain = proAudioCtx.createGain();
+                proMasterGain.connect(proAudioCtx.destination);
+            }
+            
+            proMasterGain.gain.setValueAtTime(0.4, proAudioCtx.currentTime); 
+
+            const norm = Math.max(totalProAmp(),1);
+            for(let n=1;n<=N;n++){
+                if (proOscillators[n]) { proOscillators[n].stop(); proOscillators[n].disconnect(); }
+                if (proGains[n]) { proGains[n].disconnect(); }
+
+                const osc = proAudioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = n*proF0;
+                
+                const g = proAudioCtx.createGain();
+                g.gain.value = proAmps[n]/norm;
+                
+                osc.connect(g); g.connect(proMasterGain);
+                osc.start();
+                proOscillators[n]=osc; proGains[n]=g;
+            }
+            proPlaying = true;
+            proPlayBtn.textContent = '■ 停止播放';
+            proPlayBtn.classList.add('playing');
+        }
+
+        function stopProAudio(){
+            if(!proPlaying) return;
+            const now = proAudioCtx ? proAudioCtx.currentTime : 0;
+            for(let n=1;n<=N;n++){
+                if(proGains[n]){
+                    proGains[n].gain.cancelScheduledValues(now);
+                    proGains[n].gain.setValueAtTime(proGains[n].gain.value, now);
+                    proGains[n].gain.linearRampToValueAtTime(0, now+0.05); 
+                }
+                if(proOscillators[n]){ proOscillators[n].stop(now+0.05); proOscillators[n]=null; }
+                if(proGains[n]){ proGains[n]=null; }
+            }
+            proPlaying = false;
+            proPlayBtn.textContent = '▶ 播放合成音';
+            proPlayBtn.classList.remove('playing');
+        }
+
+        function updateAudioLive(){
+            if(!proPlaying || !proAudioCtx || isMelodyPlaying) return;
+            const now = proAudioCtx.currentTime;
+            const norm = Math.max(totalProAmp(),1);
+            for(let n=1;n<=N;n++){
+                if(proGains[n]) proGains[n].gain.setTargetAtTime(proAmps[n]/norm, now, 0.02);
+                if(proOscillators[n]) proOscillators[n].frequency.setTargetAtTime(n*proF0, now, 0.02);
+            }
+        }
+
+        proPlayBtn.addEventListener('click', ()=>{ 
+            if(isMelodyPlaying) stopMelody();
+            proPlaying ? stopProAudio() : startProAudio(); 
+        });
+
+        // --- 旋律播放引擎 (Sequencer) ---
+        let melodyTimer = null;
+        let isMelodyPlaying = false;
+        let currentMelodyButton = null;
+
+        const MELODIES = {
+            star: "1 1 5 5 6 6 5 - 4 4 3 3 2 2 1 - 5 5 4 4 3 3 2 - 5 5 4 4 3 3 2 - 1 1 5 5 6 6 5 - 4 4 3 3 2 2 1 -",
+            bee:  "5 3 3 - 4 2 2 - 1 2 3 4 5 5 5 - 5 3 3 - 4 2 2 - 1 3 5 5 1 - - -",
+            tiger: "1 2 3 1 1 2 3 1 3 4 5 - 3 4 5 - 5* 6* 5* 4* 3 1 5* 6* 5* 4* 3 1 2 5, 1 - 2 5, 1 -",
+            sheep: "3 2 1 2 3 3 3 - 2 2 2 - 3 5 5 - 3 2 1 2 3 3 3 3 2 2 3 2 1 - - -"
+        };
+
+        function startMelody(melodyString, btnElement) {
+            if (proPlaying) stopProAudio();
+            if (isMelodyPlaying) stopMelody();
+            if (!proAudioCtx) proAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+
+            isMelodyPlaying = true;
+            if (btnElement) {
+                currentMelodyButton = btnElement;
+                currentMelodyButton.classList.add('active-melody');
+            }
+
+            if (!proMasterGain) {
+                proMasterGain = proAudioCtx.createGain();
+                proMasterGain.connect(proAudioCtx.destination);
+            }
+            proMasterGain.gain.value = 0.8; 
+
+            const norm = Math.max(totalProAmp(),1);
+            for(let n=1;n<=N;n++){
+                if (proOscillators[n]) { proOscillators[n].stop(); }
+                const osc = proAudioCtx.createOscillator();
+                osc.type = 'sine';
+                
+                const g = proAudioCtx.createGain();
+                g.gain.value = 0; 
+                
+                osc.connect(g); g.connect(proMasterGain);
+                osc.start();
+                proOscillators[n]=osc; proGains[n]=g;
+            }
+
+            const notes = melodyString.trim().split(/\s+/);
+            let noteIndex = 0;
+            const bpm = 120;
+            const beatDuration = 60 / bpm; 
+
+            const parseNoteToken = (token) => {
+                const m = token.match(/^(\d)(,*)(\*)?$/);
+                if (!m) return null;
+                const fMap = { '1':261.63, '2':293.66, '3':329.63, '4':349.23, '5':392.00, '6':440.00, '7':493.88 };
+                const base = fMap[m[1]];
+                if (!base) return null;
+                const octaveDown = m[2].length;
+                return { freq: base / Math.pow(2, octaveDown), isEighth: m[3] === '*' };
+            };
+
+            function playNextNote() {
+                if (!isMelodyPlaying) return;
+                if (noteIndex >= notes.length) { stopMelody(); return; }
+
+                const symbol = notes[noteIndex];
+                noteIndex++;
+
+                if (symbol === '-') {
+                    melodyTimer = setTimeout(playNextNote, beatDuration * 1000);
+                    return;
+                }
+
+                const note = parseNoteToken(symbol);
+                const targetFreq = note ? note.freq : 0;
+                const duration = (note && note.isEighth) ? beatDuration * 0.5 : beatDuration;
+
+                if (targetFreq > 0) {
+                    f0Slider.value = targetFreq;
+                    proF0 = targetFreq;
+                    f0Val.textContent = Math.round(targetFreq) + ' Hz';
+                    refreshFreqLabels();
+
+                    const now = proAudioCtx.currentTime;
+                    const attack = 0.05;
+                    const decay = Math.min(0.2, Math.max(duration - attack, 0.05)); 
+                    const sustain = 0.3;
+
+                    for(let n=1;n<=N;n++){
+                        const peakVolume = proAmps[n]/norm;
+                        const g = proGains[n].gain;
+                        const osc = proOscillators[n];
+                        
+                        g.cancelScheduledValues(now);
+                        g.setValueAtTime(g.value, now); 
+                        g.linearRampToValueAtTime(0, now + 0.015); 
+                        osc.frequency.setValueAtTime(n * targetFreq, now + 0.015);
+                        g.setValueAtTime(0, now + 0.015);
+                        g.linearRampToValueAtTime(peakVolume, now + 0.015 + attack); 
+                        g.exponentialRampToValueAtTime(peakVolume * sustain + 0.001, now + 0.015 + attack + decay); 
+                    }
+                }
+                
+                melodyTimer = setTimeout(playNextNote, duration * 1000);
+            }
+
+            playNextNote();
+        }
+
+        function stopMelody() {
+            isMelodyPlaying = false;
+            clearTimeout(melodyTimer);
+            if(proAudioCtx) {
+                const now = proAudioCtx.currentTime;
+                for(let n=1;n<=N;n++){
+                    if(proGains[n]) {
+                        proGains[n].gain.cancelScheduledValues(now);
+                        proGains[n].gain.linearRampToValueAtTime(0, now + 0.2); 
+                    }
+                    if(proOscillators[n]) {
+                        proOscillators[n].stop(now + 0.2);
+                        proOscillators[n] = null;
+                        proGains[n] = null;
+                    }
+                }
+            }
+            if (currentMelodyButton) {
+                currentMelodyButton.classList.remove('active-melody');
+                currentMelodyButton = null;
+            }
+        }
+
+        document.getElementById('btnMelodyStar').addEventListener('click', function() { startMelody(MELODIES.star, this); });
+        document.getElementById('btnMelodyBee').addEventListener('click', function() { startMelody(MELODIES.bee, this); });
+        document.getElementById('btnMelodyTiger').addEventListener('click', function() { startMelody(MELODIES.tiger, this); });
+        document.getElementById('btnMelodySheep').addEventListener('click', function() { startMelody(MELODIES.sheep, this); });
+
+
+        // --- 畫布繪製 (共用 RequestAnimationFrame) ---
+        const proStringCanvas = document.getElementById('proStringCanvas');
+        const proWaveCanvas = document.getElementById('proWaveCanvas');
+        const sctx = proStringCanvas.getContext('2d');
+        const wctx = proWaveCanvas.getContext('2d');
+        const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        let proStringDim = {w:1, h:1};
+        let proWaveDim = {w:1, h:1};
+
+        function fitCanvas(canvas){
+            if(!isProActive) return {w:1, h:1};
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            if(rect.width === 0) return {w:1, h:1}; 
+            canvas.width = Math.round(rect.width*dpr);
+            canvas.height = Math.round(rect.height*dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr,0,0,dpr,0,0);
+            return {w:rect.width, h:rect.height};
+        }
+
+        function resizeProCanvas() {
+            proStringDim = fitCanvas(proStringCanvas);
+            proWaveDim = fitCanvas(proWaveCanvas);
+        }
+        window.addEventListener('resize', resizeProCanvas);
+        setTimeout(resizeProCanvas, 100);
+
+        function drawGrid(ctx, w, h){
+            ctx.strokeStyle = 'rgba(94,234,212,0.06)';
+            ctx.lineWidth = 1;
+            for(let i=1;i<4;i++){
+                const y = h*i/4;
+                ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+            }
+            for(let i=1;i<8;i++){
+                const x = w*i/8;
+                ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+            }
+        }
+
+        function drawProString(tSec){
+            const {w,h} = proStringDim;
+            sctx.clearRect(0,0,w,h);
+            drawGrid(sctx,w,h);
+            const midY = h/2;
+            sctx.strokeStyle = 'rgba(124,142,161,0.35)';
+            sctx.setLineDash([4,4]);
+            sctx.beginPath(); sctx.moveTo(0,midY); sctx.lineTo(w,midY); sctx.stroke();
+            sctx.setLineDash([]);
+
+            const total = Math.max(totalProAmp(), 0.001);
+            const scale = (h/2 - 14) / total;
+            const omega = (2*Math.PI/2.5) * proSpeedMult; 
+
+            const steps = 150; 
+            for(let n=1;n<=N;n++){
+                if(proAmps[n] < 0.003 || !proVisible[n]) continue;
+                sctx.beginPath();
+                if(!reducedMotion){ sctx.shadowBlur = 6; sctx.shadowColor = harmonicColor(n); }
+                sctx.strokeStyle = harmonicColor(n);
+                sctx.globalAlpha = 0.55;
+                sctx.lineWidth = 1.4;
+                for(let i=0;i<=steps;i++){
+                    const u = i/steps;
+                    const val = proAmps[n]*Math.sin(n*Math.PI*u)*Math.sin(n*omega*tSec);
+                    const y = midY - val*scale;
+                    if(i===0) sctx.moveTo(u*w,y); else sctx.lineTo(u*w,y);
+                }
+                sctx.stroke();
+            }
+            sctx.shadowBlur = 0; sctx.globalAlpha = 1;
+
+            if(proSumVisible){
+                sctx.beginPath();
+                if(!reducedMotion){ sctx.shadowBlur = 10; sctx.shadowColor = '#ffffff'; }
+                sctx.strokeStyle = '#ffffff';
+                sctx.lineWidth = 2.6;
+                for(let i=0;i<=steps;i++){
+                    const u = i/steps;
+                    let sum=0;
+                    for(let n=1;n<=N;n++){
+                        if(proAmps[n] < 0.003) continue;
+                        sum += proAmps[n]*Math.sin(n*Math.PI*u)*Math.sin(n*omega*tSec);
+                    }
+                    const y = midY - sum*scale;
+                    if(i===0) sctx.moveTo(u*w,y); else sctx.lineTo(u*w,y);
+                }
+                sctx.stroke();
+                sctx.shadowBlur = 0;
+            }
+            sctx.fillStyle = '#fbbf24';
+            sctx.beginPath(); sctx.arc(0,midY,3.5,0,7); sctx.fill();
+            sctx.beginPath(); sctx.arc(w,midY,3.5,0,7); sctx.fill();
+        }
+
+        // --- 修改：完全改由後端 API 取得波形陣列 ---
+        function drawProWave(){
+            const {w,h} = proWaveDim;
+            wctx.clearRect(0,0,w,h);
+            drawGrid(wctx,w,h);
+            const midY = h/2;
+            wctx.strokeStyle = 'rgba(124,142,161,0.35)';
+            wctx.setLineDash([4,4]);
+            wctx.beginPath(); wctx.moveTo(0,midY); wctx.lineTo(w,midY); wctx.stroke();
+            wctx.setLineDash([]);
+
+            // 保持原本的最大振幅計算以維持視覺比例
+            const total = Math.max(totalProAmp(), 0.001);
+            const scale = (h/2 - 14) / total;
+            
+            // 讀取從 API 回傳的陣列長度
+            const steps = cachedWavePoints.length - 1;
+            if(steps <= 0) return;
+
+            wctx.beginPath();
+            if(!reducedMotion){ wctx.shadowBlur = 10; wctx.shadowColor = '#fbbf24'; }
+            wctx.strokeStyle = '#fbbf24';
+            wctx.lineWidth = 2.4;
+            
+            for(let i=0;i<=steps;i++){
+                const u = i/steps; 
+                
+                // 核心改變：不再在瀏覽器算 Math.sin，而是直接拿陣列裡的數值
+                const sum = cachedWavePoints[i] || 0;
+                
+                const y = midY - sum*scale;
+                if(i===0) wctx.moveTo(u*w,y); else wctx.lineTo(u*w,y);
+            }
+            
+            wctx.stroke();
+            wctx.shadowBlur = 0;
+
+            // 播放時的時間指示器保持不變
+            if((proPlaying || isMelodyPlaying) && proAudioCtx){
+                const T0 = 1/proF0;
+                const phase = (proAudioCtx.currentTime % T0)/T0;
+                const px = phase*w;
+                wctx.strokeStyle = 'rgba(255,255,255,0.55)';
+                wctx.lineWidth = 1;
+                wctx.beginPath(); wctx.moveTo(px,0); wctx.lineTo(px,h); wctx.stroke();
+            }
+        }
+
+        // --- Tab 1 (Simple) 繪圖邏輯 ---
+        function drawSimpleWave() {
+            if(!isSimpleActive) return;
+            simpleCtx.clearRect(0, 0, simpleCanvas.width, simpleCanvas.height);
+            
+            const w = simpleCanvas.width;
+            const h = simpleCanvas.height;
+            const centerY = h / 2;
+            
+            simpleCtx.beginPath();
+            simpleCtx.moveTo(0, centerY);
+            simpleCtx.lineTo(w, centerY);
+            simpleCtx.strokeStyle = '#334155'; 
+            simpleCtx.lineWidth = 1;
+            simpleCtx.stroke();
+
+            simpleCtx.beginPath();
+            simpleCtx.strokeStyle = '#3b82f6';
+            simpleCtx.lineWidth = 3;
+            simpleCtx.shadowColor = '#3b82f6';
+            simpleCtx.shadowBlur = 10;
+
+            for (let x = 0; x <= w; x+=2) { 
+                let y = 0;
+                const normalizedX = x / w; 
+                for (let i = 0; i < 6; i++) {
+                    const n = i + 1;
+                    const amp = simpleAmps[i];
+                    y += amp * Math.sin(n * Math.PI * normalizedX) * Math.cos(simpleVisualTime * n);
+                }
+                const drawY = centerY - (y * (h / 3.5)); 
+                if (x === 0) simpleCtx.moveTo(x, drawY);
+                else simpleCtx.lineTo(x, drawY);
+            }
+            simpleCtx.stroke();
+            simpleVisualTime += 0.05; 
+        }
+
+        // --- 主動畫迴圈 ---
+        function mainLoop(now){
+            requestAnimationFrame(mainLoop);
+            if (isProActive) {
+                drawProString(now/1000);
+                drawProWave();
+            } else if (isSimpleActive) {
+                drawSimpleWave();
+            }
+        }
+        
+        // 啟動迴圈
+        requestAnimationFrame(mainLoop);
+
+    </script>
+</body>
+</html>
