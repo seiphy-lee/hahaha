@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>等加速度實驗分析系統</title>
+    <!-- 引入 Tailwind CSS 進行排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Chart.js 繪製圖表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 隱藏預設的數字輸入框上下箭頭 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* 美化滾動條 */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* 滿版模式時的樣式：確保白色背景且充滿螢幕 */
+        #chart-container-wrapper:-webkit-full-screen { background-color: #fffaf0; width: 100vw; height: 100vh; padding: 2rem; overflow-y: auto; }
+        #chart-container-wrapper:-moz-full-screen { background-color: #fffaf0; width: 100vw; height: 100vh; padding: 2rem; overflow-y: auto; }
+        #chart-container-wrapper:fullscreen { background-color: #fffaf0; width: 100vw; height: 100vh; padding: 2rem; overflow-y: auto; }
+
+        /* 分頁切換動畫 */
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: grid; /* 使用 grid 以維持排版 */ }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-100 p-4 md:p-6 font-sans text-gray-800 min-h-screen">
+
+    <div class="max-w-[1400px] mx-auto mb-6 flex flex-col md:flex-row justify-between items-start md:items-end border-b-4 border-orange-300 pb-4 gap-4">
+        <div>
+            <!-- 更新標題 -->
+            <h1 class="text-3xl md:text-4xl font-extrabold text-orange-600 tracking-tight drop-shadow-sm">
+                等加速度實驗分析系統 <span class="text-xl md:text-2xl text-orange-500 font-bold ml-2">(臺中二中 阿發老師 設計)</span>
+            </h1>
+            <p class="text-amber-700 mt-2 font-semibold bg-amber-100 inline-block px-3 py-1 rounded-full">✨ 打點計時器 / 滑車實驗數據自動繪圖工具</p>
+        </div>
+        
+        <!-- 分頁導覽列 -->
+        <div class="flex gap-2 bg-white/60 p-1.5 rounded-xl shadow-inner border border-orange-100">
+            <button onclick="switchTab('tab-input')" id="btn-tab-input" class="px-6 py-2.5 rounded-lg font-bold text-lg transition-all bg-orange-500 text-white shadow-md">
+                📝 數據輸入
+            </button>
+            <button onclick="switchTab('tab-charts')" id="btn-tab-charts" class="px-6 py-2.5 rounded-lg font-bold text-lg transition-all text-gray-500 hover:bg-orange-100 hover:text-orange-600">
+                📈 實驗關係圖
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 分頁 1：數據輸入 (仿照截圖排版) ==================== -->
+    <div id="tab-input" class="tab-content active max-w-[1400px] mx-auto grid-cols-1 xl:grid-cols-12 gap-6 relative">
+        
+        <!-- 左側控制面板 -->
+        <div class="xl:col-span-4 flex flex-col gap-5">
+            <!-- 數據輸入標題 -->
+            <div class="flex items-center gap-2 mb-2">
+                <h2 class="text-2xl font-black text-gray-800 border-l-[6px] border-orange-400 pl-3 rounded-sm">數據輸入</h2>
+            </div>
+            
+            <!-- 班級與組別輸入 (仿截圖圓潤框) -->
+            <div class="flex items-center gap-3 bg-orange-50/40 p-4 rounded-2xl border-2 border-orange-100 shadow-sm">
+                <input type="text" id="class-input" value="101" placeholder="班級" class="w-1/2 px-4 py-3 text-base border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-300 focus:border-orange-400 outline-none font-bold text-gray-700 shadow-sm transition-all text-center">
+                <select id="group-select" class="w-1/2 px-4 py-3 text-base border-2 border-orange-200 rounded-xl focus:ring-4 focus:ring-orange-300 focus:border-orange-400 outline-none font-bold text-gray-700 cursor-pointer shadow-sm bg-white transition-all text-center">
+                    <option value="第1組" selected>第1組</option><option value="第2組">第2組</option>
+                    <option value="第3組">第3組</option><option value="第4組">第4組</option>
+                    <option value="第5組">第5組</option><option value="第6組">第6組</option>
+                    <option value="第7組">第7組</option><option value="第8組">第8組</option>
+                    <option value="第9組">第9組</option><option value="第10組">第10組</option>
+                    <option value="第11組">第11組</option><option value="第12組">第12組</option>
+                    <option value="第13組">第13組</option><option value="第14組">第14組</option>
+                    <option value="第15組">第15組</option>
+                </select>
+            </div>
+
+            <!-- 功能按鈕 (仿截圖綠色與粉紅色) -->
+            <div class="flex gap-4 w-full">
+                <button onclick="loadSampleData()" class="flex-1 py-3.5 text-base font-bold bg-[#34d399] text-white rounded-2xl shadow-sm hover:bg-[#10b981] hover:shadow-md transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+                    🚀 載入實驗範例
+                </button>
+                <button onclick="clearData()" class="flex-1 py-3.5 text-base font-bold bg-[#fce7f3] text-[#db2777] rounded-2xl shadow-sm border border-pink-100 hover:bg-[#fbcfe8] transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+                    🗑️ 清除重填
+                </button>
+            </div>
+
+            <!-- 統一時距設定 (仿截圖黃色框) -->
+            <div class="mt-2 flex items-center justify-between bg-[#fef08a] p-5 rounded-2xl border border-[#fde047] shadow-sm">
+                <label class="font-black text-amber-900 text-base">⏱️ 固定打點時距 Δt (s)：</label>
+                <input type="number" id="dt-input" value="0.1" step="0.01" min="0.01" class="w-24 px-3 py-2 text-center font-black text-xl border-2 border-white rounded-xl bg-white focus:ring-4 focus:ring-yellow-400 outline-none shadow-sm text-amber-900" oninput="calculate()" onkeydown="handleEnter(event, null)">
+            </div>
+        </div>
+
+        <!-- 右側數據表格區 -->
+        <div class="xl:col-span-8 flex flex-col h-fit">
+            <div class="overflow-x-auto rounded-2xl border border-gray-100 shadow-xl bg-white/95 backdrop-blur-sm p-2">
+                <table class="w-full text-center border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-800 text-sm border-b-2 border-gray-100">
+                            <th class="p-4 w-12 font-bold rounded-tl-xl">點</th>
+                            <th class="p-4 w-32 font-bold text-blue-800 bg-blue-50/30">位置 x<br><span class="text-xs font-medium text-blue-600">(cm)</span></th>
+                            <th class="p-4 font-bold text-gray-600">位移 Δx<br><span class="text-xs font-medium">(cm)</span></th>
+                            <th class="p-4 font-bold text-indigo-700 bg-indigo-50/30">速度 v<br><span class="text-xs font-medium">(cm/s)</span></th>
+                            <th class="p-4 font-bold text-rose-700 bg-rose-50/30 rounded-tr-xl">加速度 a<br><span class="text-xs font-medium">(cm/s²)</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-body">
+                        <!-- 資料列會透過 JS 動態產生 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <button onclick="addRow()" class="w-full mt-4 py-3.5 border-2 border-dashed border-orange-400 text-orange-600 rounded-2xl bg-white/80 hover:bg-orange-50 font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-sm">
+                <span class="text-2xl leading-none font-black">+</span> 新增一列數據
+            </button>
+            <p class="text-sm font-semibold text-amber-700 mt-3 text-center bg-amber-100/80 py-2 rounded-xl border border-amber-200 shadow-sm">💡 提示：輸入完位置後按 <kbd class="px-2 py-0.5 bg-white border border-gray-300 rounded shadow-sm text-gray-700 font-mono text-xs mx-1">Enter</kbd> 鍵可自動跳下一格</p>
+        </div>
+    </div>
+
+    <!-- ==================== 分頁 2：實驗關係圖 (完全保留最原始完美的比例) ==================== -->
+    <!-- 這裡使用 xl:col-start-3 和 xl:col-span-8 來把圖表置中，並保證其寬度與原來一模一樣！ -->
+    <div id="tab-charts" class="tab-content max-w-[1400px] mx-auto grid-cols-1 xl:grid-cols-12 gap-6 relative">
+        <div id="chart-container-wrapper" class="xl:col-start-3 xl:col-span-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border-2 border-gray-100 p-6 relative flex flex-col h-full">
+            
+            <!-- 右上角功能按鈕 -->
+            <div class="flex justify-between items-center mb-6 border-b-2 border-gray-100 pb-4">
+                <h2 class="text-2xl font-black text-gray-800 border-l-8 border-indigo-400 pl-3 rounded-sm">📈 實驗關係圖</h2>
+                <div class="flex gap-3 z-10">
+                    <button onclick="downloadCharts()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        下載圖片
+                    </button>
+                    <button onclick="toggleFullscreen()" id="fs-btn" class="px-5 py-2.5 bg-gray-800 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-900 transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                        滿版顯示
+                    </button>
+                </div>
+            </div>
+
+            <!-- 完全還原的圖表畫布區 (min-h-[300px] 絕對不改) -->
+            <div id="chart-scroll-area" class="flex flex-col gap-8 flex-1 w-full relative">
+                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="xtChart"></canvas></div>
+                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="vtChart"></canvas></div>
+                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="atChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 分頁切換邏輯 ---
+        function switchTab(tabId) {
+            // 隱藏所有內容
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // 顯示目標內容
+            document.getElementById(tabId).classList.add('active');
+            
+            // 更新按鈕樣式
+            const btnInput = document.getElementById('btn-tab-input');
+            const btnCharts = document.getElementById('btn-tab-charts');
+            
+            if (tabId === 'tab-input') {
+                btnInput.className = "px-6 py-2.5 rounded-lg font-bold text-lg transition-all bg-orange-500 text-white shadow-md";
+                btnCharts.className = "px-6 py-2.5 rounded-lg font-bold text-lg transition-all text-gray-500 hover:bg-orange-100 hover:text-orange-600";
+            } else {
+                btnCharts.className = "px-6 py-2.5 rounded-lg font-bold text-lg transition-all bg-orange-500 text-white shadow-md";
+                btnInput.className = "px-6 py-2.5 rounded-lg font-bold text-lg transition-all text-gray-500 hover:bg-orange-100 hover:text-orange-600";
+                
+                // 關鍵：切換到圖表分頁時，強制重新計算大小，確保渲染正常
+                setTimeout(() => {
+                    if(xtChart) xtChart.resize();
+                    if(vtChart) vtChart.resize();
+                    if(atChart) atChart.resize();
+                }, 50);
+            }
+        }
+
+        // --- 核心邏輯 ---
+        let xtChart = null;
+        let vtChart = null;
+        let atChart = null;
+
+        window.onload = () => {
+            for(let i=0; i<6; i++) addRow();
+            calculate();
+        };
+
+        function handleEnter(event, currentIndex) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const inputs = document.querySelectorAll('.x-input');
+                if (currentIndex === null) {
+                    if (inputs.length > 0) inputs[0].focus();
+                    return;
+                }
+                if (currentIndex < inputs.length - 1) {
+                    inputs[currentIndex + 1].focus();
+                } else {
+                    addRow();
+                    setTimeout(() => {
+                        const newInputs = document.querySelectorAll('.x-input');
+                        newInputs[newInputs.length - 1].focus();
+                    }, 50);
+                }
+            }
+        }
+
+        // 修改這裡：讓輸入框的樣式也符合截圖的藍色圓角設計
+        function addRow() {
+            const tbody = document.getElementById('data-body');
+            const rowCount = tbody.children.length;
+            const tr = document.createElement('tr');
+            tr.className = "border-b border-gray-50 hover:bg-orange-50/20 transition-colors";
+            tr.innerHTML = `
+                <td class="p-3 text-gray-500 font-bold">${rowCount + 1}</td>
+                <td class="p-2 border-l border-gray-50 bg-blue-50/10">
+                    <input type="number" step="0.1" class="x-input w-full px-3 py-2 text-center border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none font-black text-gray-800 shadow-sm bg-white transition-all" oninput="calculate()" onkeydown="handleEnter(event, ${rowCount})">
+                </td>
+                <td class="p-3 border-l border-gray-50 text-gray-600 dx-cell font-bold">-</td>
+                <td class="p-3 border-l border-gray-50 text-indigo-600 v-cell font-black bg-indigo-50/10">-</td>
+                <td class="p-3 border-l border-gray-50 text-rose-600 a-cell font-black bg-rose-50/10">-</td>
+            `;
+            tbody.appendChild(tr);
+            
+            const inputs = document.querySelectorAll('.x-input');
+            inputs.forEach((input, index) => {
+                input.onkeydown = (e) => handleEnter(e, index);
+            });
+        }
+
+        function calculate() {
+            const dt = parseFloat(document.getElementById('dt-input').value) || 0.1;
+            const inputs = document.querySelectorAll('.x-input');
+            const dxCells = document.querySelectorAll('.dx-cell');
+            const vCells = document.querySelectorAll('.v-cell');
+            const aCells = document.querySelectorAll('.a-cell');
+
+            let t = 0;
+            let dataX = [], dataV = [], dataA = [];
+            let lastX = null, lastV = null;
+
+            inputs.forEach((input, i) => {
+                const xStr = input.value;
+                if (xStr !== "") {
+                    const x = parseFloat(xStr);
+                    dataX.push({ x: t, y: x });
+
+                    if (i > 0 && lastX !== null) {
+                        const dx = x - lastX;
+                        const v = dx / dt;
+                        dxCells[i].innerText = dx.toFixed(2);
+                        vCells[i].innerText = v.toFixed(2);
+                        
+                        const t_mid = t - dt / 2;
+                        dataV.push({ x: t_mid, y: v });
+
+                        if (lastV !== null) {
+                            const dv = v - lastV;
+                            const a = dv / dt;
+                            aCells[i].innerText = a.toFixed(2);
+                            const t_a = t - dt; 
+                            dataA.push({ x: t_a, y: a });
+                        } else {
+                            aCells[i].innerText = "-";
+                        }
+                        lastV = v;
+                    } else {
+                        dxCells[i].innerText = "-";
+                        vCells[i].innerText = "-";
+                        aCells[i].innerText = "-";
+                    }
+                    lastX = x;
+                } else {
+                    dxCells[i].innerText = "-";
+                    vCells[i].innerText = "-";
+                    aCells[i].innerText = "-";
+                    lastX = null;
+                    lastV = null;
+                }
+                t += dt;
+            });
+
+            const max_t = (t - dt > 0) ? (t - dt) : 0.5; 
+            drawCharts(dataX, dataV, dataA, max_t);
+        }
+
+        // 圖表繪製與格式，一字不改，完全保留！
+        function drawCharts(dataX, dataV, dataA, max_t) {
+            const commonScales = {
+                x: { 
+                    type: 'linear', position: 'bottom', min: 0, max: max_t,
+                    title: { display: true, text: '時間 t (s)', font: { size: 22, weight: 'bold', family: 'Inter' }, color: '#374151' },
+                    ticks: { font: { size: 18, weight: 'bold' }, color: '#4b5563' },
+                    grid: { color: '#e5e7eb', lineWidth: 1.5 } 
+                },
+                y: { 
+                    min: 0,
+                    title: { display: true, font: { size: 24, weight: '900', family: 'Inter' } },
+                    ticks: { font: { size: 18, weight: 'bold' } },
+                    grid: { color: '#e5e7eb', lineWidth: 1.5 },
+                    afterFit: function(scaleInstance) { scaleInstance.width = 140; } 
+                }
+            };
+
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                layout: { padding: { left: 10, right: 20, top: 20, bottom: 10 } },
+                animation: { duration: 500 }
+            };
+
+            if (xtChart) xtChart.destroy();
+            const ctxX = document.getElementById('xtChart').getContext('2d');
+            xtChart = new Chart(ctxX, {
+                type: 'line',
+                data: { datasets: [{ data: dataX, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.1, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '位置 x (cm)', color: '#1d4ed8' }, ticks: { ...commonScales.y.ticks, color: '#1d4ed8' } } } }
+            });
+
+            if (vtChart) vtChart.destroy();
+            const ctxV = document.getElementById('vtChart').getContext('2d');
+            vtChart = new Chart(ctxV, {
+                type: 'line',
+                data: { datasets: [{ data: dataV, borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '速度 v (cm/s)', color: '#4338ca' }, ticks: { ...commonScales.y.ticks, color: '#4338ca' } } } }
+            });
+
+            if (atChart) atChart.destroy();
+            const ctxA = document.getElementById('atChart').getContext('2d');
+            atChart = new Chart(ctxA, {
+                type: 'line',
+                data: { datasets: [{ data: dataA, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '加速度 a (cm/s²)', color: '#b91c1c' }, ticks: { ...commonScales.y.ticks, color: '#b91c1c' } } } }
+            });
+        }
+
+        function toggleFullscreen() {
+            const wrapper = document.getElementById('chart-container-wrapper');
+            const btn = document.getElementById('fs-btn');
+            
+            if (!document.fullscreenElement) {
+                if (wrapper.requestFullscreen) {
+                    wrapper.requestFullscreen().catch(err => console.error(err));
+                }
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 14h4v4m0-4l-5 5m11-5h4v4m0-4l5 5M4 10h4V6m0 4l-5-5m11 5h4V6m0 4l5-5" /></svg> 退出滿版`;
+                btn.className = "px-5 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-rose-700 transform hover:-translate-y-0.5 transition-all flex items-center gap-2";
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleFsChange);
+        function handleFsChange() {
+            const btn = document.getElementById('fs-btn');
+            if (!document.fullscreenElement) {
+                btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg> 滿版顯示`;
+                btn.className = "px-5 py-2.5 bg-gray-800 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-900 transform hover:-translate-y-0.5 transition-all flex items-center gap-2";
+            }
+            setTimeout(() => {
+                if(xtChart) xtChart.resize();
+                if(vtChart) vtChart.resize();
+                if(atChart) atChart.resize();
+            }, 100);
+        }
+
+        function downloadCharts() {
+            const c1 = document.getElementById('xtChart');
+            const c2 = document.getElementById('vtChart');
+            const c3 = document.getElementById('atChart');
+            
+            const classElement = document.getElementById('class-input');
+            const groupElement = document.getElementById('group-select');
+            
+            const classVal = classElement && classElement.value.trim() ? classElement.value.trim() : "未填寫班級";
+            const groupVal = groupElement ? groupElement.value : "未填寫組別";
+            
+            const mergedCanvas = document.createElement('canvas');
+            const headerHeight = 80;
+            
+            mergedCanvas.width = c1.width;
+            mergedCanvas.height = c1.height + c2.height + c3.height + headerHeight;
+            const ctx = mergedCanvas.getContext('2d');
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, mergedCanvas.width, mergedCanvas.height);
+            
+            ctx.fillStyle = '#ea580c'; 
+            ctx.font = '900 32px Inter, Noto Sans TC, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`高中物理實驗：等加速度直線運動 ( 班級：${classVal} / ${groupVal} )`, mergedCanvas.width / 2, headerHeight / 2);
+            
+            ctx.drawImage(c1, 0, headerHeight);
+            ctx.drawImage(c2, 0, headerHeight + c1.height);
+            ctx.drawImage(c3, 0, headerHeight + c1.height + c2.height);
+            
+            const link = document.createElement('a');
+            link.download = `${classVal}${groupVal}.png`;
+            link.href = mergedCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function loadSampleData() {
+            const sample = [0, 2.0, 5.5, 10.5, 16.9, 24.6];
+            document.getElementById('dt-input').value = 0.1;
+            document.getElementById('data-body').innerHTML = '';
+            
+            sample.forEach(val => {
+                addRow();
+                const inputs = document.querySelectorAll('.x-input');
+                inputs[inputs.length - 1].value = val;
+            });
+            calculate();
+        }
+
+        function clearData() {
+            document.getElementById('data-body').innerHTML = '';
+            document.getElementById('class-input').value = "101";
+            document.getElementById('group-select').value = "第1組";
+            document.getElementById('dt-input').value = 0.1;
+            for(let i=0; i<6; i++) addRow();
+            calculate();
+        }
+    </script>
+</body>
+</html>
