@@ -295,19 +295,28 @@
             const chartPointRadius = isMobile ? 7 * 0.7 : 7;
             const chartBorderWidth = isMobile ? 4 * 0.7 : 4;
 
+            // 手機版：軸標題/刻度字體與y軸固定寬度、內邊距等比縮小，避免繪圖區被擠壓；桌機版數值完全不變
+            const axisTitleFontSize = isMobile ? 14 : 22;
+            const yAxisTitleFontSize = isMobile ? 15 : 24;
+            const axisTickFontSize = isMobile ? 11 : 18;
+            const yAxisFixedWidth = isMobile ? 55 : 140;
+            const layoutPadding = isMobile
+                ? { left: 4, right: 8, top: 8, bottom: 4 }
+                : { left: 10, right: 20, top: 20, bottom: 10 };
+
             const commonScales = {
                 x: { 
                     type: 'linear', position: 'bottom', min: 0, max: max_t,
-                    title: { display: true, text: '時間 t (s)', font: { size: 22, weight: 'bold', family: 'Inter' }, color: '#374151' },
-                    ticks: { font: { size: 18, weight: 'bold' }, color: '#4b5563' },
+                    title: { display: true, text: '時間 t (s)', font: { size: axisTitleFontSize, weight: 'bold', family: 'Inter' }, color: '#374151' },
+                    ticks: { font: { size: axisTickFontSize, weight: 'bold' }, color: '#4b5563' },
                     grid: { color: '#e5e7eb', lineWidth: 1.5 } 
                 },
                 y: { 
                     min: 0,
-                    title: { display: true, font: { size: 24, weight: '900', family: 'Inter' } },
-                    ticks: { font: { size: 18, weight: 'bold' } },
+                    title: { display: true, font: { size: yAxisTitleFontSize, weight: '900', family: 'Inter' } },
+                    ticks: { font: { size: axisTickFontSize, weight: 'bold' } },
                     grid: { color: '#e5e7eb', lineWidth: 1.5 },
-                    afterFit: function(scaleInstance) { scaleInstance.width = 140; } 
+                    afterFit: function(scaleInstance) { scaleInstance.width = yAxisFixedWidth; } 
                 }
             };
 
@@ -315,7 +324,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
-                layout: { padding: { left: 10, right: 20, top: 20, bottom: 10 } },
+                layout: { padding: layoutPadding },
                 animation: { duration: 500 }
             };
 
