@@ -125,10 +125,10 @@
     <!-- ==================== 分頁 2：實驗關係圖 (完全保留最原始完美的比例) ==================== -->
     <!-- 這裡使用 xl:col-start-3 和 xl:col-span-8 來把圖表置中，並保證其寬度與原來一模一樣！ -->
     <div id="tab-charts" class="tab-content max-w-[1400px] mx-auto grid-cols-1 xl:grid-cols-12 gap-6 relative">
-        <div id="chart-container-wrapper" class="xl:col-start-3 xl:col-span-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border-2 border-gray-100 p-6 relative flex flex-col h-full">
+        <div id="chart-container-wrapper" class="xl:col-start-3 xl:col-span-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border-2 border-gray-100 p-3 md:p-6 relative flex flex-col h-full">
             
             <!-- 右上角功能按鈕 -->
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 border-b-2 border-gray-100 pb-4">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-3 md:mb-6 border-b-2 border-gray-100 pb-4">
                 <h2 class="text-2xl font-black text-gray-800 border-l-8 border-indigo-400 pl-3 rounded-sm whitespace-nowrap">📈 實驗關係圖</h2>
                 <div class="flex flex-wrap gap-3 z-10">
                     <button onclick="downloadCharts()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
@@ -142,11 +142,11 @@
                 </div>
             </div>
 
-            <!-- 完全還原的圖表畫布區 (min-h-[300px] 絕對不改) -->
-            <div id="chart-scroll-area" class="flex flex-col gap-8 flex-1 w-full relative">
-                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="xtChart"></canvas></div>
-                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="vtChart"></canvas></div>
-                <div class="relative w-full flex-1 min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="atChart"></canvas></div>
+            <!-- 圖表畫布區：手機版縮短高度讓t軸拉開，桌機版 min-h-[300px] 完全不變 -->
+            <div id="chart-scroll-area" class="flex flex-col gap-4 md:gap-8 flex-1 w-full relative">
+                <div class="relative w-full flex-1 min-h-[190px] md:min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="xtChart"></canvas></div>
+                <div class="relative w-full flex-1 min-h-[190px] md:min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="vtChart"></canvas></div>
+                <div class="relative w-full flex-1 min-h-[190px] md:min-h-[300px] bg-white rounded-xl border border-gray-100 p-2 shadow-sm"><canvas id="atChart"></canvas></div>
             </div>
         </div>
     </div>
