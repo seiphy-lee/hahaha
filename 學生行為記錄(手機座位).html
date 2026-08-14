@@ -206,6 +206,7 @@
                     <input type="text" id="gas-url" class="form-control" onchange="saveGASUrl()">
                 </div>
                 <button class="btn btn-success" onclick="loadBehaviorsFromCloud()"><i class="fa-solid fa-sync"></i> 同步行為分數</button>
+                <button class="btn btn-warning" style="margin-top:20px;" onclick="recalcStatsFromCloud()"><i class="fa-solid fa-rotate"></i> 重新整理統計表</button>
                 <button class="btn btn-danger" style="margin-top:20px;" onclick="clearAllLogs()"><i class="fa-solid fa-trash"></i> 清空手機記錄</button>
             </div>
         </div>
@@ -622,6 +623,26 @@
                 }
             })
             .catch(err => { if(!silent) alert("網路連線錯誤！"); });
+        }
+
+        function recalcStatsFromCloud() {
+            const code = document.getElementById('class-code').value.trim();
+            if (!code) { alert('請先輸入班級代碼'); return; }
+            if (!gasUrl) { alert('請先設定 GAS 網址'); return; }
+            if (!confirm(`確定要依照目前雲端試算表「${code}」分頁的實際內容，重新整算一次「${code}統計成績」嗎？\n（適用於你剛在試算表上手動刪除/修改過紀錄之後）`)) return;
+
+            showToast("⏳ 重新整理統計表中...");
+            fetch(gasUrl, {
+                method: 'POST', body: JSON.stringify({ action: "recalcStats", classCode: code }),
+                headers: { "Content-Type": "text/plain;charset=utf-8" }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.result === 'success') {
+                    alert(`✅ 統計表已重新整理完成！共 ${data.studentCount} 位學生。`);
+                } else alert("重新整理失敗：" + data.error);
+            })
+            .catch(err => alert("網路連線錯誤！"));
         }
 
         function loadBehaviorsFromCloud() {
