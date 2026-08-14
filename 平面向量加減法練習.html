@@ -42,13 +42,15 @@
 
     <div class="bg-white rounded-3xl shadow-xl border-4 border-yellow-200 p-6 md:p-8 w-full max-w-6xl">
         <h1 class="text-2xl md:text-3xl font-extrabold text-center text-orange-600 mb-4 border-b-2 border-orange-200 pb-4">
-            高二物理：平面向量加減法練習 <span class="text-lg md:text-xl font-normal text-orange-500">(臺中二中 阿發老師 設計)</span>
+            <span class="md:hidden">平面向量加減法練習</span>
+            <span class="hidden md:inline">高二物理：平面向量加減法練習</span>
+            <span class="text-lg md:text-xl font-normal text-orange-500">(臺中二中 阿發老師 設計)</span>
         </h1>
 
         <div class="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-            <div class="flex items-center space-x-6 mb-2">
-                <h2 class="text-lg font-bold text-orange-700 whitespace-nowrap">已知向量：</h2>
-                <div class="text-xl md:text-2xl text-red-600 flex space-x-8" id="problem-display">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 md:space-x-6">
+                <h2 class="text-base md:text-lg font-bold text-orange-700 whitespace-nowrap">已知向量：</h2>
+                <div class="text-base md:text-2xl text-red-600 flex flex-wrap gap-x-4 gap-y-1 md:space-x-8" id="problem-display">
                     <div id="vector-a-display"></div>
                     <div id="vector-b-display"></div>
                 </div>
@@ -58,92 +60,92 @@
             
             <div class="flex flex-col" id="question-list">
                 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$|\vec{A}|$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$|\vec{A}|$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-mag-a" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-mag-a', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-a', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$|\vec{B}|$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$|\vec{B}|$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-mag-b" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-mag-b', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-b', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$\vec{A} + \vec{B}$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$\vec{A} + \vec{B}$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-add" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$\vec{A} - \vec{B}$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$\vec{A} - \vec{B}$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-sub" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$|\vec{A} + \vec{B}|$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$|\vec{A} + \vec{B}|$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-mag-add" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-mag-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
-                    <div class="flex items-center w-1/4">
-                        <span class="mr-4 text-orange-400 font-bold">•</span>
-                        <span class="text-xl">$|\vec{A} - \vec{B}|$</span>
+                <div class="flex flex-wrap items-center justify-between border-b border-dashed border-orange-300 py-1">
+                    <div class="flex items-center w-1/2 md:w-1/4">
+                        <span class="mr-2 md:mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-base md:text-xl">$|\vec{A} - \vec{B}|$</span>
                     </div>
-                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                    <div class="order-3 md:order-none w-full md:w-1/2 text-base md:text-xl font-medium text-blue-700 px-2 md:px-4 flex items-center">
                         <span id="ans-mag-sub" class="hidden opacity-0 transition-opacity duration-300"></span>
                     </div>
-                    <div class="w-1/4 flex justify-end py-1">
-                        <button onclick="toggleSingleAnswer('ans-mag-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
-                            公布答案
+                    <div class="w-1/2 md:w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 md:px-4 text-sm md:text-base rounded shadow">
+                            <span class="md:hidden btn-text-mobile">答案</span><span class="hidden md:inline btn-text-desktop">公布答案</span>
                         </button>
                     </div>
                 </div>
@@ -229,7 +231,10 @@
                 // 找到對應的按鈕並重設文字與樣式
                 const btn = span.parentElement.nextElementSibling.querySelector('button');
                 if(btn) {
-                    btn.textContent = '公布答案';
+                    const mobileSpan = btn.querySelector('.btn-text-mobile');
+                    const desktopSpan = btn.querySelector('.btn-text-desktop');
+                    if (mobileSpan) mobileSpan.textContent = '答案';
+                    if (desktopSpan) desktopSpan.textContent = '公布答案';
                     // 移除自訂背景色（紫色）
                     btn.style.backgroundColor = '';
                     // 恢復原本的 Tailwind 綠色 class，並移除可能殘留的 hover 樣式
@@ -278,6 +283,8 @@
 
         function toggleSingleAnswer(elementId, btnElement) {
             const answerElement = document.getElementById(elementId);
+            const mobileSpan = btnElement.querySelector('.btn-text-mobile');
+            const desktopSpan = btnElement.querySelector('.btn-text-desktop');
             
             if (answerElement.classList.contains('hidden')) {
                 // 顯示答案
@@ -287,7 +294,8 @@
                     answerElement.classList.remove('opacity-0');
                     answerElement.classList.add('opacity-100');
                 }, 10);
-                btnElement.textContent = '隱藏答案';
+                if (mobileSpan) mobileSpan.textContent = '隱藏';
+                if (desktopSpan) desktopSpan.textContent = '隱藏答案';
                 
                 // 移除原本的綠色 class
                 btnElement.classList.remove('bg-green-600', 'hover:bg-green-700');
@@ -305,7 +313,8 @@
                     answerElement.classList.add('hidden');
                 }, 300); // 300ms 與 Tailwind 的 duration-300 對應
                 
-                btnElement.textContent = '公布答案';
+                if (mobileSpan) mobileSpan.textContent = '答案';
+                if (desktopSpan) desktopSpan.textContent = '公布答案';
                 
                 // 移除 inline style (紫色)
                 btnElement.style.backgroundColor = '';
