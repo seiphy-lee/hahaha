@@ -99,7 +99,7 @@
         <!-- 右側數據表格區 -->
         <div class="xl:col-span-8 flex flex-col h-fit">
             <div class="overflow-x-auto rounded-2xl border border-gray-100 shadow-xl bg-white/95 backdrop-blur-sm p-2">
-                <table class="w-full text-center border-collapse">
+                <table class="min-w-[640px] md:w-full md:min-w-0 text-center border-collapse">
                     <thead>
                         <tr class="bg-gray-50 text-gray-800 text-sm border-b-2 border-gray-100">
                             <th class="p-4 w-12 font-bold rounded-tl-xl">點</th>
@@ -218,7 +218,7 @@
             tr.innerHTML = `
                 <td class="p-3 text-gray-500 font-bold">${rowCount + 1}</td>
                 <td class="p-2 border-l border-gray-50 bg-blue-50/10">
-                    <input type="number" step="0.1" class="x-input w-full px-3 py-2 text-center border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none font-black text-gray-800 shadow-sm bg-white transition-all" oninput="calculate()" onkeydown="handleEnter(event, ${rowCount})">
+                    <input type="number" step="0.1" class="x-input w-full px-3 py-2 text-center border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none font-black text-gray-800 shadow-sm bg-white transition-all" oninput="calculate()" onkeydown="handleEnter(event, ${rowCount})" onfocus="this.select()">
                 </td>
                 <td class="p-3 border-l border-gray-50 text-gray-600 dx-cell font-bold">-</td>
                 <td class="p-3 border-l border-gray-50 text-indigo-600 v-cell font-black bg-indigo-50/10">-</td>
