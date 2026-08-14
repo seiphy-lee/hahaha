@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高二物理：向量加減法練習</title>
+    <!-- 引入 Tailwind CSS 用於快速排版與美化 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 MathJax 用於渲染漂亮的數學公式 (包括向量符號與根號) -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+    </script>
+    <style>
+        /* 基本的字體設定，讓整體看起來更舒適 */
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #FFF9E6; /* 活潑的亮鵝黃色背景 */
+        }
+        /* 避免數學公式換行時排版跑掉 */
+        .math-container {
+            overflow-x: auto;
+            padding: 0.5rem 0;
+        }
+        /* 移除 MathJax 預設的邊距，大幅壓縮行高 */
+        mjx-container {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-3xl shadow-xl border-4 border-yellow-200 p-6 md:p-8 w-full max-w-6xl">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-center text-orange-600 mb-4 border-b-2 border-orange-200 pb-4">
+            高二物理：平面向量加減法練習 <span class="text-lg md:text-xl font-normal text-orange-500">(臺中二中 阿發老師 設計)</span>
+        </h1>
+
+        <div class="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+            <div class="flex items-center space-x-6 mb-2">
+                <h2 class="text-lg font-bold text-orange-700 whitespace-nowrap">已知向量：</h2>
+                <div class="text-xl md:text-2xl text-red-600 flex space-x-8" id="problem-display">
+                    <div id="vector-a-display"></div>
+                    <div id="vector-b-display"></div>
+                </div>
+            </div>
+            
+            <h2 class="text-lg font-bold text-orange-700 mb-2 mt-4">試求以下各值：</h2>
+            
+            <div class="flex flex-col" id="question-list">
+                
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$|\vec{A}|$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-mag-a" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-a', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$|\vec{B}|$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-mag-b" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-b', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$\vec{A} + \vec{B}$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-add" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$\vec{A} - \vec{B}$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-sub" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$|\vec{A} + \vec{B}|$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-mag-add" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-add', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-dashed border-orange-300">
+                    <div class="flex items-center w-1/4">
+                        <span class="mr-4 text-orange-400 font-bold">•</span>
+                        <span class="text-xl">$|\vec{A} - \vec{B}|$</span>
+                    </div>
+                    <div class="w-1/2 text-xl font-medium text-blue-700 px-4 flex items-center">
+                        <span id="ans-mag-sub" class="hidden opacity-0 transition-opacity duration-300"></span>
+                    </div>
+                    <div class="w-1/4 flex justify-end py-1">
+                        <button onclick="toggleSingleAnswer('ans-mag-sub', this)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-4 rounded shadow">
+                            公布答案
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="flex justify-center mt-6">
+            <button onclick="generateProblem()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full transition duration-300 shadow-lg transform hover:-translate-y-1 hover:scale-105">
+                下一題 (隨機產生)
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // 定義全域變數來儲存目前的向量分量
+        let Ax, Ay, Bx, By;
+
+        // 產生指定範圍內隨機整數的輔助函數 (包含 min 和 max)
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // 輔助函數：將數字格式化為適合向量表示的字串 (例如：+ 3, - 2)
+        // isFirstTerm 代表是否為多項式的第一項，第一項如果是正數不加 '+'
+        function formatComponent(num, isFirstTerm, unit) {
+            if (num === 0) return ''; // 若分量為0，則不顯示
+            
+            let sign = num > 0 ? '+' : '-';
+            let absNum = Math.abs(num);
+            // 若數字絕對值為1，習慣上不寫出1，只寫符號和單位向量
+            let numStr = absNum === 1 ? '' : absNum; 
+            
+            if (isFirstTerm) {
+                // 第一項如果是正數，不顯示 '+' 號
+                return num > 0 ? `${numStr}${unit}` : `-${numStr}${unit}`;
+            } else {
+                return ` ${sign} ${numStr}${unit}`;
+            }
+        }
+
+        // 輔助函數：組合向量的字串表示
+        function getVectorString(name, x, y) {
+            let strX = formatComponent(x, true, '\\hat{i}');
+            let strY = formatComponent(y, strX === '', '\\hat{j}');
+            
+            // 如果 x 和 y 分量都是 0
+            if (strX === '' && strY === '') {
+                return `\\vec{${name}} = 0`;
+            }
+            return `\\vec{${name}} = ${strX}${strY}`;
+        }
+
+        // 輔助函數：格式化平方根的顯示。若為完全平方數則回傳整數。
+        function formatSqrt(value) {
+            if (value === 0) return '0';
+            
+            // 檢查是否為完全平方數
+            let root = Math.sqrt(value);
+            if (Number.isInteger(root)) {
+                return root.toString();
+            } else {
+                // 保留根號形式
+                return `\\sqrt{${value}}`;
+            }
+        }
+
+        function generateProblem() {
+            // 1. 隱藏所有答案並重設所有按鈕文字與顏色
+            const answerSpans = [
+                'ans-mag-a', 'ans-mag-b', 
+                'ans-add', 'ans-sub', 
+                'ans-mag-add', 'ans-mag-sub'
+            ];
+            
+            answerSpans.forEach(id => {
+                const span = document.getElementById(id);
+                span.classList.add('hidden');
+                span.classList.remove('opacity-100');
+                span.classList.add('opacity-0');
+                
+                // 找到對應的按鈕並重設文字與樣式
+                const btn = span.parentElement.nextElementSibling.querySelector('button');
+                if(btn) {
+                    btn.textContent = '公布答案';
+                    // 移除自訂背景色（紫色）
+                    btn.style.backgroundColor = '';
+                    // 恢復原本的 Tailwind 綠色 class，並移除可能殘留的 hover 樣式
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                    btn.classList.remove('hover:bg-opacity-80'); // 移除自訂顏色的 hover 效果
+                }
+            });
+
+            // 2. 隨機產生介於 -9 到 9 之間的整數分量
+            Ax = getRandomInt(-9, 9);
+            Ay = getRandomInt(-9, 9);
+            Bx = getRandomInt(-9, 9);
+            By = getRandomInt(-9, 9);
+
+            // 3. 更新題目顯示區域 (移除 '已知：' 字樣，因為外層已經有了)
+            document.getElementById('vector-a-display').innerHTML = `$${getVectorString('A', Ax, Ay)}$`;
+            document.getElementById('vector-b-display').innerHTML = `$${getVectorString('B', Bx, By)}$`;
+
+            // 4. 計算答案
+            let addX = Ax + Bx;
+            let addY = Ay + By;
+            let subX = Ax - Bx;
+            let subY = Ay - By;
+
+            let magASq = Ax*Ax + Ay*Ay;
+            let magBSq = Bx*Bx + By*By;
+            let magAddSq = addX*addX + addY*addY;
+            let magSubSq = subX*subX + subY*subY;
+
+            // 5. 更新隱藏的答案區塊內容 (移除 = 前面的部分，只保留等號右邊)
+            // 將答案用 = 開頭，並加上一個小間距
+            document.getElementById('ans-mag-a').innerHTML = `$= ${formatSqrt(magASq)}$`;
+            document.getElementById('ans-mag-b').innerHTML = `$= ${formatSqrt(magBSq)}$`;
+            
+            document.getElementById('ans-add').innerHTML = `$= ${getVectorString('A+B', addX, addY).replace('\\vec{A+B} = ', '')}$`;
+            document.getElementById('ans-sub').innerHTML = `$= ${getVectorString('A-B', subX, subY).replace('\\vec{A-B} = ', '')}$`;
+            
+            document.getElementById('ans-mag-add').innerHTML = `$= ${formatSqrt(magAddSq)}$`;
+            document.getElementById('ans-mag-sub').innerHTML = `$= ${formatSqrt(magSubSq)}$`;
+
+            // 6. 呼叫 MathJax 重新渲染新插入的數學公式
+            if (window.MathJax) {
+                MathJax.typesetPromise().catch((err) => console.log('MathJax 渲染失敗: ' + err.message));
+            }
+        }
+
+        function toggleSingleAnswer(elementId, btnElement) {
+            const answerElement = document.getElementById(elementId);
+            
+            if (answerElement.classList.contains('hidden')) {
+                // 顯示答案
+                answerElement.classList.remove('hidden');
+                // 使用一點延遲讓 display:block 生效後再觸發 opacity 漸變
+                setTimeout(() => {
+                    answerElement.classList.remove('opacity-0');
+                    answerElement.classList.add('opacity-100');
+                }, 10);
+                btnElement.textContent = '隱藏答案';
+                
+                // 移除原本的綠色 class
+                btnElement.classList.remove('bg-green-600', 'hover:bg-green-700');
+                // 使用 inline style 設定指定的紫色
+                btnElement.style.backgroundColor = '#A02B93';
+                // 添加一個 opacity 變化作為 hover 效果的替代
+                btnElement.classList.add('hover:bg-opacity-80'); 
+
+            } else {
+                // 隱藏答案
+                answerElement.classList.remove('opacity-100');
+                answerElement.classList.add('opacity-0');
+                // 等待漸變結束後再隱藏元素
+                setTimeout(() => {
+                    answerElement.classList.add('hidden');
+                }, 300); // 300ms 與 Tailwind 的 duration-300 對應
+                
+                btnElement.textContent = '公布答案';
+                
+                // 移除 inline style (紫色)
+                btnElement.style.backgroundColor = '';
+                // 移除自訂的 hover 效果
+                btnElement.classList.remove('hover:bg-opacity-80');
+                // 恢復綠色 class
+                btnElement.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+        }
+
+        // 頁面載入完成後，自動產生第一題
+        window.onload = function() {
+            generateProblem();
+        };
+    </script>
+</body>
+</html>
