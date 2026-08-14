@@ -128,14 +128,14 @@
         <div id="chart-container-wrapper" class="xl:col-start-3 xl:col-span-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border-2 border-gray-100 p-6 relative flex flex-col h-full">
             
             <!-- 右上角功能按鈕 -->
-            <div class="flex justify-between items-center mb-6 border-b-2 border-gray-100 pb-4">
-                <h2 class="text-2xl font-black text-gray-800 border-l-8 border-indigo-400 pl-3 rounded-sm">📈 實驗關係圖</h2>
-                <div class="flex gap-3 z-10">
-                    <button onclick="downloadCharts()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6 border-b-2 border-gray-100 pb-4">
+                <h2 class="text-2xl font-black text-gray-800 border-l-8 border-indigo-400 pl-3 rounded-sm whitespace-nowrap">📈 實驗關係圖</h2>
+                <div class="flex flex-wrap gap-3 z-10">
+                    <button onclick="downloadCharts()" class="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transform hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                         下載圖片
                     </button>
-                    <button onclick="toggleFullscreen()" id="fs-btn" class="px-5 py-2.5 bg-gray-800 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-900 transform hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                    <button onclick="toggleFullscreen()" id="fs-btn" class="px-5 py-2.5 bg-gray-800 text-white text-sm font-bold rounded-xl shadow-md hover:bg-gray-900 transform hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
                         滿版顯示
                     </button>
@@ -288,8 +288,13 @@
             drawCharts(dataX, dataV, dataA, max_t);
         }
 
-        // 圖表繪製與格式，一字不改，完全保留！
+        // 圖表繪製與格式，桌機版比例一字不改，完全保留！手機版另外縮小圓點與線條
         function drawCharts(dataX, dataV, dataA, max_t) {
+            // 手機版（寬度 < 768px）圓點與線條縮小為 0.7 倍，桌機版維持原樣
+            const isMobile = window.innerWidth < 768;
+            const chartPointRadius = isMobile ? 7 * 0.7 : 7;
+            const chartBorderWidth = isMobile ? 4 * 0.7 : 4;
+
             const commonScales = {
                 x: { 
                     type: 'linear', position: 'bottom', min: 0, max: max_t,
@@ -318,7 +323,7 @@
             const ctxX = document.getElementById('xtChart').getContext('2d');
             xtChart = new Chart(ctxX, {
                 type: 'line',
-                data: { datasets: [{ data: dataX, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.1, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                data: { datasets: [{ data: dataX, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.1, pointRadius: chartPointRadius, borderWidth: chartBorderWidth, pointHoverRadius: 10 }] },
                 options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '位置 x (cm)', color: '#1d4ed8' }, ticks: { ...commonScales.y.ticks, color: '#1d4ed8' } } } }
             });
 
@@ -326,7 +331,7 @@
             const ctxV = document.getElementById('vtChart').getContext('2d');
             vtChart = new Chart(ctxV, {
                 type: 'line',
-                data: { datasets: [{ data: dataV, borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                data: { datasets: [{ data: dataV, borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0, pointRadius: chartPointRadius, borderWidth: chartBorderWidth, pointHoverRadius: 10 }] },
                 options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '速度 v (cm/s)', color: '#4338ca' }, ticks: { ...commonScales.y.ticks, color: '#4338ca' } } } }
             });
 
@@ -334,7 +339,7 @@
             const ctxA = document.getElementById('atChart').getContext('2d');
             atChart = new Chart(ctxA, {
                 type: 'line',
-                data: { datasets: [{ data: dataA, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0, pointRadius: 7, borderWidth: 4, pointHoverRadius: 10 }] },
+                data: { datasets: [{ data: dataA, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0, pointRadius: chartPointRadius, borderWidth: chartBorderWidth, pointHoverRadius: 10 }] },
                 options: { ...commonOptions, scales: { ...commonScales, y: { ...commonScales.y, title: { ...commonScales.y.title, text: '加速度 a (cm/s²)', color: '#b91c1c' }, ticks: { ...commonScales.y.ticks, color: '#b91c1c' } } } }
             });
         }
@@ -355,6 +360,13 @@
                 }
             }
         }
+
+        // 視窗尺寸改變（例如手機旋轉螢幕）時，重新計算圖表比例
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(calculate, 200);
+        });
 
         document.addEventListener('fullscreenchange', handleFsChange);
         function handleFsChange() {
