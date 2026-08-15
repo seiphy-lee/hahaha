@@ -97,9 +97,12 @@
 
     <!-- 標題 -->
     <header class="flex items-center gap-4 px-4 py-2">
-        <h1 class="text-3xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500" style="text-shadow: 0 0 20px rgba(56,189,248,0.3);">
-            電子雙狹縫干涉實驗
-        </h1>
+        <div class="flex flex-col">
+            <h1 class="text-3xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500" style="text-shadow: 0 0 20px rgba(56,189,248,0.3);">
+                電子雙狹縫干涉實驗
+            </h1>
+            <p class="text-sm text-slate-400 tracking-wider mt-1">(臺中二中 阿發老師 設計)</p>
+        </div>
         <div class="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent"></div>
     </header>
 
@@ -119,13 +122,53 @@
                 <input type="range" id="freqSlider" min="1" max="100" value="50">
             </div>
 
-            <!-- 電子停留時間 -->
+            <!-- 偵測屏幕設定 -->
             <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold text-cyan-300">偵測屏幕設定</h2>
+                <h2 class="text-lg font-semibold text-cyan-300 mb-3">偵測屏幕設定</h2>
+
+                <label class="block text-sm mb-2 text-slate-300">顯示模式</label>
+                <div class="flex flex-col gap-2 mb-4">
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="radio" name="screenMode" id="modeAccumulate" value="accumulate" checked class="sr-only">
+                        <span class="radio-custom"></span>
+                        累積模式（如底片長時間曝光，不淡出）
+                    </label>
+                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
+                        <input type="radio" name="screenMode" id="modeFade" value="fade" class="sr-only">
+                        <span class="radio-custom"></span>
+                        淡出模式（模擬殘影效果）
+                    </label>
                 </div>
-                <label class="block text-sm mb-2 text-slate-300">電子停留時間</label>
-                <input type="range" id="decaySlider" min="0" max="100" value="95">
+
+                <div id="decayControl" class="hidden">
+                    <label class="block text-sm mb-2 text-slate-300">電子停留時間</label>
+                    <input type="range" id="decaySlider" min="0" max="100" value="95">
+                </div>
+            </div>
+
+            <!-- 電子統計與快進 -->
+            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <h2 class="text-lg font-semibold text-cyan-300 mb-3">電子統計</h2>
+                <div class="text-sm text-slate-300 mb-3">
+                    已偵測電子數：<span id="electronCount" class="text-cyan-300 font-bold">0</span>
+                </div>
+                <button onclick="fastForward()" class="w-full py-2 rounded border border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20 transition-all font-semibold tracking-widest text-sm">
+                    快進（瞬間補打 3000 顆電子）
+                </button>
+            </div>
+
+            <!-- 強度分佈曲線 -->
+            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold text-cyan-300">強度分佈曲線</h2>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="histogramToggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 rounded-full peer-checked:bg-cyan-600 transition-all relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:w-4 after:h-4 after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                <div id="histogramWrap" class="hidden">
+                    <canvas id="histogramCanvas" width="260" height="110" class="w-full rounded border border-slate-700 bg-slate-950"></canvas>
+                </div>
             </div>
 
             <!-- 清除畫面按鈕 -->
@@ -150,6 +193,37 @@
         // --- 全域狀態變數 ---
         const freqSlider = document.getElementById('freqSlider');
         const decaySlider = document.getElementById('decaySlider');
+        const decayControl = document.getElementById('decayControl');
+        const modeAccumulate = document.getElementById('modeAccumulate');
+        const modeFade = document.getElementById('modeFade');
+        const electronCountEl = document.getElementById('electronCount');
+        const histogramToggle = document.getElementById('histogramToggle');
+        const histogramWrap = document.getElementById('histogramWrap');
+        const histogramCanvas = document.getElementById('histogramCanvas');
+        const histCtx = histogramCanvas.getContext('2d');
+
+        let currentMode = 'accumulate'; // 'accumulate' | 'fade'
+        let totalElectronCount = 0;
+        const HIST_BINS = 100;
+        let histCounts = new Array(HIST_BINS).fill(0);
+
+        modeAccumulate.addEventListener('change', () => {
+            if (modeAccumulate.checked) {
+                currentMode = 'accumulate';
+                decayControl.classList.add('hidden');
+                clearScreen();
+            }
+        });
+        modeFade.addEventListener('change', () => {
+            if (modeFade.checked) {
+                currentMode = 'fade';
+                decayControl.classList.remove('hidden');
+                clearScreen();
+            }
+        });
+        histogramToggle.addEventListener('change', () => {
+            histogramWrap.classList.toggle('hidden', !histogramToggle.checked);
+        });
 
         // --- 標籤 DOM ---
         const labelGun = document.getElementById('label-gun');
@@ -321,6 +395,99 @@
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, texSize, texSize);
             screenTexture.needsUpdate = true;
+
+            histCounts.fill(0);
+            totalElectronCount = 0;
+            electronCountEl.textContent = '0';
+            drawHistogram();
+        }
+
+        // 記錄直方圖統計（沿條紋方向 z 軸分箱計數）
+        function recordHistogram(z) {
+            let bin = Math.floor((z / texSize) * HIST_BINS);
+            bin = Math.max(0, Math.min(HIST_BINS - 1, bin));
+            histCounts[bin]++;
+        }
+
+        // 繪製即時強度分佈曲線圖
+        function drawHistogram() {
+            const w = histogramCanvas.width;
+            const h = histogramCanvas.height;
+            histCtx.clearRect(0, 0, w, h);
+
+            const maxCount = Math.max(1, ...histCounts);
+            const barWidth = w / HIST_BINS;
+
+            histCtx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+            for (let i = 0; i < HIST_BINS; i++) {
+                const barHeight = (histCounts[i] / maxCount) * (h - 4);
+                histCtx.fillRect(i * barWidth, h - barHeight, Math.max(1, barWidth - 1), barHeight);
+            }
+
+            histCtx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+            histCtx.beginPath();
+            histCtx.moveTo(0, h - 1);
+            histCtx.lineTo(w, h - 1);
+            histCtx.stroke();
+        }
+
+        // 實際在畫布上畫一個命中點；glow 控制是否使用發光陰影（快進大量繪製時關閉以維持效能）
+        function paintHit(targetZ, targetY, glow) {
+            if (currentMode === 'accumulate') {
+                // 累積模式：使用疊加(lighter)混合，命中密度越高該處越亮，
+                // 藉此讓干涉條紋隨電子數增加自然浮現出明暗漸層，且不會淡出。
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.beginPath();
+                ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+                if (glow) {
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#ffffff';
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.globalCompositeOperation = 'source-over';
+            } else {
+                // 淡出模式：維持原本不透明點的畫法，搭配 animate() 中的淡出處理
+                ctx.beginPath();
+                ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                if (glow) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#ffffff';
+                }
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function hitScreen(targetZ) {
+            // 在屏幕 Y 軸上給予隨機分佈 (垂直方向的擴散)
+            let targetY = texSize/2 + (Math.random() - 0.5) * texSize * 0.7;
+
+            paintHit(targetZ, targetY, true);
+            recordHistogram(targetZ);
+
+            totalElectronCount++;
+            electronCountEl.textContent = totalElectronCount;
+            if (histogramToggle.checked) drawHistogram();
+
+            screenTexture.needsUpdate = true;
+        }
+
+        // 快進：瞬間補打大量電子，模擬長時間曝光後的統計結果
+        function fastForward() {
+            const burstCount = 3000;
+            for (let i = 0; i < burstCount; i++) {
+                let z = getQuantumTargetZ();
+                let y = texSize/2 + (Math.random() - 0.5) * texSize * 0.7;
+                paintHit(z, y, false);
+                recordHistogram(z);
+                totalElectronCount++;
+            }
+            electronCountEl.textContent = totalElectronCount;
+            screenTexture.needsUpdate = true;
+            drawHistogram();
         }
 
         // --- 核心物理/機率引擎 ---
@@ -339,21 +506,6 @@
                 }
             }
             return texSize / 2;
-        }
-
-        function hitScreen(targetZ) {
-            // 在屏幕 Y 軸上給予隨機分佈 (垂直方向的擴散)
-            let targetY = texSize/2 + (Math.random() - 0.5) * texSize * 0.7; 
-            
-            ctx.beginPath();
-            ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; // 改為白色
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#ffffff'; // 白色發光陰影
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            
-            screenTexture.needsUpdate = true;
         }
 
         // --- 動態標籤更新 ---
@@ -391,14 +543,16 @@
             // 同步更新 3D 追蹤標籤位置
             updateLabelsPosition();
 
-            // 2. 處理屏幕殘影淡出
-            let retention = decaySlider.value; 
-            let fadeAlpha = 1 - (retention / 100); 
-            if (fadeAlpha > 0) {
-                // 用底色覆蓋產生淡出
-                ctx.fillStyle = `rgba(15, 23, 42, ${fadeAlpha * 0.2})`;
-                ctx.fillRect(0, 0, texSize, texSize);
-                screenTexture.needsUpdate = true;
+            // 2. 處理屏幕殘影淡出（僅淡出模式生效；累積模式下電子擊中點永久保留）
+            if (currentMode === 'fade') {
+                let retention = decaySlider.value;
+                let fadeAlpha = 1 - (retention / 100);
+                if (fadeAlpha > 0) {
+                    // 用底色覆蓋產生淡出
+                    ctx.fillStyle = `rgba(15, 23, 42, ${fadeAlpha * 0.2})`;
+                    ctx.fillRect(0, 0, texSize, texSize);
+                    screenTexture.needsUpdate = true;
+                }
             }
 
             // 3. 槍口閃光衰減
@@ -451,6 +605,7 @@
             renderer.render(scene, camera);
         }
 
+        drawHistogram();
         animate();
 
     </script>
