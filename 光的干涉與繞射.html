@@ -38,6 +38,31 @@
             gap: 20px;
         }
 
+        /* 標題區 */
+        .header-title {
+            text-align: left;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            color: #FFFF00;
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .header-title h2 {
+            color: #FFFF99;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+            line-height: 1.2;
+        }
+
         /* 導覽列 */
         .nav-tabs {
             display: flex;
@@ -237,6 +262,12 @@
 
 <div class="container">
     
+    <!-- 標題區 -->
+    <div class="header-title">
+        <h1>光波的干涉與繞射</h1>
+        <h2>(臺中二中 阿發老師 設計)</h2>
+    </div>
+
     <!-- 導覽列 -->
     <div class="nav-tabs">
         <button class="nav-btn active" onclick="setMode('double')">1. 雙狹縫干涉</button>
