@@ -356,11 +356,14 @@
             }
         }
 
-        // ✨ 修改：調整顯示邏輯，分開處理座號與姓名
+        // ✨ 修改：調整顯示邏輯，過濾掉姓名模式下前方的數字座號
         function getDisplayText(seatNo, logName) {
             if (!logName) return '';
             if (showNameMode) {
-                let nameOnly = logName; 
+                // 利用正規表達式把開頭的「數字與空白」移除 (例如 "01 王彥勛" 變成 "王彥勛")
+                let nameOnly = logName.replace(/^\d+\s*/, ''); 
+                if (!nameOnly) nameOnly = logName; // 防呆，如果真的全部被刪光了還是保留原樣
+
                 // 如果字數介於 2~4，排版換行好看一點
                 if (nameOnly.length >= 2 && nameOnly.length <= 4) {
                     return nameOnly.charAt(0) + '<br>' + nameOnly.substring(1);
