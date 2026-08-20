@@ -231,7 +231,8 @@
             border: none;
             border-bottom: 1px solid #bbb;
             text-align: center;
-            font-size: calc(1.5rem * var(--zoom));
+            /* ✨ 微調字體大小以容納「座號+姓名」 */
+            font-size: calc(1.2rem * var(--zoom));
             background: #e9ecef;
             color: #333;
             font-weight: bold;
@@ -294,7 +295,6 @@
             margin-bottom: 20px;
         }
 
-        /* 👨‍🏫 修改：按鈕的樣式配合新的淡彩設計 */
         .behavior-btn {
             padding: 8px 4px; 
             border: 2px solid transparent;
@@ -418,7 +418,6 @@
     </style>
 </head>
 <body>
-
 <header>
     <div class="header-row">
         <div class="title-group">
@@ -480,7 +479,6 @@
             <button id="sync-behavior-btn" class="btn-info" style="font-size: 1rem; padding: 4px 10px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
         </h3>
         <div class="behavior-selector" id="behavior-group">
-            <!-- 動態生成的按鈕將會插在這裡 -->
             <div id="behavior-btn-container" style="display: contents;"></div>
             
             <div class="behavior-input-wrapper">
@@ -489,7 +487,6 @@
         </div>
 
         <div class="log-header">
-            <!-- 👨‍🏫 修改名稱保持一致 -->
             <h3>2. 暫時記錄區</h3>
             <button class="btn-danger-outline" onclick="clearAllLogs()">刪除所有記錄</button>
         </div>
@@ -509,7 +506,6 @@
     </aside>
 </main>
 
-<!-- 雲端設定 Modal -->
 <div id="cloudModal" class="modal-overlay">
     <div class="modal-content">
         <h3>Google Apps Script 設定</h3>
@@ -525,7 +521,6 @@
 </div>
 
 <script>
-    // --- 全域變數 ---
     let currentBehavior = '';
     let isCustomMode = false;
     let logs = [];
@@ -534,7 +529,6 @@
     let colorMap = {}; 
     const CUSTOM_COLOR = '#d63384';
 
-    // 👨‍🏫 預設對齊最新的藍紅設計
     let behaviorsList = [
         { name: '認真聽講', value: '認真聽講', color: '#0000FF' },
         { name: '積極搶答', value: '搶答', color: '#0000FF' },
@@ -559,13 +553,11 @@
         renderBehaviors();
     };
 
-    // --- 👨‍🏫 修改：自動排序與淡彩上色的渲染邏輯 ---
     function renderBehaviors() {
         const container = document.getElementById('behavior-btn-container');
         container.innerHTML = '';
         colorMap = {}; 
         
-        // 藍前紅後排序
         const sortedBehaviors = [...behaviorsList].sort((a, b) => {
             const getWeight = (c) => {
                 const color = String(c).toUpperCase();
@@ -605,7 +597,6 @@
             container.appendChild(btn);
         });
 
-        // 預設觸發點擊第一個
         const firstBtn = container.querySelector('.behavior-btn');
         if (firstBtn) firstBtn.click();
     }
@@ -830,10 +821,20 @@
             return;
         }
 
+        // ✨ 存檔回雲端前，把 "01 王彥勛" 轉回單純的 "01"，保持座位表乾淨
+        const rawNames = JSON.parse(localStorage.getItem(getKey('student_names')) || '{}');
+        const seatNumberOnly = {};
+        for (let seatId in rawNames) {
+            let fullName = rawNames[seatId].trim();
+            // 擷取開頭的數字作為座號 (例如 "01 王彥勛" -> "01")
+            let match = fullName.match(/^\d+/);
+            seatNumberOnly[seatId] = match ? match[0] : fullName;
+        }
+
         const dataToSave = {
             rows: document.getElementById('rows').value,
             cols: document.getElementById('cols').value,
-            names: JSON.parse(localStorage.getItem(getKey('student_names')) || '{}')
+            names: seatNumberOnly // ✨ 只傳回純數字座號
         };
 
         const key = `class_setup_${code}_${currentMode}`;
@@ -907,8 +908,6 @@
         .then(data => {
             if(data.result === 'success') {
                 alert(`✅ 成功從雲端讀取座位表！`);
-                const key = `class_setup_${code}_${currentMode}`;
-                localStorage.setItem(key, JSON.stringify(data.seatData));
                 applyLoadedData(code, data.seatData);
             } else {
                 alert("讀檔失敗：" + (data.error || "找不到檔案"));
@@ -928,7 +927,23 @@
         if(confirm(`確定要套用班級 [${code}] 的【${currentMode === 'classroom' ? '教室' : '實驗室'}】座位表嗎？`)) {
             document.getElementById('rows').value = data.rows;
             document.getElementById('cols').value = data.cols;
-            localStorage.setItem(getKey('student_names'), JSON.stringify(data.names));
+            
+            // ✨ 轉換後端傳來的格式 "01|||01 王彥勛" -> "01 王彥勛"
+            const parsedNames = {};
+            if (data.names) {
+                for (let seatId in data.names) {
+                    const raw = data.names[seatId];
+                    if (raw) {
+                        // 如果有 ||| 符號，就拆開拿右邊那段（完整的 座號+姓名）
+                        parsedNames[seatId] = raw.includes('|||') ? raw.split('|||')[1] : raw;
+                    }
+                }
+            }
+            
+            const key = `class_setup_${code}_${currentMode}`;
+            // 存入 localStorage 的會是乾淨的 "01 王彥勛"
+            localStorage.setItem(key, JSON.stringify({ rows: data.rows, cols: data.cols, names: parsedNames }));
+            localStorage.setItem(getKey('student_names'), JSON.stringify(parsedNames));
             localStorage.setItem(getKey('student_counts'), '{}');
             logs = [];
             updateLogDisplay();
@@ -1026,13 +1041,12 @@
                 input.oninput = (e) => saveName(seatId, e.target.value);
                 input.onclick = (e) => e.stopPropagation(); 
 
-                const badge = document.createElement('badge');
+                const badge = document.createElement('div');
                 badge.className = 'seat-badge';
                 badge.id = `badge-${seatId}`;
                 if (savedCounts[seatId] && savedCounts[seatId] > 0) {
                     badge.innerText = savedCounts[seatId];
                     badge.style.opacity = 1;
-                    // 👨‍🏫 修改：計數標記也對應目前選擇的顏色
                     badge.style.backgroundColor = colorMap[currentBehavior] || '#dc3545';
                 }
 
@@ -1178,8 +1192,6 @@
         const originalBg = seatDiv.style.backgroundColor;
         const behaviorColor = colorMap[currentBehavior] || CUSTOM_COLOR;
         
-        // 👨‍🏫 修改重點：新增「點兩下取消(Undo)」防呆機制
-        // ✨ 只有 30 秒內的「同座位+同行為」記錄才視為要取消；超過 30 秒視為新增第二筆
         const CANCEL_WINDOW_MS = 30000;
         let existingLogIndex = -1;
         for(let i = logs.length - 1; i >= 0; i--) {
@@ -1192,19 +1204,16 @@
         }
 
         if (existingLogIndex !== -1) {
-            // 觸發取消機制
             logs.splice(existingLogIndex, 1);
             localStorage.setItem('class_logs', JSON.stringify(logs));
             updateSeatCount(seatId, -1);
             updateLogDisplay();
             
-            // 取消視覺特效：閃爍灰色
             seatDiv.style.backgroundColor = '#dcdcdc'; 
             setTimeout(() => { seatDiv.style.backgroundColor = originalBg || '#ffff99'; }, 200);
             return;
         }
 
-        // 新增記錄特效
         seatDiv.style.borderColor = behaviorColor;
         seatDiv.style.backgroundColor = behaviorColor + '33'; 
         seatDiv.classList.add('active-click');
@@ -1289,7 +1298,6 @@
         if (current > 0) {
             badge.innerText = current;
             badge.style.opacity = 1;
-            // 計數標記也對應目前選擇的顏色
             badge.style.backgroundColor = colorMap[currentBehavior] || '#dc3545';
         } else {
             badge.style.opacity = 0;
