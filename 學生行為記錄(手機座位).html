@@ -49,7 +49,6 @@
 
         .seat {
             width: var(--seat-size); height: calc(var(--seat-size) * 0.75);
-            /* ✨ 外框加粗為 4px */
             border: calc(4px * var(--zoom)) solid #ccc; 
             border-radius: calc(6px * var(--zoom));
             background: #ffff99; display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -57,7 +56,6 @@
         }
         
         .seat.empty-seat { background: #e9ecef; border-color: transparent !important; }
-
         .seat:active:not(.empty-seat) { transform: scale(0.95); }
 
         .seat-name {
@@ -187,7 +185,6 @@
         <div class="settings-container">
             <div class="setting-card">
                 <h3>📚 班級設定</h3>
-                <!-- ✨ 新增：外框顏色門檻設定 -->
                 <div class="form-group">
                     <label>顏色滿分門檻 (預設 10)</label>
                     <input type="number" id="color-threshold" class="form-control" value="10" min="1" onchange="updateAllSeatColors()">
@@ -307,6 +304,7 @@
             localStorage.setItem('current_class_code', val);
             updateClassCodeUI(val);
         }
+        
         function updateClassCodeUI(val) { document.getElementById('header-class-code').innerText = val ? `班級: ${val}` : '未設定'; }
 
         function saveGASUrl() {
@@ -358,30 +356,33 @@
             }
         }
 
-        function getDisplayText(fullName) {
-            if (!fullName) return '';
+        // ✨ 修改：調整顯示邏輯，分開處理座號與姓名
+        function getDisplayText(seatNo, logName) {
+            if (!logName) return '';
             if (showNameMode) {
-                let nameOnly = fullName.replace(/^\d+\s*/, '');
-                if (!nameOnly) nameOnly = fullName; 
+                let nameOnly = logName; 
+                // 如果字數介於 2~4，排版換行好看一點
                 if (nameOnly.length >= 2 && nameOnly.length <= 4) {
                     return nameOnly.charAt(0) + '<br>' + nameOnly.substring(1);
                 }
                 return nameOnly;
             } else {
-                const match = fullName.match(/^\d+/);
-                return match ? match[0] : fullName;
+                return seatNo;
             }
         }
 
+        // ✨ 修改：切換模式時要拆解後端傳來的格式 "座號|||姓名"
         function toggleSeatDisplayMode() {
             showNameMode = !showNameMode;
             localStorage.setItem('show_name_mode', showNameMode);
             
             if (classSeatData && classSeatData.names) {
                 for (let seatId in classSeatData.names) {
+                    const rawData = classSeatData.names[seatId];
                     const nameSpan = document.querySelector(`#seat-${seatId} .seat-name`);
-                    if (nameSpan) {
-                        nameSpan.innerHTML = getDisplayText(classSeatData.names[seatId]);
+                    if (nameSpan && rawData) {
+                        const parts = rawData.split("|||");
+                        nameSpan.innerHTML = getDisplayText(parts[0], parts[1] || parts[0]);
                         if (showNameMode) {
                             nameSpan.classList.add('mode-name'); 
                         } else {
@@ -392,17 +393,18 @@
             }
         }
 
-        // ✨ 計算單一座位的外框顏色
+        // ✨ 修改：計算單一座位的外框顏色，使用拆解後的姓名找分數
         function updateSingleSeatColor(seatId) {
             const code = document.getElementById('class-code').value.trim();
             const thresholdInput = document.getElementById('color-threshold');
             const threshold = parseFloat(thresholdInput.value) || 10;
             localStorage.setItem('color_threshold', threshold);
 
-            const name = classSeatData.names[seatId] || '';
-            if (!name) return;
+            const rawData = classSeatData.names[seatId] || '';
+            if (!rawData) return;
+            const logName = rawData.split("|||")[1] || rawData.split("|||")[0];
 
-            const baseScore = (classSeatData.scores && classSeatData.scores[name]) ? classSeatData.scores[name] : 0;
+            const baseScore = (classSeatData.scores && classSeatData.scores[logName]) ? classSeatData.scores[logName] : 0;
             const deltas = JSON.parse(localStorage.getItem(`student_score_deltas_${code}`) || '{}');
             const currentDelta = deltas[seatId] || 0;
             const totalScore = baseScore + currentDelta;
@@ -423,7 +425,6 @@
             }
         }
 
-        // ✨ 更新所有座位的外框顏色
         function updateAllSeatColors() {
             if (!classSeatData || !classSeatData.names) return;
             for (let seatId in classSeatData.names) {
@@ -431,6 +432,7 @@
             }
         }
 
+        // ✨ 修改：解析後端傳來的「座號|||姓名」組合，並動態繪製座位
         function generateSeats() {
             const grid = document.getElementById('seating-grid');
             const podium = document.getElementById('podium');
@@ -450,19 +452,24 @@
             for (let r = 1; r <= rows; r++) {
                 for (let c = 1; c <= cols; c++) {
                     const seatId = `r${r}-c${c}`;
-                    const name = names[seatId] || '';
+                    const rawData = names[seatId] || '';
                     
                     const seatDiv = document.createElement('div');
                     seatDiv.className = 'seat';
                     seatDiv.id = `seat-${seatId}`;
 
-                    if (name) {
-                        seatDiv.onclick = () => handleSeatClick(seatId, name);
+                    if (rawData) {
+                        const parts = rawData.split("|||");
+                        const seatNo = parts[0];
+                        const logName = parts[1] || parts[0];
+
+                        // 點擊事件直接帶入姓名，確保留水帳與統計分數對齊
+                        seatDiv.onclick = () => handleSeatClick(seatId, logName);
                         const nameSpan = document.createElement('div');
                         nameSpan.className = 'seat-name';
                         
                         if (showNameMode) nameSpan.classList.add('mode-name');
-                        nameSpan.innerHTML = getDisplayText(name);
+                        nameSpan.innerHTML = getDisplayText(seatNo, logName);
                         
                         const badge = document.createElement('div');
                         badge.className = 'seat-badge'; badge.id = `badge-${seatId}`;
@@ -477,14 +484,13 @@
                     grid.appendChild(seatDiv);
                 }
             }
-            updateAllSeatColors(); // ✨ 生成座位後，立即上色
+            updateAllSeatColors(); 
         }
 
-        function handleSeatClick(seatId, name) {
+        function handleSeatClick(seatId, logName) {
             const seatDiv = document.getElementById(`seat-${seatId}`);
             const originalBg = seatDiv.style.backgroundColor;
             
-            // ✨ 只有 30 秒內的「同座位+同行為」記錄才視為要取消；超過 30 秒視為新增第二筆
             const CANCEL_WINDOW_MS = 30000;
             let existingLogIndex = -1;
             for(let i = logs.length - 1; i >= 0; i--) {
@@ -492,7 +498,7 @@
                     if (Date.now() - logs[i].id <= CANCEL_WINDOW_MS) {
                         existingLogIndex = i;
                     }
-                    break; // 只檢查最近的一筆同座位同行為記錄
+                    break; 
                 }
             }
 
@@ -500,39 +506,39 @@
                 const removedLog = logs.splice(existingLogIndex, 1)[0];
                 localStorage.setItem('class_logs', JSON.stringify(logs));
                 updateSeatCount(seatId, -1);
-                updateSeatScoreDelta(seatId, -(removedLog.score || 0)); // ✨ 扣回暫存分數
+                updateSeatScoreDelta(seatId, -(removedLog.score || 0)); 
                 updateLogDisplay();
 
                 seatDiv.style.backgroundColor = '#dcdcdc'; 
                 setTimeout(() => { 
                     seatDiv.style.backgroundColor = originalBg || '#ffff99'; 
-                    updateSingleSeatColor(seatId); // ✨ 恢復正確的總分外框色
+                    updateSingleSeatColor(seatId); 
                 }, 200);
                 showToast(`已取消`); return; 
             }
 
-            seatDiv.style.borderColor = currentBehavior.color; // 短暫變成行為顏色
+            seatDiv.style.borderColor = currentBehavior.color; 
             seatDiv.style.backgroundColor = currentBehavior.color + '66'; 
             setTimeout(() => { 
                 seatDiv.style.backgroundColor = originalBg || '#ffff99'; 
-                updateSingleSeatColor(seatId); // ✨ 恢復總分外框色
+                updateSingleSeatColor(seatId); 
             }, 200);
 
             const timestamp = new Date(); const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
             const localFullTime = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')} ${timeString}`;
             
+            // 使用 logName (即姓名) 進行記錄
             const logEntry = {
-                id: Date.now(), seatId: seatId, name: name, behavior: currentBehavior.value,
+                id: Date.now(), seatId: seatId, name: logName, behavior: currentBehavior.value,
                 score: currentBehavior.score || 0, time: timeString, fullTime: localFullTime
             };
             logs.push(logEntry); localStorage.setItem('class_logs', JSON.stringify(logs));
             
             updateSeatCount(seatId, 1); 
-            updateSeatScoreDelta(seatId, logEntry.score); // ✨ 增加暫存分數
-            updateLogDisplay(); showToast(`${name} - ${currentBehavior.value}`);
+            updateSeatScoreDelta(seatId, logEntry.score); 
+            updateLogDisplay(); showToast(`${logName} - ${currentBehavior.value}`);
         }
 
-        // ✨ 獨立追蹤本機的「暫存分數」
         function updateSeatScoreDelta(seatId, deltaScore) {
             if (deltaScore === 0) return;
             const code = document.getElementById('class-code').value.trim();
@@ -593,7 +599,7 @@
             const code = document.getElementById('class-code').value.trim();
             logs = []; localStorage.setItem('class_logs', '[]');
             localStorage.setItem(`student_counts_${code}`, '{}');
-            localStorage.setItem(`student_score_deltas_${code}`, '{}'); // ✨ 清空暫存分數
+            localStorage.setItem(`student_score_deltas_${code}`, '{}'); 
             
             loadFromStorage(); 
             updateAllSeatColors();
@@ -692,11 +698,8 @@
                     localStorage.setItem(`student_counts_${classCode}`, '{}');
                     localStorage.setItem(`student_score_deltas_${classCode}`, '{}');
                     updateLogDisplay();
-
-                    // ✨ 修改：清空當下立即重繪座位頁（徽章、外框顏色），不依賴下面那個可能失敗的背景請求
-                    generateSeats();
                     
-                    // ✨ 背景讀取雲端最新總分（即使這裡失敗，座位頁徽章也已經清空了）
+                    generateSeats();
                     loadClassDataFromCloud(true);
                 } else alert("上傳失敗：" + data.error);
             })
