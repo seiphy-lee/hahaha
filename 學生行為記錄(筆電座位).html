@@ -422,11 +422,6 @@
     <div class="header-row">
         <div class="title-group">
             <h1 class="main-title">學生課堂行為記錄(筆電座位模式)--阿發老師設計</h1>
-            
-            <div class="mode-switch-group">
-                <button id="mode-classroom" class="mode-btn active" onclick="switchMode('classroom')">教室座位</button>
-                <button id="mode-lab" class="mode-btn" onclick="switchMode('lab')">實驗室</button>
-            </div>
         </div>
         
         <div class="config-group">
@@ -439,33 +434,19 @@
 
     <div class="header-row">
         <div class="config-group">
-            <span class="config-label">橫(列):</span>
-            <input type="number" id="rows" value="5" min="1" max="15">
-            <span class="config-label">直(排):</span>
-            <input type="number" id="cols" value="6" min="1" max="15">
-            <button class="btn-primary" onclick="manualGenerate()" title="清空並生成新的座位表">生成空座位</button>
-            
-            <div style="border-left: 1px solid #ccc; height: 20px; margin: 0 5px;"></div>
             <span class="config-label">🔍 縮放:</span>
             <input type="range" id="zoom-slider" min="0.6" max="1.5" step="0.05" value="1" oninput="document.documentElement.style.setProperty('--zoom', this.value)" style="width: 80px;" title="調整座位表大小">
+            <button class="btn-primary" onclick="toggleFlip()" title="切換為從教室後方觀看的視角" style="margin-left: 10px;">🔄 翻轉教室</button>
         </div>
 
         <div id="display-class-code" style="color: var(--primary-color); font-size: 1.8rem; font-weight: 900; flex: 1; text-align: center; letter-spacing: 2px;"></div>
-
-        <div class="config-group">
-            <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="processCSV(this)">
-            <button class="btn-success" onclick="document.getElementById('csv-upload').click()">📂 匯入CSV</button>
-            
-            <button class="btn-secondary" onclick="saveSystemConfig()" title="下載目前所有設定為檔案">備份設定(下載)</button>
-            <input type="file" id="config-upload" accept=".json" style="display:none" onchange="loadSystemConfig(this)">
-            <button class="btn-secondary" onclick="document.getElementById('config-upload').click()" title="從檔案還原設定">還原設定(上傳)</button>
-        </div>
     </div>
 </header>
 
 <main>
     <div id="classroom-container">
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <!-- 加上 classroom-wrapper 以便控制講台與座位的上下反轉 -->
+        <div id="classroom-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
             <div id="seating-grid">
                 <!-- 座位將由 JS 插入 -->
             </div>
@@ -524,10 +505,15 @@
     let currentBehavior = '';
     let isCustomMode = false;
     let logs = [];
-    let currentMode = 'classroom'; 
+    const currentMode = 'classroom'; // 移除切換功能，固定為教室模式
     let gasUrl = ''; 
     let colorMap = {}; 
     const CUSTOM_COLOR = '#d63384';
+    
+    // 儲存目前的行列數與翻轉狀態
+    let currentRows = 5;
+    let currentCols = 6;
+    let isFlipped = false;
 
     let behaviorsList = [
         { name: '認真聽講', value: '認真聽講', color: '#0000FF' },
@@ -832,8 +818,8 @@
         }
 
         const dataToSave = {
-            rows: document.getElementById('rows').value,
-            cols: document.getElementById('cols').value,
+            rows: currentRows,
+            cols: currentCols,
             names: seatNumberOnly // ✨ 只傳回純數字座號
         };
 
@@ -924,9 +910,9 @@
     }
 
     function applyLoadedData(code, data) {
-        if(confirm(`確定要套用班級 [${code}] 的【${currentMode === 'classroom' ? '教室' : '實驗室'}】座位表嗎？`)) {
-            document.getElementById('rows').value = data.rows;
-            document.getElementById('cols').value = data.cols;
+        if(confirm(`確定要套用班級 [${code}] 的座位表嗎？`)) {
+            currentRows = data.rows;
+            currentCols = data.cols;
             
             // ✨ 轉換後端傳來的格式 "01|||01 王彥勛" -> "01 王彥勛"
             const parsedNames = {};
@@ -947,78 +933,37 @@
             localStorage.setItem(getKey('student_counts'), '{}');
             logs = [];
             updateLogDisplay();
-            generateSeats(data.rows, data.cols, true);
+            generateSeats(currentRows, currentCols, true);
         }
-    }
-
-    function switchMode(mode) {
-        if (currentMode === mode) return; 
-        currentMode = mode;
-        
-        document.getElementById('mode-classroom').classList.remove('active');
-        document.getElementById('mode-lab').classList.remove('active');
-        document.getElementById(`mode-${mode}`).classList.add('active');
-        
-        const grid = document.getElementById('seating-grid');
-        const podium = document.getElementById('podium');
-
-        if (mode === 'lab') {
-            grid.classList.add('lab-mode');
-            podium.style.display = 'none'; 
-        } else {
-            grid.classList.remove('lab-mode');
-            podium.style.display = 'block'; 
-        }
-
-        const rowInput = document.getElementById('rows');
-        const colInput = document.getElementById('cols');
-        
-        if (mode === 'lab') {
-            rowInput.value = 5;
-            colInput.value = 10;
-            rowInput.disabled = true;
-            colInput.disabled = true;
-        } else {
-            rowInput.disabled = false;
-            colInput.disabled = false;
-            const savedR = localStorage.getItem('pref_rows_classroom') || 5;
-            const savedC = localStorage.getItem('pref_cols_classroom') || 6;
-            rowInput.value = savedR;
-            colInput.value = savedC;
-        }
-        loadFromStorage();
     }
 
     function getKey(prefix) {
         return `${prefix}_${currentMode}`;
     }
 
-    function manualGenerate() {
-        if(!confirm(`確定要重新生成【${currentMode === 'classroom' ? '教室' : '實驗室'}】座位嗎？\n這將會「清空」目前模式座位上的所有名字與記錄！`)) return;
+    // 翻轉教室視角功能
+    function toggleFlip() {
+        isFlipped = !isFlipped;
         
-        if(currentMode === 'lab') {
-            document.getElementById('rows').value = 5;
-            document.getElementById('cols').value = 10;
+        // 控制講台在上方還是下方
+        const wrapper = document.getElementById('classroom-wrapper');
+        if (isFlipped) {
+            wrapper.style.flexDirection = 'column-reverse';
+        } else {
+            wrapper.style.flexDirection = 'column';
         }
-
-        const rows = document.getElementById('rows').value;
-        const cols = document.getElementById('cols').value;
         
-        localStorage.setItem(getKey('student_names'), '{}');
-        localStorage.setItem(getKey('student_counts'), '{}');
-        logs = []; 
-        updateLogDisplay();
-        
-        generateSeats(rows, cols, false);
+        // 重新渲染座位，套用反向排列
+        generateSeats(currentRows, currentCols, true);
     }
 
     function generateSeats(rows, cols, keepData = true) {
+        currentRows = rows;
+        currentCols = cols;
         const grid = document.getElementById('seating-grid');
         
-        if (currentMode === 'classroom') {
-            localStorage.setItem(getKey('pref_rows'), rows);
-            localStorage.setItem(getKey('pref_cols'), cols);
-        }
+        localStorage.setItem(getKey('pref_rows'), rows);
+        localStorage.setItem(getKey('pref_cols'), cols);
 
         grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
         grid.innerHTML = '';
@@ -1026,8 +971,18 @@
         const savedNames = keepData ? JSON.parse(localStorage.getItem(getKey('student_names')) || '{}') : {};
         const savedCounts = keepData ? JSON.parse(localStorage.getItem(getKey('student_counts')) || '{}') : {};
 
-        for (let r = 1; r <= rows; r++) {
-            for (let c = 1; c <= cols; c++) {
+        // 根據是否翻轉，決定迴圈渲染的方向
+        const rStart = isFlipped ? rows : 1;
+        const rEnd = isFlipped ? 1 : rows;
+        const rStep = isFlipped ? -1 : 1;
+
+        const cStart = isFlipped ? cols : 1;
+        const cEnd = isFlipped ? 1 : cols;
+        const cStep = isFlipped ? -1 : 1;
+
+        for (let r = rStart; r !== rEnd + rStep; r += rStep) {
+            for (let c = cStart; c !== cEnd + cStep; c += cStep) {
+                // 座位 ID 綁定原有的邏輯，只改變視覺產生的順序
                 const seatId = `r${r}-c${c}`;
                 const seatDiv = document.createElement('div');
                 seatDiv.className = 'seat';
@@ -1055,120 +1010,6 @@
                 grid.appendChild(seatDiv);
             }
         }
-    }
-
-    function processCSV(inputElement) {
-        const file = inputElement.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const text = e.target.result;
-            const lines = text.split(/\r\n|\n/);
-            
-            let flatNameList = [];
-
-            lines.forEach(line => {
-                if(line.trim() === '') return;
-                const cells = line.split(',');
-                cells.forEach(cell => {
-                    let name = cell.trim().replace(/^"|"$/g, '');
-                    if (name && name !== '(X)' && name !== '講桌') {
-                        flatNameList.push(name);
-                    }
-                });
-            });
-
-            if (flatNameList.length === 0) { alert('檔案內容為空或無有效姓名'); return; }
-
-            let maxRow = 0;
-            let maxCol = 0;
-            let newNames = {};
-
-            if (currentMode === 'lab') {
-                maxRow = 5;
-                maxCol = 10;
-                let listIndex = 0;
-                for (let r = 1; r <= maxRow; r++) {
-                    for (let c = 1; c <= maxCol; c++) {
-                        if (listIndex < flatNameList.length) {
-                            const seatId = `r${r}-c${c}`;
-                            newNames[seatId] = flatNameList[listIndex];
-                            listIndex++;
-                        }
-                    }
-                }
-                alert(`已將 CSV 中的 ${flatNameList.length} 筆姓名依序填入實驗室座位表 (5x10)`);
-            } else {
-                let rawData = [];
-                lines.forEach(line => {
-                    if (line.trim() === '') return;
-                    let cells = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-                    if (cells.every(c => c === '')) return;
-                    rawData.push(cells);
-                });
-
-                if (rawData.length === 0) { alert('無有效資料'); return; }
-
-                let rawMaxCol = 0;
-                rawData.forEach(row => { if(row.length > rawMaxCol) rawMaxCol = row.length; });
-                
-                let emptyColIndices = new Set();
-                for (let c = 0; c < rawMaxCol; c++) {
-                    let isColEmpty = true;
-                    for (let r = 0; r < rawData.length; r++) {
-                        if (rawData[r][c] && rawData[r][c] !== '') {
-                            isColEmpty = false;
-                            break;
-                        }
-                    }
-                    if (isColEmpty) emptyColIndices.add(c);
-                }
-
-                let compactData = [];
-                rawData.forEach(row => {
-                    let newRow = [];
-                    for (let c = 0; c < row.length; c++) {
-                        if (!emptyColIndices.has(c)) {
-                            newRow.push(row[c]);
-                        }
-                    }
-                    compactData.push(newRow);
-                });
-
-                maxRow = compactData.length;
-                maxCol = 0;
-                compactData.forEach(row => { if(row.length > maxCol) maxCol = row.length; });
-                
-                compactData.forEach((row, rIndex) => {
-                    row.forEach((cellText, cIndex) => {
-                        let name = cellText; 
-                        if (name) {
-                            const seatId = `r${rIndex+1}-c${cIndex+1}`;
-                            newNames[seatId] = name;
-                        }
-                    });
-                });
-                
-                document.getElementById('rows').value = maxRow;
-                document.getElementById('cols').value = maxCol;
-                
-                const removedCount = emptyColIndices.size;
-                let msg = `已匯入教室座位表: ${maxRow} 列 x ${maxCol} 排`;
-                if (removedCount > 0) {
-                    msg += ` (已自動移除 ${removedCount} 個空白欄位)`;
-                }
-                alert(msg);
-            }
-
-            localStorage.setItem(getKey('student_names'), JSON.stringify(newNames));
-            if(confirm(`匯入成功！是否要同時清除【${currentMode === 'classroom' ? '教室' : '實驗室'}】模式的舊上課計數？(建議選確定)`)) {
-                localStorage.setItem(getKey('student_counts'), '{}');
-            }
-            generateSeats(maxRow, maxCol, true);
-            inputElement.value = '';
-        };
-        reader.readAsText(file, 'UTF-8');
     }
 
     function handleCustomInput(input) {
@@ -1321,27 +1162,11 @@
             updateLogDisplay();
         }
         
-        if (currentMode === 'lab') {
-            document.getElementById('rows').value = 5;
-            document.getElementById('cols').value = 10;
-            document.getElementById('rows').disabled = true;
-            document.getElementById('cols').disabled = true;
-            const grid = document.getElementById('seating-grid');
-            grid.classList.add('lab-mode');
-            document.getElementById('podium').style.display = 'none';
-            generateSeats(5, 10, true);
-        } else {
-            const r = localStorage.getItem('pref_rows_classroom') || 5;
-            const c = localStorage.getItem('pref_cols_classroom') || 6;
-            document.getElementById('rows').value = r;
-            document.getElementById('cols').value = c;
-            document.getElementById('rows').disabled = false;
-            document.getElementById('cols').disabled = false;
-            const grid = document.getElementById('seating-grid');
-            grid.classList.remove('lab-mode');
-            document.getElementById('podium').style.display = 'block';
-            generateSeats(r, c, true);
-        }
+        const r = localStorage.getItem('pref_rows_classroom') || 5;
+        const c = localStorage.getItem('pref_cols_classroom') || 6;
+        currentRows = parseInt(r);
+        currentCols = parseInt(c);
+        generateSeats(currentRows, currentCols, true);
     }
 
     function exportToExcel() {
