@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>課堂行為記錄(筆電座位模式)</title>
+    <!-- STREAMING_CHUNK:Defining styles... -->
     <style>
         :root {
             --bg-color: #f0f2f5;
@@ -12,7 +13,7 @@
             --primary-color: #1a73e8; /* 物理藍 */
             --text-color: #333;
             --c-custom: #d63384; /* 自訂 - 桃紅 */
-            --zoom: 1; /* 新增：畫面縮放比例總開關 */
+            --zoom: 1; /* 畫面縮放比例總開關 */
         }
 
         body {
@@ -60,32 +61,6 @@
             letter-spacing: 1px;
         }
 
-        .mode-switch-group {
-            display: flex;
-            background: #e9ecef;
-            padding: 4px;
-            border-radius: 8px;
-            gap: 5px;
-        }
-
-        .mode-btn {
-            padding: 5px 15px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1rem;
-            color: #666;
-            background: transparent;
-            transition: all 0.2s;
-        }
-
-        .mode-btn.active {
-            background: white;
-            color: var(--primary-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
         .config-group {
             display: flex;
             align-items: center;
@@ -111,12 +86,6 @@
         input[type="number"] { width: 50px; }
         input[type="text"] { width: 80px; text-align: center; }
         
-        input:disabled {
-            background-color: #e9ecef;
-            cursor: not-allowed;
-            color: #6c757d;
-        }
-
         button {
             padding: 6px 12px;
             border: none;
@@ -184,12 +153,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
-        #seating-grid.lab-mode {
-            gap: 0px !important;
-            border: 1px solid #ccc;
-            padding: 0;
-        }
-
         .seat {
             width: calc(150px * var(--zoom));
             height: calc(90px * var(--zoom));
@@ -204,13 +167,6 @@
             transition: transform 0.1s, border-color 0.2s;
             cursor: pointer;
             overflow: hidden;
-        }
-        
-        .lab-mode .seat {
-            border-radius: 0;
-            border: 1px solid #ccc;
-            margin: 0;
-            box-sizing: border-box; 
         }
 
         .seat:hover {
@@ -231,7 +187,7 @@
             border: none;
             border-bottom: 1px solid #bbb;
             text-align: center;
-            /* ✨ 微調字體大小以容納「座號+姓名」 */
+            /* 微調字體大小以容納「座號+姓名」 */
             font-size: calc(1.2rem * var(--zoom));
             background: #e9ecef;
             color: #333;
@@ -418,6 +374,8 @@
     </style>
 </head>
 <body>
+
+<!-- STREAMING_CHUNK:Rendering header layout... -->
 <header>
     <div class="header-row">
         <div class="title-group">
@@ -427,8 +385,7 @@
         <div class="config-group">
             <span class="config-label">班級代碼(3碼):</span>
             <input type="text" id="class-code" placeholder="如: 101" maxlength="3" oninput="updateDisplayClassCode(this.value)">
-            <button class="btn-info" onclick="saveClassData()" title="儲存當前座位與名單">存檔</button>
-            <button class="btn-warning" onclick="loadClassData()" title="讀取該代碼的座位表">讀檔</button>
+            <button class="btn-warning" onclick="loadClassData()" title="從雲端讀取該代碼的座位表">讀檔</button>
         </div>
     </div>
 
@@ -443,7 +400,9 @@
     </div>
 </header>
 
+<!-- STREAMING_CHUNK:Rendering main application area... -->
 <main>
+    <!-- 左側座位表 -->
     <div id="classroom-container">
         <!-- 加上 classroom-wrapper 以便控制講台與座位的上下反轉 -->
         <div id="classroom-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
@@ -454,6 +413,7 @@
         </div>
     </div>
 
+    <!-- 右側控制面板 -->
     <aside>
         <h3 style="display: flex; justify-content: space-between; align-items: center;">
             1. 選擇學生上課行為
@@ -487,6 +447,7 @@
     </aside>
 </main>
 
+<!-- 雲端設定 Modal -->
 <div id="cloudModal" class="modal-overlay">
     <div class="modal-content">
         <h3>Google Apps Script 設定</h3>
@@ -501,11 +462,12 @@
     </div>
 </div>
 
+<!-- STREAMING_CHUNK:Initializing state and core logic... -->
 <script>
     let currentBehavior = '';
     let isCustomMode = false;
     let logs = [];
-    const currentMode = 'classroom'; // 移除切換功能，固定為教室模式
+    const currentMode = 'classroom'; // 固定模式
     let gasUrl = ''; 
     let colorMap = {}; 
     const CUSTOM_COLOR = '#d63384';
@@ -515,16 +477,17 @@
     let currentCols = 6;
     let isFlipped = false;
 
+    // ✨ 包含預設分數的行為列表
     let behaviorsList = [
-        { name: '認真聽講', value: '認真聽講', color: '#0000FF' },
-        { name: '積極搶答', value: '搶答', color: '#0000FF' },
-        { name: '大聲問好', value: '大聲問好', color: '#0000FF' },
-        { name: '認真筆記', value: '認真筆記', color: '#0000FF' },
-        { name: '睡覺', value: '睡覺', color: '#FF0000' },
-        { name: '聊天', value: '聊天', color: '#FF0000' },
-        { name: '滑手機', value: '滑手機', color: '#FF0000' },
-        { name: '分心/發呆', value: '分心', color: '#FF0000' },
-        { name: '換座位', value: '換座位', color: '#FF0000' }
+        { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 },
+        { name: '積極搶答', value: '搶答', color: '#0000FF', score: 1 },
+        { name: '大聲問好', value: '大聲問好', color: '#0000FF', score: 1 },
+        { name: '認真筆記', value: '認真筆記', color: '#0000FF', score: 1 },
+        { name: '睡覺', value: '睡覺', color: '#FF0000', score: -2 },
+        { name: '聊天', value: '聊天', color: '#FF0000', score: -1 },
+        { name: '滑手機', value: '滑手機', color: '#FF0000', score: -2 },
+        { name: '分心/發呆', value: '分心', color: '#FF0000', score: -1 },
+        { name: '換座位', value: '換座位', color: '#FF0000', score: -1 }
     ];
 
     window.onload = function() {
@@ -539,6 +502,7 @@
         renderBehaviors();
     };
 
+    /* STREAMING_CHUNK:Defining UI renderers... */
     function renderBehaviors() {
         const container = document.getElementById('behavior-btn-container');
         container.innerHTML = '';
@@ -587,6 +551,7 @@
         if (firstBtn) firstBtn.click();
     }
 
+    /* STREAMING_CHUNK:Defining network requests... */
     function loadBehaviorsFromCloud() {
         if (!gasUrl) {
             alert("請先在右下方設定 Google Sheet (GAS) 網址！");
@@ -623,95 +588,6 @@
             btn.innerText = originalText;
             btn.disabled = false;
         });
-    }
-
-    function handleCustomFocus(input) {
-        isCustomMode = true;
-        document.querySelectorAll('.behavior-btn').forEach(btn => {
-            const baseColor = btn.dataset.color;
-            btn.style.backgroundColor = baseColor + '22';
-            btn.style.color = baseColor;
-            btn.style.borderColor = baseColor + '55';
-        });
-        input.classList.add('active');
-        if(input.value.trim()) {
-            currentBehavior = input.value.trim();
-        } else {
-            currentBehavior = "自訂記錄";
-        }
-    }
-
-    function updateDisplayClassCode(val) {
-        const display = document.getElementById('display-class-code');
-        if (val && val.trim() !== '') {
-            display.innerText = `班級：${val.trim()}`;
-        } else {
-            display.innerText = '';
-        }
-    }
-
-    function saveSystemConfig() {
-        const backupData = {
-            timestamp: new Date().toISOString(),
-            localStorage: JSON.stringify(localStorage)
-        };
-        const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `座位表系統備份_${new Date().toISOString().slice(0,10)}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    function loadSystemConfig(input) {
-        const file = input.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                if(data.localStorage) {
-                    if(confirm("確定要還原系統設定嗎？目前的資料將被覆蓋。")) {
-                        const storedData = JSON.parse(data.localStorage);
-                        localStorage.clear();
-                        for (let key in storedData) {
-                            localStorage.setItem(key, storedData[key]);
-                        }
-                        alert("還原成功！頁面將重新整理。");
-                        location.reload();
-                    }
-                } else {
-                    alert("無效的備份檔案格式。");
-                }
-            } catch(err) {
-                alert("讀取檔案失敗：" + err);
-            }
-            input.value = ''; 
-        };
-        reader.readAsText(file);
-    }
-
-    function openCloudConfig() {
-        document.getElementById('cloudModal').style.display = 'flex';
-        document.getElementById('gas-url-input').value = gasUrl;
-    }
-    
-    function closeCloudConfig() {
-        document.getElementById('cloudModal').style.display = 'none';
-    }
-    
-    function saveCloudConfig() {
-        const url = document.getElementById('gas-url-input').value.trim();
-        if(url) {
-            gasUrl = url;
-            localStorage.setItem('gas_url', gasUrl);
-            alert("網址已儲存！");
-            closeCloudConfig();
-        } else {
-            alert("請輸入網址");
-        }
     }
 
     function uploadToGoogleSheet() {
@@ -800,67 +676,6 @@
         });
     }
 
-    function saveClassData() {
-        const code = document.getElementById('class-code').value.trim();
-        if (!code || code.length !== 3 || isNaN(code)) {
-            alert('請輸入 3 位數字的班級代碼 (例如: 101, 205)');
-            return;
-        }
-
-        // ✨ 存檔回雲端前，把 "01 王彥勛" 轉回單純的 "01"，保持座位表乾淨
-        const rawNames = JSON.parse(localStorage.getItem(getKey('student_names')) || '{}');
-        const seatNumberOnly = {};
-        for (let seatId in rawNames) {
-            let fullName = rawNames[seatId].trim();
-            // 擷取開頭的數字作為座號 (例如 "01 王彥勛" -> "01")
-            let match = fullName.match(/^\d+/);
-            seatNumberOnly[seatId] = match ? match[0] : fullName;
-        }
-
-        const dataToSave = {
-            rows: currentRows,
-            cols: currentCols,
-            names: seatNumberOnly // ✨ 只傳回純數字座號
-        };
-
-        const key = `class_setup_${code}_${currentMode}`;
-        localStorage.setItem(key, JSON.stringify(dataToSave)); 
-        
-        if (!gasUrl) {
-            alert(`已儲存於本機！\n(提示：若要啟用雲端跨裝置存檔，請在右下方設定 Google Sheet 網址)`);
-            return;
-        }
-
-        const btn = document.querySelector('.btn-info'); 
-        const originalText = btn.innerText;
-        btn.innerText = "雲端存檔中...";
-        btn.disabled = true;
-
-        fetch(gasUrl, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: "saveSeat", 
-                classCode: code,
-                mode: currentMode,
-                seatData: dataToSave
-            }),
-            headers: { "Content-Type": "text/plain;charset=utf-8" }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.result === 'success') alert(`✅ 班級 [${code}] 座位表已備份至雲端！`);
-            else alert("雲端存檔失敗：" + data.error);
-        })
-        .catch(err => {
-            console.error(err);
-            alert("連線錯誤，目前僅儲存在本機。");
-        })
-        .finally(() => {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        });
-    }
-
     function loadClassData() {
         const code = document.getElementById('class-code').value.trim();
         if (!code) { alert('請輸入班級代碼'); return; }
@@ -869,7 +684,7 @@
             const key = `class_setup_${code}_${currentMode}`;
             const savedDataStr = localStorage.getItem(key);
             if (!savedDataStr) {
-                alert(`本機找不到代碼 [${code}] 的存檔。`);
+                alert(`本機找不到代碼 [${code}] 的存檔。請先設定GAS網址進行雲端同步。`);
                 return;
             }
             applyLoadedData(code, JSON.parse(savedDataStr));
@@ -909,26 +724,25 @@
         });
     }
 
+    /* STREAMING_CHUNK:Defining seating logic... */
     function applyLoadedData(code, data) {
         if(confirm(`確定要套用班級 [${code}] 的座位表嗎？`)) {
-            currentRows = data.rows;
-            currentCols = data.cols;
+            currentRows = data.rows || 5;
+            currentCols = data.cols || 6;
             
-            // ✨ 轉換後端傳來的格式 "01|||01 王彥勛" -> "01 王彥勛"
+            // 解析後端傳來的格式 "01|||01 王彥勛" -> "01 王彥勛"
             const parsedNames = {};
             if (data.names) {
                 for (let seatId in data.names) {
                     const raw = data.names[seatId];
                     if (raw) {
-                        // 如果有 ||| 符號，就拆開拿右邊那段（完整的 座號+姓名）
                         parsedNames[seatId] = raw.includes('|||') ? raw.split('|||')[1] : raw;
                     }
                 }
             }
             
             const key = `class_setup_${code}_${currentMode}`;
-            // 存入 localStorage 的會是乾淨的 "01 王彥勛"
-            localStorage.setItem(key, JSON.stringify({ rows: data.rows, cols: data.cols, names: parsedNames }));
+            localStorage.setItem(key, JSON.stringify({ rows: currentRows, cols: currentCols, names: parsedNames }));
             localStorage.setItem(getKey('student_names'), JSON.stringify(parsedNames));
             localStorage.setItem(getKey('student_counts'), '{}');
             logs = [];
@@ -937,11 +751,6 @@
         }
     }
 
-    function getKey(prefix) {
-        return `${prefix}_${currentMode}`;
-    }
-
-    // 翻轉教室視角功能
     function toggleFlip() {
         isFlipped = !isFlipped;
         
@@ -982,7 +791,6 @@
 
         for (let r = rStart; r !== rEnd + rStep; r += rStep) {
             for (let c = cStart; c !== cEnd + cStep; c += cStep) {
-                // 座位 ID 綁定原有的邏輯，只改變視覺產生的順序
                 const seatId = `r${r}-c${c}`;
                 const seatDiv = document.createElement('div');
                 seatDiv.className = 'seat';
@@ -993,6 +801,8 @@
                 input.type = 'text';
                 input.placeholder = `${r}-${c}`;
                 input.value = savedNames[seatId] || '';
+                // 若是由後端統一控管，也可將 oninput 移除或改為 readonly，
+                // 但保留 oninput 可以讓老師手動微調(儘管沒存檔按鈕，只存在 LocalStorage)
                 input.oninput = (e) => saveName(seatId, e.target.value);
                 input.onclick = (e) => e.stopPropagation(); 
 
@@ -1012,13 +822,7 @@
         }
     }
 
-    function handleCustomInput(input) {
-        if(isCustomMode) {
-            const val = input.value.trim();
-            currentBehavior = val ? val : "自訂記錄";
-        }
-    }
-
+    /* STREAMING_CHUNK:Defining event handlers... */
     function handleSeatClick(seatId, event) {
         const input = document.querySelector(`#seat-${seatId} input`);
         const name = input.value.trim();
@@ -1064,9 +868,15 @@
             seatDiv.classList.remove('active-click');
         }, 300);
 
+        // ✨ 取得該行為的分數
+        let currentScore = 0;
+        const behaviorObj = behaviorsList.find(b => b.value === currentBehavior);
+        if (behaviorObj && behaviorObj.score !== undefined) {
+            currentScore = behaviorObj.score;
+        }
+
         const timestamp = new Date();
         const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
-        
         const year = timestamp.getFullYear();
         const month = String(timestamp.getMonth() + 1).padStart(2, '0'); 
         const day = String(timestamp.getDate()).padStart(2, '0');
@@ -1077,6 +887,7 @@
             seatId: seatId,
             name: name,
             behavior: currentBehavior,
+            score: currentScore, // 將分數寫入記錄中
             time: timeString,
             fullTime: localFullTime 
         };
@@ -1094,11 +905,19 @@
             const item = document.createElement('div');
             item.className = 'log-item';
             const color = colorMap[log.behavior] || CUSTOM_COLOR;
+            
+            // ✨ 顯示分數
+            let scoreText = '';
+            if (log.score !== undefined && log.score !== 0) {
+                scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
+            }
+
             item.innerHTML = `
                 <div style="display:flex; align-items:center;">
                     <span class="log-time">[${log.time}]</span>
                     <span class="log-info">${log.name}</span>
                     <span class="log-tag" style="background-color: ${color}">${log.behavior}</span>
+                    <span style="font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold;">${scoreText}</span>
                 </div>
                 <div class="del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')" title="刪除">✕</div>
             `;
@@ -1127,6 +946,7 @@
         saveLogsToStorage();
     }
 
+    /* STREAMING_CHUNK:Defining utility functions... */
     function updateSeatCount(seatId, delta) {
         let counts = JSON.parse(localStorage.getItem(getKey('student_counts')) || '{}');
         let current = counts[seatId] || 0;
@@ -1167,6 +987,63 @@
         currentRows = parseInt(r);
         currentCols = parseInt(c);
         generateSeats(currentRows, currentCols, true);
+    }
+
+    function getKey(prefix) {
+        return `${prefix}_${currentMode}`;
+    }
+
+    function handleCustomFocus(input) {
+        isCustomMode = true;
+        document.querySelectorAll('.behavior-btn').forEach(btn => {
+            const baseColor = btn.dataset.color;
+            btn.style.backgroundColor = baseColor + '22';
+            btn.style.color = baseColor;
+            btn.style.borderColor = baseColor + '55';
+        });
+        input.classList.add('active');
+        if(input.value.trim()) {
+            currentBehavior = input.value.trim();
+        } else {
+            currentBehavior = "自訂記錄";
+        }
+    }
+
+    function handleCustomInput(input) {
+        if(isCustomMode) {
+            const val = input.value.trim();
+            currentBehavior = val ? val : "自訂記錄";
+        }
+    }
+
+    function updateDisplayClassCode(val) {
+        const display = document.getElementById('display-class-code');
+        if (val && val.trim() !== '') {
+            display.innerText = `班級：${val.trim()}`;
+        } else {
+            display.innerText = '';
+        }
+    }
+
+    function openCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'flex';
+        document.getElementById('gas-url-input').value = gasUrl;
+    }
+    
+    function closeCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'none';
+    }
+    
+    function saveCloudConfig() {
+        const url = document.getElementById('gas-url-input').value.trim();
+        if(url) {
+            gasUrl = url;
+            localStorage.setItem('gas_url', gasUrl);
+            alert("網址已儲存！");
+            closeCloudConfig();
+        } else {
+            alert("請輸入網址");
+        }
     }
 
     function exportToExcel() {
@@ -1239,3 +1116,6 @@
 </script>
 </body>
 </html>
+```eof
+
+這份完整的程式碼已經整合了所有最新的修改。你可以直接將它覆蓋到你的專案中，所有的按鈕、顯示與資料連動都會是最新的狀態！如果有遇到任何操作上的問題，請再告訴我！
