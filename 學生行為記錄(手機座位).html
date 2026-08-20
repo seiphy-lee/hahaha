@@ -304,7 +304,6 @@
             localStorage.setItem('current_class_code', val);
             updateClassCodeUI(val);
         }
-        
         function updateClassCodeUI(val) { document.getElementById('header-class-code').innerText = val ? `班級: ${val}` : '未設定'; }
 
         function saveGASUrl() {
@@ -356,25 +355,35 @@
             }
         }
 
-        // ✨ 修改：調整顯示邏輯，過濾掉姓名模式下前方的數字座號
         function getDisplayText(seatNo, logName) {
-            if (!logName) return '';
+            // 防呆處理：確保有傳入值，否則回傳空字串，防止程式崩潰
+            if (!logName || logName === 'undefined') return '';
+            
+            // 強制轉為字串型態
+            let nameStr = String(logName);
+            
             if (showNameMode) {
-                // 利用正規表達式把開頭的「數字與空白」移除 (例如 "01 王彥勛" 變成 "王彥勛")
-                let nameOnly = logName.replace(/^\d+\s*/, ''); 
-                if (!nameOnly) nameOnly = logName; // 防呆，如果真的全部被刪光了還是保留原樣
-
-                // 如果字數介於 2~4，排版換行好看一點
-                if (nameOnly.length >= 2 && nameOnly.length <= 4) {
+                // 利用正規表達式把開頭的「數字與空白」移除 (例如 "01 歐陽陞峻" 變成 "歐陽陞峻")
+                let nameOnly = nameStr.replace(/^\d+\s*/, ''); 
+                if (!nameOnly) nameOnly = nameStr; // 防呆
+                
+                // 根據名字長度做不同的換行排版
+                if (nameOnly.length === 2 || nameOnly.length === 3) {
+                    // 2字或3字：第1個字在上，剩下在下
                     return nameOnly.charAt(0) + '<br>' + nameOnly.substring(1);
+                } else if (nameOnly.length === 4) {
+                    // 4字：前2字在上，後2字在下
+                    return nameOnly.substring(0, 2) + '<br>' + nameOnly.substring(2);
                 }
+                
+                // 其他長度不強制換行
                 return nameOnly;
             } else {
+                // 座號模式：只顯示座號
                 return seatNo;
             }
         }
 
-        // ✨ 修改：切換模式時要拆解後端傳來的格式 "座號|||姓名"
         function toggleSeatDisplayMode() {
             showNameMode = !showNameMode;
             localStorage.setItem('show_name_mode', showNameMode);
@@ -385,7 +394,11 @@
                     const nameSpan = document.querySelector(`#seat-${seatId} .seat-name`);
                     if (nameSpan && rawData) {
                         const parts = rawData.split("|||");
-                        nameSpan.innerHTML = getDisplayText(parts[0], parts[1] || parts[0]);
+                        // 帶入 seatNo (parts[0]) 與 logName (parts[1] 或是 parts[0])
+                        const seatNo = parts[0];
+                        const logName = parts[1] || parts[0];
+                        nameSpan.innerHTML = getDisplayText(seatNo, logName);
+                        
                         if (showNameMode) {
                             nameSpan.classList.add('mode-name'); 
                         } else {
@@ -396,7 +409,6 @@
             }
         }
 
-        // ✨ 修改：計算單一座位的外框顏色，使用拆解後的姓名找分數
         function updateSingleSeatColor(seatId) {
             const code = document.getElementById('class-code').value.trim();
             const thresholdInput = document.getElementById('color-threshold');
@@ -405,6 +417,8 @@
 
             const rawData = classSeatData.names[seatId] || '';
             if (!rawData) return;
+            
+            // 從 "01|||01 歐陽陞峻" 拆出 "01 歐陽陞峻"
             const logName = rawData.split("|||")[1] || rawData.split("|||")[0];
 
             const baseScore = (classSeatData.scores && classSeatData.scores[logName]) ? classSeatData.scores[logName] : 0;
@@ -435,7 +449,6 @@
             }
         }
 
-        // ✨ 修改：解析後端傳來的「座號|||姓名」組合，並動態繪製座位
         function generateSeats() {
             const grid = document.getElementById('seating-grid');
             const podium = document.getElementById('podium');
@@ -466,12 +479,14 @@
                         const seatNo = parts[0];
                         const logName = parts[1] || parts[0];
 
-                        // 點擊事件直接帶入姓名，確保留水帳與統計分數對齊
+                        // 點擊事件直接帶入後端傳來的完整名稱(含座號)
                         seatDiv.onclick = () => handleSeatClick(seatId, logName);
+                        
                         const nameSpan = document.createElement('div');
                         nameSpan.className = 'seat-name';
-                        
                         if (showNameMode) nameSpan.classList.add('mode-name');
+                        
+                        // 呼叫更新後的排版函數
                         nameSpan.innerHTML = getDisplayText(seatNo, logName);
                         
                         const badge = document.createElement('div');
@@ -530,7 +545,6 @@
             const timestamp = new Date(); const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
             const localFullTime = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')} ${timeString}`;
             
-            // 使用 logName (即姓名) 進行記錄
             const logEntry = {
                 id: Date.now(), seatId: seatId, name: logName, behavior: currentBehavior.value,
                 score: currentBehavior.score || 0, time: timeString, fullTime: localFullTime
@@ -539,7 +553,12 @@
             
             updateSeatCount(seatId, 1); 
             updateSeatScoreDelta(seatId, logEntry.score); 
-            updateLogDisplay(); showToast(`${logName} - ${currentBehavior.value}`);
+            
+            // 提示時只顯示姓名，讓介面乾淨一點
+            let displayNameOnly = String(logName).replace(/^\d+\s*/, '');
+            if(!displayNameOnly) displayNameOnly = logName;
+
+            updateLogDisplay(); showToast(`${displayNameOnly} - ${currentBehavior.value}`);
         }
 
         function updateSeatScoreDelta(seatId, deltaScore) {
@@ -575,9 +594,14 @@
                 item.className = 'log-item'; const color = colorMap[log.behavior] || '#333';
                 let scoreText = '';
                 if (log.score !== undefined && log.score !== 0) scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
+                
+                // 列表裡也幫忙過濾掉座號，只顯示純姓名比較好看
+                let displayNameOnly = String(log.name).replace(/^\d+\s*/, '');
+                if(!displayNameOnly) displayNameOnly = log.name;
+
                 item.innerHTML = `
                     <div style="display:flex; align-items:center;">
-                        <span class="log-time">${log.time}</span><span class="log-name">${log.name}</span>
+                        <span class="log-time">${log.time}</span><span class="log-name">${displayNameOnly}</span>
                         <span class="log-tag" style="background-color: ${color}">${log.behavior}</span><span class="log-score-display">${scoreText}</span>
                     </div>
                     <i class="fa-solid fa-trash-can del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')"></i>
