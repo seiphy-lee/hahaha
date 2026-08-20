@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>課堂行為記錄(筆電座位模式)</title>
-    <!-- STREAMING_CHUNK:Defining styles... -->
     <style>
         :root {
             --bg-color: #f0f2f5;
@@ -13,7 +12,7 @@
             --primary-color: #1a73e8; /* 物理藍 */
             --text-color: #333;
             --c-custom: #d63384; /* 自訂 - 桃紅 */
-            --zoom: 1; /* 畫面縮放比例總開關 */
+            --zoom: 1; /* 新增：畫面縮放比例總開關 */
         }
 
         body {
@@ -86,6 +85,12 @@
         input[type="number"] { width: 50px; }
         input[type="text"] { width: 80px; text-align: center; }
         
+        input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            color: #6c757d;
+        }
+
         button {
             padding: 6px 12px;
             border: none;
@@ -168,8 +173,14 @@
             cursor: pointer;
             overflow: hidden;
         }
+        
+        .seat.empty-seat {
+            background: #e9ecef;
+            border-color: transparent;
+            cursor: default;
+        }
 
-        .seat:hover {
+        .seat:hover:not(.empty-seat) {
             transform: translateY(-2px);
             border-color: var(--primary-color);
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -180,25 +191,27 @@
             animation: pulse 0.3s ease-in-out;
             z-index: 11;
         }
-
-        .seat input {
+        
+        /* 替換原本的 input，改用 div 顯示姓名 */
+        .seat-name-display {
             width: 100%;
             height: 50%;
-            border: none;
             border-bottom: 1px solid #bbb;
-            text-align: center;
-            /* 微調字體大小以容納「座號+姓名」 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: calc(1.2rem * var(--zoom));
             background: #e9ecef;
             color: #333;
             font-weight: bold;
             box-sizing: border-box;
+            text-align: center;
+            line-height: 1.1;
         }
-
-        .seat input:focus {
-            outline: none;
-            background: #dbeafe;
-            border-bottom-color: var(--primary-color);
+        
+        /* 若沒有名字時隱藏點擊提示 */
+        .seat.empty-seat::after {
+            content: "";
         }
 
         .seat::after {
@@ -325,6 +338,7 @@
         .log-time { color: #888; margin-right: 8px; font-size: 0.8rem; }
         .log-info { font-weight: 500; }
         .log-tag { padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-left: 5px; }
+        .log-score-display { font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold; }
         .del-btn { color: #ccc; cursor: pointer; padding: 0 5px; }
         .del-btn:hover { color: #dc3545; }
         
@@ -356,7 +370,19 @@
             letter-spacing: 2px;
             border: 2px solid #ced4da;
             font-size: calc(1rem * var(--zoom));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+        
+        .podium-text { flex: 1; text-align: center; }
+        
+        .display-toggle-btn {
+            background: rgba(255,255,255,0.8); border: none; border-radius: 4px;
+            padding: 4px 8px; font-size: calc(0.85rem * var(--zoom)); font-weight: bold; color: #000;
+            cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.2); white-space: nowrap;
+        }
+        .display-toggle-btn:active { background: #fff; transform: scale(0.95); }
         
         /* Modal 樣式 */
         .modal-overlay {
@@ -374,8 +400,6 @@
     </style>
 </head>
 <body>
-
-<!-- STREAMING_CHUNK:Rendering header layout... -->
 <header>
     <div class="header-row">
         <div class="title-group">
@@ -385,7 +409,7 @@
         <div class="config-group">
             <span class="config-label">班級代碼(3碼):</span>
             <input type="text" id="class-code" placeholder="如: 101" maxlength="3" oninput="updateDisplayClassCode(this.value)">
-            <button class="btn-warning" onclick="loadClassData()" title="從雲端讀取該代碼的座位表">讀檔</button>
+            <button class="btn-warning" onclick="loadClassDataFromCloud()" title="從雲端下載該代碼的座位表">下載座位表</button>
         </div>
     </div>
 
@@ -400,20 +424,21 @@
     </div>
 </header>
 
-<!-- STREAMING_CHUNK:Rendering main application area... -->
 <main>
-    <!-- 左側座位表 -->
     <div id="classroom-container">
         <!-- 加上 classroom-wrapper 以便控制講台與座位的上下反轉 -->
         <div id="classroom-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
             <div id="seating-grid">
                 <!-- 座位將由 JS 插入 -->
+                <div style="padding: 30px 10px; color:#888; text-align:center; font-size:1.2rem; grid-column: 1 / -1;">請在上方輸入班級代碼並點擊「下載座位表」</div>
             </div>
-            <div class="podium-marker" id="podium">講台 (TEACHER)</div>
+            <div class="podium-marker" id="podium" style="display:none;">
+                <div class="podium-text">講台 (TEACHER)</div>
+                <button class="display-toggle-btn" onclick="toggleSeatDisplayMode()">🔄 切換姓名模式</button>
+            </div>
         </div>
     </div>
 
-    <!-- 右側控制面板 -->
     <aside>
         <h3 style="display: flex; justify-content: space-between; align-items: center;">
             1. 選擇學生上課行為
@@ -447,7 +472,6 @@
     </aside>
 </main>
 
-<!-- 雲端設定 Modal -->
 <div id="cloudModal" class="modal-overlay">
     <div class="modal-content">
         <h3>Google Apps Script 設定</h3>
@@ -462,47 +486,59 @@
     </div>
 </div>
 
-<!-- STREAMING_CHUNK:Initializing state and core logic... -->
 <script>
-    let currentBehavior = '';
+    // 預設行為設定
+    let currentBehavior = { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 };
     let isCustomMode = false;
     let logs = [];
-    const currentMode = 'classroom'; // 固定模式
     let gasUrl = ''; 
     let colorMap = {}; 
     const CUSTOM_COLOR = '#d63384';
     
     // 儲存目前的行列數與翻轉狀態
-    let currentRows = 5;
-    let currentCols = 6;
+    let currentRows = 0;
+    let currentCols = 0;
     let isFlipped = false;
+    
+    // 座位與成績資料
+    let classSeatData = { rows: 0, cols: 0, names: {}, scores: {} };
+    
+    // ✨ 修改：狀態 0=座號+中文, 1=純中文, 2=座號+英文
+    let displayMode = 0; 
 
-    // ✨ 包含預設分數的行為列表
     let behaviorsList = [
         { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 },
         { name: '積極搶答', value: '搶答', color: '#0000FF', score: 1 },
-        { name: '大聲問好', value: '大聲問好', color: '#0000FF', score: 1 },
-        { name: '認真筆記', value: '認真筆記', color: '#0000FF', score: 1 },
         { name: '睡覺', value: '睡覺', color: '#FF0000', score: -2 },
-        { name: '聊天', value: '聊天', color: '#FF0000', score: -1 },
-        { name: '滑手機', value: '滑手機', color: '#FF0000', score: -2 },
-        { name: '分心/發呆', value: '分心', color: '#FF0000', score: -1 },
-        { name: '換座位', value: '換座位', color: '#FF0000', score: -1 }
+        { name: '聊天', value: '聊天', color: '#FF0000', score: -1 }
     ];
 
     window.onload = function() {
-        loadFromStorage();
         gasUrl = localStorage.getItem('gas_url') || '';
-        updateDisplayClassCode(document.getElementById('class-code').value);
+        
+        // ✨ 讀取儲存的顯示模式 (為了向下相容舊版，如果是 true 就轉為 1，false 轉為 0)
+        const savedMode = localStorage.getItem('display_mode_laptop');
+        if (savedMode !== null) {
+            displayMode = parseInt(savedMode, 10);
+        } else {
+            // 向下相容
+            const oldMode = localStorage.getItem('show_name_mode_laptop');
+            if (oldMode === 'true') displayMode = 1;
+            else displayMode = 0;
+        }
+        
+        const savedCode = localStorage.getItem('current_class_code_laptop') || '';
+        document.getElementById('class-code').value = savedCode;
+        updateDisplayClassCode(savedCode);
         
         const savedBehaviors = localStorage.getItem('custom_behaviors');
         if (savedBehaviors) {
             behaviorsList = JSON.parse(savedBehaviors);
         }
         renderBehaviors();
+        loadFromStorage();
     };
 
-    /* STREAMING_CHUNK:Defining UI renderers... */
     function renderBehaviors() {
         const container = document.getElementById('behavior-btn-container');
         container.innerHTML = '';
@@ -527,7 +563,7 @@
             
             btn.onclick = function() {
                 isCustomMode = false;
-                currentBehavior = b.value;
+                currentBehavior = b; // 儲存整個物件，包含 score
                 document.getElementById('custom-input').classList.remove('active');
                 
                 document.querySelectorAll('.behavior-btn').forEach(el => {
@@ -551,7 +587,6 @@
         if (firstBtn) firstBtn.click();
     }
 
-    /* STREAMING_CHUNK:Defining network requests... */
     function loadBehaviorsFromCloud() {
         if (!gasUrl) {
             alert("請先在右下方設定 Google Sheet (GAS) 網址！");
@@ -588,6 +623,423 @@
             btn.innerText = originalText;
             btn.disabled = false;
         });
+    }
+
+    // 自訂行為處理
+    function handleCustomFocus(input) {
+        isCustomMode = true;
+        document.querySelectorAll('.behavior-btn').forEach(btn => {
+            const baseColor = btn.dataset.color;
+            btn.style.backgroundColor = baseColor + '22';
+            btn.style.color = baseColor;
+            btn.style.borderColor = baseColor + '55';
+        });
+        input.classList.add('active');
+        updateCustomBehavior(input.value);
+    }
+    
+    function handleCustomInput(input) {
+        if(isCustomMode) {
+            updateCustomBehavior(input.value);
+        }
+    }
+    
+    function updateCustomBehavior(val) {
+        const text = val.trim() ? val.trim() : "自訂記錄";
+        currentBehavior = {
+            name: text,
+            value: text,
+            color: CUSTOM_COLOR,
+            score: 0 
+        };
+    }
+
+    function updateDisplayClassCode(val) {
+        const display = document.getElementById('display-class-code');
+        localStorage.setItem('current_class_code_laptop', val);
+        if (val && val.trim() !== '') {
+            display.innerText = `班級：${val.trim()}`;
+        } else {
+            display.innerText = '';
+        }
+    }
+
+    // --- Google Sheet 網址設定 ---
+    function openCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'flex';
+        document.getElementById('gas-url-input').value = gasUrl;
+    }
+    
+    function closeCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'none';
+    }
+    
+    function saveCloudConfig() {
+        const url = document.getElementById('gas-url-input').value.trim();
+        if(url) {
+            gasUrl = url;
+            localStorage.setItem('gas_url', gasUrl);
+            alert("網址已儲存！");
+            closeCloudConfig();
+        } else {
+            alert("請輸入網址");
+        }
+    }
+
+    // ✨ 輔助函數：檢查該班級是否有任何英文名字
+    function classHasEnglishNames() {
+        if (!classSeatData || !classSeatData.names) return false;
+        for (let seatId in classSeatData.names) {
+            const parts = classSeatData.names[seatId].split("|||");
+            if (parts.length > 2 && parts[2].trim() !== "") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --- 載入雲端座位表 ---
+    function loadClassDataFromCloud(silent = false) {
+        const code = document.getElementById('class-code').value.trim();
+        if (!code) { if(!silent) alert('請先輸入班級代碼'); return; }
+        if (!gasUrl) { if(!silent) { alert('請先設定 GAS 網址'); openCloudConfig(); } return; }
+
+        const btn = document.querySelector('.btn-warning'); 
+        const originalText = btn.innerText;
+        btn.innerText = "雲端下載中...";
+        btn.disabled = true;
+
+        fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: "loadSeat", classCode: code }),
+            headers: { "Content-Type": "text/plain;charset=utf-8" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.result === 'success') {
+                classSeatData = data.seatData;
+                localStorage.setItem(`class_seatData_laptop_${code}`, JSON.stringify(classSeatData));
+                
+                // 下載後檢查，如果目前是英文模式但該班沒英文名，強制切回座號+中文模式
+                if (displayMode === 2 && !classHasEnglishNames()) {
+                     displayMode = 0;
+                     localStorage.setItem('display_mode_laptop', displayMode);
+                }
+                
+                if(!silent && confirm("是否要清空目前的「暫時上課計數」？")) {
+                    localStorage.setItem(`student_counts_laptop_${code}`, '{}');
+                    logs = [];
+                    localStorage.setItem('class_logs_laptop', '[]');
+                }
+                
+                loadFromStorage();
+                if(!silent) alert(`✅ 成功下載 [${code}座位表]！`);
+            } else {
+                if(!silent) alert("讀檔失敗：" + (data.error || "找不到檔案"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            if(!silent) alert("連線錯誤，無法從雲端讀取。");
+        })
+        .finally(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    // ✨ 修改：根據 displayMode 格式化文字 (處理 |||)
+    function getDisplayText(seatNo, logName, enName) {
+        if (!logName || logName === 'undefined') return '';
+        let nameStr = String(logName); // "01 歐陽陞峻"
+        
+        if (displayMode === 0) {
+            // 模式 0: 顯示座號+中文姓名 (預設)
+            return nameStr;
+        } else if (displayMode === 1) {
+            // 模式 1: 移除座號前綴，只顯示中文名
+            let nameOnly = nameStr.replace(/^\d+\s*/, ''); 
+            if (!nameOnly) nameOnly = nameStr; 
+            return nameOnly;
+        } else if (displayMode === 2) {
+            // 模式 2: 座號 + 英文名字
+            if (enName && enName.trim() !== "") {
+                return seatNo + " " + enName;
+            } else {
+                // 如果該學生沒有英文名，備案顯示 "座號 (無)" 或 退回顯示中文
+                return seatNo + " " + (nameStr.replace(/^\d+\s*/, '') || "(無)");
+            }
+        }
+        return nameStr;
+    }
+
+    // ✨ 修改：切換模式邏輯
+    function toggleSeatDisplayMode() {
+        // 切換模式: 0 -> 1 -> 2 -> 0...
+        displayMode = (displayMode + 1) % 3;
+        
+        // 如果切換到英文模式(2)，但全班都沒有英文名字，就跳過直接回到(0)
+        if (displayMode === 2 && !classHasEnglishNames()) {
+            displayMode = 0;
+        }
+
+        localStorage.setItem('display_mode_laptop', displayMode);
+        
+        if (classSeatData && classSeatData.names) {
+            for (let seatId in classSeatData.names) {
+                const rawData = classSeatData.names[seatId];
+                const nameDisplay = document.querySelector(`#seat-${seatId} .seat-name-display`);
+                if (nameDisplay && rawData) {
+                    const parts = rawData.split("|||");
+                    const seatNo = parts[0];
+                    const logName = parts[1] || parts[0];
+                    const enName = parts[2] || ""; // 取出英文名
+                    
+                    nameDisplay.innerText = getDisplayText(seatNo, logName, enName);
+                }
+            }
+        }
+    }
+
+    // --- 翻轉教室 ---
+    function toggleFlip() {
+        isFlipped = !isFlipped;
+        
+        const wrapper = document.getElementById('classroom-wrapper');
+        if (isFlipped) {
+            wrapper.style.flexDirection = 'column-reverse';
+        } else {
+            wrapper.style.flexDirection = 'column';
+        }
+        
+        generateSeats();
+    }
+
+    // --- 產生座位表 ---
+    function generateSeats() {
+        const grid = document.getElementById('seating-grid');
+        const podium = document.getElementById('podium');
+        
+        if (!classSeatData || classSeatData.rows === 0) {
+            grid.innerHTML = '<div style="padding: 30px 10px; color:#888; text-align:center; font-size:1.2rem; grid-column: 1 / -1;">請在上方輸入班級代碼並點擊「下載座位表」</div>';
+            podium.style.display = 'none'; 
+            return;
+        }
+
+        currentRows = classSeatData.rows;
+        currentCols = classSeatData.cols;
+        const names = classSeatData.names;
+        const code = document.getElementById('class-code').value.trim();
+        const savedCounts = JSON.parse(localStorage.getItem(`student_counts_laptop_${code}`) || '{}');
+
+        grid.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
+        grid.innerHTML = '';
+        podium.style.display = 'flex';
+
+        // 根據是否翻轉，決定迴圈渲染的方向
+        const rStart = isFlipped ? currentRows : 1;
+        const rEnd = isFlipped ? 1 : currentRows;
+        const rStep = isFlipped ? -1 : 1;
+
+        const cStart = isFlipped ? currentCols : 1;
+        const cEnd = isFlipped ? 1 : currentCols;
+        const cStep = isFlipped ? -1 : 1;
+
+        for (let r = rStart; r !== rEnd + rStep; r += rStep) {
+            for (let c = cStart; c !== cEnd + cStep; c += cStep) {
+                const seatId = `r${r}-c${c}`;
+                const rawData = names[seatId] || '';
+                
+                const seatDiv = document.createElement('div');
+                seatDiv.className = 'seat';
+                seatDiv.id = `seat-${seatId}`;
+
+                if (rawData) {
+                    const parts = rawData.split("|||");
+                    const seatNo = parts[0];
+                    const logName = parts[1] || parts[0];
+                    const enName = parts[2] || ""; // 取出英文名
+
+                    // 點擊事件維持傳入 logName ("座號 中文姓名") 給流水帳
+                    seatDiv.onclick = (e) => handleSeatClick(seatId, logName, e);
+                    
+                    // 用 div 取代 input
+                    const nameDisplay = document.createElement('div');
+                    nameDisplay.className = 'seat-name-display';
+                    
+                    // ✨ 初始顯示帶入英文名字判斷
+                    nameDisplay.innerText = getDisplayText(seatNo, logName, enName);
+                    
+                    const badge = document.createElement('div');
+                    badge.className = 'seat-badge';
+                    badge.id = `badge-${seatId}`;
+                    if (savedCounts[seatId] && savedCounts[seatId] > 0) {
+                        badge.innerText = savedCounts[seatId];
+                        badge.style.opacity = 1;
+                        badge.style.backgroundColor = currentBehavior.color;
+                    }
+
+                    seatDiv.appendChild(nameDisplay);
+                    seatDiv.appendChild(badge);
+                } else {
+                    seatDiv.classList.add('empty-seat');
+                }
+                grid.appendChild(seatDiv);
+            }
+        }
+    }
+
+    function handleSeatClick(seatId, logName, event) {
+        if (!logName) return;
+
+        const seatDiv = document.getElementById(`seat-${seatId}`);
+        const originalBg = seatDiv.style.backgroundColor;
+        const behaviorColor = currentBehavior.color || CUSTOM_COLOR;
+        
+        const CANCEL_WINDOW_MS = 30000;
+        let existingLogIndex = -1;
+        for(let i = logs.length - 1; i >= 0; i--) {
+            if(logs[i].seatId === seatId && logs[i].behavior === currentBehavior.value) {
+                if (Date.now() - logs[i].id <= CANCEL_WINDOW_MS) {
+                    existingLogIndex = i;
+                }
+                break;
+            }
+        }
+
+        if (existingLogIndex !== -1) {
+            logs.splice(existingLogIndex, 1);
+            saveLogsToStorage();
+            updateSeatCount(seatId, -1);
+            updateLogDisplay();
+            
+            seatDiv.style.backgroundColor = '#dcdcdc'; 
+            setTimeout(() => { seatDiv.style.backgroundColor = originalBg || '#ffff99'; }, 200);
+            return;
+        }
+
+        seatDiv.style.borderColor = behaviorColor;
+        seatDiv.style.backgroundColor = behaviorColor + '33'; 
+        seatDiv.classList.add('active-click');
+        setTimeout(() => {
+            seatDiv.style.borderColor = '';
+            seatDiv.style.backgroundColor = '#ffff99'; 
+            seatDiv.classList.remove('active-click');
+        }, 300);
+
+        const timestamp = new Date();
+        const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
+        
+        const year = timestamp.getFullYear();
+        const month = String(timestamp.getMonth() + 1).padStart(2, '0'); 
+        const day = String(timestamp.getDate()).padStart(2, '0');
+        const localFullTime = `${year}-${month}-${day} ${timeString}`;
+        
+        const logEntry = {
+            id: Date.now(),
+            seatId: seatId,
+            name: logName,
+            behavior: currentBehavior.value,
+            score: currentBehavior.score || 0, // 新增分數記錄
+            time: timeString,
+            fullTime: localFullTime 
+        };
+
+        logs.push(logEntry);
+        updateLogDisplay();
+        updateSeatCount(seatId, 1);
+        saveLogsToStorage();
+    }
+
+    function updateLogDisplay() {
+        const list = document.getElementById('log-list');
+        list.innerHTML = '';
+        [...logs].reverse().forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            const color = colorMap[log.behavior] || CUSTOM_COLOR;
+            
+            let scoreText = '';
+            if (log.score !== undefined && log.score !== 0) {
+                scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
+            }
+            
+            // 列表過濾座號，只顯示姓名
+            let displayNameOnly = String(log.name).replace(/^\d+\s*/, '');
+            if(!displayNameOnly) displayNameOnly = log.name;
+
+            item.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span class="log-time">[${log.time}]</span>
+                    <span class="log-info">${displayNameOnly}</span>
+                    <span class="log-tag" style="background-color: ${color}">${log.behavior}</span>
+                    <span class="log-score-display">${scoreText}</span>
+                </div>
+                <div class="del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')" title="刪除">✕</div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    function deleteLog(logId, seatId) {
+        logs = logs.filter(log => log.id !== logId);
+        updateSeatCount(seatId, -1);
+        updateLogDisplay();
+        saveLogsToStorage();
+    }
+    
+    function clearAllLogs(skipConfirm = false) {
+        if(!skipConfirm && !confirm("確定要刪除「所有」觀測記錄嗎？\n這將會把所有學生的行為計數歸零！")) return;
+        
+        const code = document.getElementById('class-code').value.trim();
+        logs = [];
+        saveLogsToStorage();
+        localStorage.setItem(`student_counts_laptop_${code}`, '{}');
+        
+        updateLogDisplay();
+        generateSeats(); // 重新渲染座位，清除數字標記
+    }
+
+    function updateSeatCount(seatId, delta) {
+        const code = document.getElementById('class-code').value.trim();
+        let counts = JSON.parse(localStorage.getItem(`student_counts_laptop_${code}`) || '{}');
+        let current = counts[seatId] || 0;
+        current += delta;
+        if (current < 0) current = 0;
+        counts[seatId] = current;
+        localStorage.setItem(`student_counts_laptop_${code}`, JSON.stringify(counts));
+
+        const badge = document.getElementById(`badge-${seatId}`);
+        if(badge) {
+            if (current > 0) {
+                badge.innerText = current;
+                badge.style.opacity = 1;
+                badge.style.backgroundColor = colorMap[currentBehavior.value] || CUSTOM_COLOR;
+            } else {
+                badge.style.opacity = 0;
+            }
+        }
+    }
+
+    function saveLogsToStorage() {
+        localStorage.setItem('class_logs_laptop', JSON.stringify(logs));
+    }
+
+    function loadFromStorage() {
+        const savedLogs = localStorage.getItem('class_logs_laptop');
+        if (savedLogs) {
+            logs = JSON.parse(savedLogs);
+            updateLogDisplay();
+        }
+        
+        const code = document.getElementById('class-code').value.trim();
+        if (code) {
+            const savedData = localStorage.getItem(`class_seatData_laptop_${code}`);
+            if (savedData) {
+                classSeatData = JSON.parse(savedData);
+                generateSeats();
+            }
+        }
     }
 
     function uploadToGoogleSheet() {
@@ -631,6 +1083,8 @@
             if(data.result === 'success') {
                 alert(`上傳成功！共 ${data.count} 筆記錄已寫入 Google Sheet。\n\n系統已自動為您清除目前的觀測記錄。`);
                 clearAllLogs(true); 
+                // 上傳後重新抓一次成績
+                loadClassDataFromCloud(true);
             } else {
                 alert("上傳失敗：" + data.error);
             }
@@ -676,376 +1130,6 @@
         });
     }
 
-    function loadClassData() {
-        const code = document.getElementById('class-code').value.trim();
-        if (!code) { alert('請輸入班級代碼'); return; }
-
-        if (!gasUrl) {
-            const key = `class_setup_${code}_${currentMode}`;
-            const savedDataStr = localStorage.getItem(key);
-            if (!savedDataStr) {
-                alert(`本機找不到代碼 [${code}] 的存檔。請先設定GAS網址進行雲端同步。`);
-                return;
-            }
-            applyLoadedData(code, JSON.parse(savedDataStr));
-            return;
-        }
-
-        const btn = document.querySelector('.btn-warning'); 
-        const originalText = btn.innerText;
-        btn.innerText = "雲端讀取中...";
-        btn.disabled = true;
-
-        fetch(gasUrl, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: "loadSeat", 
-                classCode: code,
-                mode: currentMode
-            }),
-            headers: { "Content-Type": "text/plain;charset=utf-8" }
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.result === 'success') {
-                alert(`✅ 成功從雲端讀取座位表！`);
-                applyLoadedData(code, data.seatData);
-            } else {
-                alert("讀檔失敗：" + (data.error || "找不到檔案"));
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("連線錯誤，無法從雲端讀取。");
-        })
-        .finally(() => {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        });
-    }
-
-    /* STREAMING_CHUNK:Defining seating logic... */
-    function applyLoadedData(code, data) {
-        if(confirm(`確定要套用班級 [${code}] 的座位表嗎？`)) {
-            currentRows = data.rows || 5;
-            currentCols = data.cols || 6;
-            
-            // 解析後端傳來的格式 "01|||01 王彥勛" -> "01 王彥勛"
-            const parsedNames = {};
-            if (data.names) {
-                for (let seatId in data.names) {
-                    const raw = data.names[seatId];
-                    if (raw) {
-                        parsedNames[seatId] = raw.includes('|||') ? raw.split('|||')[1] : raw;
-                    }
-                }
-            }
-            
-            const key = `class_setup_${code}_${currentMode}`;
-            localStorage.setItem(key, JSON.stringify({ rows: currentRows, cols: currentCols, names: parsedNames }));
-            localStorage.setItem(getKey('student_names'), JSON.stringify(parsedNames));
-            localStorage.setItem(getKey('student_counts'), '{}');
-            logs = [];
-            updateLogDisplay();
-            generateSeats(currentRows, currentCols, true);
-        }
-    }
-
-    function toggleFlip() {
-        isFlipped = !isFlipped;
-        
-        // 控制講台在上方還是下方
-        const wrapper = document.getElementById('classroom-wrapper');
-        if (isFlipped) {
-            wrapper.style.flexDirection = 'column-reverse';
-        } else {
-            wrapper.style.flexDirection = 'column';
-        }
-        
-        // 重新渲染座位，套用反向排列
-        generateSeats(currentRows, currentCols, true);
-    }
-
-    function generateSeats(rows, cols, keepData = true) {
-        currentRows = rows;
-        currentCols = cols;
-        const grid = document.getElementById('seating-grid');
-        
-        localStorage.setItem(getKey('pref_rows'), rows);
-        localStorage.setItem(getKey('pref_cols'), cols);
-
-        grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-        grid.innerHTML = '';
-
-        const savedNames = keepData ? JSON.parse(localStorage.getItem(getKey('student_names')) || '{}') : {};
-        const savedCounts = keepData ? JSON.parse(localStorage.getItem(getKey('student_counts')) || '{}') : {};
-
-        // 根據是否翻轉，決定迴圈渲染的方向
-        const rStart = isFlipped ? rows : 1;
-        const rEnd = isFlipped ? 1 : rows;
-        const rStep = isFlipped ? -1 : 1;
-
-        const cStart = isFlipped ? cols : 1;
-        const cEnd = isFlipped ? 1 : cols;
-        const cStep = isFlipped ? -1 : 1;
-
-        for (let r = rStart; r !== rEnd + rStep; r += rStep) {
-            for (let c = cStart; c !== cEnd + cStep; c += cStep) {
-                const seatId = `r${r}-c${c}`;
-                const seatDiv = document.createElement('div');
-                seatDiv.className = 'seat';
-                seatDiv.id = `seat-${seatId}`;
-                seatDiv.onclick = (e) => handleSeatClick(seatId, e);
-
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.placeholder = `${r}-${c}`;
-                input.value = savedNames[seatId] || '';
-                // 若是由後端統一控管，也可將 oninput 移除或改為 readonly，
-                // 但保留 oninput 可以讓老師手動微調(儘管沒存檔按鈕，只存在 LocalStorage)
-                input.oninput = (e) => saveName(seatId, e.target.value);
-                input.onclick = (e) => e.stopPropagation(); 
-
-                const badge = document.createElement('div');
-                badge.className = 'seat-badge';
-                badge.id = `badge-${seatId}`;
-                if (savedCounts[seatId] && savedCounts[seatId] > 0) {
-                    badge.innerText = savedCounts[seatId];
-                    badge.style.opacity = 1;
-                    badge.style.backgroundColor = colorMap[currentBehavior] || '#dc3545';
-                }
-
-                seatDiv.appendChild(input);
-                seatDiv.appendChild(badge);
-                grid.appendChild(seatDiv);
-            }
-        }
-    }
-
-    /* STREAMING_CHUNK:Defining event handlers... */
-    function handleSeatClick(seatId, event) {
-        const input = document.querySelector(`#seat-${seatId} input`);
-        const name = input.value.trim();
-
-        if (!name) {
-            alert("該座位無人或未輸入姓名");
-            input.focus();
-            return;
-        }
-
-        const seatDiv = document.getElementById(`seat-${seatId}`);
-        const originalBg = seatDiv.style.backgroundColor;
-        const behaviorColor = colorMap[currentBehavior] || CUSTOM_COLOR;
-        
-        const CANCEL_WINDOW_MS = 30000;
-        let existingLogIndex = -1;
-        for(let i = logs.length - 1; i >= 0; i--) {
-            if(logs[i].seatId === seatId && logs[i].behavior === currentBehavior) {
-                if (Date.now() - logs[i].id <= CANCEL_WINDOW_MS) {
-                    existingLogIndex = i;
-                }
-                break;
-            }
-        }
-
-        if (existingLogIndex !== -1) {
-            logs.splice(existingLogIndex, 1);
-            localStorage.setItem('class_logs', JSON.stringify(logs));
-            updateSeatCount(seatId, -1);
-            updateLogDisplay();
-            
-            seatDiv.style.backgroundColor = '#dcdcdc'; 
-            setTimeout(() => { seatDiv.style.backgroundColor = originalBg || '#ffff99'; }, 200);
-            return;
-        }
-
-        seatDiv.style.borderColor = behaviorColor;
-        seatDiv.style.backgroundColor = behaviorColor + '33'; 
-        seatDiv.classList.add('active-click');
-        setTimeout(() => {
-            seatDiv.style.borderColor = '';
-            seatDiv.style.backgroundColor = '#ffff99'; 
-            seatDiv.classList.remove('active-click');
-        }, 300);
-
-        // ✨ 取得該行為的分數
-        let currentScore = 0;
-        const behaviorObj = behaviorsList.find(b => b.value === currentBehavior);
-        if (behaviorObj && behaviorObj.score !== undefined) {
-            currentScore = behaviorObj.score;
-        }
-
-        const timestamp = new Date();
-        const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
-        const year = timestamp.getFullYear();
-        const month = String(timestamp.getMonth() + 1).padStart(2, '0'); 
-        const day = String(timestamp.getDate()).padStart(2, '0');
-        const localFullTime = `${year}-${month}-${day} ${timeString}`;
-        
-        const logEntry = {
-            id: Date.now(),
-            seatId: seatId,
-            name: name,
-            behavior: currentBehavior,
-            score: currentScore, // 將分數寫入記錄中
-            time: timeString,
-            fullTime: localFullTime 
-        };
-
-        logs.push(logEntry);
-        updateLogDisplay();
-        updateSeatCount(seatId, 1);
-        saveLogsToStorage();
-    }
-
-    function updateLogDisplay() {
-        const list = document.getElementById('log-list');
-        list.innerHTML = '';
-        [...logs].reverse().forEach(log => {
-            const item = document.createElement('div');
-            item.className = 'log-item';
-            const color = colorMap[log.behavior] || CUSTOM_COLOR;
-            
-            // ✨ 顯示分數
-            let scoreText = '';
-            if (log.score !== undefined && log.score !== 0) {
-                scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
-            }
-
-            item.innerHTML = `
-                <div style="display:flex; align-items:center;">
-                    <span class="log-time">[${log.time}]</span>
-                    <span class="log-info">${log.name}</span>
-                    <span class="log-tag" style="background-color: ${color}">${log.behavior}</span>
-                    <span style="font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold;">${scoreText}</span>
-                </div>
-                <div class="del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')" title="刪除">✕</div>
-            `;
-            list.appendChild(item);
-        });
-    }
-
-    function deleteLog(logId, seatId) {
-        logs = logs.filter(log => log.id !== logId);
-        updateSeatCount(seatId, -1);
-        updateLogDisplay();
-        saveLogsToStorage();
-    }
-    
-    function clearAllLogs(skipConfirm = false) {
-        if(!skipConfirm && !confirm("確定要刪除「所有」觀測記錄嗎？\n這將會把所有學生的行為計數歸零！")) return;
-        
-        logs = [];
-        updateLogDisplay();
-        localStorage.setItem(getKey('student_counts'), '{}');
-        const badges = document.querySelectorAll('.seat-badge');
-        badges.forEach(badge => {
-            badge.style.opacity = 0;
-            badge.innerText = '';
-        });
-        saveLogsToStorage();
-    }
-
-    /* STREAMING_CHUNK:Defining utility functions... */
-    function updateSeatCount(seatId, delta) {
-        let counts = JSON.parse(localStorage.getItem(getKey('student_counts')) || '{}');
-        let current = counts[seatId] || 0;
-        current += delta;
-        if (current < 0) current = 0;
-        counts[seatId] = current;
-        localStorage.setItem(getKey('student_counts'), JSON.stringify(counts));
-
-        const badge = document.getElementById(`badge-${seatId}`);
-        if (current > 0) {
-            badge.innerText = current;
-            badge.style.opacity = 1;
-            badge.style.backgroundColor = colorMap[currentBehavior] || '#dc3545';
-        } else {
-            badge.style.opacity = 0;
-        }
-    }
-
-    function saveName(seatId, name) {
-        let names = JSON.parse(localStorage.getItem(getKey('student_names')) || '{}');
-        names[seatId] = name;
-        localStorage.setItem(getKey('student_names'), JSON.stringify(names));
-    }
-
-    function saveLogsToStorage() {
-        localStorage.setItem('class_logs', JSON.stringify(logs));
-    }
-
-    function loadFromStorage() {
-        const savedLogs = localStorage.getItem('class_logs');
-        if (savedLogs) {
-            logs = JSON.parse(savedLogs);
-            updateLogDisplay();
-        }
-        
-        const r = localStorage.getItem('pref_rows_classroom') || 5;
-        const c = localStorage.getItem('pref_cols_classroom') || 6;
-        currentRows = parseInt(r);
-        currentCols = parseInt(c);
-        generateSeats(currentRows, currentCols, true);
-    }
-
-    function getKey(prefix) {
-        return `${prefix}_${currentMode}`;
-    }
-
-    function handleCustomFocus(input) {
-        isCustomMode = true;
-        document.querySelectorAll('.behavior-btn').forEach(btn => {
-            const baseColor = btn.dataset.color;
-            btn.style.backgroundColor = baseColor + '22';
-            btn.style.color = baseColor;
-            btn.style.borderColor = baseColor + '55';
-        });
-        input.classList.add('active');
-        if(input.value.trim()) {
-            currentBehavior = input.value.trim();
-        } else {
-            currentBehavior = "自訂記錄";
-        }
-    }
-
-    function handleCustomInput(input) {
-        if(isCustomMode) {
-            const val = input.value.trim();
-            currentBehavior = val ? val : "自訂記錄";
-        }
-    }
-
-    function updateDisplayClassCode(val) {
-        const display = document.getElementById('display-class-code');
-        if (val && val.trim() !== '') {
-            display.innerText = `班級：${val.trim()}`;
-        } else {
-            display.innerText = '';
-        }
-    }
-
-    function openCloudConfig() {
-        document.getElementById('cloudModal').style.display = 'flex';
-        document.getElementById('gas-url-input').value = gasUrl;
-    }
-    
-    function closeCloudConfig() {
-        document.getElementById('cloudModal').style.display = 'none';
-    }
-    
-    function saveCloudConfig() {
-        const url = document.getElementById('gas-url-input').value.trim();
-        if(url) {
-            gasUrl = url;
-            localStorage.setItem('gas_url', gasUrl);
-            alert("網址已儲存！");
-            closeCloudConfig();
-        } else {
-            alert("請輸入網址");
-        }
-    }
-
     function exportToExcel() {
         if (logs.length === 0) {
             alert("無記錄可匯出");
@@ -1078,11 +1162,13 @@
                     <col width="250">
                     <col width="150">
                     <col width="200">
+                    <col width="100">
                     <tr>
                         <th style="background-color: #f0f0f0;">序號</th>
                         <th style="background-color: #f0f0f0;">發生時間</th>
                         <th style="background-color: #f0f0f0;">姓名</th>
                         <th style="background-color: #f0f0f0;">行為類別</th>
+                        <th style="background-color: #f0f0f0;">得分</th>
                     </tr>
         `;
 
@@ -1094,6 +1180,7 @@
                     <td>${log.fullTime}</td>
                     <td>${cleanName}</td>
                     <td>${log.behavior}</td>
+                    <td>${log.score || 0}</td>
                 </tr>
             `;
         });
