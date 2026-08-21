@@ -59,23 +59,22 @@
         .seat:active:not(.empty-seat) { transform: scale(0.95); }
 
         .seat-name {
-            font-size: calc(1.8rem * var(--zoom)); 
-            font-weight: bold; color: #333;
-            width: 100%; text-align: center; 
-            overflow: hidden; padding: 0 4px;
-            transition: font-size 0.2s ease; 
-            line-height: 1.1; 
-            /* ✨ 新增：強制斷行屬性，解決長英文單字被截斷的問題 */
-            word-break: break-all;
-            overflow-wrap: anywhere;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%; /* 確保名字區塊佔滿可用高度以利置中 */
+            font-size: calc(1.8rem * var(--zoom)); font-weight: bold; color: #333;
+            width: 100%; text-align: center; overflow: hidden; 
+            padding: 0 2px; /* 稍微減少 padding 讓文字有更多空間 */
+            transition: font-size 0.2s ease; line-height: 1.1; 
+            
+            /* 【重點修改】允許長英文單字在邊界處強制換行 */
+            word-break: break-word; 
+            overflow-wrap: anywhere; 
+            white-space: normal;
         }
         
-        .seat-name.mode-name { font-size: calc(1.5rem * var(--zoom)); }
+        .seat-name.mode-name { 
+            /* 【重點修改】稍微縮小名字模式的字體，並增加行高讓換行時不擁擠 */
+            font-size: calc(1.25rem * var(--zoom)); 
+            line-height: 1.2;
+        }
 
         .seat-badge {
             position: absolute; top: calc(-5px * var(--zoom)); right: calc(-5px * var(--zoom));
@@ -113,6 +112,8 @@
         .inline-behavior-btn {
             padding: calc(12px * var(--behavior-zoom)) calc(5px * var(--behavior-zoom)); border-radius: calc(8px * var(--behavior-zoom)); 
             font-size: calc(0.95rem * var(--behavior-zoom)); font-weight: bold; text-align: center; transition: all 0.2s; cursor: pointer;
+            /* 加入換行支援，避免按鈕文字過長被切掉 */
+            word-break: break-word;
         }
         .inline-behavior-btn:active { transform: scale(0.95); }
 
@@ -123,7 +124,7 @@
         .log-name { font-size: 1.1rem; font-weight: bold; margin: 0 10px; }
         .log-tag { padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; color: white;}
         .log-score-display { font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold; } 
-        .del-btn { color: #dc3545; padding: 10px; font-size: 1.2rem; }
+        .del-btn { color: #dc3545; padding: 10px; font-size: 1.2rem; cursor: pointer; }
 
         .settings-container { padding: 15px; }
         .setting-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -132,7 +133,7 @@
         .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; font-size: 0.9rem;}
         .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
         
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; cursor: pointer;}
         .btn-primary { background: var(--primary-color); color: white; }
         .btn-success { background: #28a745; color: white; }
         .btn-warning { background: #ffc107; color: #333; }
@@ -142,13 +143,14 @@
             position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: white;
             display: flex; border-top: 1px solid #ddd; z-index: 30; padding-bottom: env(safe-area-inset-bottom); 
         }
-        .nav-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 0.75rem; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 0.75rem; cursor: pointer;}
         .nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
         .nav-item.active { color: var(--primary-color); }
 
         .toast {
             position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white;
             padding: 10px 20px; border-radius: 20px; font-size: 0.9rem; z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s;
+            pointer-events: none;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
@@ -650,6 +652,8 @@
         }
 
         function clearAllLogs() {
+            // 注意：為了符合介面規範，在正式環境中建議不要使用 confirm()，可改為自訂的 Modal 對話框。
+            // 但因為這是既有程式邏輯，我先為你保留。
             if(!confirm("確定要清空手機上的記錄並歸零計數嗎？")) return;
             const code = document.getElementById('class-code').value.trim();
             logs = []; localStorage.setItem('class_logs', '[]');
