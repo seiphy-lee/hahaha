@@ -2,83 +2,377 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>📱 手機版 - 課堂行為記錄</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課堂行為記錄(筆電座位模式)</title>
     <style>
         :root {
-            --primary-color: #1a73e8;
             --bg-color: #f0f2f5;
+            --panel-bg: #ffffff;
+            --border-color: #dcdcdc;
+            --primary-color: #1a73e8; /* 物理藍 */
             --text-color: #333;
-            --nav-height: 60px;
-            --seat-size: 80px; 
-            --zoom: 1; 
-            --behavior-zoom: 1; 
+            --c-custom: #d63384; /* 自訂 - 桃紅 */
+            --zoom: 1; /* 新增：畫面縮放比例總開關 */
         }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0; padding: 0;
-            background-color: var(--bg-color); color: var(--text-color);
-            height: 100vh; display: flex; flex-direction: column; overflow: hidden; 
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
+        /* 頂部控制列 */
         header {
-            background-color: var(--primary-color); color: white;
-            padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10;
+            background-color: var(--panel-bg);
+            padding: 0.8rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            z-index: 10;
         }
 
-        header h1 { margin: 0; font-size: 0.96rem; font-weight: bold; }
-        .class-badge { background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 0.9rem;}
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
 
-        .tab-content { flex: 1; display: none; padding-bottom: var(--nav-height); }
-        .tab-content.active { display: flex; flex-direction: column; animation: fadeIn 0.3s; }
-        #tab-logs, #tab-settings { overflow-y: auto; }
-        #tab-seating { overflow: hidden; }
+        .title-group {
+            display: flex;
+            align-items: baseline;
+            gap: 20px;
+        }
 
-        #seating-area { flex: 1; overflow: auto; touch-action: pan-x pan-y; background: #fff; position: relative; }
-        .seating-wrapper { padding: 20px; min-width: max-content; display: flex; flex-direction: column; align-items: center; transform-origin: top center; }
+        .main-title {
+            margin: 0;
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        .config-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
         
+        .config-label {
+            font-weight: bold;
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        input[type="number"], input[type="text"] {
+            padding: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        input[type="number"] { width: 50px; }
+        input[type="text"] { width: 80px; text-align: center; }
+        
+        input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            color: #6c757d;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: #1557b0; }
+        
+        .btn-success { background-color: #218838; color: white; }
+        .btn-success:hover { background-color: #1e7e34; }
+        
+        .btn-warning { background-color: #ffc107; color: #333; }
+        .btn-warning:hover { background-color: #e0a800; }
+
+        .btn-info { background-color: #17a2b8; color: white; }
+        .btn-info:hover { background-color: #138496; }
+        
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5a6268; }
+        
+        .btn-danger-outline {
+            background-color: transparent;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            font-size: 0.8rem;
+            padding: 4px 8px;
+        }
+        .btn-danger-outline:hover {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: #666; }
+        .btn-outline:hover { background-color: #f1f1f1; }
+
+        /* 主工作區 */
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 左側座位表 */
+        #classroom-container {
+            flex: 3;
+            padding: 20px;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
         #seating-grid {
-            display: grid; gap: calc(3px * var(--zoom)); padding: calc(10px * var(--zoom));
-            background: #f8f9fa; border-radius: calc(8px * var(--zoom));
+            display: grid;
+            gap: calc(15px * var(--zoom));
+            padding: calc(20px * var(--zoom));
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
         .seat {
-            width: var(--seat-size); height: calc(var(--seat-size) * 0.75);
-            border: calc(4px * var(--zoom)) solid #ccc; 
-            border-radius: calc(6px * var(--zoom));
-            background: #ffff99; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            position: relative; transition: transform 0.1s, border-color 0.2s;
+            width: calc(150px * var(--zoom));
+            height: calc(90px * var(--zoom));
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            position: relative;
+            background: #ffff99; 
+            transition: transform 0.1s, border-color 0.2s;
+            cursor: pointer;
+            overflow: hidden;
         }
         
+        .seat.empty-seat {
+            background: #e9ecef;
+            border-color: transparent;
+            cursor: default;
+        }
+
+        .seat:hover:not(.empty-seat) {
+            transform: translateY(-2px);
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .seat.active-click {
+            animation: pulse 0.3s ease-in-out;
+            z-index: 11;
+        }
+        
+        /* 替換原本的 input，改用 div 顯示姓名 */
+        .seat-name-display {
+            width: 100%;
+            height: 50%;
+            border-bottom: 1px solid #bbb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(1.2rem * var(--zoom));
+            background: #e9ecef;
+            color: #333;
+            font-weight: bold;
+            box-sizing: border-box;
+            text-align: center;
         .seat.empty-seat { background: #e9ecef; border-color: transparent !important; }
         .seat:active:not(.empty-seat) { transform: scale(0.95); }
 
         .seat-name {
             font-size: calc(1.8rem * var(--zoom)); font-weight: bold; color: #333;
-            width: 100%; text-align: center; overflow: hidden; padding: 0 4px;
+            width: 100%; text-align: center; padding: 0 4px;
             transition: font-size 0.2s ease; line-height: 1.1; 
+            /* ✨ 新增：強制長英文單字換行，避免被截斷 */
+            word-break: break-word; 
+            overflow-wrap: anywhere;
+            /* ✨ 新增：限制最大高度，避免換行太多撐破版面，超出的部分隱藏 */
+            max-height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .seat-name.mode-name { font-size: calc(1.5rem * var(--zoom)); }
 
         .seat-badge {
-            position: absolute; top: calc(-5px * var(--zoom)); right: calc(-5px * var(--zoom));
-            background: #dc3545; color: white; border-radius: 50%;
-            width: calc(22px * var(--zoom)); height: calc(22px * var(--zoom));
-            font-size: calc(12px * var(--zoom)); display: flex; justify-content: center; align-items: center;
-            opacity: 0; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: #333;
+            color: white;
+            border-radius: 50%;
+            width: calc(36px * var(--zoom));
+            height: calc(36px * var(--zoom));
+            font-size: calc(18px * var(--zoom));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+
+        /* 右側控制面板 */
+        aside {
+            flex: 1;
+            min-width: 320px;
+            max-width: 360px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .behavior-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .behavior-btn {
+            padding: 8px 4px; 
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem; 
+            font-weight: bold;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .behavior-btn:active {
+            transform: scale(0.95);
+        }
+
+        .behavior-input-wrapper {
+            grid-column: span 3; 
+            display: flex;
+            gap: 5px;
+        }
+        
+        #custom-input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem; 
+            text-align: center;
+            transition: all 0.2s;
+            background: #fff;
+        }
+        
+        #custom-input:focus {
+            border-color: var(--c-custom);
+            outline: none;
+            background: #fff0f6;
+        }
+        
+        #custom-input.active {
+            border-color: var(--c-custom);
+            background: #fff0f6;
+            color: var(--c-custom);
+            font-weight: bold;
+        }
+
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+
+        .log-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .log-item:hover { background-color: #fff; }
+        .log-time { color: #888; margin-right: 8px; font-size: 0.8rem; }
+        .log-info { font-weight: 500; }
+        .log-tag { padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-left: 5px; }
+        .log-score-display { font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold; }
+        .del-btn { color: #ccc; cursor: pointer; padding: 0 5px; }
+        .del-btn:hover { color: #dc3545; }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .log-header h3 {
+            margin: 0;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.2); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(0,0,0,0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0); }
         }
 
         .podium-marker {
-            width: 80%; margin-top: calc(15px * var(--zoom));
-            background: #00CC00; padding: calc(6px * var(--zoom)) calc(10px * var(--zoom)); border-radius: calc(4px * var(--zoom));
-            color: #000; font-weight: bold; border: calc(2px * var(--zoom)) solid #ced4da; font-size: calc(1rem * var(--zoom));
-            display: flex; justify-content: space-between; align-items: center; 
+            width: 100%;
+            text-align: center;
+            margin-top: calc(15px * var(--zoom));
+            background: #00CC00; 
+            padding: calc(8px * var(--zoom));
+            border-radius: 4px;
+            color: #000000; 
+            font-weight: bold;
+            letter-spacing: 2px;
+            border: 2px solid #ced4da;
+            font-size: calc(1rem * var(--zoom));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .podium-text { flex: 1; text-align: center; }
@@ -89,672 +383,823 @@
             cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.2); white-space: nowrap;
         }
         .display-toggle-btn:active { background: #fff; transform: scale(0.95); }
-
-        #behavior-area {
-            flex: 0 0 45%; min-height: 220px; max-height: 55vh; overflow: auto; touch-action: pan-x pan-y;
-            border-top: 2px solid #ddd; background: #fff; padding: 15px; position: relative; z-index: 5;
-            box-shadow: 0 -2px 5px rgba(0,0,0,0.03);
-        }
-
-        .behavior-section { width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
-        .behavior-section h3 { margin: 0 0 calc(12px * var(--behavior-zoom)) 0; font-size: calc(1.05rem * var(--behavior-zoom)); color: #333; font-weight: bold; }
-        .inline-behavior-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(10px * var(--behavior-zoom)); width: 100%; }
-        .inline-behavior-btn {
-            padding: calc(12px * var(--behavior-zoom)) calc(5px * var(--behavior-zoom)); border-radius: calc(8px * var(--behavior-zoom)); 
-            font-size: calc(0.95rem * var(--behavior-zoom)); font-weight: bold; text-align: center; transition: all 0.2s; cursor: pointer;
-        }
-        .inline-behavior-btn:active { transform: scale(0.95); }
-
-        .log-header { padding: 15px; background: white; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 5; }
-        .log-list { padding: 10px; }
-        .log-item { background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .log-time { color: #888; font-size: 0.8rem; }
-        .log-name { font-size: 1.1rem; font-weight: bold; margin: 0 10px; }
-        .log-tag { padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; color: white;}
-        .log-score-display { font-size: 0.8rem; color: #555; margin-left: 5px; font-weight: bold; } 
-        .del-btn { color: #dc3545; padding: 10px; font-size: 1.2rem; }
-
-        .settings-container { padding: 15px; }
-        .setting-card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .setting-card h3 { margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; border-bottom: 2px solid var(--primary-color); padding-bottom: 5px;}
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; color: #555; font-weight: bold; font-size: 0.9rem;}
-        .form-control { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
         
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 8px; }
-        .btn-primary { background: var(--primary-color); color: white; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-warning { background: #ffc107; color: #333; }
-        .btn-danger { background: #dc3545; color: white; }
-
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: white;
-            display: flex; border-top: 1px solid #ddd; z-index: 30; padding-bottom: env(safe-area-inset-bottom); 
+        /* Modal 樣式 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
         }
-        .nav-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; font-size: 0.75rem; }
-        .nav-item i { font-size: 1.4rem; margin-bottom: 2px; }
-        .nav-item.active { color: var(--primary-color); }
-
-        .toast {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white;
-            padding: 10px 20px; border-radius: 20px; font-size: 0.9rem; z-index: 1000; display: none; opacity: 0; transition: opacity 0.3s;
+        .modal-content {
+            background: white; padding: 20px; border-radius: 8px; width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-footer {
+            margin-top: 20px; text-align: right;
+        }
     </style>
 </head>
 <body>
-    <header>
-        <h1>課堂行為記錄</h1>
-        <div class="class-badge" id="header-class-code">未設定</div>
-    </header>
-
-    <main id="tab-seating" class="tab-content active">
-        <div id="seating-area">
-            <div class="seating-wrapper" id="seating-wrapper">
-                <div id="seating-grid">
-                    <div style="padding: 30px 10px; color:#888; text-align:center; font-size:0.9rem;">請至「設定」輸入班級並同步座位表</div>
-                </div>
-                <div class="podium-marker" id="podium" style="display:none;">
-                    <div class="podium-text">講台</div>
-                    <button class="display-toggle-btn" onclick="toggleSeatDisplayMode()">🔄 座號/姓名</button>
-                </div>
-            </div>
+<header>
+    <div class="header-row">
+        <div class="title-group">
+            <h1 class="main-title">學生課堂行為記錄(筆電座位模式)--阿發老師設計</h1>
         </div>
         
-        <div id="behavior-area">
-            <div class="behavior-section">
-                <h3>選擇行為</h3>
-                <div class="inline-behavior-grid" id="behavior-btn-container"></div>
+        <div class="config-group">
+            <span class="config-label">班級代碼(3碼):</span>
+            <input type="text" id="class-code" placeholder="如: 101" maxlength="3" oninput="updateDisplayClassCode(this.value)">
+            <button class="btn-warning" onclick="loadClassDataFromCloud()" title="從雲端下載該代碼的座位表">下載座位表</button>
+        </div>
+    </div>
+
+    <div class="header-row">
+        <div class="config-group">
+            <span class="config-label">🔍 縮放:</span>
+            <input type="range" id="zoom-slider" min="0.6" max="1.5" step="0.05" value="1" oninput="document.documentElement.style.setProperty('--zoom', this.value)" style="width: 80px;" title="調整座位表大小">
+            <button class="btn-primary" onclick="toggleFlip()" title="切換為從教室後方觀看的視角" style="margin-left: 10px;">🔄 翻轉教室</button>
+        </div>
+
+        <div id="display-class-code" style="color: var(--primary-color); font-size: 1.8rem; font-weight: 900; flex: 1; text-align: center; letter-spacing: 2px;"></div>
+    </div>
+</header>
+
+<main>
+    <div id="classroom-container">
+        <!-- 加上 classroom-wrapper 以便控制講台與座位的上下反轉 -->
+        <div id="classroom-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+            <div id="seating-grid">
+                <!-- 座位將由 JS 插入 -->
+                <div style="padding: 30px 10px; color:#888; text-align:center; font-size:1.2rem; grid-column: 1 / -1;">請在上方輸入班級代碼並點擊「下載座位表」</div>
+            </div>
+            <div class="podium-marker" id="podium" style="display:none;">
+                <div class="podium-text">講台 (TEACHER)</div>
+                <button class="display-toggle-btn" onclick="toggleSeatDisplayMode()">🔄 切換姓名模式</button>
             </div>
         </div>
-    </main>
+    </div>
 
-    <main id="tab-logs" class="tab-content">
+    <aside>
+        <h3 style="display: flex; justify-content: space-between; align-items: center;">
+            1. 選擇學生上課行為
+            <button id="sync-behavior-btn" class="btn-info" style="font-size: 1rem; padding: 4px 10px;" onclick="loadBehaviorsFromCloud()" title="從雲端試算表讀取最新的行為設定">🔄 同步雲端設定</button>
+        </h3>
+        <div class="behavior-selector" id="behavior-group">
+            <div id="behavior-btn-container" style="display: contents;"></div>
+            
+            <div class="behavior-input-wrapper">
+                <input type="text" id="custom-input" placeholder="新增(可以直接輸入)..." onfocus="handleCustomFocus(this)" oninput="handleCustomInput(this)">
+            </div>
+        </div>
+
         <div class="log-header">
-            <h3 style="margin:0;">暫時記錄區</h3>
-            <span id="log-count" style="background:#eee; padding:2px 8px; border-radius:10px; font-size:0.8rem;">0 筆</span>
+            <h3>2. 暫時記錄區</h3>
+            <button class="btn-danger-outline" onclick="clearAllLogs()">刪除所有記錄</button>
         </div>
-        <div style="padding: 10px;">
-            <button class="btn btn-primary" onclick="uploadToGoogleSheet()"><i class="fa-solid fa-cloud-arrow-up"></i> 上傳到雲端</button>
-        </div>
-        <div class="log-list" id="log-list"></div>
-    </main>
-
-    <main id="tab-settings" class="tab-content">
-        <div class="settings-container">
-            <div class="setting-card">
-                <h3>📚 班級設定</h3>
-                <div class="form-group">
-                    <label>顏色滿分門檻 (預設 10)</label>
-                    <input type="number" id="color-threshold" class="form-control" value="10" min="1" onchange="updateAllSeatColors()">
-                </div>
-                <div class="form-group">
-                    <label>班級代碼 (如: 310)</label>
-                    <input type="text" id="class-code" class="form-control" onchange="updateClassCode()">
-                </div>
-                <button class="btn btn-warning" onclick="loadClassDataFromCloud()"><i class="fa-solid fa-cloud-arrow-down"></i> 下載/更新座位表</button>
-            </div>
-
-            <div class="setting-card">
-                <h3>☁️ 系統同步</h3>
-                <div class="form-group">
-                    <label>GAS 網址</label>
-                    <input type="text" id="gas-url" class="form-control" onchange="saveGASUrl()">
-                </div>
-                <button class="btn btn-success" onclick="loadBehaviorsFromCloud()"><i class="fa-solid fa-sync"></i> 同步行為分數</button>
-                <button class="btn btn-warning" style="margin-top:20px;" onclick="recalcStatsFromCloud()"><i class="fa-solid fa-rotate"></i> 重新整理統計表</button>
-                <button class="btn btn-danger" style="margin-top:20px;" onclick="clearAllLogs()"><i class="fa-solid fa-trash"></i> 清空手機記錄</button>
-            </div>
-        </div>
-    </main>
-
-    <nav class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('seating', this)"><i class="fa-solid fa-users-rectangle"></i><span>座位</span></div>
-        <div class="nav-item" onclick="switchTab('logs', this)"><i class="fa-solid fa-clipboard-list"></i><span>記錄</span></div>
-        <div class="nav-item" onclick="switchTab('settings', this)"><i class="fa-solid fa-gear"></i><span>設定</span></div>
-    </nav>
-
-    <div class="toast" id="toast">已記錄！</div>
-
-    <script>
-        let currentBehavior = { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 };
-        let logs = [];
-        let gasUrl = ''; 
-        let colorMap = {}; 
-        let classSeatData = { rows: 0, cols: 0, names: {}, scores: {} };
         
-        let displayMode = 0; 
-        
-        let behaviorsList = [
-            { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 },
-            { name: '積極搶答', value: '搶答', color: '#0000FF', score: 1 },
-            { name: '睡覺', value: '睡覺', color: '#FF0000', score: -2 },
-            { name: '聊天', value: '聊天', color: '#FF0000', score: -1 }
-        ];
+        <div class="log-container" id="log-list"></div>
 
-        window.onload = function() {
-            gasUrl = localStorage.getItem('gas_url') || '';
-            document.getElementById('gas-url').value = gasUrl;
+        <div style="margin-top: auto; display: flex; flex-direction: column; gap: 5px;">
+             <button class="btn-success" onclick="exportToExcel()">
+                匯出記錄 (.Excel / .xls)
+            </button>
+            <div style="display:flex; gap: 5px;">
+                 <button class="btn-outline" style="flex:1" onclick="openCloudConfig()">⚙️ Google Sheet 設定</button>
+                 <button class="btn-primary" style="flex:2" onclick="uploadToGoogleSheet()">☁️ 上傳到雲端</button>
+            </div>
+            <button class="btn-outline" onclick="recalcStatsFromCloud()" title="當你直接在試算表上手動刪除/修改過紀錄後，用這個按鈕強制重新核算統計表">🔄 重新整理統計表</button>
+        </div>
+    </aside>
+</main>
+
+<div id="cloudModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3>Google Apps Script 設定</h3>
+        <p style="font-size: 0.9rem; color: #666;">
+            請輸入您部署的 Google Apps Script 網頁應用程式網址 (以 https://script.google.com 開頭)：
+        </p>
+        <textarea id="gas-url-input" rows="4" style="width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 5px;"></textarea>
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="closeCloudConfig()">取消</button>
+            <button class="btn-primary" onclick="saveCloudConfig()">儲存設定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 預設行為設定
+    let currentBehavior = { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 };
+    let isCustomMode = false;
+    let logs = [];
+    let gasUrl = ''; 
+    let colorMap = {}; 
+    const CUSTOM_COLOR = '#d63384';
+    
+    // 儲存目前的行列數與翻轉狀態
+    let currentRows = 0;
+    let currentCols = 0;
+    let isFlipped = false;
+    
+    // 座位與成績資料
+    let classSeatData = { rows: 0, cols: 0, names: {}, scores: {} };
+    
+    // ✨ 修改：狀態 0=座號+中文, 1=純中文, 2=座號+英文
+    let displayMode = 0; 
+
+    let behaviorsList = [
+        { name: '認真聽講', value: '認真聽講', color: '#0000FF', score: 1 },
+        { name: '積極搶答', value: '搶答', color: '#0000FF', score: 1 },
+        { name: '睡覺', value: '睡覺', color: '#FF0000', score: -2 },
+        { name: '聊天', value: '聊天', color: '#FF0000', score: -1 }
+    ];
+
+    window.onload = function() {
+        gasUrl = localStorage.getItem('gas_url') || '';
+        
+        // ✨ 讀取儲存的顯示模式 (為了向下相容舊版，如果是 true 就轉為 1，false 轉為 0)
+        const savedMode = localStorage.getItem('display_mode_laptop');
+        if (savedMode !== null) {
+            displayMode = parseInt(savedMode, 10);
+        } else {
+            // 向下相容
+            const oldMode = localStorage.getItem('show_name_mode_laptop');
+            if (oldMode === 'true') displayMode = 1;
+            else displayMode = 0;
+        }
+        
+        const savedCode = localStorage.getItem('current_class_code_laptop') || '';
+        document.getElementById('class-code').value = savedCode;
+        updateDisplayClassCode(savedCode);
+        
+        const savedBehaviors = localStorage.getItem('custom_behaviors');
+        if (savedBehaviors) {
+            behaviorsList = JSON.parse(savedBehaviors);
+        }
+        renderBehaviors();
+        loadFromStorage();
+    };
+
+    function renderBehaviors() {
+        const container = document.getElementById('behavior-btn-container');
+        container.innerHTML = '';
+        colorMap = {}; 
+        
+        const sortedBehaviors = [...behaviorsList].sort((a, b) => {
+            const getWeight = (c) => {
+                const color = String(c).toUpperCase();
+                if (color === '#0000FF') return 1;
+                if (color === '#FF0000') return 2;
+                return 3;
+            };
+            return getWeight(a.color) - getWeight(b.color);
+        });
+        
+        sortedBehaviors.forEach((b) => {
+            colorMap[b.value] = b.color;
+            const btn = document.createElement('div');
+            btn.className = 'behavior-btn';
+            btn.dataset.color = b.color;
+            btn.innerText = b.name;
             
-            const savedMode = localStorage.getItem('display_mode');
-            if (savedMode !== null) displayMode = parseInt(savedMode, 10);
+            btn.onclick = function() {
+                isCustomMode = false;
+                currentBehavior = b; // 儲存整個物件，包含 score
+                document.getElementById('custom-input').classList.remove('active');
+                
+                document.querySelectorAll('.behavior-btn').forEach(el => {
+                    const baseColor = el.dataset.color;
+                    if (el === btn) {
+                        el.style.backgroundColor = baseColor;
+                        el.style.color = 'white';
+                        el.style.borderColor = baseColor;
+                    } else {
+                        el.style.backgroundColor = baseColor + '22';
+                        el.style.color = baseColor;
+                        el.style.borderColor = baseColor + '55';
+                    }
+                });
+            };
             
-            const savedThreshold = localStorage.getItem('color_threshold') || 10;
-            document.getElementById('color-threshold').value = savedThreshold;
+            container.appendChild(btn);
+        });
+
+        const firstBtn = container.querySelector('.behavior-btn');
+        if (firstBtn) firstBtn.click();
+    }
+
+    function loadBehaviorsFromCloud() {
+        if (!gasUrl) {
+            alert("請先在右下方設定 Google Sheet (GAS) 網址！");
+            openCloudConfig();
+            return;
+        }
+        
+        const btn = document.getElementById('sync-behavior-btn');
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ 載入中...";
+        btn.disabled = true;
+
+        fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: "loadBehaviors" }),
+            headers: { "Content-Type": "text/plain;charset=utf-8" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.result === 'success') {
+                behaviorsList = data.behaviors;
+                localStorage.setItem('custom_behaviors', JSON.stringify(behaviorsList));
+                renderBehaviors();
+                alert("✅ 成功從雲端同步行為設定！");
+            } else {
+                alert("同步失敗：" + (data.error || "未知錯誤"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("連線錯誤，無法從雲端同步設定。");
+        })
+        .finally(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    // 自訂行為處理
+    function handleCustomFocus(input) {
+        isCustomMode = true;
+        document.querySelectorAll('.behavior-btn').forEach(btn => {
+            const baseColor = btn.dataset.color;
+            btn.style.backgroundColor = baseColor + '22';
+            btn.style.color = baseColor;
+            btn.style.borderColor = baseColor + '55';
+        });
+        input.classList.add('active');
+        updateCustomBehavior(input.value);
+    }
+    
+    function handleCustomInput(input) {
+        if(isCustomMode) {
+            updateCustomBehavior(input.value);
+        }
+    }
+    
+    function updateCustomBehavior(val) {
+        const text = val.trim() ? val.trim() : "自訂記錄";
+        currentBehavior = {
+            name: text,
+            value: text,
+            color: CUSTOM_COLOR,
+            score: 0 
+        };
+    }
+
+    function updateDisplayClassCode(val) {
+        const display = document.getElementById('display-class-code');
+        localStorage.setItem('current_class_code_laptop', val);
+        if (val && val.trim() !== '') {
+            display.innerText = `班級：${val.trim()}`;
+        } else {
+            display.innerText = '';
+        }
+    }
+
+    // --- Google Sheet 網址設定 ---
+    function openCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'flex';
+        document.getElementById('gas-url-input').value = gasUrl;
+    }
+    
+    function closeCloudConfig() {
+        document.getElementById('cloudModal').style.display = 'none';
+    }
+    
+    function saveCloudConfig() {
+        const url = document.getElementById('gas-url-input').value.trim();
+        if(url) {
+            gasUrl = url;
+            localStorage.setItem('gas_url', gasUrl);
+            alert("網址已儲存！");
+            closeCloudConfig();
+        } else {
+            alert("請輸入網址");
+        }
+    }
+
+    // ✨ 輔助函數：檢查該班級是否有任何英文名字
+    function classHasEnglishNames() {
+        if (!classSeatData || !classSeatData.names) return false;
+        for (let seatId in classSeatData.names) {
+            const parts = classSeatData.names[seatId].split("|||");
+            if (parts.length > 2 && parts[2].trim() !== "") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // --- 載入雲端座位表 ---
+    function loadClassDataFromCloud(silent = false) {
+        const code = document.getElementById('class-code').value.trim();
+        if (!code) { if(!silent) alert('請先輸入班級代碼'); return; }
+        if (!gasUrl) { if(!silent) { alert('請先設定 GAS 網址'); openCloudConfig(); } return; }
+
+        const btn = document.querySelector('.btn-warning'); 
+        const originalText = btn.innerText;
+        btn.innerText = "雲端下載中...";
+        btn.disabled = true;
+
+        fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: "loadSeat", classCode: code }),
+            headers: { "Content-Type": "text/plain;charset=utf-8" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.result === 'success') {
+                classSeatData = data.seatData;
+                localStorage.setItem(`class_seatData_laptop_${code}`, JSON.stringify(classSeatData));
+                
+                // 下載後檢查，如果目前是英文模式但該班沒英文名，強制切回座號+中文模式
+                if (displayMode === 2 && !classHasEnglishNames()) {
+                     displayMode = 0;
+                     localStorage.setItem('display_mode_laptop', displayMode);
+                }
+                
+                if(!silent && confirm("是否要清空目前的「暫時上課計數」？")) {
+                    localStorage.setItem(`student_counts_laptop_${code}`, '{}');
+                    logs = [];
+                    localStorage.setItem('class_logs_laptop', '[]');
+                }
+                
+                loadFromStorage();
+                if(!silent) alert(`✅ 成功下載 [${code}座位表]！`);
+            } else {
+                if(!silent) alert("讀檔失敗：" + (data.error || "找不到檔案"));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            if(!silent) alert("連線錯誤，無法從雲端讀取。");
+        })
+        .finally(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    // ✨ 修改：根據 displayMode 格式化文字 (處理 |||)
+    function getDisplayText(seatNo, logName, enName) {
+        if (!logName || logName === 'undefined') return '';
+        let nameStr = String(logName); // "01 歐陽陞峻"
+        
+        if (displayMode === 0) {
+            // 模式 0: 顯示座號+中文姓名 (預設)
+            return nameStr;
+        } else if (displayMode === 1) {
+            // 模式 1: 移除座號前綴，只顯示中文名
+            let nameOnly = nameStr.replace(/^\d+\s*/, ''); 
+            if (!nameOnly) nameOnly = nameStr; 
+            return nameOnly;
+        } else if (displayMode === 2) {
+            // 模式 2: 座號 + 英文名字
+            if (enName && enName.trim() !== "") {
+                return seatNo + " " + enName;
+            } else {
+                // 如果該學生沒有英文名，備案顯示 "座號 (無)" 或 退回顯示中文
+                return seatNo + " " + (nameStr.replace(/^\d+\s*/, '') || "(無)");
+            }
+        }
+        return nameStr;
+    }
+
+    // ✨ 修改：切換模式邏輯
+    function toggleSeatDisplayMode() {
+        // 切換模式: 0 -> 1 -> 2 -> 0...
+        displayMode = (displayMode + 1) % 3;
+        
+        // 如果切換到英文模式(2)，但全班都沒有英文名字，就跳過直接回到(0)
+        if (displayMode === 2 && !classHasEnglishNames()) {
+            displayMode = 0;
+        }
+
+        localStorage.setItem('display_mode_laptop', displayMode);
+        
+        if (classSeatData && classSeatData.names) {
+            for (let seatId in classSeatData.names) {
+                const rawData = classSeatData.names[seatId];
+                const nameDisplay = document.querySelector(`#seat-${seatId} .seat-name-display`);
+                if (nameDisplay && rawData) {
+                    const parts = rawData.split("|||");
+                    const seatNo = parts[0];
+                    const logName = parts[1] || parts[0];
+                    const enName = parts[2] || ""; // 取出英文名
+                    
+                    nameDisplay.innerText = getDisplayText(seatNo, logName, enName);
+                }
+            }
+        }
+    }
+
+    // --- 翻轉教室 ---
+    function toggleFlip() {
+        isFlipped = !isFlipped;
+        
+        const wrapper = document.getElementById('classroom-wrapper');
+        if (isFlipped) {
+            wrapper.style.flexDirection = 'column-reverse';
+        } else {
+            wrapper.style.flexDirection = 'column';
+        }
+        
+        generateSeats();
+    }
+
+    // --- 產生座位表 ---
+    function generateSeats() {
+        const grid = document.getElementById('seating-grid');
+        const podium = document.getElementById('podium');
+        
+        if (!classSeatData || classSeatData.rows === 0) {
+            grid.innerHTML = '<div style="padding: 30px 10px; color:#888; text-align:center; font-size:1.2rem; grid-column: 1 / -1;">請在上方輸入班級代碼並點擊「下載座位表」</div>';
+            podium.style.display = 'none'; 
+            return;
+        }
+
+        currentRows = classSeatData.rows;
+        currentCols = classSeatData.cols;
+        const names = classSeatData.names;
+        const code = document.getElementById('class-code').value.trim();
+        const savedCounts = JSON.parse(localStorage.getItem(`student_counts_laptop_${code}`) || '{}');
+
+        grid.style.gridTemplateColumns = `repeat(${currentCols}, 1fr)`;
+        grid.innerHTML = '';
+        podium.style.display = 'flex';
+
+        // 根據是否翻轉，決定迴圈渲染的方向
+        const rStart = isFlipped ? currentRows : 1;
+        const rEnd = isFlipped ? 1 : currentRows;
+        const rStep = isFlipped ? -1 : 1;
+
+        const cStart = isFlipped ? currentCols : 1;
+        const cEnd = isFlipped ? 1 : currentCols;
+        const cStep = isFlipped ? -1 : 1;
+
+        for (let r = rStart; r !== rEnd + rStep; r += rStep) {
+            for (let c = cStart; c !== cEnd + cStep; c += cStep) {
+                const seatId = `r${r}-c${c}`;
+                const rawData = names[seatId] || '';
+                
+                const seatDiv = document.createElement('div');
+                seatDiv.className = 'seat';
+                seatDiv.id = `seat-${seatId}`;
+
+                if (rawData) {
+                    const parts = rawData.split("|||");
+                    const seatNo = parts[0];
+                    const logName = parts[1] || parts[0];
+                    const enName = parts[2] || ""; // 取出英文名
+
+                    // 點擊事件維持傳入 logName ("座號 中文姓名") 給流水帳
+                    seatDiv.onclick = (e) => handleSeatClick(seatId, logName, e);
+                    
+                    // 用 div 取代 input
+                    const nameDisplay = document.createElement('div');
+                    nameDisplay.className = 'seat-name-display';
+                    
+                    // ✨ 初始顯示帶入英文名字判斷
+                    nameDisplay.innerText = getDisplayText(seatNo, logName, enName);
+                    
+                    const badge = document.createElement('div');
+                    badge.className = 'seat-badge';
+                    badge.id = `badge-${seatId}`;
+                    if (savedCounts[seatId] && savedCounts[seatId] > 0) {
+                        badge.innerText = savedCounts[seatId];
+                        badge.style.opacity = 1;
+                        badge.style.backgroundColor = currentBehavior.color;
+                    }
+
+                    seatDiv.appendChild(nameDisplay);
+                    seatDiv.appendChild(badge);
+                } else {
+                    seatDiv.classList.add('empty-seat');
+                }
+                grid.appendChild(seatDiv);
+            }
+        }
+    }
+
+    function handleSeatClick(seatId, logName, event) {
+        if (!logName) return;
+
+        const seatDiv = document.getElementById(`seat-${seatId}`);
+        const originalBg = seatDiv.style.backgroundColor;
+        const behaviorColor = currentBehavior.color || CUSTOM_COLOR;
+        
+        const CANCEL_WINDOW_MS = 30000;
+        let existingLogIndex = -1;
+        for(let i = logs.length - 1; i >= 0; i--) {
+            if(logs[i].seatId === seatId && logs[i].behavior === currentBehavior.value) {
+                if (Date.now() - logs[i].id <= CANCEL_WINDOW_MS) {
+                    existingLogIndex = i;
+                }
+                break;
+            }
+        }
+
+        if (existingLogIndex !== -1) {
+            logs.splice(existingLogIndex, 1);
+            saveLogsToStorage();
+            updateSeatCount(seatId, -1);
+            updateLogDisplay();
             
-            const savedBehaviors = localStorage.getItem('custom_behaviors');
-            if (savedBehaviors) behaviorsList = JSON.parse(savedBehaviors);
-            
-            const savedCode = localStorage.getItem('current_class_code') || '';
-            document.getElementById('class-code').value = savedCode;
-            updateClassCodeUI(savedCode);
-            
-            renderBehaviors();
-            loadFromStorage();
-            initPinchZoom();
+            seatDiv.style.backgroundColor = '#dcdcdc'; 
+            setTimeout(() => { seatDiv.style.backgroundColor = originalBg || '#ffff99'; }, 200);
+            return;
+        }
+
+        seatDiv.style.borderColor = behaviorColor;
+        seatDiv.style.backgroundColor = behaviorColor + '33'; 
+        seatDiv.classList.add('active-click');
+        setTimeout(() => {
+            seatDiv.style.borderColor = '';
+            seatDiv.style.backgroundColor = '#ffff99'; 
+            seatDiv.classList.remove('active-click');
+        }, 300);
+
+        const timestamp = new Date();
+        const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
+        
+        const year = timestamp.getFullYear();
+        const month = String(timestamp.getMonth() + 1).padStart(2, '0'); 
+        const day = String(timestamp.getDate()).padStart(2, '0');
+        const localFullTime = `${year}-${month}-${day} ${timeString}`;
+        
+        const logEntry = {
+            id: Date.now(),
+            seatId: seatId,
+            name: logName,
+            behavior: currentBehavior.value,
+            score: currentBehavior.score || 0, // 新增分數記錄
+            time: timeString,
+            fullTime: localFullTime 
         };
 
-        function initPinchZoom() {
-            createPinchZoom('seating-area', '--zoom', '--seat-size', true);
-            createPinchZoom('behavior-area', '--behavior-zoom', null, false);
-        }
+        logs.push(logEntry);
+        updateLogDisplay();
+        updateSeatCount(seatId, 1);
+        saveLogsToStorage();
+    }
 
-        function createPinchZoom(elementId, zoomVarName, seatSizeVar, isSeatArea) {
-            const area = document.getElementById(elementId);
-            if (!area) return;
-            let initialDistance = 0, initialZoom = 1, initialSeatSize = 80;
-            area.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 2) {
-                    initialDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                    initialZoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(zoomVarName)) || 1;
-                    if(isSeatArea) initialSeatSize = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(seatSizeVar).replace('px', '').trim()) || 80;
-                }
-            }, { passive: false });
-            area.addEventListener('touchmove', (e) => {
-                if (e.touches.length === 2 && initialDistance > 0) {
-                    e.preventDefault(); 
-                    const currentDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                    let newZoom = initialZoom * (currentDistance / initialDistance);
-                    newZoom = Math.max(0.4, Math.min(newZoom, 2.5));
-                    document.documentElement.style.setProperty(zoomVarName, newZoom);
-                    if (isSeatArea) {
-                        let newSize = initialSeatSize * (currentDistance / initialDistance);
-                        newSize = Math.max(40, Math.min(newSize, 160));
-                        document.documentElement.style.setProperty(seatSizeVar, newSize + 'px');
-                    }
-                }
-            }, { passive: false });
-            area.addEventListener('touchend', (e) => { if (e.touches.length < 2) initialDistance = 0; });
-        }
-
-        function switchTab(tabId, el) {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-            el.classList.add('active');
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg; toast.style.display = 'block';
-            setTimeout(() => toast.style.opacity = 1, 10);
-            setTimeout(() => { toast.style.opacity = 0; setTimeout(() => toast.style.display = 'none', 300); }, 2000);
-        }
-
-        function updateClassCode() {
-            const val = document.getElementById('class-code').value.trim();
-            localStorage.setItem('current_class_code', val);
-            updateClassCodeUI(val);
-        }
-        function updateClassCodeUI(val) { document.getElementById('header-class-code').innerText = val ? `班級: ${val}` : '未設定'; }
-
-        function saveGASUrl() {
-            gasUrl = document.getElementById('gas-url').value.trim();
-            localStorage.setItem('gas_url', gasUrl); showToast("網址已儲存");
-        }
-
-        function renderBehaviors() {
-            const container = document.getElementById('behavior-btn-container');
-            container.innerHTML = ''; colorMap = {}; 
-            const sortedBehaviors = [...behaviorsList].sort((a, b) => {
-                const getWeight = (c) => {
-                    const color = String(c).toUpperCase();
-                    if (color === '#0000FF') return 1; if (color === '#FF0000') return 2; return 3;
-                };
-                return getWeight(a.color) - getWeight(b.color);
-            });
-
-            sortedBehaviors.forEach((b) => {
-                colorMap[b.value] = b.color;
-                const btn = document.createElement('div');
-                btn.className = 'inline-behavior-btn'; btn.dataset.color = b.color; btn.innerText = b.name;
-                btn.onclick = () => {
-                    currentBehavior = b; 
-                    document.querySelectorAll('.inline-behavior-btn').forEach(el => {
-                        const baseColor = el.dataset.color;
-                        if (el === btn) { el.style.backgroundColor = baseColor; el.style.color = 'white'; } 
-                        else { el.style.backgroundColor = baseColor + '22'; el.style.color = baseColor; }
-                    });
-                };
-                container.appendChild(btn); 
-            });
-            const firstBtn = container.querySelector('.inline-behavior-btn');
-            if (firstBtn) firstBtn.click();
-        }
-
-        function loadFromStorage() {
-            const savedLogs = localStorage.getItem('class_logs');
-            if (savedLogs) logs = JSON.parse(savedLogs);
-            updateLogDisplay();
-
-            const code = document.getElementById('class-code').value.trim();
-            if (code) {
-                const savedData = localStorage.getItem(`class_seatData_${code}`);
-                if (savedData) {
-                    classSeatData = JSON.parse(savedData);
-                    generateSeats();
-                }
-            }
-        }
-
-        function classHasEnglishNames() {
-            if (!classSeatData || !classSeatData.names) return false;
-            for (let seatId in classSeatData.names) {
-                const parts = classSeatData.names[seatId].split("|||");
-                if (parts.length > 2 && parts[2].trim() !== "") {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function getDisplayText(seatNo, logName, enName) {
-            if (displayMode === 0) {
-                return seatNo;
-            } else if (displayMode === 1) {
-                if (!logName || logName === 'undefined') return '';
-                let nameStr = String(logName);
-                let nameOnly = nameStr.replace(/^\d+\s*/, ''); 
-                if (!nameOnly) nameOnly = nameStr; 
-                
-                if (nameOnly.length === 2 || nameOnly.length === 3) {
-                    return nameOnly.charAt(0) + '<br>' + nameOnly.substring(1);
-                } else if (nameOnly.length === 4) {
-                    return nameOnly.substring(0, 2) + '<br>' + nameOnly.substring(2);
-                }
-                return nameOnly;
-            } else if (displayMode === 2) {
-                if (enName && enName.trim() !== "") {
-                    return enName; 
-                } else {
-                    if (!logName || logName === 'undefined') return '';
-                    let nameStr = String(logName);
-                    let nameOnly = nameStr.replace(/^\d+\s*/, ''); 
-                    if (!nameOnly) nameOnly = nameStr; 
-                    return `<span style="font-size:0.8em;color:#666;">(無)</span><br>${nameOnly}`;
-                }
-            }
-            return seatNo; 
-        }
-
-        function toggleSeatDisplayMode() {
-            displayMode = (displayMode + 1) % 3;
+    function updateLogDisplay() {
+        const list = document.getElementById('log-list');
+        list.innerHTML = '';
+        [...logs].reverse().forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'log-item';
+            const color = colorMap[log.behavior] || CUSTOM_COLOR;
             
-            if (displayMode === 2 && !classHasEnglishNames()) {
-                displayMode = 0;
-            }
-
-            localStorage.setItem('display_mode', displayMode);
-            
-            if (classSeatData && classSeatData.names) {
-                for (let seatId in classSeatData.names) {
-                    const rawData = classSeatData.names[seatId];
-                    const nameSpan = document.querySelector(`#seat-${seatId} .seat-name`);
-                    if (nameSpan && rawData) {
-                        const parts = rawData.split("|||");
-                        const seatNo = parts[0];
-                        const logName = parts[1] || parts[0];
-                        const enName = parts[2] || ""; 
-                        
-                        nameSpan.innerHTML = getDisplayText(seatNo, logName, enName);
-                        
-                        if (displayMode === 1 || displayMode === 2) {
-                            nameSpan.classList.add('mode-name'); 
-                        } else {
-                            nameSpan.classList.remove('mode-name'); 
-                        }
-                    }
-                }
+            let scoreText = '';
+            if (log.score !== undefined && log.score !== 0) {
+                scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
             }
             
-            const modeNames = ["座號模式", "中文姓名模式", "英文姓名模式"];
-            showToast(`已切換為：${modeNames[displayMode]}`);
-        }
+            // 列表過濾座號，只顯示姓名
+            let displayNameOnly = String(log.name).replace(/^\d+\s*/, '');
+            if(!displayNameOnly) displayNameOnly = log.name;
 
-        function updateSingleSeatColor(seatId) {
-            const code = document.getElementById('class-code').value.trim();
-            const thresholdInput = document.getElementById('color-threshold');
-            const threshold = parseFloat(thresholdInput.value) || 10;
-            localStorage.setItem('color_threshold', threshold);
+            item.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span class="log-time">[${log.time}]</span>
+                    <span class="log-info">${displayNameOnly}</span>
+                    <span class="log-tag" style="background-color: ${color}">${log.behavior}</span>
+                    <span class="log-score-display">${scoreText}</span>
+                </div>
+                <div class="del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')" title="刪除">✕</div>
+            `;
+            list.appendChild(item);
+        });
+    }
 
-            const rawData = classSeatData.names[seatId] || '';
-            if (!rawData) return;
-            
-            const logName = rawData.split("|||")[1] || rawData.split("|||")[0];
-            const baseScore = (classSeatData.scores && classSeatData.scores[logName]) ? classSeatData.scores[logName] : 0;
-            const deltas = JSON.parse(localStorage.getItem(`student_score_deltas_${code}`) || '{}');
-            const currentDelta = deltas[seatId] || 0;
-            const totalScore = baseScore + currentDelta;
-            
-            const seatDiv = document.getElementById(`seat-${seatId}`);
-            if (!seatDiv || seatDiv.classList.contains('empty-seat')) return;
+    function deleteLog(logId, seatId) {
+        logs = logs.filter(log => log.id !== logId);
+        updateSeatCount(seatId, -1);
+        updateLogDisplay();
+        saveLogsToStorage();
+    }
+    
+    function clearAllLogs(skipConfirm = false) {
+        if(!skipConfirm && !confirm("確定要刪除「所有」觀測記錄嗎？\n這將會把所有學生的行為計數歸零！")) return;
+        
+        const code = document.getElementById('class-code').value.trim();
+        logs = [];
+        saveLogsToStorage();
+        localStorage.setItem(`student_counts_laptop_${code}`, '{}');
+        
+        updateLogDisplay();
+        generateSeats(); // 重新渲染座位，清除數字標記
+    }
 
-            if (totalScore === 0) {
-                seatDiv.style.borderColor = '#ccc';
-            } else if (totalScore > 0) {
-                let ratio = Math.min(totalScore / threshold, 1);
-                let alpha = 0.3 + (0.7 * ratio);
-                seatDiv.style.borderColor = `rgba(0, 0, 255, ${alpha})`;
+    function updateSeatCount(seatId, delta) {
+        const code = document.getElementById('class-code').value.trim();
+        let counts = JSON.parse(localStorage.getItem(`student_counts_laptop_${code}`) || '{}');
+        let current = counts[seatId] || 0;
+        current += delta;
+        if (current < 0) current = 0;
+        counts[seatId] = current;
+        localStorage.setItem(`student_counts_laptop_${code}`, JSON.stringify(counts));
+
+        const badge = document.getElementById(`badge-${seatId}`);
+        if(badge) {
+            if (current > 0) {
+                badge.innerText = current;
+                badge.style.opacity = 1;
+                badge.style.backgroundColor = colorMap[currentBehavior.value] || CUSTOM_COLOR;
             } else {
-                let ratio = Math.min(Math.abs(totalScore) / threshold, 1);
-                let alpha = 0.3 + (0.7 * ratio);
-                seatDiv.style.borderColor = `rgba(255, 0, 0, ${alpha})`;
+                badge.style.opacity = 0;
             }
         }
+    }
 
-        function updateAllSeatColors() {
-            if (!classSeatData || !classSeatData.names) return;
-            for (let seatId in classSeatData.names) {
-                updateSingleSeatColor(seatId);
-            }
-        }
+    function saveLogsToStorage() {
+        localStorage.setItem('class_logs_laptop', JSON.stringify(logs));
+    }
 
-        function generateSeats() {
-            const grid = document.getElementById('seating-grid');
-            const podium = document.getElementById('podium');
-            
-            if (!classSeatData || classSeatData.rows === 0) {
-                grid.innerHTML = '<div style="padding: 30px 10px; color:#888; text-align:center; font-size:0.9rem;">請至「設定」輸入班級並同步座位表</div>';
-                podium.style.display = 'none'; return;
-            }
-
-            const rows = classSeatData.rows; const cols = classSeatData.cols; const names = classSeatData.names;
-            const code = document.getElementById('class-code').value.trim();
-            const savedCounts = JSON.parse(localStorage.getItem(`student_counts_${code}`) || '{}');
-
-            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-            grid.innerHTML = ''; podium.style.display = 'flex';
-
-            for (let r = 1; r <= rows; r++) {
-                for (let c = 1; c <= cols; c++) {
-                    const seatId = `r${r}-c${c}`;
-                    const rawData = names[seatId] || '';
-                    
-                    const seatDiv = document.createElement('div');
-                    seatDiv.className = 'seat';
-                    seatDiv.id = `seat-${seatId}`;
-
-                    if (rawData) {
-                        const parts = rawData.split("|||");
-                        const seatNo = parts[0];
-                        const logName = parts[1] || parts[0];
-                        const enName = parts[2] || ""; 
-
-                        seatDiv.onclick = () => handleSeatClick(seatId, logName);
-                        
-                        const nameSpan = document.createElement('div');
-                        nameSpan.className = 'seat-name';
-                        if (displayMode === 1 || displayMode === 2) nameSpan.classList.add('mode-name');
-                        
-                        nameSpan.innerHTML = getDisplayText(seatNo, logName, enName);
-                        
-                        const badge = document.createElement('div');
-                        badge.className = 'seat-badge'; badge.id = `badge-${seatId}`;
-                        if (savedCounts[seatId] && savedCounts[seatId] > 0) {
-                            badge.innerText = savedCounts[seatId]; badge.style.opacity = 1;
-                            badge.style.backgroundColor = currentBehavior.color; 
-                        }
-                        seatDiv.appendChild(nameSpan); seatDiv.appendChild(badge);
-                    } else {
-                        seatDiv.classList.add('empty-seat');
-                    }
-                    grid.appendChild(seatDiv);
-                }
-            }
-            updateAllSeatColors(); 
-        }
-
-        function handleSeatClick(seatId, logName) {
-            const seatDiv = document.getElementById(`seat-${seatId}`);
-            const originalBg = seatDiv.style.backgroundColor;
-            
-            const CANCEL_WINDOW_MS = 30000;
-            let existingLogIndex = -1;
-            for(let i = logs.length - 1; i >= 0; i--) {
-                if(logs[i].seatId === seatId && logs[i].behavior === currentBehavior.value) {
-                    if (Date.now() - logs[i].id <= CANCEL_WINDOW_MS) {
-                        existingLogIndex = i;
-                    }
-                    break; 
-                }
-            }
-
-            if (existingLogIndex !== -1) {
-                const removedLog = logs.splice(existingLogIndex, 1)[0];
-                localStorage.setItem('class_logs', JSON.stringify(logs));
-                updateSeatCount(seatId, -1);
-                updateSeatScoreDelta(seatId, -(removedLog.score || 0)); 
-                updateLogDisplay();
-
-                seatDiv.style.backgroundColor = '#dcdcdc'; 
-                setTimeout(() => { 
-                    seatDiv.style.backgroundColor = originalBg || '#ffff99'; 
-                    updateSingleSeatColor(seatId); 
-                }, 200);
-                showToast(`已取消`); return; 
-            }
-
-            seatDiv.style.borderColor = currentBehavior.color; 
-            seatDiv.style.backgroundColor = currentBehavior.color + '66'; 
-            setTimeout(() => { 
-                seatDiv.style.backgroundColor = originalBg || '#ffff99'; 
-                updateSingleSeatColor(seatId); 
-            }, 200);
-
-            const timestamp = new Date(); const timeString = timestamp.toLocaleTimeString('zh-TW', { hour12: false });
-            const localFullTime = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')} ${timeString}`;
-            
-            const logEntry = {
-                id: Date.now(), seatId: seatId, name: logName, behavior: currentBehavior.value,
-                score: currentBehavior.score || 0, time: timeString, fullTime: localFullTime
-            };
-            logs.push(logEntry); localStorage.setItem('class_logs', JSON.stringify(logs));
-            
-            updateSeatCount(seatId, 1); 
-            updateSeatScoreDelta(seatId, logEntry.score); 
-            
-            let displayNameOnly = String(logName).replace(/^\d+\s*/, '');
-            if(!displayNameOnly) displayNameOnly = logName;
-
-            updateLogDisplay(); showToast(`${displayNameOnly} - ${currentBehavior.value}`);
-        }
-
-        function updateSeatScoreDelta(seatId, deltaScore) {
-            if (deltaScore === 0) return;
-            const code = document.getElementById('class-code').value.trim();
-            let deltas = JSON.parse(localStorage.getItem(`student_score_deltas_${code}`) || '{}');
-            deltas[seatId] = (deltas[seatId] || 0) + deltaScore;
-            localStorage.setItem(`student_score_deltas_${code}`, JSON.stringify(deltas));
-            updateSingleSeatColor(seatId);
-        }
-
-        function updateSeatCount(seatId, delta) {
-            const code = document.getElementById('class-code').value.trim();
-            let counts = JSON.parse(localStorage.getItem(`student_counts_${code}`) || '{}');
-            counts[seatId] = Math.max(0, (counts[seatId] || 0) + delta);
-            localStorage.setItem(`student_counts_${code}`, JSON.stringify(counts));
-
-            const badge = document.getElementById(`badge-${seatId}`);
-            if(badge) {
-                if (counts[seatId] > 0) {
-                    badge.innerText = counts[seatId]; badge.style.opacity = 1;
-                    badge.style.backgroundColor = colorMap[currentBehavior.value] || '#dc3545';
-                } else badge.style.opacity = 0;
-            }
-        }
-
-        function updateLogDisplay() {
-            const list = document.getElementById('log-list');
-            list.innerHTML = ''; document.getElementById('log-count').innerText = `${logs.length} 筆`;
-            
-            [...logs].reverse().forEach(log => {
-                const item = document.createElement('div');
-                item.className = 'log-item'; const color = colorMap[log.behavior] || '#333';
-                let scoreText = '';
-                if (log.score !== undefined && log.score !== 0) scoreText = log.score > 0 ? `(+${log.score})` : `(${log.score})`;
-                
-                let displayNameOnly = String(log.name).replace(/^\d+\s*/, '');
-                if(!displayNameOnly) displayNameOnly = log.name;
-
-                item.innerHTML = `
-                    <div style="display:flex; align-items:center;">
-                        <span class="log-time">${log.time}</span><span class="log-name">${displayNameOnly}</span>
-                        <span class="log-tag" style="background-color: ${color}">${log.behavior}</span><span class="log-score-display">${scoreText}</span>
-                    </div>
-                    <i class="fa-solid fa-trash-can del-btn" onclick="deleteLog(${log.id}, '${log.seatId}')"></i>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        function deleteLog(logId, seatId) {
-            const logToDelete = logs.find(l => l.id === logId);
-            if (logToDelete) {
-                updateSeatScoreDelta(seatId, -(logToDelete.score || 0));
-                updateSeatCount(seatId, -1);
-            }
-            logs = logs.filter(log => log.id !== logId);
-            localStorage.setItem('class_logs', JSON.stringify(logs));
+    function loadFromStorage() {
+        const savedLogs = localStorage.getItem('class_logs_laptop');
+        if (savedLogs) {
+            logs = JSON.parse(savedLogs);
             updateLogDisplay();
         }
-
-        function clearAllLogs() {
-            if(!confirm("確定要清空手機上的記錄並歸零計數嗎？")) return;
-            const code = document.getElementById('class-code').value.trim();
-            logs = []; localStorage.setItem('class_logs', '[]');
-            localStorage.setItem(`student_counts_${code}`, '{}');
-            localStorage.setItem(`student_score_deltas_${code}`, '{}'); 
-            
-            loadFromStorage(); 
-            updateAllSeatColors();
-            showToast("已清空");
+        
+        const code = document.getElementById('class-code').value.trim();
+        if (code) {
+            const savedData = localStorage.getItem(`class_seatData_laptop_${code}`);
+            if (savedData) {
+                classSeatData = JSON.parse(savedData);
+                generateSeats();
+            }
         }
+    }
 
-        function loadClassDataFromCloud(silent = false) {
-            const code = document.getElementById('class-code').value.trim();
-            if (!code) { if(!silent) alert('請先輸入班級代碼'); return; }
-            if (!gasUrl) { if(!silent) alert('請先設定 GAS 網址'); return; }
-            if (!silent) showToast("⏳ 下載座位表中...");
-
-            fetch(gasUrl, {
-                method: 'POST', body: JSON.stringify({ action: "loadSeat", classCode: code }),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.result === 'success') {
-                    classSeatData = data.seatData;
-                    localStorage.setItem(`class_seatData_${code}`, JSON.stringify(classSeatData));
-                    
-                    if (displayMode === 2 && !classHasEnglishNames()) {
-                         displayMode = 0;
-                         localStorage.setItem('display_mode', displayMode);
-                    }
-
-                    if(!silent && confirm("是否要清空目前的「暫時上課計數」？")) {
-                        localStorage.setItem(`student_counts_${code}`, '{}');
-                        localStorage.setItem(`student_score_deltas_${code}`, '{}');
-                        logs = []; localStorage.setItem('class_logs', '[]');
-                    }
-                    loadFromStorage(); 
-                    if(!silent) {
-                        alert(`✅ 成功下載 [${code}座位表] 及總成績！`); 
-                        switchTab('seating', document.querySelector('.nav-item:first-child'));
-                    }
-                } else {
-                    if(!silent) alert("找不到該班級的分頁：" + (data.error || ""));
-                }
-            })
-            .catch(err => { if(!silent) alert("網路連線錯誤！"); });
+    function uploadToGoogleSheet() {
+        if (!gasUrl) {
+            alert("請先設定 Google Sheet (GAS) 網址！");
+            openCloudConfig();
+            return;
         }
-
-        function recalcStatsFromCloud() {
-            const code = document.getElementById('class-code').value.trim();
-            if (!code) { alert('請先輸入班級代碼'); return; }
-            if (!gasUrl) { alert('請先設定 GAS 網址'); return; }
-            if (!confirm(`確定要依照目前雲端試算表「${code}」分頁的實際內容，重新整算一次「${code}統計成績」嗎？\n（適用於你剛在試算表上手動刪除/修改過紀錄之後）`)) return;
-
-            showToast("⏳ 重新整理統計表中...");
-            fetch(gasUrl, {
-                method: 'POST', body: JSON.stringify({ action: "recalcStats", classCode: code }),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.result === 'success') {
-                    alert(`✅ 統計表已重新整理完成！共 ${data.studentCount} 位學生。`);
-                } else alert("重新整理失敗：" + data.error);
-            })
-            .catch(err => alert("網路連線錯誤！"));
+        
+        if (logs.length === 0) {
+            alert("目前沒有任何記錄可上傳。");
+            return;
         }
-
-        function loadBehaviorsFromCloud() {
-            if (!gasUrl) { alert('請先設定 GAS 網址'); return; }
-            showToast("⏳ 同步行為設定...");
-            fetch(gasUrl, {
-                method: 'POST', body: JSON.stringify({ action: "loadBehaviors" }),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.result === 'success') {
-                    behaviorsList = data.behaviors;
-                    localStorage.setItem('custom_behaviors', JSON.stringify(behaviorsList));
-                    renderBehaviors(); alert("✅ 設定同步成功！");
-                } else alert("同步失敗：" + data.error);
-            })
-            .catch(err => alert("網路連線錯誤！"));
-        }
-
-        function uploadToGoogleSheet() {
-            if (!gasUrl) { alert("請設定 GAS 網址！"); switchTab('settings', document.querySelectorAll('.nav-item')[2]); return; }
-            if (logs.length === 0) { alert("目前沒有記錄可上傳！"); return; }
-            
-            let classCode = document.getElementById('class-code').value.trim() || prompt("請輸入班級代碼：");
+        
+        let classCode = document.getElementById('class-code').value.trim();
+        if (!classCode) {
+            classCode = prompt("您尚未輸入班級代碼，請輸入代碼 (例如 101) 以便分類分頁：", "未分類班級");
             if (!classCode) return;
-            document.getElementById('class-code').value = classCode; updateClassCodeUI(classCode);
-            showToast("⏳ 上傳中...");
-            
-            fetch(gasUrl, {
-                method: 'POST', body: JSON.stringify({ action: "log", classCode: classCode, logs: logs }),
-                headers: { "Content-Type": "text/plain;charset=utf-8" }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.result === 'success') {
-                    alert(`✅ 上傳成功！共 ${data.count} 筆。\n手機端記錄將自動清空。`);
-                    
-                    logs = []; localStorage.setItem('class_logs', '[]');
-                    localStorage.setItem(`student_counts_${classCode}`, '{}');
-                    localStorage.setItem(`student_score_deltas_${classCode}`, '{}');
-                    updateLogDisplay();
-                    
-                    generateSeats();
-                    loadClassDataFromCloud(true);
-                } else alert("上傳失敗：" + data.error);
-            })
-            .catch(err => alert("連線錯誤，無法上傳！"));
+            document.getElementById('class-code').value = classCode;
+            updateDisplayClassCode(classCode); 
         }
-    </script>
+        
+        const payload = {
+            action: "log", 
+            classCode: classCode,
+            logs: logs
+        };
+
+        const btn = document.querySelector('button[onclick="uploadToGoogleSheet()"]');
+        const originalText = btn.innerText;
+        btn.innerText = "上傳中...";
+        btn.disabled = true;
+
+        fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { "Content-Type": "text/plain;charset=utf-8" }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.result === 'success') {
+                alert(`上傳成功！共 ${data.count} 筆記錄已寫入 Google Sheet。\n\n系統已自動為您清除目前的觀測記錄。`);
+                clearAllLogs(true); 
+                // 上傳後重新抓一次成績
+                loadClassDataFromCloud(true);
+            } else {
+                alert("上傳失敗：" + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("上傳發生錯誤，請檢查網址是否正確，或 Google Script 權限是否設為「所有人」。");
+        })
+        .finally(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    function recalcStatsFromCloud() {
+        const code = document.getElementById('class-code').value.trim();
+        if (!code) { alert('請輸入班級代碼'); return; }
+        if (!gasUrl) { alert("請先設定 Google Sheet (GAS) 網址！"); openCloudConfig(); return; }
+        if (!confirm(`確定要依照目前雲端試算表「${code}」分頁的實際內容，重新整算一次「${code}統計成績」嗎？\n（適用於你剛在試算表上手動刪除/修改過紀錄之後）`)) return;
+
+        const btn = document.querySelector('button[onclick="recalcStatsFromCloud()"]');
+        const originalText = btn.innerText;
+        btn.innerText = "重新整理中...";
+        btn.disabled = true;
+
+        fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: "recalcStats", classCode: code }),
+            headers: { "Content-Type": "text/plain;charset=utf-8" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.result === 'success') alert(`✅ 統計表已重新整理完成！共 ${data.studentCount} 位學生。`);
+            else alert("重新整理失敗：" + data.error);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("網路連線錯誤，無法重新整理統計表。");
+        })
+        .finally(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+
+    function exportToExcel() {
+        if (logs.length === 0) {
+            alert("無記錄可匯出");
+            return;
+        }
+        
+        let classCode = document.getElementById('class-code').value.trim();
+        if(!classCode) classCode = "未命名班級";
+
+        let tableHTML = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+                  xmlns:x="urn:schemas-microsoft-com:office:excel" 
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                <style>
+                    table { border-collapse: collapse; }
+                    td, th { 
+                        border: 1px solid black; 
+                        font-size: 12pt; 
+                        text-align: center; 
+                        vertical-align: middle;
+                        height: 35px;
+                    }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <col width="100">
+                    <col width="250">
+                    <col width="150">
+                    <col width="200">
+                    <col width="100">
+                    <tr>
+                        <th style="background-color: #f0f0f0;">序號</th>
+                        <th style="background-color: #f0f0f0;">發生時間</th>
+                        <th style="background-color: #f0f0f0;">姓名</th>
+                        <th style="background-color: #f0f0f0;">行為類別</th>
+                        <th style="background-color: #f0f0f0;">得分</th>
+                    </tr>
+        `;
+
+        logs.forEach((log, index) => {
+            const cleanName = log.name.replace(/,/g, ''); 
+            tableHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${log.fullTime}</td>
+                    <td>${cleanName}</td>
+                    <td>${log.behavior}</td>
+                    <td>${log.score || 0}</td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `</table></body></html>`;
+
+        const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        link.download = `${classCode}_${dateStr}_上課記錄.xls`; 
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
 </body>
 </html>
