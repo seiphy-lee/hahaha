@@ -118,6 +118,7 @@
             <p style="color:#aaa; font-size:0.85em; margin-bottom: 10px; line-height: 1.5;">
                 ★ 規則：限時3分鐘吃光豆子<br>
                 ★ 獎勵：大金幣 +20分，無敵星星可吃鬼<br>
+                ★ 提示：剛復活的幽靈會半透明3秒鐘！<br>
                 <span style="color:#ffd700; font-weight:bold;">※ 只有前 5 名高手才會被記錄！</span>
             </p>
             <button id="startBtn">START GAME</button>
@@ -196,8 +197,11 @@
 
         let currentPlayer = "";
         let gameStarted = false;
+        
+        // 特效陣列：用來儲存浮動分數文字
+        let floatingTexts = [];
 
-        // ----------------------------------------------------
+        //        // ----------------------------------------------------
         // 3. 雲端排行榜邏輯
         // ----------------------------------------------------
         function renderLeaderboard() {
@@ -263,8 +267,8 @@
             }
         }
 
-        // ----------------------------------------------------
-        // 4. 遊戲核心邏輯 (恢復原始物理引擎)
+        //        // ----------------------------------------------------
+        // 4. 遊戲核心邏輯 
         // ----------------------------------------------------
         startBtn.addEventListener('click', () => {
             const inputField = document.getElementById('playerInput');
@@ -288,11 +292,11 @@
         const bigCoin = { x: -100, y: -100, spawnTime: 0, duration: 5000, value: 20 };
         const pacman = { x: GRID_SIZE * 1.5, y: GRID_SIZE * 1.5, radius: 12, speed: 2.5, dx: 0, dy: 0, nextDx: 0, nextDy: 0, angle: 0, mouthOpen: 0, mouthSpeed: 0.2 };
         
-        // 幽靈定義 (保留預設速度與感知半徑)
+        // 幽靈定義 (新增 invulnerableUntil 屬性控制復活保護期)
         const ghosts = [
-            { x: GRID_SIZE*9.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostRed, color: COLORS.ghostRed, dx: 1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 },
-            { x: GRID_SIZE*10.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*10.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostYellow, color: COLORS.ghostYellow, dx: -1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 },
-            { x: GRID_SIZE*9.5, y: GRID_SIZE*10.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*10.5, originalColor: COLORS.ghostGreen, color: COLORS.ghostGreen, dx: 0, dy: -1, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0 }
+            { x: GRID_SIZE*9.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostRed, color: COLORS.ghostRed, dx: 1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0, invulnerableUntil: 0 },
+            { x: GRID_SIZE*10.5, y: GRID_SIZE*8.5, startX: GRID_SIZE*10.5, startY: GRID_SIZE*8.5, originalColor: COLORS.ghostYellow, color: COLORS.ghostYellow, dx: -1, dy: 0, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0, invulnerableUntil: 0 },
+            { x: GRID_SIZE*9.5, y: GRID_SIZE*10.5, startX: GRID_SIZE*9.5, startY: GRID_SIZE*10.5, originalColor: COLORS.ghostGreen, color: COLORS.ghostGreen, dx: 0, dy: -1, speed: 1.5, state: 'wander', isDead: false, reviveTime: 0, invulnerableUntil: 0 }
         ];
         let ghostDetectionRadius = 150;
 
@@ -313,17 +317,21 @@
             timerDisplay.innerText = "03:00"; timerDisplay.style.color = "#00d2ff";
             statusDisplay.innerText = ""; gameOver = false; gameWin = false;
             
+            // 重置特效陣列
+            floatingTexts = [];
+            
             pacman.x = GRID_SIZE * 1.5; pacman.y = GRID_SIZE * 1.5;
             pacman.dx = 0; pacman.dy = 0; pacman.nextDx = 0; pacman.nextDy = 0;
             
             ghosts.forEach(g => {
                 g.x = g.startX; g.y = g.startY; g.dx = 0; g.dy = 0; g.state = 'wander'; g.isDead = false; g.color = g.originalColor;
+                g.invulnerableUntil = 0; // 重置無敵時間
                 if(g.originalColor === COLORS.ghostRed) g.dx = 1;
                 else if(g.originalColor === COLORS.ghostYellow) g.dx = -1; else g.dy = -1;
             });
         }
 
-        // 核心物理函式
+        //        // 核心物理函式
         function isWallGrid(c, r) { if (r < 0 || r >= maze.length || c < 0 || c >= maze[0].length) return true; return maze[r][c] === 1; }
         function isWallPixel(x, y, radius) {
             const points = [{x: x-radius, y:y}, {x: x+radius, y:y}, {x:x, y:y-radius}, {x:x, y:y+radius}];
@@ -350,7 +358,7 @@
             timerDisplay.innerText = formatTime(remaining);
             if (now - bigCoin.spawnTime > bigCoin.duration) spawnBigCoin();
 
-            // 1. Pacman 移動 (滑順轉彎)
+            // 1. Pacman 移動
             const cx = getCenter(pacman.x), cy = getCenter(pacman.y);
             if (Math.hypot(pacman.x - cx, pacman.y - cy) < 5) {
                 if (pacman.nextDx || pacman.nextDy) {
@@ -361,7 +369,7 @@
             let nx = pacman.x+pacman.dx*pacman.speed, ny = pacman.y+pacman.dy*pacman.speed;
             if(!isWallPixel(nx, ny, pacman.radius-2)) { pacman.x=nx; pacman.y=ny; } else { pacman.x=cx; pacman.y=cy; }
 
-            // 2. 吃豆子判定 (恢復九宮格判定，避免吃不到)
+            // 2. 吃豆子判定
             const pCol = Math.round(pacman.x / GRID_SIZE - 0.5);
             const pRow = Math.round(pacman.y / GRID_SIZE - 0.5);
             for (let r = pRow - 1; r <= pRow + 1; r++) {
@@ -396,18 +404,34 @@
                     }
                 }
             }
-            if(Math.hypot(pacman.x-bigCoin.x, pacman.y-bigCoin.y) < 15) { score+=20; scoreDisplay.innerText=score; spawnBigCoin(); }
+            
+            // 吃大金幣判定與浮動特效 (+20)
+            if(Math.hypot(pacman.x-bigCoin.x, pacman.y-bigCoin.y) < 15) { 
+                score+=20; scoreDisplay.innerText=score; 
+                // 新增 +20 特效文字
+                floatingTexts.push({ x: bigCoin.x, y: bigCoin.y - 10, text: "+20", color: "#ffd700", life: 1.0 });
+                spawnBigCoin(); 
+            }
 
-            // 3. 幽靈 AI (恢復原始 CrossCenter 邏輯，解決顫抖問題)
+            //            // 3. 幽靈 AI 
             const isPowerMode = Date.now() < powerModeEndTime;
             if (!isPowerMode && statusDisplay.innerText.includes("無敵模式")) statusDisplay.innerText = "";
             
             ghosts.forEach(g => {
                 if (g.isDead) {
-                    if (now > g.reviveTime) { g.isDead=false; g.x=g.startX; g.y=g.startY; g.state='wander'; g.color=g.originalColor; } else return;
+                    if (now > g.reviveTime) { 
+                        g.isDead = false; g.x = g.startX; g.y = g.startY; 
+                        g.state = 'wander'; g.color = g.originalColor; 
+                        g.invulnerableUntil = now + 3000; // 復活後給予 3 秒的無敵緩衝時間
+                    } else return;
                 }
-                if (isPowerMode) { g.state = 'scared'; g.color = COLORS.ghostScared; }
-                else { g.color = g.originalColor; if (g.state === 'scared') g.state = 'wander'; }
+                
+                // 如果目前在自己的無敵時間內，不怕玩家吃星星
+                if (isPowerMode && now >= g.invulnerableUntil) { 
+                    g.state = 'scared'; g.color = COLORS.ghostScared; 
+                } else { 
+                    g.color = g.originalColor; if (g.state === 'scared') g.state = 'wander'; 
+                }
 
                 let currentSpeed = g.speed * (g.state === 'scared' ? 0.5 : 1);
                 
@@ -423,21 +447,21 @@
                 let crossCenter = false;
                 if (g.dx !== 0 && ((g.x <= centerX && nextX >= centerX) || (g.x >= centerX && nextX <= centerX))) crossCenter = true;
                 else if (g.dy !== 0 && ((g.y <= centerY && nextY >= centerY) || (g.y >= centerY && nextY <= centerY))) crossCenter = true;
-                else if (g.dx === 0 && g.dy === 0) crossCenter = true; // 靜止狀態強制啟動
+                else if (g.dx === 0 && g.dy === 0) crossCenter = true;
 
                 if (crossCenter) {
                     g.x = centerX; g.y = centerY;
                     const possibleMoves = [];
                     const directions = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
                     directions.forEach(dir => {
-                        if (dir.dx === -g.dx && dir.dy === -g.dy) return; // 不回頭
+                        if (dir.dx === -g.dx && dir.dy === -g.dy) return;
                         if (!isWallGrid(gridX + dir.dx, gridY + dir.dy)) possibleMoves.push(dir);
                     });
-                    if (possibleMoves.length === 0) { // 死路，只好回頭
+                    if (possibleMoves.length === 0) { 
                         directions.forEach(dir => { if (!isWallGrid(gridX + dir.dx, gridY + dir.dy)) possibleMoves.push(dir); });
                     }
 
-                    if (!isPowerMode) {
+                    if (!isPowerMode && now >= g.invulnerableUntil) {
                         const dist = Math.hypot(g.x - pacman.x, g.y - pacman.y);
                         g.state = (dist < ghostDetectionRadius) ? 'chase' : 'wander';
                     }
@@ -469,10 +493,13 @@
                 // 碰撞判定
                 if (Math.hypot(g.x - pacman.x, g.y - pacman.y) < 20) {
                     if (g.state === 'scared') {
+                        // 吃到鬼時加入 +10 特效
+                        floatingTexts.push({ x: g.x, y: g.y - 10, text: "+10", color: "#ffffff", life: 1.0 });
                         g.isDead = true; g.reviveTime = Date.now() + 5000;
                         score += 10; scoreDisplay.innerText = score;
                         g.x = -1000; g.y = -1000;
-                    } else {
+                    } else if (now >= g.invulnerableUntil) {
+                        // 只有當無敵時間結束後碰到玩家，玩家才會死
                         triggerGameOver("Caught");
                     }
                 }
@@ -499,7 +526,6 @@
                     const x = c * GRID_SIZE; const y = r * GRID_SIZE;
                     if(maze[r][c]===1) { ctx.fillStyle=COLORS.wall; ctx.fillRect(x,y,GRID_SIZE,GRID_SIZE); ctx.strokeStyle=COLORS.wallBorder; ctx.strokeRect(x,y,GRID_SIZE,GRID_SIZE); }
                     else if(maze[r][c]===2) { ctx.beginPath(); ctx.fillStyle=COLORS.pellet; ctx.arc(x+15,y+15,3,0,6.28); ctx.fill(); }
-                    // 恢復漂亮的星星畫法
                     else if(maze[r][c]===3) { 
                         const cx = x + GRID_SIZE/2; const cy = y + GRID_SIZE/2;
                         ctx.save(); ctx.translate(cx, cy); ctx.rotate((Date.now()/200)%(Math.PI*2));
@@ -521,6 +547,7 @@
                 ctx.restore();
             }
             if(maze) {
+                // 畫小精靈
                 ctx.save(); ctx.translate(pacman.x, pacman.y); 
                 let angle = 0;
                 if(pacman.dx===1) angle=0; else if(pacman.dx===-1) angle=Math.PI;
@@ -529,12 +556,20 @@
                 pacman.mouthOpen+=pacman.mouthSpeed; if(pacman.mouthOpen>0.25*Math.PI||pacman.mouthOpen<0) pacman.mouthSpeed*=-1;
                 ctx.beginPath(); ctx.arc(0,0,pacman.radius,pacman.mouthOpen,2*Math.PI-pacman.mouthOpen); ctx.lineTo(0,0); ctx.fillStyle=COLORS.pacman; ctx.fill(); ctx.restore();
                 
+                // 畫幽靈
                 ghosts.forEach(g => {
                     if(g.isDead) return;
-                    ctx.save(); ctx.translate(g.x, g.y);
-                    if (g.state === 'chase' && !statusDisplay.innerText.includes("無敵模式")) {
+                    ctx.save(); 
+                    ctx.translate(g.x, g.y);
+                    
+                    // 如果幽靈在復活緩衝期間，設定半透明
+                    if (Date.now() < g.invulnerableUntil) {
+                        ctx.globalAlpha = 0.4;
+                    }
+
+                    if (g.state === 'chase' && !statusDisplay.innerText.includes("無敵模式") && Date.now() >= g.invulnerableUntil) {
                         ctx.beginPath(); ctx.arc(0, 0, ghostDetectionRadius, 0, Math.PI*2);
-                        ctx.strokeStyle = g.color; ctx.lineWidth = 1; ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.3; ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1.0;
+                        ctx.strokeStyle = g.color; ctx.lineWidth = 1; ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.3; ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = (Date.now() < g.invulnerableUntil) ? 0.4 : 1.0;
                     }
                     ctx.fillStyle = g.color; ctx.shadowColor = g.color; ctx.shadowBlur = 20;
                     ctx.beginPath(); ctx.arc(0, 0, 12, Math.PI, 0); ctx.lineTo(12, 12);
@@ -545,8 +580,29 @@
                     ctx.beginPath(); ctx.arc(-4+ex, -2+ey, 3, 0, Math.PI*2); ctx.arc(4+ex, -2+ey, 3, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = '#000';
                     ctx.beginPath(); ctx.arc(-4+ex*1.5, -2+ey*1.5, 1.5, 0, Math.PI*2); ctx.arc(4+ex*1.5, -2+ey*1.5, 1.5, 0, Math.PI*2); ctx.fill();
+                    
                     ctx.restore();
                 });
+
+                //                // 繪製與更新浮動分數特效
+                for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                    let ft = floatingTexts[i];
+                    ctx.save();
+                    ctx.globalAlpha = ft.life; // 設定透明度
+                    ctx.fillStyle = ft.color;
+                    ctx.font = "bold 18px 'Segoe UI', sans-serif"; // 設定字體與大小
+                    ctx.textAlign = "center";
+                    ctx.shadowColor = "#000"; ctx.shadowBlur = 4; // 加一點黑色陰影讓字更清楚
+                    ctx.fillText(ft.text, ft.x, ft.y);
+                    ctx.restore();
+                    
+                    ft.y -= 1; // 每一幀文字往上飄
+                    ft.life -= 0.02; // 透明度慢慢降低，約 50 幀 (將近 1 秒) 後完全透明
+                    
+                    if (ft.life <= 0) {
+                        floatingTexts.splice(i, 1); // 如果完全透明了，就從陣列移除
+                    }
+                }
             }
         }
 
@@ -560,4 +616,3 @@
     </script>
 </body>
 </html>
-
