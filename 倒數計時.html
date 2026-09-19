@@ -1,753 +1,1354 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>倒數計時器</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>倒數計時器｜中原標準時間</title>
+<style>
+:root{
+  --bg:#0a1020; --card1:#162447; --card2:#0e1933; --line:#26386a;
+  --text:#e6edf7; --muted:#8ea0c4; --primary:#3b82f6; --primary2:#2563eb;
+  --danger:#ef4444; --ok:#34d399; --warnc:#fbbf24;
+  --accent:transparent; --cd-color:#e6edf7;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:radial-gradient(1200px 700px at 15% -10%, #18295a 0%, var(--bg) 62%) fixed;
+  color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+#app{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #05070a; /* 深空黑 */
-            font-family: 'Share Tech Mono', monospace;
-            color: #fff;
-        }
+/* ---------- 頂列 ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px}
+.title{font-weight:700;font-size:1.15rem;letter-spacing:.04em}
+.title small{font-weight:400;color:var(--muted);margin-left:10px;font-size:.78rem;letter-spacing:.02em}
+.top-actions{display:flex;gap:8px}
+.btn{background:#1b2c57;border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-height:40px;
+  transition:background .15s, transform .05s}
+.btn:hover{background:#243a72}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--primary);border-color:var(--primary2);font-weight:700}
+.btn.primary:hover{background:var(--primary2)}
+.btn.danger{background:#7f1d1d;border-color:#b91c1c}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 
-        /* 畫布全螢幕 */
-        canvas {
-            display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
+/* ---------- 左右分割 ---------- */
+main.split{flex:1;min-height:clamp(560px,72vh,1000px);display:grid;grid-template-columns:5fr 6fr;gap:16px;padding:0 16px 12px}
+.card{
+  position:relative;container-type:inline-size;overflow:hidden;
+  background:linear-gradient(180deg,var(--card1),var(--card2));
+  border:1px solid var(--line);border-radius:22px;padding:18px 20px;
+  display:flex;flex-direction:column;
+  transition:box-shadow .3s,border-color .3s;
+}
+.card-label{color:var(--muted);font-size:clamp(.9rem,3.2cqw,1.35rem);letter-spacing:.08em;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card-label .tz{font-size:.75em;border:1px solid var(--line);border-radius:999px;padding:1px 9px}
+.card-label .sub{color:#b8c6e6}
 
-        /* UI 控制面板 - 回歸正中央 */
-        #ui-layer {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            text-align: center;
-            width: 90%;
-            max-width: 600px;
-            pointer-events: none; 
-        }
+/* 左：時鐘 */
+.clock-card{justify-content:center;align-items:center;text-align:center;gap:6px}
+.clock-card .card-label{position:absolute;left:20px;top:16px}
+.clock-digits{font-size:clamp(2.2rem,19cqw,11rem);font-weight:700;line-height:1.05;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;color:#9bdcff;text-shadow:0 0 30px rgba(120,200,255,.25)}
+.clock-date{font-size:clamp(1rem,5cqw,2.2rem);color:#c7d4ee;margin-top:4px}
+.sync{margin-top:18px;display:inline-flex;align-items:center;gap:8px;font-size:clamp(.75rem,2.6cqw,1rem);color:var(--muted);max-width:92%;text-align:left}
+.sync .dot{flex:none;width:.7em;height:.7em;border-radius:50%;background:#64748b}
+.sync.ok .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.sync.bad .dot{background:var(--warnc);box-shadow:0 0 8px var(--warnc)}
+.sync.busy .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
 
-        /* 輸入框容器 */
-        #controls {
-            pointer-events: auto;
-            background: rgba(10, 20, 30, 0.6);
-            backdrop-filter: blur(8px);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(0, 240, 255, 0.3);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
-            transition: opacity 0.3s;
-        }
+/* 右：倒數 */
+.cd-card{gap:2px}
+.cd-card.warn{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 46px color-mix(in srgb,var(--accent) 38%,transparent)}
+.cd-digits{
+  text-align:center;font-weight:700;line-height:1.05;margin-top:6px;
+  font-size:clamp(2.2rem,16cqw,11rem);
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--cd-color);
+  text-shadow:0 0 28px color-mix(in srgb,var(--cd-color) 30%,transparent);
+}
+.cd-digits.short{font-size:clamp(2.6rem,23cqw,12rem)}
+.cd-digits.idle{opacity:.55}
+.cd-digits.flash{animation:blink .5s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+.cd-info{text-align:center;color:#b8c6e6;font-size:clamp(.85rem,3cqw,1.2rem);min-height:1.5em}
+.stage-wrap{position:relative;flex:1;min-height:260px}
+#stage{position:absolute;display:block;pointer-events:none}
+.paused-tag{position:absolute;right:8px;top:6px;background:rgba(0,0,0,.45);border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:.9rem;display:none}
+.card.paused .paused-tag{display:block}
+.plain-bar{display:none;height:clamp(14px,3.2cqw,30px);border-radius:999px;background:#0b1430;border:1px solid var(--line);overflow:hidden;margin:14px 6% 8px}
+.plain-bar i{display:block;height:100%;width:100%;background:var(--cd-color);transition:width .2s linear,background .3s;border-radius:999px}
+.banner{position:absolute;left:0;right:0;top:64%;text-align:center;pointer-events:none;
+  font-weight:800;font-size:clamp(1.6rem,8cqw,5rem);color:#fff;letter-spacing:.06em;
+  text-shadow:0 4px 0 rgba(0,0,0,.45),0 0 30px rgba(255,180,60,.7);opacity:0;transform:scale(.4)}
+.banner.show{animation:pop .55s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes pop{to{opacity:1;transform:scale(1)}}
+.card.finished{animation:finishGlow 1s ease-in-out 3}
+@keyframes finishGlow{50%{box-shadow:0 0 0 2px #ef4444,0 0 60px rgba(239,68,68,.55)}}
+/* 純數字主題 */
+.theme-plain .stage-wrap{display:none}
+.theme-plain .plain-bar{display:block}
+.theme-plain .cd-card{justify-content:center}
+.theme-plain .cd-digits{font-size:clamp(2.6rem,19cqw,13rem)}
+.theme-plain .cd-digits.short{font-size:clamp(3rem,28cqw,15rem)}
+.theme-plain .banner{top:auto;bottom:10%}
 
-        /* 模式切換按鈕區域 */
-        .mode-toggle {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-            gap: 10px;
-        }
+/* ---------- 控制面板 ---------- */
+.panel{margin:0 16px 16px;background:rgba(16,27,56,.85);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.ctrl-row{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center}
+.tabs{display:inline-flex;background:#0b1430;border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.tabs button{background:transparent;border:0;border-radius:9px;padding:8px 14px;min-height:40px;color:var(--muted)}
+.tabs button.on{background:var(--primary);color:#fff;font-weight:700}
+.time-in{display:inline-flex;align-items:center;gap:6px}
+.time-in input[type=number]{width:4.4rem;min-height:46px;background:#0b1430;border:1px solid var(--line);border-radius:10px;text-align:center;font-size:1.35rem;font-variant-numeric:tabular-nums;padding:2px 4px}
+.time-in input:focus,.warn-row input:focus{outline:2px solid var(--primary);outline-offset:1px}
+.time-in span{color:var(--muted)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:#14224a;border:1px solid var(--line);border-radius:999px;padding:6px 12px;min-height:34px;font-size:.9rem}
+.chip:hover{background:#1f3370}
+.actions{display:flex;gap:8px;margin-left:auto}
+.actions .btn{min-height:46px;padding:8px 20px;font-size:1.05rem}
+.hint{color:var(--muted);font-size:.9rem}
+.hint b{color:#cfe0ff;font-weight:600}
+.msg{min-height:1.3em;color:#fbbf24;font-size:.95rem}
+label.chk{display:inline-flex;align-items:center;gap:6px;color:#c7d4ee;cursor:pointer}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary)}
 
-        .mode-btn {
-            background: transparent;
-            color: #aaa;
-            border: 1px solid #555;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1rem;
-            transition: 0.3s;
-        }
+details.settings{border-top:1px solid var(--line);padding-top:10px}
+details.settings>summary{cursor:pointer;color:#b8c6e6;font-weight:600;padding:4px 0;list-style:none}
+details.settings>summary::before{content:"▸ ";color:var(--muted)}
+details.settings[open]>summary::before{content:"▾ "}
+.set-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:18px 30px;margin-top:10px}
+.set-block h4{margin:0 0 8px;font-size:.95rem;color:#9db2dd;font-weight:600;letter-spacing:.05em}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{background:#14224a;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-height:42px}
+.seg button.on{background:var(--primary);border-color:var(--primary2);font-weight:700}
+.set-line{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
+.set-line input[type=range]{accent-color:var(--primary);width:130px}
+.warn-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:6px 0;border-bottom:1px dashed #22335f}
+.warn-row input[type=number]{width:3.6rem;min-height:38px;background:#0b1430;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:1.05rem}
+.warn-row input[type=color],.normal-color input[type=color]{width:44px;height:38px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#0b1430;cursor:pointer}
+.warn-row .x{margin-left:auto;background:transparent;border:0;color:#f87171;font-size:1.1rem;min-width:36px;min-height:36px}
+.warn-row .lb{color:var(--muted)}
+.normal-color{display:flex;align-items:center;gap:10px;margin-top:8px;color:#c7d4ee}
+.warn-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.foot{color:#5f7199;font-size:.8rem;text-align:center;padding:0 0 14px}
 
-        .mode-btn.active {
-            color: #00f0ff;
-            border-color: #00f0ff;
-            background: rgba(0, 240, 255, 0.1);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-        }
+/* ---------- 投影模式 ---------- */
+.mini-bar{display:none;position:fixed;right:14px;bottom:12px;gap:8px;z-index:20;opacity:.28;transition:opacity .2s}
+.mini-bar:hover,.mini-bar:focus-within{opacity:1}
+body.present .mini-bar{display:flex}
+body.present .topbar,body.present .panel,body.present .foot{display:none}
+body.present main.split{min-height:100vh;min-height:100dvh;padding:12px;gap:12px}
+body.present .cd-digits{font-size:min(16cqw,24vh)}
+body.present .cd-digits.short{font-size:min(23cqw,34vh)}
+body.present.theme-plain .cd-digits{font-size:min(19cqw,34vh)}
+body.present.theme-plain .cd-digits.short{font-size:min(28cqw,48vh)}
+body.present .clock-digits{font-size:min(19cqw,24vh)}
+.sound-hint{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);background:#78350f;border:1px solid #f59e0b;border-radius:999px;padding:6px 16px;font-size:.9rem;display:none;z-index:30}
 
-        /* 執行中的按鈕容器 - 垂直置中，水平靠右 */
-        #active-controls {
-            position: absolute;
-            top: 50%;
-            left: calc(50% + 55vmin); 
-            transform: translate(0, -50%);
-            z-index: 20;
-            display: none; 
-            pointer-events: auto;
-            display: flex; 
-            flex-direction: column;
-            gap: 15px;
-        }
-        
-        /* 底部中原標準時間 - 移到左邊並放大 */
-        #std-time-container {
-            position: absolute;
-            top: 50%;
-            left: 40px;
-            bottom: auto;
-            transform: translateY(-50%);
-            width: auto;
-            text-align: left;
-            z-index: 10;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        #std-time {
-            font-size: 4.5rem;
-            color: rgba(255, 255, 255, 0.9);
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
-            letter-spacing: 3px;
-            font-weight: bold;
-        }
-
-        #std-label {
-            font-size: 2.7rem;
-            color: #00f0ff;
-            text-transform: uppercase;
-            letter-spacing: 6px;
-            margin-bottom: 15px;
-            font-weight: bold;
-            text-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
-        }
-
-        /* 手機版適配 */
-        @media (max-aspect-ratio: 1/1) {
-            #active-controls {
-                top: 80%; 
-                left: 50%;
-                transform: translate(-50%, 0);
-                flex-direction: row; 
-            }
-
-            #std-time-container {
-                top: auto;
-                bottom: 30px;
-                left: 0;
-                width: 100%;
-                text-align: center;
-                transform: none;
-            }
-            #std-time { font-size: 3rem; }
-            #std-label { font-size: 1.5rem; }
-        }
-
-        .input-group {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .time-input {
-            width: 70px;
-            background: rgba(0, 0, 0, 0.5);
-            border: 2px solid #00f0ff;
-            color: #00f0ff;
-            font-size: 1.5rem;
-            text-align: center;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: 'Share Tech Mono', monospace;
-            outline: none;
-            transition: all 0.3s;
-        }
-
-        /* 指定時間輸入框稍微加寬 */
-        #target-time-in {
-            width: auto;
-            padding: 10px 15px;
-        }
-
-        .time-input:focus {
-            box-shadow: 0 0 15px #00f0ff;
-            border-color: #fff;
-        }
-
-        label {
-            display: block;
-            font-size: 0.8rem;
-            color: #aaa;
-            margin-bottom: 5px;
-        }
-
-        .btn {
-            background: transparent;
-            color: #00f0ff;
-            border: 2px solid #00f0ff;
-            padding: 10px 30px;
-            font-size: 1.2rem;
-            border-radius: 50px;
-            cursor: pointer;
-            font-family: 'Share Tech Mono', monospace;
-            text-transform: uppercase;
-            transition: 0.3s;
-            margin: 0 10px;
-            white-space: nowrap;
-        }
-
-        .btn:hover {
-            background: #00f0ff;
-            color: #000;
-            box-shadow: 0 0 20px #00f0ff;
-        }
-
-        .btn-pause {
-            color: #ffcc00;
-            border-color: #ffcc00;
-            background: rgba(0, 0, 0, 0.5);
-            font-weight: bold;
-            padding: 15px 30px;
-        }
-
-        .btn-pause:hover {
-            background: #ffcc00;
-            color: #000;
-            box-shadow: 0 0 20px #ffcc00;
-        }
-
-        .btn-stop {
-            color: #ff0055;
-            border-color: #ff0055;
-            background: rgba(0, 0, 0, 0.5); 
-            font-weight: bold;
-            font-size: 1.5rem; 
-            padding: 15px 30px;
-        }
-
-        .btn-stop:hover {
-            background: #ff0055;
-            color: #fff;
-            box-shadow: 0 0 20px #ff0055;
-        }
-
-        #fs-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 30;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.7);
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1rem;
-            transition: 0.3s;
-            pointer-events: auto;
-        }
-
-        #fs-btn:hover {
-            border-color: #00f0ff;
-            color: #00f0ff;
-            background: rgba(0, 240, 255, 0.1);
-        }
-    </style>
+/* ---------- 手機 ---------- */
+@media (max-width:860px){
+  main.split{grid-template-columns:1fr;min-height:0}
+  .clock-card{padding:44px 12px 16px}
+  .clock-card .card-label{left:14px;top:12px}
+  .cd-card{min-height:0}
+  .stage-wrap{min-height:250px}
+  .actions{margin-left:0;width:100%}
+  .actions .btn{flex:1}
+  .set-grid{grid-template-columns:1fr}
+  .title small{display:none}
+  body.present main.split{grid-template-rows:auto 1fr}
+  body.present .clock-card{padding:36px 10px 10px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cd-digits.flash{animation:none}
+  .card.finished{animation:none}
+}
+</style>
 </head>
-<body>
+<body class="theme-bomb">
+<div id="app">
+  <header class="topbar">
+    <div class="title">⏳ 倒數計時器<small>臺中二中 阿發老師 設計</small></div>
+    <div class="top-actions">
+      <button class="btn" id="btnSound" title="音效開關 (M)" aria-label="音效開關">🔊</button>
+      <button class="btn" id="btnPresent" title="投影模式 (F)">⛶ 投影模式</button>
+    </div>
+  </header>
 
-    <canvas id="canvas"></canvas>
+  <main class="split">
+    <!-- 左：中原標準時間 -->
+    <section class="card clock-card" aria-label="中原標準時間">
+      <div class="card-label">中原標準時間 <span class="tz">UTC+8</span></div>
+      <div class="clock-digits" id="clockDigits">--:--:--</div>
+      <div class="clock-date" id="clockDate">&nbsp;</div>
+      <div class="sync busy" id="syncBox"><span class="dot"></span><span id="syncText">校時中…</span></div>
+    </section>
 
-    <button id="fs-btn">⛶ 全螢幕</button>
+    <!-- 右：倒數 -->
+    <section class="card cd-card" id="cdCard" aria-label="倒數">
+      <div class="card-label"><span id="cdLabel">倒數時間</span><span class="sub" id="cdSub"></span></div>
+      <div class="cd-digits idle short" id="cdDigits">05:00</div>
+      <div class="cd-info" id="cdInfo">&nbsp;</div>
+      <div class="stage-wrap" id="stageWrap">
+        <canvas id="stage"></canvas>
+        <div class="paused-tag">⏸ 已暫停</div>
+      </div>
+      <div class="plain-bar"><i id="plainFill"></i></div>
+      <div class="banner" id="banner"></div>
+    </section>
+  </main>
 
-    <!-- 初始設定面板 -->
-    <div id="ui-layer">
-        <div id="controls">
-            <!-- 新增模式切換 -->
-            <div class="mode-toggle">
-                <button class="mode-btn active" id="btn-mode-duration">倒數時長</button>
-                <button class="mode-btn" id="btn-mode-target">指定時間</button>
-            </div>
+  <!-- 控制面板 -->
+  <section class="panel" id="panel">
+    <div class="ctrl-row">
+      <div class="tabs" role="tablist">
+        <button id="tabDur" role="tab" class="on">⏱ 倒數時間</button>
+        <button id="tabClock" role="tab">🕒 倒數到幾點</button>
+      </div>
 
-            <!-- 原本的倒數時長設定 -->
-            <div class="input-group" id="group-duration">
-                <div>
-                    <label>時 (HRS)</label>
-                    <input type="number" id="h-in" class="time-input" min="0" max="99" value="0">
-                </div>
-                <div>
-                    <label>分 (MIN)</label>
-                    <input type="number" id="m-in" class="time-input" min="0" max="59" value="0">
-                </div>
-                <div>
-                    <label>秒 (SEC)</label>
-                    <input type="number" id="s-in" class="time-input" min="0" max="59" value="10">
-                </div>
-            </div>
-
-            <!-- 新增的指定時間設定 (預設隱藏) -->
-            <div class="input-group" id="group-target" style="display: none;">
-                <div>
-                    <label>目標時間 (TIME)</label>
-                    <input type="time" id="target-time-in" class="time-input">
-                </div>
-            </div>
-
-            <button class="btn" id="start-btn">啟動 (START)</button>
+      <div id="modeDur" class="ctrl-row" style="gap:10px 16px">
+        <div class="time-in">
+          <input type="number" id="dH" min="0" max="99" inputmode="numeric" aria-label="小時"><span>時</span>
+          <input type="number" id="dM" min="0" max="59" inputmode="numeric" aria-label="分鐘"><span>分</span>
+          <input type="number" id="dS" min="0" max="59" inputmode="numeric" aria-label="秒"><span>秒</span>
         </div>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <div id="modeClock" class="ctrl-row" style="gap:10px 16px;display:none">
+        <div class="time-in">
+          <span>倒數到中原標準時間</span>
+          <input type="number" id="cH" min="0" max="23" inputmode="numeric" aria-label="時"><span>時</span>
+          <input type="number" id="cM" min="0" max="59" inputmode="numeric" aria-label="分"><span>分</span>
+          <input type="number" id="cS" min="0" max="59" inputmode="numeric" aria-label="秒"><span>秒</span>
+        </div>
+        <label class="chk"><input type="checkbox" id="cTomorrow">明天</label>
+        <span class="hint" id="clockHint"></span>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnStart">▶ 開始</button>
+        <button class="btn" id="btnPause">⏸ 暫停</button>
+        <button class="btn" id="btnReset">↺ 重設</button>
+      </div>
     </div>
-    
-    <div id="active-controls" style="display: none;">
-         <button class="btn btn-pause" id="pause-btn">暫停 (PAUSE)</button>
-         <button class="btn btn-stop" id="stop-btn">終局 (ABORT)</button>
-    </div>
+    <div class="msg" id="msg" role="status"></div>
 
-    <div id="std-time-container">
-        <div id="std-label">中原標準時間</div>
-        <div id="std-time">Loading...</div>
-    </div>
+    <details class="settings" id="settings">
+      <summary>⚙ 設定（主題・顏色提醒・音效・校時）</summary>
+      <div class="set-grid">
+        <div>
+          <div class="set-block">
+            <h4>趣味主題</h4>
+            <div class="seg" id="themeSeg">
+              <button data-theme="bomb">💣 炸彈</button>
+              <button data-theme="balloon">🎈 氣球</button>
+              <button data-theme="water">💧 水球</button>
+              <button data-theme="plain">🔢 純數字</button>
+            </div>
+          </div>
+          <div class="set-block" style="margin-top:16px">
+            <h4>音效</h4>
+            <div class="set-line" style="margin-top:0">
+              <label class="chk">音量 <input type="range" id="optVol" min="0" max="100"></label>
+              <button class="chip" id="btnTestSound">試聽</button>
+            </div>
+          </div>
+          <div class="set-block" style="margin-top:16px">
+            <h4>校時</h4>
+            <div class="set-line" style="margin-top:0">
+              <button class="chip" id="btnResync">重新校時</button>
+              <span class="hint" id="syncDetail"></span>
+            </div>
+          </div>
+          <div class="set-block" style="margin-top:16px">
+            <h4>產生設定連結</h4>
+            <div class="set-line" style="margin-top:0">
+              <label class="chk"><input type="checkbox" id="lnkAuto">開啟後自動開始</label>
+              <label class="chk"><input type="checkbox" id="lnkPresent">投影模式開啟</label>
+              <button class="chip" id="btnCopyLink">複製連結</button>
+            </div>
+            <div class="hint" id="linkOut" style="margin-top:6px;word-break:break-all"></div>
+          </div>
+        </div>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const fsBtn = document.getElementById('fs-btn');
-        
-        let animationId;
-        let particles = [];
-        let width, height;
-        let centerX, centerY;
-        let minDim; 
-        
-        let totalTimeMs = 0;
-        let endTime = 0;
-        let remainingTimeMs = 0;
-        let isRunning = false;
-        let isPaused = false; 
-        let isAlarmPlaying = false;
-        let lastBeepSecond = -1; 
-        
-        const controlsDiv = document.getElementById('controls');
-        const activeControlsDiv = document.getElementById('active-controls');
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
-        const pauseBtn = document.getElementById('pause-btn'); 
-        const stdTimeDisplay = document.getElementById('std-time');
+        <div class="set-block">
+          <h4>顏色提醒（剩餘時間 ≤ 設定值時，倒數數字變色；勾「滴答」則從該時間起有滴答聲，直到結束）</h4>
+          <div id="warnList"></div>
+          <div class="warn-tools">
+            <button class="chip" id="btnAddWarn">＋ 新增一段</button>
+            <button class="chip" id="btnResetWarn">還原預設</button>
+          </div>
+          <div class="normal-color"><span>平常顏色</span><input type="color" id="normalColor"></div>
+        </div>
+      </div>
+    </details>
+  </section>
+  <div class="foot">時間以網路校時後的中原標準時間（UTC+8）為準</div>
+</div>
 
-        // 新增的模式相關變數
-        let currentMode = 'duration'; // 'duration' 或是 'target'
-        const btnModeDuration = document.getElementById('btn-mode-duration');
-        const btnModeTarget = document.getElementById('btn-mode-target');
-        const groupDuration = document.getElementById('group-duration');
-        const groupTarget = document.getElementById('group-target');
-        const targetTimeInput = document.getElementById('target-time-in');
-        
-        let audioCtx;
-        let oscillator;
-        let gainNode;
+<div class="mini-bar" id="miniBar">
+  <button class="btn primary" id="miniStart">▶ 開始</button>
+  <button class="btn" id="miniReset">↺ 重設</button>
+  <button class="btn" id="miniExit">✕ 離開</button>
+</div>
+<div class="sound-hint" id="soundHint">🔈 點一下畫面以啟用音效</div>
 
-        // 初始化指定時間的預設值 (預設為現在時間往後推 5 分鐘)
-        function initTargetTimeDefault() {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() + 5);
-            const hh = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-            targetTimeInput.value = `${hh}:${mm}`;
+<script>
+'use strict';
+/* =====================================================================
+   倒數計時器｜臺中二中 阿發老師 設計
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const TZ_MS = 8 * 3600e3;          // 中原標準時間 UTC+8（無日光節約時間）
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* ---------------- 顏色工具 ---------------- */
+function hex2rgb(h) {
+  h = String(h).replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mixRgb(a, b, t) { return a.map((v, i) => Math.round(v + (b[i] - v) * t)); }
+const rgba = (rgb, a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+
+/* ---------------- 設定（含 localStorage） ---------------- */
+const DEFAULT_WARNS = [
+  { sec: 60, color: '#ffd43b', flash: false, tick: false },
+  { sec: 30, color: '#ff922b', flash: false, tick: false },
+  { sec: 10, color: '#ff3b30', flash: true, tick: true }
+];
+const DEFAULTS = {
+  theme: 'bomb', normalColor: '#e6edf7', warns: DEFAULT_WARNS,
+  vol: 70, sound: true,
+  mode: 'dur', dur: { h: 0, m: 5, s: 0 }, clock: { h: 12, m: 0, s: 0, tomorrow: false }
+};
+const STORE_KEY = 'afa-countdown-v1';
+let cfg = JSON.parse(JSON.stringify(DEFAULTS));
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  if (saved && typeof saved === 'object') {
+    for (const k of ['theme', 'normalColor', 'vol', 'sound', 'mode']) if (k in saved) cfg[k] = saved[k];
+    if (Array.isArray(saved.warns)) {
+      cfg.warns = saved.warns.filter(w => w && w.sec >= 0 && /^#[0-9a-f]{6}$/i.test(w.color));
+      // 舊版設定（滴答聲是全域開關）→ 讓最後一段開始滴答，維持原本「接近結束會滴答」的行為
+      if (cfg.warns.length && cfg.warns.every(w => !('tick' in w))) cfg.warns.reduce((a, b) => b.sec < a.sec ? b : a).tick = true;
+    }
+    if (saved.dur) cfg.dur = Object.assign(cfg.dur, saved.dur);
+  }
+} catch (e) { /* 忽略 */ }
+function saveCfg() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(cfg)); } catch (e) { /* 忽略 */ }
+}
+
+/* ---------------- 時間：網路校時＋補償 ---------------- */
+let offsetMs = 0;                    // 真實時間 - 電腦時間
+const nowMs = () => Date.now() + offsetMs;
+function twParts(ms) {
+  const d = new Date(ms + TZ_MS);
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), wd: d.getUTCDay(),
+           h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+}
+/* 解析 ISO 字串（可能帶 7 位小數、可能無時區）→ epoch ms */
+function parseIso(str, defOffsetMin) {
+  const m = /(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.(\d+))?\s*(Z|[+-]\d\d:?\d\d)?/.exec(str);
+  if (!m) throw new Error('bad iso');
+  const ms = m[7] ? Math.floor(parseFloat('0.' + m[7]) * 1000) : 0;
+  let offMin = defOffsetMin;
+  if (m[8]) {
+    if (m[8] === 'Z') offMin = 0;
+    else { const t = /([+-])(\d\d):?(\d\d)/.exec(m[8]); offMin = (t[1] === '-' ? -1 : 1) * (+t[2] * 60 + +t[3]); }
+  }
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], ms) - offMin * 60000;
+}
+const TIME_SOURCES = [
+  { name: 'timeapi.io', prec: 'ms',
+    url: 'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Taipei',
+    parse: async r => parseIso((await r.json()).dateTime, 480) },
+  { name: 'worldtimeapi.org', prec: 'ms',
+    url: 'https://worldtimeapi.org/api/timezone/Asia/Taipei',
+    parse: async r => parseIso((await r.json()).datetime, 480) },
+  { name: 'Cloudflare', prec: 'ms',
+    url: 'https://www.cloudflare.com/cdn-cgi/trace',
+    parse: async r => { const m = /ts=([\d.]+)/.exec(await r.text()); if (!m) throw 0; return parseFloat(m[1]) * 1000; } },
+  { name: '本頁伺服器(Date)', prec: 's',
+    url: location.protocol.startsWith('http') ? location.href.split('#')[0] : null, init: { method: 'HEAD' },
+    parse: async r => { const d = r.headers.get('date'); if (!d) throw 0; return Date.parse(d) + 500; } }
+];
+async function sampleSource(src) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 4500);
+  try {
+    const t0 = Date.now(), p0 = performance.now();
+    const res = await fetch(src.url, Object.assign({ cache: 'no-store', signal: ctrl.signal }, src.init || {}));
+    if (!res.ok) throw new Error('http ' + res.status);
+    const server = await src.parse(res);
+    const rtt = performance.now() - p0;
+    return { offset: server - (t0 + rtt / 2), rtt };   // 假設伺服器時間點在往返中點
+  } finally { clearTimeout(to); }
+}
+async function bestOfSource(src) {
+  let best = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const s = await sampleSource(src);
+      if (!best || s.rtt < best.rtt) best = s;
+    } catch (e) { if (!best) return null; }
+  }
+  return best ? Object.assign(best, { name: src.name, prec: src.prec }) : null;
+}
+let syncing = false;
+const syncInfo = { ok: false, offset: 0, err: 0, name: '', at: 0 };
+async function syncTime(manual) {
+  if (syncing) return;
+  syncing = true;
+  setSyncUI('busy');
+  const results = (await Promise.all(TIME_SOURCES.filter(s => s.url).map(bestOfSource))).filter(Boolean);
+  const ms = results.filter(r => r.prec === 'ms').sort((a, b) => a.rtt - b.rtt);
+  const pool = ms.length ? ms.slice(0, 3) : results.sort((a, b) => a.rtt - b.rtt).slice(0, 1);
+  if (pool.length) {
+    const offs = pool.map(r => r.offset).sort((a, b) => a - b);
+    const med = offs[Math.floor(offs.length / 2)];
+    offsetMs = med;
+    Object.assign(syncInfo, { ok: true, offset: med,
+      err: pool[0].prec === 's' ? 500 : Math.max(...pool.map(r => r.rtt / 2)),
+      name: pool.map(r => r.name).join('、'), at: Date.now() });
+    setSyncUI('ok');
+  } else {
+    syncInfo.ok = false;
+    setSyncUI('bad');
+  }
+  syncing = false;
+}
+function setSyncUI(state) {
+  const box = $('#syncBox'), txt = $('#syncText'), det = $('#syncDetail');
+  box.className = 'sync ' + state;
+  if (state === 'busy') { txt.textContent = '校時中…'; return; }
+  if (state === 'ok') {
+    const sign = syncInfo.offset >= 0 ? '+' : '−';
+    const off = (Math.abs(syncInfo.offset) / 1000).toFixed(2);
+    const err = syncInfo.err >= 500 ? '±0.5 秒' : '±' + Math.max(10, Math.round(syncInfo.err / 10) * 10) + ' ms';
+    txt.textContent = `已網路校時（電腦時鐘 ${sign}${off} 秒，誤差約 ${err}）`;
+    det.textContent = `來源：${syncInfo.name}`;
+  } else {
+    txt.textContent = '無法連線校時，目前使用電腦時間（可能有誤差）';
+    det.textContent = '請檢查網路，或按「重新校時」';
+  }
+}
+
+/* ---------------- 音效（WebAudio 合成） ---------------- */
+const Sound = {
+  ctx: null, master: null,
+  ensure() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.connect(this.ctx.destination);
+      this.setVol(cfg.vol);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    return true;
+  },
+  setVol(v) { if (this.master) this.master.gain.value = clamp(v / 100, 0, 1); },
+  get ready() { return !!this.ctx && this.ctx.state === 'running'; },
+  ok() { return cfg.sound && this.ctx && this.ctx.state === 'running'; },
+  noise(dur) {
+    const c = this.ctx, n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const src = c.createBufferSource(); src.buffer = buf; return src;
+  },
+  tone(freq, dur, type, vol, when = 0, slideTo = null) {
+    const c = this.ctx, t = c.currentTime + when;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  tick(final, alt) {
+    if (!this.ok()) return;
+    if (final) this.tone(1900, 0.09, 'square', 0.28);
+    else this.tone(alt ? 900 : 1250, 0.045, 'square', 0.16);
+  },
+  chime() {
+    if (!this.ok()) return;
+    this.tone(880, 0.28, 'sine', 0.35); this.tone(1320, 0.38, 'sine', 0.3, 0.14);
+  },
+  boom() {
+    if (!this.ok()) return;
+    const c = this.ctx, t = c.currentTime;
+    const n = this.noise(2.2), lp = c.createBiquadFilter(), g = c.createGain();
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(3500, t); lp.frequency.exponentialRampToValueAtTime(120, t + 1.8);
+    g.gain.setValueAtTime(1.0, t); g.gain.exponentialRampToValueAtTime(0.001, t + 2.1);
+    n.connect(lp); lp.connect(g); g.connect(this.master); n.start(t);
+    this.tone(110, 0.9, 'sine', 0.95, 0, 28);
+    this.tone(60, 1.2, 'triangle', 0.6, 0.02, 25);
+  },
+  pop() {
+    if (!this.ok()) return;
+    const c = this.ctx, t = c.currentTime;
+    const n = this.noise(0.25), hp = c.createBiquadFilter(), g = c.createGain();
+    hp.type = 'highpass'; hp.frequency.value = 700;
+    g.gain.setValueAtTime(1.0, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    n.connect(hp); hp.connect(g); g.connect(this.master); n.start(t);
+    this.tone(260, 0.12, 'sine', 0.8, 0, 60);
+  },
+  splash() {
+    if (!this.ok()) return;
+    const c = this.ctx, t = c.currentTime;
+    this.pop();
+    const n = this.noise(1.3), bp = c.createBiquadFilter(), g = c.createGain();
+    bp.type = 'bandpass'; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(2200, t + 0.05); bp.frequency.exponentialRampToValueAtTime(500, t + 1.2);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.08);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.25);
+    n.connect(bp); bp.connect(g); g.connect(this.master); n.start(t);
+    for (let i = 0; i < 6; i++) this.tone(rand(500, 900), 0.09, 'sine', 0.18, 0.15 + i * rand(0.07, 0.14), rand(1300, 2000));
+  },
+  alarm() {
+    if (!this.ok()) return;
+    for (let i = 0; i < 4; i++) this.tone(1000, 0.22, 'square', 0.3, i * 0.32);
+  },
+  finish(theme) {
+    if (theme === 'bomb') this.boom();
+    else if (theme === 'balloon') this.pop();
+    else if (theme === 'water') this.splash();
+    else this.alarm();
+  }
+};
+
+/* =====================================================================
+   舞台動畫：炸彈 / 氣球 / 水球
+   view = { theme, state, p(剩餘比例 1→0), remSec, color(警示色或 null) }
+   ===================================================================== */
+const Stage = (() => {
+  const cv = $('#stage'), c = cv.getContext('2d');
+  let W = 300, H = 300, dpr = 1, ox = 0, oy = 0, cw = 300, ch = 300;
+  let parts = [], burst = null, sparkAcc = 0, puddle = 0, puddleMax = 100, lastR = 100;
+  let balloonColor = '#ff4d6d';
+  const BALLOON_COLORS = ['#ff4d6d', '#ffb703', '#4cc9f0', '#8ac926', '#b388ff', '#ff7b00'];
+  const WATER_COLOR = '#49b6ff';
+
+  /* 畫布延伸到整張卡片（爆炸碎片才不會在舞台邊界被切掉）；場景座標以舞台區 (W×H) 為準 */
+  function resize() {
+    const wrap = cv.parentElement, card = wrap.closest('.card');
+    const wr = wrap.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    W = Math.max(50, wr.width); H = Math.max(50, wr.height);
+    ox = wr.left - (cr.left + card.clientLeft); oy = wr.top - (cr.top + card.clientTop);
+    cw = Math.max(50, card.clientWidth); ch = Math.max(50, card.clientHeight);
+    cv.style.left = (-ox) + 'px'; cv.style.top = (-oy) + 'px'; cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  }
+  { const ro = new ResizeObserver(resize); ro.observe(cv.parentElement); ro.observe(cv.parentElement.closest('.card')); }
+  resize();
+
+  function reset() {
+    parts = []; burst = null; sparkAcc = 0; puddle = 0;
+    balloonColor = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+  }
+  function triggerBurst() { burst = { pending: true, t0: 0 }; }
+
+  const add = p => parts.push(Object.assign(
+    { x: 0, y: 0, vx: 0, vy: 0, g: 0, drag: 0, life: 1, size: 3, rot: 0, vr: 0, delay: 0, kind: 'spark', color: '#fff' },
+    p, { max: p.life }));
+  const ell = (x, y, rx, ry, rot = 0) => { c.beginPath(); c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, Math.PI * 2); };
+
+  /* ---------- 粒子 ---------- */
+  function updateParticles(dt, gy) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      if (p.delay > 0) { p.delay -= dt; continue; }
+      p.life -= dt;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      p.vx *= Math.max(0, 1 - p.drag * dt);
+      p.vy += p.g * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      if (p.kind === 'drop' && p.y >= gy) {
+        p.kind = 'ripple'; p.y = gy; p.vx = p.vy = p.g = 0; p.life = p.max = 0.55; p.size *= 1.3;
+        puddle = Math.min(puddleMax, puddle + p.size * 0.7);
+      }
+    }
+  }
+  function drawParticles() {
+    for (const p of parts) {
+      if (p.delay > 0) continue;
+      const f = clamp(p.life / p.max, 0, 1);
+      switch (p.kind) {
+        case 'spark':
+          c.globalCompositeOperation = 'lighter'; c.globalAlpha = f; c.fillStyle = p.color;
+          c.beginPath(); c.arc(p.x, p.y, p.size * (0.5 + f * 0.6), 0, 7); c.fill();
+          c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; break;
+        case 'debris':
+          c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.globalAlpha = Math.min(1, f * 3); c.fillStyle = p.color;
+          c.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66); c.restore(); break;
+        case 'smoke': {
+          const r = p.size * (1 + (1 - f) * 1.8);
+          const g = c.createRadialGradient(p.x, p.y, r * 0.1, p.x, p.y, r);
+          g.addColorStop(0, `rgba(70,70,70,${0.55 * f})`); g.addColorStop(1, 'rgba(70,70,70,0)');
+          c.fillStyle = g; c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.fill(); break;
         }
-        initTargetTimeDefault();
-
-        // 處理模式切換邏輯
-        btnModeDuration.addEventListener('click', () => {
-            currentMode = 'duration';
-            btnModeDuration.classList.add('active');
-            btnModeTarget.classList.remove('active');
-            groupDuration.style.display = 'flex';
-            groupTarget.style.display = 'none';
-        });
-
-        btnModeTarget.addEventListener('click', () => {
-            currentMode = 'target';
-            btnModeTarget.classList.add('active');
-            btnModeDuration.classList.remove('active');
-            groupDuration.style.display = 'none';
-            groupTarget.style.display = 'flex';
-        });
-
-        function resize() {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            minDim = Math.min(width, height);
-            centerX = width / 2;
-            centerY = height * 0.5; 
+        case 'shred':
+          c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.globalAlpha = Math.min(1, f * 3); c.fillStyle = p.color;
+          c.beginPath(); p.poly.forEach((q, i) => i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1])); c.closePath(); c.fill(); c.restore(); break;
+        case 'drop': {
+          const sp = Math.hypot(p.vx, p.vy), ang = Math.atan2(p.vy, p.vx);
+          c.globalAlpha = 0.9; c.fillStyle = p.color;
+          ell(p.x, p.y, p.size * (1 + sp / 700), p.size, ang); c.fill(); c.globalAlpha = 1; break;
         }
-        window.addEventListener('resize', resize);
-        resize();
-
-        fsBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Error attempting to enable full-screen mode: ${err.message}`);
-                });
-                fsBtn.textContent = "⛶ 退出全螢幕";
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                    fsBtn.textContent = "⛶ 全螢幕";
-                }
-            }
-        });
-
-        document.addEventListener('fullscreenchange', () => {
-             if (!document.fullscreenElement) {
-                fsBtn.textContent = "⛶ 全螢幕";
-             } else {
-                fsBtn.textContent = "⛶ 退出全螢幕";
-             }
-        });
-
-        class Particle {
-            constructor() {
-                this.reset();
-            }
-
-            reset() {
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-                this.vx = (Math.random() - 0.5) * 1; 
-                this.vy = (Math.random() - 0.5) * 1; 
-                this.radius = Math.random() * 2 + 0.5;
-                this.color = Math.random() > 0.8 ? '#ff0055' : '#00f0ff'; 
-                this.alpha = Math.random() * 0.5 + 0.1;
-            }
-
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                if (this.x < 0) this.x = width;
-                if (this.x > width) this.x = 0;
-                if (this.y < 0) this.y = height;
-                if (this.y > height) this.y = 0;
-            }
-
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.globalAlpha = this.alpha;
-                ctx.fill();
-                ctx.globalAlpha = 1.0;
-            }
+        case 'ripple': {
+          const rx = p.size * (1 + (1 - f) * 2.6);
+          c.globalAlpha = f * 0.8; c.strokeStyle = 'rgba(190,232,255,1)'; c.lineWidth = 1.5;
+          ell(p.x, p.y, rx, rx * 0.28); c.stroke(); c.globalAlpha = 1; break;
         }
-
-        for (let i = 0; i < 100; i++) {
-            particles.push(new Particle());
+        case 'ring': {
+          const r = p.size * (1 + (1 - f) * p.grow);
+          c.globalAlpha = f * 0.85; c.strokeStyle = p.color; c.lineWidth = Math.max(1, p.lw * f);
+          c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.stroke(); c.globalAlpha = 1; break;
         }
+      }
+    }
+  }
+  function polyShred(r) {
+    const n = 4 + Math.floor(Math.random() * 3), pts = [];
+    for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + rand(-.3, .3), rr = r * rand(.45, 1); pts.push([Math.cos(a) * rr, Math.sin(a) * rr * rand(.5, 1)]); }
+    return pts;
+  }
 
-        function formatTime(ms) {
-            if (ms < 0) ms = 0;
-            const totalSec = Math.ceil(ms / 1000);
-            const h = Math.floor(totalSec / 3600);
-            const m = Math.floor((totalSec % 3600) / 60);
-            const s = totalSec % 60;
-            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  /* =================== 炸彈 =================== */
+  const bombGeom = () => { const R = Math.min(W * 0.26, H * 0.235), gy = H * 0.9; return { R, gy, cx: W / 2 - R * 0.35, cy: gy - R, k: R / 100 }; };
+  function fusePt(g, u) {
+    const R = g.R, x0 = g.cx + R * 0.05, y0 = g.cy - R * 1.2;
+    const P = [[x0, y0], [x0 + R * 0.05, y0 - R * 0.75], [x0 + R * 0.95, y0 - R * 0.25], [x0 + R * 0.85, y0 - R * 1.15]];
+    const m = 1 - u, a = m * m * m, b = 3 * m * m * u, cc = 3 * m * u * u, d = u * u * u;
+    return [a * P[0][0] + b * P[1][0] + cc * P[2][0] + d * P[3][0], a * P[0][1] + b * P[1][1] + cc * P[2][1] + d * P[3][1]];
+  }
+  function spawnBombBlast(g, t) {
+    const { cx, cy, R, k } = g;
+    burst.t0 = t; lastR = R;
+    const cols = ['#20262e', '#3a4350', '#ff9f1c', '#ffd166', '#111418'];
+    for (let i = 0; i < 64; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(250, 900) * k;
+      add({ kind: 'debris', x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 180 * k, g: 1100 * k, drag: 0.3,
+            life: rand(0.9, 1.8), size: rand(4, 13) * k, rot: rand(0, 6), vr: rand(-14, 14), color: cols[i % cols.length] });
+    }
+    for (let i = 0; i < 60; i++) {
+      const a = rand(0, Math.PI * 2), sp = rand(200, 1000) * k;
+      add({ kind: 'spark', x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 500 * k, drag: 1.4,
+            life: rand(0.5, 1.1), size: rand(2, 5) * k, color: ['#fff6c2', '#ffd166', '#ff9f1c', '#ff6b1c'][i % 4] });
+    }
+    for (let i = 0; i < 18; i++) {
+      add({ kind: 'smoke', x: cx + rand(-R, R) * 0.6, y: cy + rand(-0.3, 0.3) * R, vx: rand(-30, 30) * k, vy: -rand(30, 90) * k,
+            drag: 0.2, life: rand(2.4, 3.6), size: R * rand(0.25, 0.5), delay: rand(0, 0.9) });
+    }
+  }
+  function sceneBomb(v, t, dt, tb) {
+    const g = bombGeom(), { R, gy, cx, cy, k } = g;
+    lastR = R;
+    // 地面陰影
+    c.fillStyle = 'rgba(0,0,0,.35)'; ell(cx, gy + R * 0.03, R * 1.05, R * 0.16); c.fill();
+    if (tb >= 0) {
+      // 焦痕
+      c.fillStyle = `rgba(0,0,0,${Math.min(0.7, tb * 1.4)})`; ell(cx, gy + R * 0.02, R * 1.5, R * 0.24); c.fill();
+      // 火球
+      if (tb < 1.4) {
+        const e = 1 - Math.pow(1 - Math.min(tb / 0.55, 1), 3), r = R * (0.4 + 3.0 * e), a = Math.max(0, 1 - tb / 1.3);
+        const gr = c.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.25, `rgba(255,226,120,${a})`);
+        gr.addColorStop(0.55, `rgba(255,120,30,${a * 0.85})`); gr.addColorStop(1, 'rgba(120,20,0,0)');
+        c.fillStyle = gr; c.beginPath(); c.arc(cx, cy, r, 0, 7); c.fill();
+      }
+      // 衝擊波
+      if (tb < 0.9) {
+        const f = tb / 0.9;
+        c.strokeStyle = `rgba(255,240,200,${(1 - f) * 0.8})`; c.lineWidth = Math.max(1, R * 0.12 * (1 - f));
+        c.beginPath(); c.arc(cx, cy, R * (0.6 + 5.5 * f), 0, 7); c.stroke();
+      }
+      return;
+    }
+    // ---- 完整炸彈 ----
+    const st = v.state, live = st === 'running', showing = live || st === 'paused';
+    let sx = 0, sy = 0;
+    if (live && v.remSec <= 10) { const a = R * 0.02 * (1 - v.remSec / 10) + R * 0.004; sx = rand(-a, a); sy = rand(-a, a); }
+    c.save(); c.translate(sx, sy);
+    // 危險光暈
+    if (v.color && showing) {
+      const f = 1.5 + 4.5 * (1 - clamp(v.remSec / 30, 0, 1)), pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * f), rgb = hex2rgb(v.color);
+      const gr = c.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * 2.2);
+      gr.addColorStop(0, rgba(rgb, 0.10 + 0.32 * pulse)); gr.addColorStop(1, rgba(rgb, 0));
+      c.fillStyle = gr; c.fillRect(-ox - sx, -oy - sy, cw, ch);
+    }
+    // 引信（燃燒前緣在 u = p）
+    const u = clamp(v.p, 0, 1), N = 44;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath();
+    for (let i = 0; i <= N; i++) { const q = fusePt(g, u * i / N); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }
+    c.strokeStyle = '#3b2f22'; c.lineWidth = R * 0.085; c.stroke();
+    c.strokeStyle = '#d9bd8c'; c.lineWidth = R * 0.055; c.setLineDash([R * 0.05, R * 0.05]); c.stroke(); c.setLineDash([]);
+    const tip = fusePt(g, u);
+    if (showing) {
+      const fr = R * 0.13 * (0.85 + Math.random() * 0.35);
+      let gr = c.createRadialGradient(tip[0], tip[1], 0, tip[0], tip[1], R * 0.6);
+      gr.addColorStop(0, 'rgba(255,170,60,.42)'); gr.addColorStop(1, 'rgba(255,120,20,0)');
+      c.fillStyle = gr; c.beginPath(); c.arc(tip[0], tip[1], R * 0.6, 0, 7); c.fill();
+      gr = c.createRadialGradient(tip[0], tip[1], 0, tip[0], tip[1], fr * 2.2);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.3, '#ffe27a'); gr.addColorStop(0.7, 'rgba(255,140,30,.9)'); gr.addColorStop(1, 'rgba(255,90,0,0)');
+      c.fillStyle = gr; c.beginPath(); c.arc(tip[0], tip[1], fr * 2.2, 0, 7); c.fill();
+      if (live) {
+        sparkAcc += dt * (60 + 40 * (1 - u));
+        while (sparkAcc >= 1) {
+          sparkAcc--;
+          const a = rand(0, Math.PI * 2), sp = rand(60, 240) * k;
+          add({ kind: 'spark', x: tip[0] + sx, y: tip[1] + sy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * k, g: 320 * k, drag: 1.2,
+                life: rand(0.25, 0.6), size: rand(1.4, 3.4) * k, color: ['#fff6c2', '#ffd166', '#ff9f1c', '#ff6b1c'][Math.floor(Math.random() * 4)] });
         }
+      }
+    }
+    // 炸彈本體
+    let gr = c.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.08, cx, cy, R * 1.05);
+    gr.addColorStop(0, '#7b8796'); gr.addColorStop(0.3, '#39424f'); gr.addColorStop(0.7, '#141a22'); gr.addColorStop(1, '#05070a');
+    c.fillStyle = gr; c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill();
+    c.save(); c.translate(cx - R * 0.38, cy - R * 0.46); c.rotate(-0.6); c.fillStyle = 'rgba(255,255,255,.22)'; ell(0, 0, R * 0.24, R * 0.12); c.fill(); c.restore();
+    // 瓶頸
+    const nx = cx - R * 0.26, ny = cy - R * 1.2, nw = R * 0.52, nh = R * 0.3;
+    gr = c.createLinearGradient(nx, 0, nx + nw, 0);
+    gr.addColorStop(0, '#374151'); gr.addColorStop(0.4, '#9aa5b1'); gr.addColorStop(1, '#2d3542');
+    c.fillStyle = gr; c.beginPath();
+    if (c.roundRect) c.roundRect(nx, ny, nw, nh, R * 0.06); else c.rect(nx, ny, nw, nh);
+    c.fill();
+    c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = Math.max(1, R * 0.02);
+    for (let i = 1; i <= 2; i++) { c.beginPath(); c.moveTo(nx, ny + nh * i / 3); c.lineTo(nx + nw, ny + nh * i / 3); c.stroke(); }
+    // LED
+    const rate = 1 + (1 - clamp(v.remSec / 30, 0, 1)) * 3;
+    const on = live ? ((t * rate) % 1) < 0.5 : (st === 'paused');
+    const lx = cx + R * 0.3, ly = cy + R * 0.28;
+    if (on) {
+      gr = c.createRadialGradient(lx, ly, 0, lx, ly, R * 0.25); gr.addColorStop(0, 'rgba(255,80,60,.8)'); gr.addColorStop(1, 'rgba(255,60,40,0)');
+      c.fillStyle = gr; c.beginPath(); c.arc(lx, ly, R * 0.25, 0, 7); c.fill();
+    }
+    c.fillStyle = on ? '#ff5a4a' : '#4a1410'; c.beginPath(); c.arc(lx, ly, R * 0.055, 0, 7); c.fill();
+    c.restore();
+  }
 
-        function drawTimerRing(percent) {
-            const radius = minDim * 0.42; 
-            const startAngle = -Math.PI / 2; 
-            const endAngle = startAngle + (Math.PI * 2 * percent);
-            
-            let color = '#00f0ff'; 
-            let glow = 20;
-            
-            if (isPaused) {
-                color = '#ffcc00';
-                glow = 15;
-            } 
-            else if (percent < 0.1 || remainingTimeMs < 10000) {
-                const flicker = Math.sin(Date.now() / 100) * 0.5 + 0.5;
-                color = `rgba(255, 0, 85, ${0.8 + flicker * 0.2})`;
-                glow = 30 + flicker * 20;
-            }
-            else if (remainingTimeMs <= 30000) {
-                color = '#ffb700'; 
-                glow = 25;
-            }
+  /* =================== 氣球／水球 =================== */
+  const balloonGeom = (v) => {
+    const Rmax = Math.min(W * 0.36, H * 0.36), Rmin = Rmax * 0.34;
+    const grow = v.state === 'idle' ? 0 : clamp(1 - v.p, 0, 1);
+    return { Rmax, Rmin, grow, R: Rmin + (Rmax - Rmin) * grow, cx: W / 2, cy: H * 0.47, gy: H * 0.93 };
+  };
+  function balloonPath(water) {
+    const kt = water ? 1.05 : 1.35, kb = water ? 1.4 : 0.95, ky = water ? 0.85 : 0.75;
+    c.beginPath(); c.moveTo(0, -1);
+    c.bezierCurveTo(kt, -1, kb, ky, 0, 1);
+    c.bezierCurveTo(-kb, ky, -kt, -1, 0, -1);
+    c.closePath();
+  }
+  function spawnBalloonBurst(g, t, water) {
+    const { cx, cy, R } = g, k = R / 100; burst.t0 = t; lastR = R; puddleMax = R * 1.9;
+    const base = hex2rgb(water ? WATER_COLOR : balloonColor);
+    const n = water ? 14 : 24;
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), rr = R * rand(0.1, 0.8), sp = rand(250, 750) * k;
+      const col = mixRgb(base, rand(0, 1) < 0.5 ? [255, 255, 255] : [0, 0, 0], rand(0, 0.25));
+      add({ kind: 'shred', x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120 * k,
+            g: water ? 900 * k : 600 * k, drag: 0.9, life: rand(1.6, 2.6), rot: rand(0, 6), vr: rand(-10, 10),
+            poly: polyShred(R * rand(0.16, 0.36)), color: rgba(col, water ? 0.75 : 0.98) });
+    }
+    add({ kind: 'ring', x: cx, y: cy, vx: 0, vy: 0, life: 0.35, size: R, grow: 0.9, lw: R * 0.09, color: '#ffffff' });
+    if (water) {
+      for (let i = 0; i < 150; i++) {
+        const a = rand(0, Math.PI * 2), sp = rand(120, 650) * k, rr = R * Math.sqrt(rand(0, 0.7));
+        add({ kind: 'drop', x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr * 0.9, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120 * k,
+              g: 1400 * k, drag: 0.5, life: 4, size: rand(2, 8) * k, color: 'rgba(120,200,255,1)' });
+      }
+      for (let i = 0; i < 12; i++) {
+        const a = rand(0, Math.PI * 2), sp = rand(40, 260) * k;
+        add({ kind: 'drop', x: cx + rand(-0.5, 0.5) * R, y: cy + rand(-0.4, 0.4) * R, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.4,
+              g: 1500 * k, drag: 0.3, life: 4, size: rand(10, 22) * k, color: 'rgba(90,180,255,1)' });
+      }
+    }
+  }
+  function sceneBalloon(v, t, dt, tb, water) {
+    const g = balloonGeom(v), R = g.R, gy = g.gy;
+    lastR = g.Rmax;
+    if (tb >= 0) {
+      if (water && puddle > 0) {
+        const a = Math.min(1, puddle / (g.Rmax * 0.5)) * 0.42;
+        const gr = c.createRadialGradient(g.cx, gy, 0, g.cx, gy, puddle);
+        gr.addColorStop(0, `rgba(120,200,255,${a})`); gr.addColorStop(1, 'rgba(120,200,255,0)');
+        c.fillStyle = gr; ell(g.cx, gy, puddle, puddle * 0.2); c.fill();
+      }
+      return;
+    }
+    const running = v.state === 'running', showing = running || v.state === 'paused';
+    const tense = showing ? clamp(1 - v.remSec / 10, 0, 1) : 0;
+    const cx0 = g.cx, cy0 = g.cy + Math.sin(t * 1.3) * H * 0.008 * (1 - g.grow * 0.5);
+    let sx = 1, sy = 1;
+    if (water) {
+      const a = 0.018 + 0.05 * g.grow * g.grow + 0.05 * tense, w = Math.sin(t * Math.PI * 2 * (1.6 + 2 * tense));
+      sx = 1 + a * w; sy = 1 - a * w;
+    } else {
+      sx = sy = 1 + 0.035 * tense * Math.sin(t * Math.PI * 2 * (3 + 4 * tense)) + 0.01 * Math.sin(t * 1.1);
+    }
+    let jx = 0, jy = 0;
+    if (running && tense > 0) { jx = rand(-1, 1) * R * 0.012 * tense; jy = rand(-1, 1) * R * 0.012 * tense; }
+    const cx = cx0 + jx, cy = cy0 + jy;
+    // 陰影
+    c.fillStyle = 'rgba(0,0,0,.28)'; ell(cx, gy + 4, R * 0.5 * (0.7 + 0.3 * g.grow), R * 0.07); c.fill();
+    // 危險光暈
+    if (v.color && showing) {
+      const f = 1.5 + 4.5 * (1 - clamp(v.remSec / 30, 0, 1)), pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * f), rgb = hex2rgb(v.color);
+      const gr = c.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 2);
+      gr.addColorStop(0, rgba(rgb, 0.04 + 0.16 * pulse)); gr.addColorStop(1, rgba(rgb, 0));
+      c.fillStyle = gr; c.fillRect(-ox, -oy, cw, ch);
+    }
+    // 顏色（拉伸變淡）
+    const base = hex2rgb(water ? WATER_COLOR : balloonColor);
+    const stressed = mixRgb(base, [255, 255, 255], 0.42 * g.grow * g.grow + 0.15 * tense);
+    const light = mixRgb(stressed, [255, 255, 255], 0.55), dark = mixRgb(stressed, [0, 0, 0], 0.3);
+    const alpha = water ? 0.86 - 0.22 * g.grow : 0.98 - 0.1 * g.grow;
+    // 繩子
+    const kx = cx, ky = cy + R * sy * 0.995, sw = Math.sin(t * 1.7) * R * 0.08;
+    c.strokeStyle = 'rgba(235,238,245,.8)'; c.lineWidth = Math.max(1.5, R * 0.018);
+    c.beginPath(); c.moveTo(kx, ky + R * 0.05);
+    c.bezierCurveTo(kx + sw, ky + (gy - ky) * 0.35, kx - sw * 1.2, ky + (gy - ky) * 0.65, kx + sw * 0.4, gy); c.stroke();
+    // 球身
+    c.save(); c.translate(cx, cy); c.scale(R * sx, R * sy);
+    const gr = c.createRadialGradient(-0.35, -0.4, 0.05, 0, 0, 1.15);
+    gr.addColorStop(0, rgba(light, alpha)); gr.addColorStop(0.45, rgba(stressed, alpha)); gr.addColorStop(1, rgba(dark, alpha));
+    c.fillStyle = gr; balloonPath(water); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.42)'; ell(-0.42, -0.5, 0.15, 0.3, -0.5); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.55)'; ell(-0.2, -0.8, 0.05, 0.05); c.fill();
+    if (water) {
+      c.fillStyle = 'rgba(255,255,255,.16)'; ell(0.36, 0.58, 0.26, 0.12, -0.3); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 0.025;
+      c.beginPath(); c.moveTo(-0.7, 0.25); c.quadraticCurveTo(0, 0.05 + 0.05 * Math.sin(t * 3), 0.7, 0.25); c.stroke();
+    }
+    c.restore();
+    // 綁結
+    c.fillStyle = rgba(dark, 1); c.beginPath();
+    c.moveTo(kx - R * 0.09, ky + R * 0.1); c.lineTo(kx, ky - R * 0.03); c.lineTo(kx + R * 0.09, ky + R * 0.1);
+    c.quadraticCurveTo(kx, ky + R * 0.05, kx - R * 0.09, ky + R * 0.1); c.fill();
+  }
 
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 15;
-            ctx.stroke();
+  /* =================== 水球（由頂端垂吊） =================== */
+  const hangGeom = (v) => {
+    const Rmax = Math.min(W * 0.34, H * 0.31), Rmin = Rmax * 0.34;
+    const grow = v.state === 'idle' ? 0 : clamp(1 - v.p, 0, 1);
+    const R = Rmin + (Rmax - Rmin) * grow, ay = H * 0.035, Ls = H * 0.1;
+    return { Rmax, Rmin, grow, R, cx: W / 2, ay, Ls, cy: ay + Ls + R, gy: H * 0.93 };
+  };
+  function hangPath() {            // 上尖（綁結處）、下圓的垂吊水滴形
+    c.beginPath(); c.moveTo(0, -1);
+    c.bezierCurveTo(0.12, -0.6, 1.0, -0.2, 1.0, 0.25);
+    c.bezierCurveTo(1.0, 0.75, 0.55, 1.0, 0, 1.0);
+    c.bezierCurveTo(-0.55, 1.0, -1.0, 0.75, -1.0, 0.25);
+    c.bezierCurveTo(-1.0, -0.2, -0.12, -0.6, 0, -1);
+    c.closePath();
+  }
+  function hangBracket(g) {        // 頂端掛勾
+    const w = Math.max(26, g.Rmax * 0.3);
+    c.fillStyle = '#5b6575'; c.beginPath();
+    if (c.roundRect) c.roundRect(g.cx - w / 2, g.ay - 7, w, 7, 3); else c.rect(g.cx - w / 2, g.ay - 7, w, 7);
+    c.fill();
+    c.fillStyle = '#9aa5b1'; c.beginPath(); c.arc(g.cx, g.ay, 3, 0, 7); c.fill();
+  }
+  function sceneWaterHang(v, t, dt, tb) {
+    const g = hangGeom(v), R = g.R, gy = g.gy;
+    lastR = g.Rmax;
+    hangBracket(g);
+    if (tb >= 0) {
+      // 爆破後：斷掉的繩子與綁結殘片仍掛在掛勾上輕晃
+      const sw = Math.sin(t * 3) * 0.12 * Math.exp(-tb * 0.6);
+      c.save(); c.translate(g.cx, g.ay); c.rotate(sw);
+      c.strokeStyle = 'rgba(235,238,245,.8)'; c.lineWidth = Math.max(1.5, g.Rmax * 0.018);
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, g.Ls * 0.75); c.stroke();
+      c.fillStyle = rgba(hex2rgb(WATER_COLOR), 0.8); c.beginPath();
+      c.moveTo(-g.Rmax * 0.05, g.Ls * 0.85); c.lineTo(0, g.Ls * 0.7); c.lineTo(g.Rmax * 0.05, g.Ls * 0.85); c.fill();
+      c.restore();
+      if (puddle > 0) {
+        const a = Math.min(1, puddle / (g.Rmax * 0.5)) * 0.42;
+        const gr = c.createRadialGradient(g.cx, gy, 0, g.cx, gy, puddle);
+        gr.addColorStop(0, `rgba(120,200,255,${a})`); gr.addColorStop(1, 'rgba(120,200,255,0)');
+        c.fillStyle = gr; ell(g.cx, gy, puddle, puddle * 0.2); c.fill();
+      }
+      return;
+    }
+    const running = v.state === 'running', showing = running || v.state === 'paused';
+    const tense = showing ? clamp(1 - v.remSec / 10, 0, 1) : 0;
+    // 水球本體的晃動（果凍般的形變）＋整體像單擺一樣擺盪；越接近爆破擺幅越大
+    const a = 0.018 + 0.05 * g.grow * g.grow + 0.05 * tense, w = Math.sin(t * Math.PI * 2 * (1.6 + 2 * tense));
+    const sx = 1 + a * w, sy = 1 - a * w;
+    const swing = (0.035 + 0.02 * g.grow + 0.08 * tense) * Math.sin(t * Math.PI * 2 * 0.5);
+    let jx = 0, jy = 0;
+    if (running && tense > 0) { jx = rand(-1, 1) * R * 0.012 * tense; jy = rand(-1, 1) * R * 0.012 * tense; }
+    const armLen = g.Ls + R * sy, bx = g.cx + armLen * Math.sin(swing), by = g.ay + armLen * Math.cos(swing);
+    // 地面陰影（跟著擺動）
+    c.fillStyle = 'rgba(0,0,0,.22)'; ell(bx, gy + 4, R * 0.5 * (0.7 + 0.3 * g.grow), R * 0.07); c.fill();
+    // 危險光暈
+    if (v.color && showing) {
+      const f = 1.5 + 4.5 * (1 - clamp(v.remSec / 30, 0, 1)), pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * f), rgb = hex2rgb(v.color);
+      const gr = c.createRadialGradient(bx, by, R * 0.8, bx, by, R * 2);
+      gr.addColorStop(0, rgba(rgb, 0.04 + 0.16 * pulse)); gr.addColorStop(1, rgba(rgb, 0));
+      c.fillStyle = gr; c.fillRect(-ox, -oy, cw, ch);
+    }
+    const base = hex2rgb(WATER_COLOR);
+    const stressed = mixRgb(base, [255, 255, 255], 0.42 * g.grow * g.grow + 0.15 * tense);
+    const light = mixRgb(stressed, [255, 255, 255], 0.55), dark = mixRgb(stressed, [0, 0, 0], 0.3);
+    const alpha = 0.86 - 0.22 * g.grow;
+    c.save(); c.translate(g.cx + jx, g.ay + jy); c.rotate(swing);
+    // 吊繩
+    c.strokeStyle = 'rgba(235,238,245,.85)'; c.lineWidth = Math.max(1.5, g.Rmax * 0.018);
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(0, g.Ls); c.stroke();
+    // 綁結
+    c.fillStyle = rgba(dark, 1); c.beginPath();
+    c.moveTo(-R * 0.09, g.Ls + R * 0.12); c.lineTo(0, g.Ls - R * 0.04); c.lineTo(R * 0.09, g.Ls + R * 0.12); c.closePath(); c.fill();
+    // 球身（頂點在綁結處，向下垂）
+    c.translate(0, g.Ls + R * sy); c.scale(R * 0.92 * sx, R * sy);
+    const gr = c.createRadialGradient(-0.35, -0.1, 0.05, 0, 0.1, 1.2);
+    gr.addColorStop(0, rgba(light, alpha)); gr.addColorStop(0.45, rgba(stressed, alpha)); gr.addColorStop(1, rgba(dark, alpha));
+    c.fillStyle = gr; hangPath(); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.42)'; ell(-0.45, -0.05, 0.14, 0.3, -0.35); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.55)'; ell(-0.25, -0.42, 0.05, 0.05); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.16)'; ell(0.4, 0.55, 0.26, 0.12, -0.3); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 0.025;
+    c.beginPath(); c.moveTo(-0.7, 0.15); c.quadraticCurveTo(0, 0.0 + 0.05 * Math.sin(t * 3), 0.7, 0.15); c.stroke();
+    c.restore();
+  }
 
-            if (percent > 0) {
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 15;
-                ctx.lineCap = 'round';
-                ctx.shadowBlur = glow;
-                ctx.shadowColor = color;
-                ctx.stroke();
-                ctx.shadowBlur = 0;
+  /* =================== 主繪製 =================== */
+  function draw(dt, t, v) {
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, cw, ch);
+    if (v.theme === 'plain') return;
+    c.translate(ox, oy);
+    if (burst && burst.pending) {
+      if (v.theme === 'bomb') spawnBombBlast(bombGeom(), t);
+      else if (v.theme === 'water') spawnBalloonBurst(hangGeom(Object.assign({}, v, { p: 0, state: 'finished' })), t, true);
+      else spawnBalloonBurst(balloonGeom(Object.assign({}, v, { p: 0, state: 'finished' })), t, false);
+      burst.pending = false; burst.theme = v.theme;
+    }
+    const tb = burst ? t - burst.t0 : -1;
+    const gy = v.theme === 'bomb' ? bombGeom().gy : balloonGeom(v).gy;
+    c.save();
+    if (tb >= 0 && tb < 0.9 && v.theme === 'bomb') { const a = lastR * 0.12 * Math.exp(-tb * 5); c.translate(rand(-a, a), rand(-a, a)); }
+    if (v.theme === 'bomb') sceneBomb(v, t, dt, tb);
+    else if (v.theme === 'water') sceneWaterHang(v, t, dt, tb);
+    else sceneBalloon(v, t, dt, tb, false);
+    updateParticles(dt, gy); drawParticles();
+    c.restore();
+    if (tb >= 0) {
+      const fl = v.theme === 'bomb' ? (tb < 0.35 ? (1 - tb / 0.35) * 0.9 : 0) : (v.theme === 'balloon' && tb < 0.08 ? 0.55 * (1 - tb / 0.08) : 0);
+      if (fl > 0) { c.fillStyle = `rgba(255,255,255,${fl})`; c.fillRect(-ox, -oy, cw, ch); }
+    }
+  }
+  return { draw, reset, burst: triggerBurst, resize };
+})();
 
-                const headX = centerX + radius * Math.cos(endAngle);
-                const headY = centerY + radius * Math.sin(endAngle);
-                ctx.beginPath();
-                ctx.arc(headX, headY, 12, 0, Math.PI * 2);
-                ctx.fillStyle = isPaused ? '#ffcc00' : '#fff'; 
-                ctx.shadowBlur = 40;
-                ctx.shadowColor = color;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-            }
+/* =====================================================================
+   應用程式：倒數狀態機、介面、網址參數
+   ===================================================================== */
+const el = {
+  clockDigits: $('#clockDigits'), clockDate: $('#clockDate'),
+  cdCard: $('#cdCard'), cdDigits: $('#cdDigits'), cdLabel: $('#cdLabel'), cdSub: $('#cdSub'), cdInfo: $('#cdInfo'),
+  banner: $('#banner'), plainFill: $('#plainFill'), msg: $('#msg'), soundHint: $('#soundHint'),
+  dH: $('#dH'), dM: $('#dM'), dS: $('#dS'), cH: $('#cH'), cM: $('#cM'), cS: $('#cS'), cTomorrow: $('#cTomorrow'),
+  btnStart: $('#btnStart'), btnPause: $('#btnPause'), btnReset: $('#btnReset'),
+  miniStart: $('#miniStart'), miniReset: $('#miniReset'), miniExit: $('#miniExit'),
+  tabDur: $('#tabDur'), tabClock: $('#tabClock'), modeDur: $('#modeDur'), modeClock: $('#modeClock'), clockHint: $('#clockHint')
+};
+const THEMES = ['bomb', 'balloon', 'water', 'plain'];
+const BANNER = { bomb: '💥 BOOM！時間到', balloon: '🎈 啪！時間到', water: '💦 嘩啦！時間到', plain: '⏰ 時間到！' };
 
-            const fontSize = minDim * 0.18; 
-            
-            ctx.fillStyle = color;
-            ctx.font = `bold ${fontSize}px "Share Tech Mono"`; 
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = color;
-            
-            // 決定畫面上要顯示的預覽時間
-            let displayMs = 0;
-            if (isRunning) {
-                displayMs = remainingTimeMs;
-            } else if (!isRunning && remainingTimeMs === 0 && totalTimeMs > 0) {
-                displayMs = 0; // 剛結束時保持 0
-            } else {
-                displayMs = getPreviewMs(); // 從選單動態讀取當前設定的時間
-            }
-            
-            ctx.fillText(formatTime(displayMs), centerX, centerY);
-            
-            const msFontSize = fontSize * 0.4; 
-            const msOffset = fontSize * 0.75;  
-            
-            if (isPaused) {
-                ctx.font = `${msFontSize * 0.8}px "Share Tech Mono"`;
-                ctx.fillText("PAUSED", centerX, centerY + msOffset);
-            } else if (isRunning && displayMs > 0) {
-                 const msPart = Math.floor((displayMs % 1000) / 10);
-                 ctx.font = `${msFontSize}px "Share Tech Mono"`; 
-                 ctx.fillText(`.${msPart.toString().padStart(2, '0')}`, centerX, centerY + msOffset); 
-            }
-            ctx.shadowBlur = 0;
-        }
+/* ---------------- 倒數狀態 ---------------- */
+const run = { state: 'idle', kind: 'dur', end: 0, total: 0, pausedRem: 0, long: false, lastSec: null, lastIdx: null, endShown: '' };
+const view = { theme: cfg.theme, state: 'idle', p: 1, remSec: 0, color: null };
+let lastClockSec = -1, msgTimer = 0;
 
-        function animate() {
-            ctx.fillStyle = 'rgba(5, 7, 10, 0.25)'; 
-            ctx.fillRect(0, 0, width, height);
+const num = (e, max) => clamp(Math.floor(parseFloat(e.value) || 0), 0, max);
+const readDur = () => ({ h: num(el.dH, 99), m: num(el.dM, 9999), s: num(el.dS, 9999) });
+const readClock = () => ({ h: num(el.cH, 99), m: num(el.cM, 99), s: num(el.cS, 99), tomorrow: el.cTomorrow.checked });
+function fmt(sec, long) {
+  sec = Math.max(0, sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  return (long || h > 0) ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+const fmtJp = sec => { const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60; return (h ? h + ' 時 ' : '') + (h || m ? m + ' 分 ' : '') + s + ' 秒'; };
+const hms = ms => { const p = twParts(ms); return `${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}`; };
+function showMsg(t) {
+  el.msg.textContent = t; clearTimeout(msgTimer);
+  if (t) msgTimer = setTimeout(() => { el.msg.textContent = ''; }, 7000);
+}
 
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
+/* 「到幾點」目標（以校時後的中原標準時間計算） */
+function clockTarget(n) {
+  const c = readClock();
+  if (c.h > 23 || c.m > 59 || c.s > 59) return { ok: false, err: '時間格式不正確：時 0–23、分與秒 0–59' };
+  const dayStart = Math.floor((n + TZ_MS) / 86400000) * 86400000 - TZ_MS;
+  const target = dayStart + (c.h * 3600 + c.m * 60 + c.s) * 1000 + (c.tomorrow ? 86400000 : 0);
+  const label = `${pad(c.h)}:${pad(c.m)}:${pad(c.s)}`;
+  if (target <= n + 300) return { ok: false, label, err: `今天的 ${label} 已經過了，若要倒數到明天請勾選「明天」` };
+  return { ok: true, target, label };
+}
+function computeStart() {
+  if (cfg.mode === 'dur') {
+    const d = readDur(), sec = Math.min(359999, d.h * 3600 + d.m * 60 + d.s);
+    if (sec <= 0) return { ok: false, err: '請輸入大於 0 的倒數時間' };
+    return { ok: true, kind: 'dur', end: Date.now() + sec * 1000, total: sec * 1000 };
+  }
+  const n = nowMs(), t = clockTarget(n);
+  if (!t.ok) return t;
+  return { ok: true, kind: 'clock', end: t.target, total: t.target - n };
+}
+const remAt = () => run.state === 'running' ? Math.max(0, run.end - (run.kind === 'clock' ? nowMs() : Date.now())) :
+                    run.state === 'paused' ? run.pausedRem : 0;
+const endTrue = () => run.kind === 'clock' ? run.end : run.end + offsetMs;
 
-            let percent = 1;
-            
-            if (isRunning) {
-                if (!isPaused) {
-                    const now = Date.now();
-                    remainingTimeMs = endTime - now;
+function start() {
+  Sound.ensure();
+  if (run.state === 'paused') {
+    run.end = Date.now() + run.pausedRem; run.state = 'running';
+    afterStateChange(); return;
+  }
+  if (run.state === 'running') return;
+  const t = computeStart();
+  if (!t.ok) { showMsg(t.err); return; }
+  showMsg('');
+  Stage.reset(); el.banner.className = 'banner';
+  Object.assign(run, { state: 'running', kind: t.kind, end: t.end, total: t.total, long: t.total >= 3600e3, lastSec: null, lastIdx: null });
+  afterStateChange();
+}
+function pause() {
+  if (run.state !== 'running' || run.kind !== 'dur') return;
+  run.pausedRem = remAt(); run.state = 'paused'; afterStateChange();
+}
+function reset() {
+  run.state = 'idle'; Stage.reset(); el.banner.className = 'banner';
+  afterStateChange();
+}
+function finish() {
+  run.state = 'finished';
+  Stage.burst(); Sound.finish(cfg.theme);
+  el.banner.textContent = BANNER[cfg.theme];
+  el.banner.className = 'banner show';
+  afterStateChange();
+  el.cdCard.classList.remove('finished'); void el.cdCard.offsetWidth; el.cdCard.classList.add('finished');
+}
+function toggleMain() {
+  if (run.state === 'running') { if (run.kind === 'dur') pause(); }
+  else start();
+}
 
-                    if (remainingTimeMs > 0 && remainingTimeMs <= 10000) {
-                        const sec = Math.ceil(remainingTimeMs / 1000);
-                        if (sec !== lastBeepSecond) {
-                            playTick();
-                            lastBeepSecond = sec;
-                        }
-                    }
-                }
-                
-                if (remainingTimeMs <= 0) {
-                    remainingTimeMs = 0;
-                    percent = 0;
-                    timerFinished();
-                } else {
-                    percent = remainingTimeMs / totalTimeMs;
-                }
-            } else if (remainingTimeMs === 0 && totalTimeMs > 0) {
-                percent = 0;
-            } else {
-                percent = 1;
-            }
+function afterStateChange() {
+  const st = run.state, active = st === 'running' || st === 'paused';
+  el.btnStart.textContent = st === 'paused' ? '▶ 繼續' : '▶ 開始';
+  el.btnStart.disabled = st === 'running';
+  el.btnPause.disabled = !(st === 'running' && run.kind === 'dur');
+  el.btnReset.disabled = st === 'idle';
+  el.miniStart.textContent = st === 'paused' ? '▶ 繼續' : (st === 'running' ? (run.kind === 'dur' ? '⏸ 暫停' : '進行中') : '▶ 開始');
+  el.miniStart.disabled = (st === 'running' && run.kind !== 'dur');
+  [el.dH, el.dM, el.dS, el.cH, el.cM, el.cS, el.cTomorrow, el.tabDur, el.tabClock].forEach(e => { e.disabled = active; });
+  document.querySelectorAll('#presets .chip').forEach(b => { b.disabled = active; });
+  el.cdCard.classList.toggle('paused', st === 'paused');
+  if (st !== 'finished') el.cdCard.classList.remove('finished');
+  lastClockSec = -1;   // 強制刷新一次提示文字
+  update(nowMs());
+}
 
-            drawTimerRing(percent);
+/* ---------------- 每幀更新 ---------------- */
+function stageFor(remSec) {
+  let best = null;
+  for (const w of cfg.warns) if (remSec <= w.sec && (!best || w.sec < best.sec)) best = w;
+  return best;
+}
+function update(n) {
+  // 左：中原標準時間
+  const sec = Math.floor(n / 1000);
+  const newSecond = sec !== lastClockSec;
+  if (newSecond) {
+    lastClockSec = sec;
+    const p = twParts(n);
+    el.clockDigits.textContent = `${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}`;
+    el.clockDate.textContent = `${p.y} 年 ${p.mo} 月 ${p.d} 日　星期${WEEK[p.wd]}`;
+    updateClockHint(n);
+  }
+  // 右：倒數
+  const st = run.state;
+  let remMs = 0, idleSec = 0, p = 1;
+  if (st === 'idle') {
+    if (cfg.mode === 'dur') { const d = readDur(); idleSec = Math.min(359999, d.h * 3600 + d.m * 60 + d.s); }
+    else { const t = clockTarget(n); idleSec = t.ok ? Math.ceil((t.target - n) / 1000) : 0; }
+  } else {
+    remMs = remAt();
+    p = st === 'finished' ? 0 : clamp(remMs / run.total, 0, 1);
+  }
+  const remSec = st === 'idle' ? idleSec : Math.ceil(remMs / 1000);
+  const warn = st === 'idle' ? null : stageFor(remSec);
+  const color = warn ? warn.color : cfg.normalColor;
+  const long = st === 'idle' ? idleSec >= 3600 : run.long;
+  const text = fmt(remSec, long);
+  if (el.cdDigits.textContent !== text) el.cdDigits.textContent = text;
+  el.cdDigits.classList.toggle('short', !long);
+  el.cdDigits.classList.toggle('idle', st === 'idle');
+  el.cdDigits.classList.toggle('flash', !!(warn && warn.flash && (st === 'running' || st === 'finished')));
+  el.cdCard.style.setProperty('--cd-color', color);
+  el.cdCard.style.setProperty('--accent', warn ? color : 'transparent');
+  el.cdCard.classList.toggle('warn', !!warn);
+  el.plainFill.style.width = (st === 'idle' ? 100 : p * 100).toFixed(2) + '%';
 
-            animationId = requestAnimationFrame(animate);
-        }
+  if (newSecond || st !== view.state) {
+    el.cdLabel.textContent = cfg.mode === 'clock' ? '倒數到中原標準時間' : '倒數時間';
+    let sub = '', info = '';
+    if (cfg.mode === 'clock' && st === 'idle') { const t = clockTarget(n); sub = t.label ? ' → ' + t.label : ''; }
+    if (st === 'running' || st === 'paused' || st === 'finished') {
+      if (run.kind === 'clock') sub = ' → ' + hms(run.end);
+      info = st === 'paused' ? '⏸ 已暫停' : (st === 'finished' ? '時間到　結束於 ' + hms(endTrue()) : '預定結束：' + hms(endTrue()) + '（中原標準時間）');
+    } else info = '設定好時間後按「開始」';
+    el.cdSub.textContent = sub; el.cdInfo.textContent = info;
+    document.title = st === 'running' ? `${text} ｜倒數計時器` : '倒數計時器｜中原標準時間';
+  }
+  // 音效與階段切換
+  if (st === 'running') {
+    if (remSec !== run.lastSec) {
+      if (run.lastSec !== null && remSec > 0 && cfg.warns.some(w => w.tick && remSec <= w.sec)) Sound.tick(remSec <= 10, remSec % 2);
+      run.lastSec = remSec;
+    }
+    const idx = warn ? cfg.warns.indexOf(warn) : -1;
+    if (idx !== run.lastIdx) { if (run.lastIdx !== null && idx >= 0) Sound.chime(); run.lastIdx = idx; }
+    if (remMs <= 0) finish();
+  }
+  el.soundHint.style.display = (st === 'running' && cfg.sound && !Sound.ready) ? 'block' : 'none';
+  Object.assign(view, { theme: cfg.theme, state: run.state, p, remSec, color: warn ? warn.color : null });
+}
+function updateClockHint(n) {
+  if (cfg.mode !== 'clock') return;
+  const t = clockTarget(n);
+  el.clockHint.innerHTML = t.ok ? `目標 <b>${t.label}</b>，距離現在約 <b>${fmtJp(Math.ceil((t.target - n) / 1000))}</b>` : `<span style="color:#fbbf24">${t.err}</span>`;
+}
 
-        // --- 邏輯函數 ---
+/* ---------------- 面板：模式、輸入、預設 ---------------- */
+function setMode(m) {
+  if (run.state === 'running' || run.state === 'paused') return;
+  cfg.mode = m; saveCfg();
+  el.tabDur.classList.toggle('on', m === 'dur'); el.tabClock.classList.toggle('on', m === 'clock');
+  el.modeDur.style.display = m === 'dur' ? 'flex' : 'none';
+  el.modeClock.style.display = m === 'clock' ? 'flex' : 'none';
+  showMsg(''); lastClockSec = -1; update(nowMs());
+}
+function writeDur(sec) {
+  sec = clamp(Math.floor(sec), 0, 359999);
+  el.dH.value = Math.floor(sec / 3600); el.dM.value = Math.floor(sec % 3600 / 60); el.dS.value = sec % 60;
+  cfg.dur = { h: +el.dH.value, m: +el.dM.value, s: +el.dS.value }; saveCfg();
+}
+[[30, '30 秒'], [60, '1 分'], [180, '3 分'], [300, '5 分'], [600, '10 分'], [900, '15 分'], [1800, '30 分'], [2700, '45 分'], [3600, '1 小時']].forEach(([s, t]) => {
+  const b = document.createElement('button'); b.className = 'chip'; b.textContent = t;
+  b.addEventListener('click', () => { writeDur(s); lastClockSec = -1; update(nowMs()); });
+  $('#presets').appendChild(b);
+});
+[el.dH, el.dM, el.dS].forEach(e => {
+  e.addEventListener('change', () => { const d = readDur(); writeDur(d.h * 3600 + d.m * 60 + d.s); });
+});
+[el.cH, el.cM, el.cS].forEach(e => e.addEventListener('change', () => { e.value = num(e, e === el.cH ? 23 : 59); }));
+[el.cH, el.cM, el.cS, el.cTomorrow].forEach(e => e.addEventListener('input', () => { lastClockSec = -1; }));
+el.cTomorrow.addEventListener('change', () => { lastClockSec = -1; });
+document.querySelectorAll('.time-in input, .warn-row input[type=number]').forEach(e => e.addEventListener('focus', () => e.select()));
+el.tabDur.addEventListener('click', () => setMode('dur'));
+el.tabClock.addEventListener('click', () => setMode('clock'));
+el.btnStart.addEventListener('click', start);
+el.btnPause.addEventListener('click', pause);
+el.btnReset.addEventListener('click', reset);
+el.miniStart.addEventListener('click', toggleMain);
+el.miniReset.addEventListener('click', reset);
+el.miniExit.addEventListener('click', exitPresent);
+$('#cdCard').addEventListener('dblclick', () => { document.body.classList.contains('present') ? exitPresent() : enterPresent(); });
 
-        // 讀取設定的時間差 (毫秒)
-        function getPreviewMs() {
-            if (currentMode === 'duration') {
-                const h = parseInt(document.getElementById('h-in').value) || 0;
-                const m = parseInt(document.getElementById('m-in').value) || 0;
-                const s = parseInt(document.getElementById('s-in').value) || 0;
-                return (h * 3600 + m * 60 + s) * 1000;
-            } else {
-                // 指定時間模式，計算與當前時間的差值
-                const timeStr = targetTimeInput.value;
-                if (!timeStr) return 0;
-                
-                const now = new Date();
-                const [hours, minutes] = timeStr.split(':').map(Number);
-                const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0); // 將秒歸零以對準整分
-                
-                // 如果設定的時間比現在還早，代表是要倒數到明天的這個時間
-                if (target.getTime() <= now.getTime()) {
-                    target.setDate(target.getDate() + 1);
-                }
-                
-                return target.getTime() - now.getTime();
-            }
-        }
+/* ---------------- 主題 ---------------- */
+function applyTheme(t, save) {
+  cfg.theme = t;
+  THEMES.forEach(x => document.body.classList.toggle('theme-' + x, x === t));
+  document.querySelectorAll('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.theme === t));
+  Stage.reset();
+  if (run.state === 'finished') { Stage.burst(); el.banner.textContent = BANNER[t]; }
+  if (save) saveCfg();
+  requestAnimationFrame(() => Stage.resize());
+}
+document.querySelectorAll('#themeSeg button').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.theme, true)));
 
-        function startTimer() {
-            const ms = getPreviewMs();
-            if (ms <= 0) return;
+/* ---------------- 顏色提醒 ---------------- */
+function renderWarns() {
+  const box = $('#warnList'); box.innerHTML = '';
+  cfg.warns.forEach((w, i) => {
+    const row = document.createElement('div'); row.className = 'warn-row';
+    row.innerHTML = `<span class="lb">最後</span>
+      <input type="number" min="0" max="999" inputmode="numeric" class="wm" aria-label="分鐘"><span class="lb">分</span>
+      <input type="number" min="0" max="59" inputmode="numeric" class="ws" aria-label="秒"><span class="lb">秒</span>
+      <input type="color" class="wc" aria-label="顏色">
+      <label class="chk"><input type="checkbox" class="wf">閃爍</label>
+      <label class="chk" title="從這一段開始有滴答聲，持續到結束"><input type="checkbox" class="wt">滴答</label>
+      <button class="x" title="刪除這一段" aria-label="刪除">✕</button>`;
+    const wm = row.querySelector('.wm'), ws = row.querySelector('.ws'), wc = row.querySelector('.wc'), wf = row.querySelector('.wf'), wt = row.querySelector('.wt');
+    wm.value = Math.floor(w.sec / 60); ws.value = w.sec % 60; wc.value = w.color; wf.checked = !!w.flash; wt.checked = !!w.tick;
+    const syncSec = () => { w.sec = clamp(Math.floor(+wm.value || 0), 0, 999) * 60 + clamp(Math.floor(+ws.value || 0), 0, 59); };
+    wm.addEventListener('input', syncSec); ws.addEventListener('input', syncSec);
+    [wm, ws].forEach(e => e.addEventListener('change', () => { syncSec(); cfg.warns.sort((a, b) => b.sec - a.sec); saveCfg(); renderWarns(); }));
+    wc.addEventListener('input', () => { w.color = wc.value; saveCfg(); });
+    wf.addEventListener('change', () => { w.flash = wf.checked; saveCfg(); });
+    wt.addEventListener('change', () => { w.tick = wt.checked; saveCfg(); });
+    row.querySelector('.x').addEventListener('click', () => { cfg.warns.splice(i, 1); saveCfg(); renderWarns(); });
+    row.querySelectorAll('input[type=number]').forEach(e => e.addEventListener('focus', () => e.select()));
+    box.appendChild(row);
+  });
+  if (!cfg.warns.length) box.innerHTML = '<div class="hint">目前沒有顏色提醒，可按「新增一段」。</div>';
+}
+$('#btnAddWarn').addEventListener('click', () => {
+  const smallest = cfg.warns.length ? Math.min(...cfg.warns.map(w => w.sec)) : 60;
+  cfg.warns.push({ sec: Math.max(5, Math.floor(smallest / 2) || 15), color: '#ff6b6b', flash: false, tick: false });
+  cfg.warns.sort((a, b) => b.sec - a.sec); saveCfg(); renderWarns();
+});
+$('#btnResetWarn').addEventListener('click', () => { cfg.warns = JSON.parse(JSON.stringify(DEFAULT_WARNS)); saveCfg(); renderWarns(); });
+$('#normalColor').addEventListener('input', e => { cfg.normalColor = e.target.value; saveCfg(); });
 
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+/* ---------------- 音效 UI ---------------- */
+function renderSoundBtn() { $('#btnSound').textContent = cfg.sound ? '🔊' : '🔇'; }
+$('#btnSound').addEventListener('click', () => { Sound.ensure(); cfg.sound = !cfg.sound; renderSoundBtn(); saveCfg(); });
+$('#optVol').addEventListener('input', e => { cfg.vol = +e.target.value; Sound.setVol(cfg.vol); saveCfg(); });
+$('#btnTestSound').addEventListener('click', () => {
+  Sound.ensure();
+  if (!cfg.sound) { showMsg('目前為靜音狀態，請先按右上角的喇叭開啟音效'); return; }
+  setTimeout(() => { Sound.chime(); [0, 1, 2].forEach(i => setTimeout(() => Sound.tick(false, i % 2), 500 + i * 250)); setTimeout(() => Sound.tick(true), 1300); setTimeout(() => Sound.finish(cfg.theme), 1700); }, 60);
+});
+['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { Sound.ensure(); }, { passive: true }));
 
-            totalTimeMs = ms;
-            endTime = Date.now() + ms;
-            isRunning = true;
-            isPaused = false;
-            isAlarmPlaying = false;
-            lastBeepSecond = -1; 
-            
-            pauseBtn.textContent = "暫停 (PAUSE)";
+/* ---------------- 校時 UI ---------------- */
+$('#btnResync').addEventListener('click', () => syncTime(true));
+setInterval(() => syncTime(false), 10 * 60 * 1000);
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) hiddenAt = Date.now();
+  else if (hiddenAt && Date.now() - hiddenAt > 60000) syncTime(false);
+});
+addEventListener('online', () => syncTime(false));
 
-            controlsDiv.style.display = 'none';
-            activeControlsDiv.style.display = 'flex'; 
-        }
+/* ---------------- 投影模式 ---------------- */
+let presentFS = false;
+async function enterPresent() {
+  document.body.classList.add('present');
+  try { if (document.documentElement.requestFullscreen) { await document.documentElement.requestFullscreen(); presentFS = true; } } catch (e) { presentFS = false; }
+}
+function exitPresent() {
+  document.body.classList.remove('present');
+  if (document.fullscreenElement) { presentFS = false; document.exitFullscreen().catch(() => {}); }
+}
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && presentFS) { presentFS = false; document.body.classList.remove('present'); }
+});
+$('#btnPresent').addEventListener('click', enterPresent);
 
-        function togglePause() {
-            if (!isRunning) return;
+/* ---------------- 快捷鍵 ---------------- */
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
+addEventListener('keydown', e => {
+  if (e.target.closest && e.target.closest('input,textarea,select')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.code === 'Space' && !(e.target.closest && e.target.closest('button'))) { e.preventDefault(); toggleMain(); }
+  else if (e.key === 'r' || e.key === 'R') reset();
+  else if (e.key === 'f' || e.key === 'F') document.body.classList.contains('present') ? exitPresent() : enterPresent();
+  else if (e.key === 'm' || e.key === 'M') { Sound.ensure(); cfg.sound = !cfg.sound; renderSoundBtn(); saveCfg(); }
+});
 
-            if (isPaused) {
-                endTime = Date.now() + remainingTimeMs;
-                isPaused = false;
-                pauseBtn.textContent = "暫停 (PAUSE)";
-            } else {
-                isPaused = true;
-                pauseBtn.textContent = "繼續 (RESUME)";
-                if (isAlarmPlaying) stopAlarm();
-            }
-        }
+/* ---------------- 設定連結 ---------------- */
+function buildLink() {
+  const q = new URLSearchParams();
+  if (cfg.mode === 'dur') {
+    const d = readDur(); if (d.h) q.set('h', d.h); if (d.m) q.set('m', d.m); if (d.s) q.set('s', d.s);
+    if (!d.h && !d.m && !d.s) q.set('m', 5);
+  } else {
+    const c = readClock(); q.set('at', `${pad(c.h)}:${pad(c.m)}:${pad(c.s)}`); if (c.tomorrow) q.set('tomorrow', '1');
+  }
+  q.set('theme', cfg.theme);
+  q.set('warn', cfg.warns.map(w => `${w.sec}:${w.color.slice(1)}${(w.flash || w.tick) ? ':' + (w.flash ? 'f' : '') + (w.tick ? 't' : '') : ''}`).join(','));
+  if (!cfg.sound) q.set('mute', '1');
+  if ($('#lnkAuto').checked) q.set('auto', '1');
+  if ($('#lnkPresent').checked) q.set('present', '1');
+  return location.href.split('#')[0].split('?')[0] + '?' + q.toString();
+}
+$('#btnCopyLink').addEventListener('click', () => {
+  const link = buildLink(); $('#linkOut').textContent = link;
+  const done = () => showMsg('已複製設定連結');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, () => showMsg('請手動複製下方連結'));
+  else showMsg('請手動複製下方連結');
+});
 
-        function stopTimer() {
-            isRunning = false;
-            isPaused = false;
-            remainingTimeMs = 0; 
-            stopAlarm();
-            
-            controlsDiv.style.display = 'block';
-            activeControlsDiv.style.display = 'none';
-        }
+/* ---------------- 網址參數 ---------------- */
+function applyParams() {
+  const q = new URLSearchParams(location.search), r = { auto: false, present: false, hasAt: false };
+  if (!location.search) return r;
+  const iv = k => Math.max(0, parseInt(q.get(k), 10) || 0);
+  if (THEMES.includes(q.get('theme'))) cfg.theme = q.get('theme');
+  if (q.has('h') || q.has('m') || q.has('s')) {
+    cfg.mode = 'dur';
+    const sec = Math.min(359999, iv('h') * 3600 + iv('m') * 60 + iv('s'));
+    cfg.dur = { h: Math.floor(sec / 3600), m: Math.floor(sec % 3600 / 60), s: sec % 60 };
+  }
+  if (q.has('at')) {
+    const m = /^(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?$/.exec(q.get('at').trim());
+    if (m) { r.hasAt = true; cfg.mode = 'clock'; cfg.clock = { h: clamp(+m[1], 0, 23), m: clamp(+m[2], 0, 59), s: clamp(+(m[3] || 0), 0, 59), tomorrow: q.get('tomorrow') === '1' }; }
+  }
+  if (q.has('warn')) {
+    const ws = q.get('warn').split(',').map(x => x.split(':')).filter(a => /^\d+$/.test(a[0]) && /^[0-9a-f]{6}$/i.test(a[1] || ''))
+      .map(a => ({ sec: +a[0], color: '#' + a[1], flash: (a[2] || '').includes('f'), tick: (a[2] || '').includes('t') })).sort((a, b) => b.sec - a.sec);
+    if (ws.length || q.get('warn') === 'none') cfg.warns = ws;
+  }
+  if (q.get('mute') === '1') cfg.sound = false;
+  r.auto = q.get('auto') === '1'; r.present = q.get('present') === '1';
+  return r;
+}
 
-        function timerFinished() {
-            isRunning = false;
-            if (!isAlarmPlaying) {
-                playAlarm();
-            }
-        }
+/* ---------------- 初始化 ---------------- */
+function init() {
+  const pr = applyParams();
+  if (innerHeight >= 1000) $('#settings').open = true;
+  // 「到幾點」預設：約 10 分鐘後的整分
+  if (!pr.hasAt) {
+    const p = twParts(Date.now() + 10 * 60000);
+    cfg.clock = { h: p.h, m: p.mi, s: 0, tomorrow: false };
+  }
+  el.dH.value = cfg.dur.h; el.dM.value = cfg.dur.m; el.dS.value = cfg.dur.s;
+  el.cH.value = cfg.clock.h; el.cM.value = cfg.clock.m; el.cS.value = cfg.clock.s; el.cTomorrow.checked = !!cfg.clock.tomorrow;
+  $('#optVol').value = cfg.vol; $('#normalColor').value = cfg.normalColor;
+  renderSoundBtn(); renderWarns();
+  applyTheme(THEMES.includes(cfg.theme) ? cfg.theme : 'bomb', false);
+  setMode(cfg.mode === 'clock' ? 'clock' : 'dur');
+  afterStateChange();
+  if (pr.present) document.body.classList.add('present');
+  syncTime(false).then(() => { lastClockSec = -1; });
+  if (pr.auto) setTimeout(start, 0);
 
-        function playTick() {
-            if (!audioCtx) return;
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
-            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
-
-            gain.gain.setValueAtTime(0.3, audioCtx.currentTime); 
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
-
-        function playAlarm() {
-            if (!audioCtx) return;
-            isAlarmPlaying = true;
-            
-            oscillator = audioCtx.createOscillator();
-            gainNode = audioCtx.createGain();
-
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); 
-            oscillator.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.5);
-            oscillator.frequency.linearRampToValueAtTime(440, audioCtx.currentTime + 1.0);
-
-            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            oscillator.start();
-            
-            const pulse = setInterval(() => {
-                if(!isAlarmPlaying) {
-                    clearInterval(pulse);
-                    return;
-                }
-                if(audioCtx.state === 'suspended') audioCtx.resume();
-                
-                const now = audioCtx.currentTime;
-                oscillator.frequency.setValueAtTime(880, now);
-                oscillator.frequency.exponentialRampToValueAtTime(440, now + 0.4);
-            }, 1000);
-        }
-
-        function stopAlarm() {
-            if (oscillator) {
-                try {
-                    oscillator.stop();
-                    oscillator.disconnect();
-                } catch(e) {}
-                oscillator = null;
-            }
-            isAlarmPlaying = false;
-        }
-
-        function updateStandardTime() {
-            const now = new Date();
-            const timeString = new Intl.DateTimeFormat('zh-TW', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false,
-                timeZone: 'Asia/Taipei'
-            }).format(now);
-            
-            stdTimeDisplay.textContent = timeString;
-        }
-
-        startBtn.addEventListener('click', startTimer);
-        stopBtn.addEventListener('click', stopTimer);
-        pauseBtn.addEventListener('click', togglePause);
-
-        setInterval(updateStandardTime, 1000); 
-        updateStandardTime(); 
-        animate(); 
-
-    </script>
+  let last = 0;
+  function frame(ts) {
+    const dt = Math.min(0.05, ((ts - last) / 1000) || 0.016); last = ts;
+    update(nowMs());
+    Stage.draw(dt, ts / 1000, view);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  setInterval(() => update(nowMs()), 200);   // 背景分頁時 rAF 會暫停，靠它維持計時與結束判斷
+}
+init();
+</script>
 </body>
 </html>
