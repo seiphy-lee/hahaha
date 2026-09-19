@@ -1,947 +1,939 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <!-- 加入 viewport-fit=cover 以適應瀏海屏 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <!-- iOS 專用全螢幕設定 -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="色彩分析儀">
-    
-    <title>數位色彩分析儀</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* CSS 變數定義安全區域，預設為 0 */
-        :root {
-            --sat: env(safe-area-inset-top);
-            --sab: env(safe-area-inset-bottom);
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>顏色判讀器</title>
+<style>
+:root{
+  --bg:#f2f3f5; --surface:#ffffff; --surface-2:#f4f5f7; --line:#dadde3;
+  --text:#1b1e23; --muted:#5d6570; --accent:#2f6fed; --accent-ink:#ffffff;
+  --danger:#c62828; --stage:#22262d; --radius:14px;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+  --r:#e53935; --g:#2e9e4f; --b:#2f6fed;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#15171a; --surface:#1e2126; --surface-2:#272b32; --line:#353b44;
+    --text:#eceef1; --muted:#9ba4af; --accent:#6c9bff; --accent-ink:#0d1526;
+    --danger:#ff7b7b; --stage:#0f1114; --shadow:none;
+    --r:#ff6b68; --g:#5fd08a; --b:#7aa7ff;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.55 system-ui,-apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  padding-bottom:calc(72px + env(safe-area-inset-bottom));
+}
+h1,h2,h3,p{margin:0}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Noto Sans Mono",monospace}
+.muted{color:var(--muted)}
 
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #1a1a1a;
-            color: #e5e5e5;
-            touch-action: none;
-            /* 使用 fixed + 100dvh 徹底鎖定畫面，防止 iOS 彈性捲動 */
-            position: fixed;
-            width: 100%;
-            height: 100dvh; 
-            overflow: hidden;
-        }
-        
-        /* 畫布背景紋理 */
-        .canvas-bg {
-            background-image: 
-                linear-gradient(45deg, #2a2a2a 25%, transparent 25%), 
-                linear-gradient(-45deg, #2a2a2a 25%, transparent 25%), 
-                linear-gradient(45deg, transparent 75%, #2a2a2a 75%), 
-                linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-        }
+/* ---------- header / tabs ---------- */
+.top{display:flex;align-items:center;gap:12px;padding:12px 16px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:34px;height:34px;border-radius:10px;flex:none;
+  background:conic-gradient(from 0deg,#ff3b30,#ffcc00,#34c759,#00c7be,#007aff,#af52de,#ff3b30);
+  box-shadow:inset 0 0 0 3px var(--bg),inset 0 0 0 4px rgba(128,128,128,.35)}
+.brand h1{font-size:19px;line-height:1.2}
+.brand p{display:none;font-size:13px;color:var(--muted)}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;
+  background:var(--surface);border-top:1px solid var(--line);
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+.tab{flex:1;appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-size:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:52px;border-radius:12px;cursor:pointer}
+.tab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-selected=true]{color:var(--accent);font-weight:700}
 
-        /* 準心樣式 */
-        .fixed-crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 40px; height: 40px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 20;
-            display: none; 
-        }
-        .fixed-crosshair::before, .fixed-crosshair::after {
-            content: '';
-            position: absolute;
-            background-color: #00ff00;
-            box-shadow: 0 0 3px rgba(0,0,0,0.9);
-        }
-        .fixed-crosshair::before { top: 19px; left: 0; width: 40px; height: 2px; }
-        .fixed-crosshair::after { top: 0; left: 19px; width: 2px; height: 40px; }
-        .crosshair-circle {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 12px; height: 12px;
-            transform: translate(-50%, -50%);
-            border: 2px solid #00ff00;
-            border-radius: 50%;
-            background: rgba(0, 255, 0, 0.1);
-            z-index: 21;
-        }
-        
-        /* 快門按鈕樣式 */
-        .shutter-btn {
-            position: absolute;
-            /* 避開底部 Home Bar */
-            bottom: calc(80px + var(--sab)); 
-            left: 50%;
-            transform: translateX(-50%);
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.8);
-            border: 4px solid #fff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            z-index: 50;
-            display: none; 
-            cursor: pointer;
-            transition: transform 0.1s, background-color 0.2s;
-            touch-action: manipulation;
-        }
-        .shutter-btn:active {
-            transform: translateX(-50%) scale(0.95);
-            background-color: rgba(255, 255, 255, 1);
-        }
-        .shutter-inner {
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            background-color: transparent;
-            border: 2px solid #333;
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-        }
+/* ---------- layout ---------- */
+.layout{display:grid;gap:14px;padding:0 12px;max-width:1200px;margin:0 auto}
+.main-col,.side-col{display:grid;gap:14px;min-width:0;align-content:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;min-width:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.card-head h2{font-size:17px}
+.chip{font-size:12.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:999px;padding:2px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%}
+.hint{font-size:14px;color:var(--muted);margin-top:10px}
+.hint.small{font-size:13px}
 
-        /* 隱藏卷軸但保留功能 */
-        .hide-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .hide-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+/* ---------- buttons / inputs ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface-2);color:var(--text);font:inherit;font-size:15px;
+  padding:8px 14px;border-radius:10px;min-height:44px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{min-height:40px;padding:4px 12px;font-size:14px}
+input[type=text],input[type=number]{
+  font:inherit;font-size:16px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text);
+  min-height:44px;width:100%}
+input.bad{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb,var(--danger) 25%,transparent)}
 
-        /* 模式切換動畫 */
-        .view-section {
-            transition: opacity 0.3s ease;
-        }
-        .hidden-view {
-            display: none !important;
-            opacity: 0;
-            pointer-events: none; /* 避免隱藏層擋住點擊 */
-        }
+/* ---------- stage (image / camera) ---------- */
+.stage-host{position:relative;background:var(--stage);border-radius:10px;display:flex;justify-content:center;align-items:center;
+  min-height:200px;overflow:hidden}
+.stage-host.drag{outline:3px dashed var(--accent);outline-offset:-3px}
+.ph{padding:28px 18px;text-align:center;color:#c5cbd3;max-width:34rem}
+.ph b{display:block;font-size:17px;color:#fff;margin-bottom:6px}
+.ph p{font-size:14.5px}
+.stage{position:relative;flex:none;background:#000}
+.stage canvas,.stage video{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage canvas{touch-action:none;cursor:crosshair;outline-offset:-3px}
+.stage video{object-fit:fill;background:#000}
+.stage.cam{cursor:default}
+.stage.cam.frozen{cursor:crosshair;touch-action:none}
+.reticle{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}
+.reticle svg{width:100%;height:100%;display:block}
+.badge{position:absolute;left:8px;top:8px;background:rgba(0,0,0,.68);color:#fff;font-size:13px;padding:4px 10px;border-radius:999px;pointer-events:none}
 
-        /* 自訂輸入框樣式 (針對色彩轉換器) */
-        .cvt-input {
-            width: 100%;
-            height: 100%;
-            border: none;
-            text-align: center;
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: #333;
-            outline: none;
-            padding: 0;
-            background: transparent;
-        }
-        .cvt-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            font-weight: bold;
-            color: white;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-        
-        /* 預覽文字樣式 */
-        .preview-text {
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-            font-family: 'Noto Sans TC', monospace;
-        }
-    </style>
+/* ---------- readout ---------- */
+.viz{display:flex;gap:10px;align-items:stretch}
+.swatch{flex:1;min-width:0;min-height:132px;border-radius:12px;border:1px solid rgba(128,128,128,.4);
+  display:flex;align-items:flex-end;padding:10px 12px;font:700 20px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.swatch.empty{background:repeating-conic-gradient(#d0d3d8 0 25%,#eceef1 0 50%) 0 0/16px 16px;color:#555}
+.loupe{margin:0;width:132px;flex:none}
+.loupe canvas{width:132px;height:132px;display:block;image-rendering:pixelated;border-radius:10px;border:1px solid var(--line);background:var(--surface-2)}
+.loupe figcaption{font-size:12px;color:var(--muted);line-height:1.35;margin-top:4px}
+.codes{margin:12px 0 0;display:grid}
+.row{display:grid;grid-template-columns:3.6rem minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.row dt{color:var(--muted);font-size:13px;font-weight:600;line-height:1.2}
+.row dd{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:600;font-size:15px;min-width:0;overflow-wrap:anywhere}
+.row.main dd{font-size:22px}
+.row .copy{min-height:40px;min-width:56px;padding:4px 10px;font-size:13px}
+.ch{display:inline-flex;align-items:baseline;gap:4px;margin-right:12px;white-space:nowrap}
+.ch i{font-style:normal;font-size:13px;font-weight:700}
+.ch.r i{color:var(--r)} .ch.g i{color:var(--g)} .ch.b i{color:var(--b)}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:6px;border:1px solid rgba(128,128,128,.5)}
+.row .nm{font-family:inherit}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- palette ---------- */
+.pal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px}
+.pal-grid button{aspect-ratio:1;border-radius:10px;border:1px solid rgba(128,128,128,.45);cursor:pointer;padding:0}
+.pal-grid button.sel{outline:3px solid var(--accent);outline-offset:2px}
+.pal-empty{font-size:14px;color:var(--muted)}
+
+/* ---------- generator ---------- */
+.gen-preview{height:clamp(150px,30vh,280px);border-radius:12px;border:1px solid rgba(128,128,128,.4);display:flex;align-items:flex-end;padding:14px;margin-bottom:14px}
+.gen-preview.empty{background:repeating-conic-gradient(#d0d3d8 0 25%,#eceef1 0 50%) 0 0/16px 16px;color:#555}
+.gen-label{display:flex;flex-direction:column;line-height:1.25}
+.gen-label b{font-size:26px}
+.gen-label span{font-size:15px;font-weight:600}
+.field>span{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:4px}
+.hexwrap{display:flex;align-items:center;gap:8px;max-width:22rem}
+.hexwrap>span{font:700 20px ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+.chan-grid{display:grid;gap:10px;margin-top:14px}
+.chan{display:grid;grid-template-columns:1.6rem 5.4rem minmax(0,1fr);gap:10px;align-items:center}
+.chan label{font-weight:800;font-size:17px}
+.chan.r label{color:var(--r)} .chan.g label{color:var(--g)} .chan.b label{color:var(--b)}
+.chan.r input[type=range]{accent-color:var(--r)} .chan.g input[type=range]{accent-color:var(--g)} .chan.b input[type=range]{accent-color:var(--b)}
+input[type=range]{width:100%;height:32px}
+.msg{min-height:1.5em;font-size:14px;color:var(--danger);margin-top:8px}
+
+/* ---------- learn ---------- */
+.learn h2{font-size:18px;margin-bottom:8px}
+.learn h3{font-size:16px;margin:14px 0 4px}
+.learn p,.learn li{font-size:15px}
+.learn ul,.learn ol{margin:6px 0 0;padding-left:1.3em}
+.learn li{margin:4px 0}
+.steps{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin-top:10px;counter-reset:s}
+.step{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;counter-increment:s}
+.step b{display:block;font-size:15px;margin-bottom:2px}
+.step b::before{content:counter(s);display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px;margin-right:8px}
+.step p{font-size:14px;color:var(--muted)}
+.bayer-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.bayer{display:grid;grid-template-columns:repeat(4,44px);gap:3px}
+.bayer i{font-style:normal;display:grid;place-items:center;width:44px;height:44px;border-radius:6px;color:#fff;font-weight:800;font-size:15px}
+.bayer .R{background:#d93a36}.bayer .G{background:#2f9a4e}.bayer .B{background:#2b6be0}
+.tablewrap{overflow-x:auto;margin-top:8px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child th,tr:last-child td{border-bottom:0}
+thead th{background:var(--surface-2);color:var(--muted);font-size:13px}
+td.strong{font-weight:800;font-size:17px}
+.bin span+span{margin-left:.6em}
+
+/* ---------- misc ---------- */
+.foot{max-width:1200px;margin:18px auto 0;padding:0 16px;text-align:center;font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translate(-50%,12px);
+  background:#23262b;color:#fff;padding:9px 16px;border-radius:999px;font-size:14.5px;opacity:0;pointer-events:none;
+  transition:opacity .18s,transform .18s;z-index:60;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.fs{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:flex-start;padding:24px;cursor:pointer}
+.fs .fs-text{display:flex;flex-direction:column;line-height:1.2;font-family:ui-monospace,Menlo,Consolas,monospace}
+.fs .fs-text b{font-size:clamp(30px,8vw,64px)}
+.fs .fs-text span{font-size:clamp(16px,4vw,26px);font-weight:600}
+.fs .fs-tip{position:absolute;top:16px;right:20px;font-size:14px;opacity:.75}
+
+/* ---------- desktop / laptop layout ---------- */
+@media (min-width:900px),(min-width:760px) and (orientation:landscape){
+  body{padding-bottom:28px}
+  .top{max-width:1200px;margin:0 auto;padding:18px 24px}
+  .brand h1{font-size:22px}
+  .brand p{display:block}
+  .tabs{position:static;margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;gap:2px}
+  .tab{flex:none;flex-direction:row;gap:8px;padding:8px 16px;font-size:15px;min-height:0;border-radius:999px}
+  .tab svg{width:20px;height:20px}
+  .tab[aria-selected=true]{background:var(--accent);color:var(--accent-ink)}
+  .layout{grid-template-columns:minmax(0,1fr) 390px;gap:20px;padding:0 24px;align-items:start}
+  .card{padding:18px}
+  .toast{bottom:32px}
+}
+@media (max-width:380px){
+  .loupe{width:112px}.loupe canvas{width:112px;height:112px}
+  .row{grid-template-columns:3.2rem minmax(0,1fr) auto}
+  .row.main dd{font-size:20px}
+}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
 </head>
-<body class="w-full relative bg-[#111]">
+<body>
 
-    <!-- 共用的檔案上傳 Input (隱藏) -->
-    <input type="file" id="imageInput" accept="image/*" class="hidden">
-    <!-- 隱藏的 Video 元素，用於 WebRTC 串流 -->
-    <video id="cameraFeed" autoplay playsinline class="hidden"></video>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>顏色判讀器</h1>
+      <p>點選圖片或對準相機，讀出 16 進位色碼與十進位 RGB</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="功能分頁" id="tabs">
+    <button class="tab" role="tab" data-tab="image" aria-selected="true" aria-controls="pane-image">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/></svg>圖片
+    </button>
+    <button class="tab" role="tab" data-tab="camera" aria-selected="false" aria-controls="pane-camera">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"/><circle cx="12" cy="13" r="3.6"/></svg>相機
+    </button>
+    <button class="tab" role="tab" data-tab="gen" aria-selected="false" aria-controls="pane-gen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M4 12h16"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>色碼
+    </button>
+    <button class="tab" role="tab" data-tab="learn" aria-selected="false" aria-controls="pane-learn">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>原理
+    </button>
+  </nav>
+</header>
 
-    <!-- ========================================== -->
-    <!-- 1. 登入首頁 (Landing View) -->
-    <!-- ========================================== -->
-    <div id="view-landing" class="view-section absolute inset-0 z-50 bg-[#111] overflow-y-auto">
-        <div class="min-h-full flex flex-col items-center justify-center p-4 py-10">
-            <div class="text-center mb-10 mt-4">
-                <h1 class="text-3xl md:text-5xl font-black text-white mb-4 leading-tight">
-                    數位色彩分析儀 (RGB Analyzer)<br>
-                    <span class="text-yellow-400 text-2xl md:text-3xl">---阿發老師設計</span>
-                </h1>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl px-4">
-                <button onclick="switchMode('desktop')" class="group relative bg-[#1a4b6e] hover:bg-[#23689b] text-white p-8 rounded-2xl shadow-2xl transition transform hover:scale-105 border-2 border-[#3381b0]">
-                    <div class="text-center">
-                        <span class="text-5xl mb-4 block">🖥️</span>
-                        <h2 class="text-2xl font-bold mb-2">電腦版面</h2>
-                        <p class="text-blue-200 text-sm">適合桌機、大螢幕操作</p>
-                    </div>
-                </button>
-                
-                <button onclick="switchMode('mobile')" class="group relative bg-[#1a6e4b] hover:bg-[#239b65] text-white p-8 rounded-2xl shadow-2xl transition transform hover:scale-105 border-2 border-[#33b074]">
-                    <div class="text-center">
-                        <span class="text-5xl mb-4 block">📱</span>
-                        <h2 class="text-2xl font-bold mb-2">手機版面</h2>
-                        <p class="text-green-200 text-sm">適合手機、平板操作</p>
-                    </div>
-                </button>
+<main class="layout">
+  <section class="main-col">
 
-                <button onclick="switchMode('converter')" class="group relative bg-[#7c3aed] hover:bg-[#8b5cf6] text-white p-8 rounded-2xl shadow-2xl transition transform hover:scale-105 border-2 border-[#a78bfa]">
-                    <div class="text-center">
-                        <span class="text-5xl mb-4 block">🎨</span>
-                        <h2 class="text-2xl font-bold mb-2">色彩轉換</h2>
-                        <p class="text-purple-200 text-sm">RGB / HEX 互轉與色卡製作</p>
-                    </div>
-                </button>
-            </div>
-            
-            <div class="mt-8 text-gray-500 text-sm max-w-md text-center">
-                <p>💡 iPhone 提示：若瀏覽器工具列擋住視線</p>
-                <p>請點擊 Safari 下方 <span class="text-xl">share</span> 分享按鈕 > 選擇「加入主畫面」</p>
-                <p>即可獲得最佳全螢幕體驗。</p>
-            </div>
+    <!-- ===== 圖片 ===== -->
+    <div id="pane-image" class="pane card" role="tabpanel">
+      <div class="toolbar">
+        <label class="btn primary" for="file">選擇圖片</label>
+        <input id="file" type="file" accept="image/*" hidden>
+        <button class="btn" id="btnSample" type="button">載入範例色卡</button>
+      </div>
+      <div class="stage-host" id="imgHost">
+        <div class="ph" id="imgEmpty">
+          <b>上傳一張圖片開始取色</b>
+          <p>按「選擇圖片」，或把圖片拖曳、貼上（Ctrl／⌘＋V）到這裡。也可以先載入範例色卡，對照已知色碼。</p>
         </div>
+        <div class="stage" id="imgStage" hidden>
+          <canvas id="imgCanvas" tabindex="0" aria-label="圖片取色區，點選或使用方向鍵移動取樣點"></canvas>
+          <div class="reticle" id="imgReticle" hidden></div>
+        </div>
+      </div>
+      <p class="hint small" id="imgInfo">點一下圖片，或按住拖曳，即時讀取顏色（每次取取樣點周圍 5×5 像素的平均）。電腦上可用方向鍵逐像素微調，Shift＋方向鍵一次移 10 像素。</p>
     </div>
 
-
-    <!-- ========================================== -->
-    <!-- 2. 電腦模式 (Desktop View) -->
-    <!-- ========================================== -->
-    <div id="view-desktop" class="view-section hidden-view h-full flex flex-col">
-        <header class="flex-none bg-[#1a1a1a] border-b border-gray-800 p-3 flex justify-between items-center shadow-md z-30">
-            <h2 class="text-xl font-bold text-white pl-4">
-                數位色彩分析儀 <span class="text-yellow-400 text-sm">---阿發老師設計</span>
-            </h2>
-            <div class="flex gap-3">
-                <button onclick="triggerUpload()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded shadow flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    上傳圖片
-                </button>
-                <button onclick="switchMode('landing')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded shadow flex items-center">
-                    退出電腦版面
-                </button>
-            </div>
-        </header>
-
-        <div class="flex-1 flex overflow-hidden">
-            <div id="desktop-canvas-container" class="flex-1 relative bg-black flex items-center justify-center overflow-hidden canvas-bg cursor-move">
-                <div id="desktop-placeholder" class="text-gray-500">照片區</div>
-            </div>
-
-            <div class="w-80 bg-gray-800 border-l border-gray-700 shadow-xl overflow-y-auto z-20 flex-none">
-                <div class="p-6 space-y-6">
-                    <div class="flex flex-col items-center">
-                        <div id="deskPreview" class="w-24 h-24 rounded-full shadow-inner border-4 border-gray-600 bg-black mb-2 transition-colors"></div>
-                        <p id="deskHex" class="text-xl font-mono font-bold text-white">#000000</p>
-                        <p class="text-gray-400 text-sm mt-1">光譜成分分析</p>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1"><span class="text-red-400 font-bold">R</span><span id="deskR" class="font-mono">0</span></div>
-                            <div class="h-4 bg-gray-900 rounded-full overflow-hidden"><div id="deskBarR" class="h-full bg-red-600 transition-all duration-100" style="width: 0%"></div></div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1"><span class="text-green-400 font-bold">G</span><span id="deskG" class="font-mono">0</span></div>
-                            <div class="h-4 bg-gray-900 rounded-full overflow-hidden"><div id="deskBarG" class="h-full bg-green-500 transition-all duration-100" style="width: 0%"></div></div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1"><span class="text-blue-400 font-bold">B</span><span id="deskB" class="font-mono">0</span></div>
-                            <div class="h-4 bg-gray-900 rounded-full overflow-hidden"><div id="deskBarB" class="h-full bg-blue-500 transition-all duration-100" style="width: 0%"></div></div>
-                        </div>
-                    </div>
-
-                    <div class="pt-4 border-t border-gray-700">
-                        <div class="flex justify-between items-end">
-                            <span class="text-gray-400 text-sm">感知亮度</span>
-                            <span id="deskLum" class="text-2xl text-yellow-400 font-bold font-mono">0</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- ===== 相機 ===== -->
+    <div id="pane-camera" class="pane card" role="tabpanel" hidden>
+      <div class="toolbar">
+        <button class="btn primary" id="camStart" type="button">啟動相機</button>
+        <button class="btn" id="camFreeze" type="button" disabled>定格</button>
+        <button class="btn" id="camFlip" type="button" hidden>切換鏡頭</button>
+        <button class="btn" id="camStop" type="button" disabled>關閉相機</button>
+      </div>
+      <div class="stage-host" id="camHost">
+        <div class="ph" id="camEmpty">
+          <b>把準心對準要量的顏色</b>
+          <p>按「啟動相機」並允許使用權限。畫面正中央準心內 5×5 像素的平均顏色會即時顯示。手抖或要細看時，按「定格」再點選畫面任一處。</p>
         </div>
+        <div class="stage cam" id="camStage" hidden>
+          <video id="video" playsinline muted autoplay></video>
+          <div class="reticle" id="camReticle"></div>
+          <div class="badge" id="camBadge" hidden>已定格・點選畫面任一處取色</div>
+        </div>
+      </div>
+      <p class="hint small" id="camMsg">相機需在 https:// 網址下才能使用。畫面不會上傳，全部在本機運算。</p>
     </div>
 
-
-    <!-- ========================================== -->
-    <!-- 3. 手機模式 (Mobile View) -->
-    <!-- ========================================== -->
-    <div id="view-mobile" class="view-section hidden-view h-full flex flex-col bg-[#102a43]">
-        <div class="flex-none p-1 flex gap-2 bg-[#243b53] border-b border-[#334e68] shadow-lg z-30">
-            <button id="btnMobileCamera" onclick="handleMobileCamera()" class="flex-1 bg-blue-600 active:bg-blue-700 text-white font-bold py-2 px-2 rounded-lg flex items-center justify-center text-sm md:text-base shadow">
-                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                相機
-            </button>
-            <button onclick="triggerUpload()" class="flex-1 bg-gray-600 active:bg-gray-700 text-white font-bold py-2 px-2 rounded-lg flex items-center justify-center text-sm md:text-base shadow">
-                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                上傳
-            </button>
-            <button onclick="switchMode('landing')" class="flex-none bg-[#00a846] active:bg-[#008f3b] text-white font-bold py-2 px-3 rounded-lg shadow whitespace-nowrap text-sm md:text-base">
-                退出
-            </button>
-        </div>
-
-        <div class="flex-none bg-[#102a43] border-b-2 border-[#334e68] p-3 pb-3 z-30 shadow-md">
-            <div class="flex items-center gap-4">
-                <div class="flex flex-col items-center justify-center pl-2">
-                    <div id="mobPreview" class="w-16 h-16 rounded-full border-4 border-[#bcccdc] bg-black shadow-lg"></div>
-                    <div id="mobHex" class="text-[#bcccdc] font-mono text-xs font-bold mt-1 tracking-wider">#000000</div>
-                </div>
-
-                <div class="flex-1 grid grid-cols-3 gap-2 text-center">
-                    <div class="flex flex-col">
-                        <span class="text-red-400 font-bold text-3xl">R</span>
-                        <span id="mobR" class="text-white font-mono text-3xl font-bold drop-shadow-md">0</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-green-400 font-bold text-3xl">G</span>
-                        <span id="mobG" class="text-white font-mono text-3xl font-bold drop-shadow-md">0</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="text-blue-400 font-bold text-3xl">B</span>
-                        <span id="mobB" class="text-white font-mono text-3xl font-bold drop-shadow-md">0</span>
-                    </div>
-                </div>
-            </div>
-            <div class="text-center mt-2">
-                <p id="mobHint" class="text-[#486581] text-xs">即時偵測中：請移動手機瞄準物體</p>
-            </div>
-        </div>
-
-        <div id="mobile-canvas-container" class="flex-1 relative bg-black flex items-center justify-center overflow-hidden canvas-bg w-full">
-            <div id="mobile-placeholder" class="text-gray-500 text-xl font-bold select-none text-center">
-                <span class="text-4xl block mb-2">📸</span>
-                點擊上方按鈕<br>啟動相機 或 上傳
-            </div>
-            <button id="shutterBtn" onclick="snapPhoto()" class="shutter-btn">
-                <div class="shutter-inner"></div>
-            </button>
-        </div>
+    <!-- ===== 色碼產生 ===== -->
+    <div id="pane-gen" class="pane card" role="tabpanel" hidden>
+      <div class="gen-preview empty" id="genPreview">
+        <div class="gen-label"><b id="genHex">輸入色碼後顯示</b><span id="genRgb"></span></div>
+      </div>
+      <label class="field">
+        <span>16 進位色碼（可貼上 #FF8800、FF8800、#F80，或 rgb(255,136,0)）</span>
+        <div class="hexwrap"><span>#</span>
+          <input id="inHex" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="FF8800"></div>
+      </label>
+      <div class="chan-grid">
+        <div class="chan r"><label for="inR">R</label><input id="inR" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255"><input id="rgR" type="range" min="0" max="255" value="0" aria-label="紅色 R"></div>
+        <div class="chan g"><label for="inG">G</label><input id="inG" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255"><input id="rgG" type="range" min="0" max="255" value="0" aria-label="綠色 G"></div>
+        <div class="chan b"><label for="inB">B</label><input id="inB" type="number" min="0" max="255" step="1" inputmode="numeric" placeholder="0–255"><input id="rgB" type="range" min="0" max="255" value="0" aria-label="藍色 B"></div>
+      </div>
+      <p class="msg" id="genMsg" role="status"></p>
+      <div class="toolbar">
+        <button class="btn primary" id="btnFull" type="button">全螢幕色卡</button>
+        <button class="btn" id="btnRandom" type="button">隨機顏色</button>
+        <button class="btn" id="btnLink" type="button">複製分享連結</button>
+      </div>
+      <p class="hint small">從「圖片」或「相機」量到的顏色，也會自動帶到這裡，可以用來驗證：量出來的色碼，重新產生後看起來是不是同一個顏色？</p>
     </div>
 
-
-    <!-- ========================================== -->
-    <!-- 4. 色彩轉換器 (Converter View) -->
-    <!-- ========================================== -->
-    <div id="view-converter" class="view-section hidden-view absolute inset-0 bg-[#0d5e80] flex flex-col p-4 z-50 overflow-y-auto">
-        
-        <!-- Top Bar: 儲存(左) & 退出(右) -->
-        <div class="flex justify-between items-center mb-2">
-            <!-- 儲存按鈕移到左上，顏色改為紫色 -->
-            <button onclick="saveColorCard()" class="bg-[#9c27b0] active:bg-[#7b1fa2] text-white font-bold py-2 px-4 rounded-lg shadow-lg text-lg flex items-center">
-                <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                儲存圖片
-            </button>
-            
-            <button onclick="switchMode('landing')" class="bg-[#00a846] active:bg-[#008f3b] text-white font-bold py-2 px-4 rounded-lg shadow text-lg">
-                退出
-            </button>
+    <!-- ===== 原理 ===== -->
+    <div id="pane-learn" class="pane card learn" role="tabpanel" hidden>
+      <h2>手機怎麼「看見」顏色？</h2>
+      <p>感光元件本身只能感受光的「強弱」，並不能分辨顏色。顏色是靠濾光片加上運算做出來的：</p>
+      <div class="steps">
+        <div class="step"><b>光進入鏡頭</b><p>場景反射的光經鏡頭成像在感光元件（CMOS）上。</p></div>
+        <div class="step"><b>拜耳濾光片</b><p>每個感光點前面蓋一片紅、綠或藍濾光片，只讓對應波段的光通過。</p></div>
+        <div class="step"><b>光電轉換</b><p>光子被矽吸收後產生電子，累積的電荷量正比於通過濾光片的光強度與曝光時間。</p></div>
+        <div class="step"><b>類比轉數位</b><p>電荷量被量化成整數。這時每個點只有一種顏色的數值。</p></div>
+        <div class="step"><b>補色與影像處理</b><p>用鄰近點內插，讓每個像素都有 R、G、B 三個值；再做白平衡、伽瑪編碼，輸出 8 位元 sRGB 影像。</p></div>
+        <div class="step"><b>網頁讀取像素</b><p>影像畫進 canvas，用 <span class="mono">getImageData()</span> 讀出每個像素的 [R, G, B, A]，就是畫面上顯示的數字。</p></div>
+      </div>
+      <h3>拜耳排列（RGGB）</h3>
+      <div class="bayer-wrap">
+        <div class="bayer" aria-label="拜耳排列示意圖">
+          <i class="R">R</i><i class="G">G</i><i class="R">R</i><i class="G">G</i>
+          <i class="G">G</i><i class="B">B</i><i class="G">G</i><i class="B">B</i>
+          <i class="R">R</i><i class="G">G</i><i class="R">R</i><i class="G">G</i>
+          <i class="G">G</i><i class="B">B</i><i class="G">G</i><i class="B">B</i>
         </div>
+        <p style="flex:1;min-width:14rem">綠：紅：藍＝2：1：1。人眼對綠光最敏感，亮度感覺主要來自綠光，所以多安排一倍的綠色感光點。</p>
+      </div>
 
-        <!-- RGB Inputs Row -->
-        <!-- 修改：使用 gap-1 極窄間距 -->
-        <div class="grid grid-cols-3 gap-1 mb-2 max-w-2xl w-full mx-auto">
-            <!-- R -->
-            <div class="flex h-14 rounded-lg overflow-hidden shadow-lg bg-white">
-                <div class="bg-red-500 w-10 cvt-label">R</div>
-                <div class="flex-1 bg-white p-0">
-                    <input type="number" id="inR" min="0" max="255" placeholder="0" class="cvt-input" oninput="convertColors('fromRGB')">
-                </div>
-            </div>
-            <!-- G -->
-            <div class="flex h-14 rounded-lg overflow-hidden shadow-lg bg-white">
-                <div class="bg-green-500 w-10 cvt-label">G</div>
-                <div class="flex-1 bg-white p-0">
-                    <input type="number" id="inG" min="0" max="255" placeholder="0" class="cvt-input" oninput="convertColors('fromRGB')">
-                </div>
-            </div>
-            <!-- B -->
-            <div class="flex h-14 rounded-lg overflow-hidden shadow-lg bg-white">
-                <div class="bg-blue-600 w-10 cvt-label">B</div>
-                <div class="flex-1 bg-white p-0">
-                    <input type="number" id="inB" min="0" max="255" placeholder="0" class="cvt-input" oninput="convertColors('fromRGB')">
-                </div>
-            </div>
-        </div>
+      <h3>RGB 與 16 進位</h3>
+      <p>每個通道用 8 位元儲存，可表示 0～255 共 256 階，三個通道共有 256³＝16,777,216 種組合。一個 16 進位數字剛好對應 4 個位元，所以兩位 16 進位數字就是一個通道。</p>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>通道</th><th>十進位</th><th>二進位（8 位元）</th><th>÷ 16 拆解</th><th>16 進位</th></tr></thead>
+          <tbody id="learnBody"></tbody>
+        </table>
+      </div>
 
-        <!-- HEX Input Row -->
-        <div class="flex h-14 rounded-lg overflow-hidden shadow-lg mb-2 max-w-2xl w-full mx-auto bg-white">
-            <div class="bg-yellow-500 w-20 cvt-label text-black">HEX</div>
-            <div class="flex-1 bg-white p-0">
-                <input type="text" id="inHex" placeholder="#" class="cvt-input uppercase" oninput="convertColors('fromHex')">
-            </div>
-        </div>
+      <h3>為什麼讀到的顏色不一定「準」？</h3>
+      <ul>
+        <li>光源不同：暖色燈、日光燈、陰影下，同一物體反射的光成分本來就不同。</li>
+        <li>相機會自動調整白平衡與曝光，讀到的是「相機處理後」的顏色，不等於物體的絕對顏色。</li>
+        <li>感測器有雜訊，單一像素會一直跳動，所以本程式取 5×5 共 25 個像素的平均。</li>
+        <li>影像數值經過伽瑪編碼，並不與光強成正比；JPEG 壓縮也會讓數值有些微變動。</li>
+        <li>上傳圖片讀的是檔案裡的數值，與你的螢幕顯示無關；螢幕看起來的差異則來自螢幕本身的色彩設定。</li>
+      </ul>
+      <h3>試試看</h3>
+      <ol>
+        <li>載入「範例色卡」，點紅、綠、藍色塊，看是不是 FF0000、00FF00、0000FF。</li>
+        <li>用相機對準同一張白紙，分別在日光燈與暖色燈下讀值，比較 R、G、B 的差異。</li>
+        <li>在「色碼」分頁把 R、G、B 拉條從 0 拉到 255，觀察三色光疊加出黃、青、洋紅與白。</li>
+      </ol>
+    </div>
+  </section>
 
-        <!-- Color Preview Area (Maximized) -->
-        <div class="flex-1 w-full max-w-2xl mx-auto mb-2 bg-black rounded-lg shadow-2xl border-4 border-gray-700 flex flex-col overflow-hidden relative">
-            <div id="converterPreview" class="w-full h-full bg-black transition-colors duration-200"></div>
-            
-            <!-- 數值顯示區域 (左上角) -->
-            <div class="absolute top-4 left-4 pointer-events-none">
-                <div id="prevInfo" class="hidden flex-col gap-1 preview-text text-white">
-                    <div id="prevHexDisplay" class="text-3xl font-bold uppercase tracking-wider">#000000</div>
-                    <div id="prevRGBDisplay" class="text-xl font-bold tracking-wide mt-1">RGB: 0, 0, 0</div>
-                </div>
-            </div>
-        </div>
-
+  <aside class="side-col">
+    <!-- ===== 讀值 ===== -->
+    <div class="card" id="readout">
+      <div class="card-head"><h2>色彩讀值</h2><span class="chip" id="srcChip">尚未取色</span></div>
+      <div class="viz">
+        <div class="swatch empty" id="swatch"><span id="swLabel">尚未取色</span></div>
+        <figure class="loupe" id="loupeBox" hidden>
+          <canvas id="loupe" width="132" height="132" aria-label="取樣區放大圖"></canvas>
+          <figcaption>取樣放大 11×11 像素<br>白框內 5×5 取平均</figcaption>
+        </figure>
+      </div>
+      <dl class="codes">
+        <div class="row main"><dt>HEX<br>16 進位</dt><dd id="vHex">—</dd><button class="btn copy" data-copy="hex" type="button" disabled>複製</button></div>
+        <div class="row main"><dt>RGB<br>十進位</dt>
+          <dd><span class="ch r"><i>R</i><b id="vR">—</b></span><span class="ch g"><i>G</i><b id="vG">—</b></span><span class="ch b"><i>B</i><b id="vB">—</b></span></dd>
+          <button class="btn copy" data-copy="rgb" type="button" disabled>複製</button></div>
+        <div class="row"><dt>HSL</dt><dd id="vHsl">—</dd><button class="btn copy" data-copy="hsl" type="button" disabled>複製</button></div>
+        <div class="row"><dt>HSV</dt><dd id="vHsv">—</dd><button class="btn copy" data-copy="hsv" type="button" disabled>複製</button></div>
+        <div class="row"><dt>CMYK</dt><dd id="vCmyk">—</dd><button class="btn copy" data-copy="cmyk" type="button" disabled>複製</button></div>
+        <div class="row"><dt>色名<br>近似</dt><dd class="nm"><span class="dot" id="nameDot" style="background:transparent"></span><span id="vName">—</span></dd><span></span></div>
+      </dl>
+      <p class="note">CMYK 為簡易公式換算，不等於印刷實際的油墨值；色名是與內建色名表比對出的最接近結果。</p>
+      <div class="actions"><button class="btn primary" id="btnSave" type="button" disabled>＋ 收藏為色票</button></div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- Save Image Modal (New for Mobile) -->
-    <!-- ========================================== -->
-    <div id="saveModal" class="hidden fixed inset-0 z-[100] bg-black/90 flex flex-col justify-center items-center p-4">
-        <div class="text-white text-center mb-4">
-            <h3 class="text-2xl font-bold mb-2">圖片已生成</h3>
-            <p class="text-gray-300">請長按下方圖片並選擇「加入照片」<br>或「儲存影像」</p>
-        </div>
-        
-        <div class="relative max-w-full max-h-[70vh] shadow-2xl border-4 border-white rounded-lg overflow-hidden">
-            <img id="saveModalImg" src="" alt="Generated Color Card" class="block max-w-full max-h-[70vh] object-contain">
-        </div>
-
-        <button onclick="closeSaveModal()" class="mt-6 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-full shadow-lg text-lg">
-            關閉視窗
-        </button>
+    <!-- ===== 色票 ===== -->
+    <div class="card" id="palCard">
+      <div class="card-head"><h2>色票收藏</h2><span class="chip" id="palCount">0 個</span></div>
+      <div class="pal-grid" id="palGrid"></div>
+      <p class="pal-empty" id="palEmpty">還沒有色票。取到喜歡的顏色後，按「收藏為色票」。點色票可回到該顏色。</p>
+      <div class="actions">
+        <button class="btn small" id="palRemove" type="button" disabled>移除選取</button>
+        <button class="btn small" id="palCopyAll" type="button" disabled>複製全部</button>
+        <button class="btn small" id="palClear" type="button" disabled>清空</button>
+      </div>
     </div>
+  </aside>
+</main>
 
+<p class="foot">臺中二中 阿發老師 設計・所有運算都在你的裝置上完成，圖片與相機畫面不會上傳</p>
 
-    <!-- ========================================== -->
-    <!-- 共用元件 -->
-    <!-- ========================================== -->
-    <div id="shared-canvas-wrapper" class="absolute inset-0 flex items-center justify-center w-full h-full" style="display: none;">
-        <canvas id="mainCanvas" class="block max-w-none" style="transform-origin: center;"></canvas>
-        <div id="fixedCrosshair" class="fixed-crosshair">
-            <div class="crosshair-circle"></div>
-        </div>
-    </div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="fs" id="fs" hidden role="dialog" aria-label="全螢幕色卡">
+  <span class="fs-tip">點一下或按 Esc 關閉</span>
+  <div class="fs-text"><b id="fsHex"></b><span id="fsRgb"></span></div>
+</div>
 
+<script>
+'use strict';
+/* =====================================================================
+   顏色判讀器  —  臺中二中 阿發老師 設計
+   原理：drawImage → getImageData 讀出 RGBA → 取樣點周圍 5×5 像素平均
+   ===================================================================== */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const hex2 = n => n.toString(16).toUpperCase().padStart(2, '0');
+const toHex = (r, g, b) => '#' + hex2(r) + hex2(g) + hex2(b);
+const SAMPLE = 5;   // 取樣範圍 5×5
+const LOUPE  = 11;  // 放大圖 11×11
 
-    <script>
-        // State
-        let currentMode = 'landing';
-        let img = new Image();
-        let isImageLoaded = false;
-        let isCameraActive = false;
-        let cameraStream = null;
-        let cameraLoopId = null;
-        
-        // Panning & Zooming State
-        let isDragging = false;
-        let isZooming = false;
-        
-        let startX, startY;
-        let currentTranslateX = 0;
-        let currentTranslateY = 0;
-        let previousTranslateX = 0;
-        let previousTranslateY = 0;
-        
-        // Zoom variables
-        let currentScale = 1;
-        let initialScale = 1;
-        let initialPinchDistance = 0;
+/* ---------- 色彩換算 ---------- */
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return [Math.round(h) % 360, Math.round(s * 100), Math.round(l * 100)];
+}
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) {
+    if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return [Math.round(h) % 360, Math.round((mx ? d / mx : 0) * 100), Math.round(mx * 100)];
+}
+function rgbToCmyk(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const k = 1 - Math.max(r, g, b);
+  if (k >= 1) return [0, 0, 0, 100];
+  return [(1 - r - k) / (1 - k), (1 - g - k) / (1 - k), (1 - b - k) / (1 - k), k].map(v => Math.round(v * 100));
+}
+const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+function isLight(r, g, b) { return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b) > 0.179; }
+function srgbToLab(r, g, b) {
+  const R = lin(r), G = lin(g), B = lin(b);
+  const X = (0.4124564 * R + 0.3575761 * G + 0.1804375 * B) / 0.95047;
+  const Y = 0.2126729 * R + 0.7151522 * G + 0.0721750 * B;
+  const Z = (0.0193339 * R + 0.1191920 * G + 0.9503041 * B) / 1.08883;
+  const f = t => t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116;
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+function parseColor(s) {
+  s = String(s).trim();
+  let m = s.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (m) {
+    let h = m[1];
+    if (h.length === 3) h = [...h].map(c => c + c).join('');
+    return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16));
+  }
+  m = s.match(/^(?:rgb\s*\()?\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*\)?$/i);
+  if (m) { const v = [m[1], m[2], m[3]].map(Number); if (v.every(x => x <= 255)) return v; }
+  return null;
+}
 
-        // DOM Elements
-        const viewLanding = document.getElementById('view-landing');
-        const viewDesktop = document.getElementById('view-desktop');
-        const viewMobile = document.getElementById('view-mobile');
-        const viewConverter = document.getElementById('view-converter');
-        
-        const desktopContainer = document.getElementById('desktop-canvas-container');
-        const mobileContainer = document.getElementById('mobile-canvas-container');
-        const sharedWrapper = document.getElementById('shared-canvas-wrapper');
-        const canvas = document.getElementById('mainCanvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const imageInput = document.getElementById('imageInput');
-        const videoFeed = document.getElementById('cameraFeed');
-        const mobilePlaceholder = document.getElementById('mobile-placeholder');
-        
-        const fixedCrosshair = document.getElementById('fixedCrosshair');
-        const shutterBtn = document.getElementById('shutterBtn');
-        
-        const saveModal = document.getElementById('saveModal');
-        const saveModalImg = document.getElementById('saveModalImg');
+/* ---------- 色名表（近似比對，用 CIE Lab 距離） ---------- */
+const NAMES = [
+ ['黑色','000000'],['炭黑','2B2B2B'],['深灰','555555'],['灰色','808080'],['銀灰','A9A9A9'],['淺灰','D3D3D3'],['白色','FFFFFF'],['米白','F5F0E1'],['象牙白','FFFFF0'],
+ ['紅色','FF0000'],['鮮紅','E32636'],['緋紅','DC143C'],['深紅','8B0000'],['酒紅','722F37'],['磚紅','B7410E'],['朱紅','E34234'],['珊瑚紅','FF6F61'],['番茄紅','FF6347'],['玫瑰紅','C21E56'],['桃紅','F06292'],['粉紅','FFC0CB'],['淡粉紅','FFD1DC'],['洋紅','FF00FF'],
+ ['橙色','FFA500'],['橘紅','FF4500'],['橘色','FF8C00'],['琥珀色','FFBF00'],['杏色','FBCEB1'],['蜜桃色','FFDAB9'],
+ ['黃色','FFFF00'],['金黃','FFD700'],['檸檬黃','FFF44F'],['芥末黃','E1AD01'],['卡其色','C3B091'],['小麥色','F5DEB3'],
+ ['黃綠','9ACD32'],['草綠','7CFC00'],['嫩綠','B5E655'],['螢光綠','00FF00'],['綠色','008000'],['翠綠','50C878'],['深綠','006400'],['墨綠','154734'],['橄欖綠','808000'],['苔綠','4A5D23'],['薄荷綠','98FF98'],['森林綠','228B22'],
+ ['青色','00FFFF'],['青綠','00A693'],['藍綠','008080'],['松石綠','40E0D0'],['粉藍','B0E0E6'],
+ ['天空藍','87CEEB'],['淺藍','ADD8E6'],['藍色','0000FF'],['寶藍','0F52BA'],['湛藍','0066CC'],['海軍藍','000080'],['藏青','1B2A49'],['鋼藍','4682B4'],
+ ['靛紫','4B0082'],['紫色','800080'],['紫羅蘭','8F00FF'],['薰衣草紫','B57EDC'],['淡紫','D8BFD8'],['紫紅','C71585'],
+ ['咖啡色','6F4E37'],['巧克力色','5C3317'],['棕色','8B4513'],['褐色','A0522D'],['駝色','C19A6B'],['米色','F5F5DC'],['赭色','CC7722'],['膚色','F1C27D']
+].map(([n, h]) => { const v = parseInt(h, 16); return { n, h: '#' + h, lab: srgbToLab(v >> 16, (v >> 8) & 255, v & 255) }; });
+const nameCache = new Map();
+function nearestName(r, g, b) {
+  const k = (r << 16) | (g << 8) | b;
+  if (nameCache.has(k)) return nameCache.get(k);
+  const L = srgbToLab(r, g, b); let best = null, bd = Infinity;
+  for (const c of NAMES) {
+    const d = (L[0] - c.lab[0]) ** 2 + (L[1] - c.lab[1]) ** 2 + (L[2] - c.lab[2]) ** 2;
+    if (d < bd) { bd = d; best = c; }
+  }
+  nameCache.set(k, best); return best;
+}
 
-        const deskRefs = {
-            preview: document.getElementById('deskPreview'),
-            hex: document.getElementById('deskHex'),
-            r: document.getElementById('deskR'),
-            g: document.getElementById('deskG'),
-            b: document.getElementById('deskB'),
-            barR: document.getElementById('deskBarR'),
-            barG: document.getElementById('deskBarG'),
-            barB: document.getElementById('deskBarB'),
-            lum: document.getElementById('deskLum')
-        };
+/* ---------- 全域狀態與畫面更新 ---------- */
+const state = { has: false, r: 0, g: 0, b: 0, source: '', detail: '' };
+let activeTab = 'image';
+let copyVals = {};
 
-        const mobRefs = {
-            preview: document.getElementById('mobPreview'),
-            hex: document.getElementById('mobHex'),
-            r: document.getElementById('mobR'),
-            g: document.getElementById('mobG'),
-            b: document.getElementById('mobB'),
-            hint: document.getElementById('mobHint')
-        };
+function setColor(r, g, b, source, detail, opts = {}) {
+  if (state.has && state.r === r && state.g === g && state.b === b && state.source === source && state.detail === detail) return;
+  Object.assign(state, { has: true, r, g, b, source, detail });
+  render(opts);
+}
+function render(opts = {}) {
+  const { has, r, g, b } = state;
+  const hex = has ? toHex(r, g, b) : '';
+  const sw = $('#swatch');
+  sw.classList.toggle('empty', !has);
+  sw.style.background = has ? hex : '';
+  const lab = $('#swLabel');
+  lab.textContent = has ? hex : '尚未取色';
+  lab.style.color = has ? (isLight(r, g, b) ? '#000' : '#fff') : '';
+  $('#srcChip').textContent = has ? state.detail : '尚未取色';
+  $('#loupeBox').hidden = !(has && (state.source === 'image' || state.source === 'camera'));
 
-        // Converter Refs
-        const cvtRefs = {
-            r: document.getElementById('inR'),
-            g: document.getElementById('inG'),
-            b: document.getElementById('inB'),
-            hex: document.getElementById('inHex'),
-            preview: document.getElementById('converterPreview'),
-            infoBox: document.getElementById('prevInfo'),
-            hexDisplay: document.getElementById('prevHexDisplay'),
-            rgbDisplay: document.getElementById('prevRGBDisplay')
-        };
+  if (has) {
+    const hsl = rgbToHsl(r, g, b), hsv = rgbToHsv(r, g, b), cmyk = rgbToCmyk(r, g, b), nm = nearestName(r, g, b);
+    copyVals = {
+      hex, rgb: `${r}, ${g}, ${b}`,
+      hsl: `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`,
+      hsv: `${hsv[0]}°, ${hsv[1]}%, ${hsv[2]}%`,
+      cmyk: `${cmyk[0]}%, ${cmyk[1]}%, ${cmyk[2]}%, ${cmyk[3]}%`
+    };
+    $('#vHex').textContent = hex;
+    $('#vR').textContent = r; $('#vG').textContent = g; $('#vB').textContent = b;
+    $('#vHsl').textContent = copyVals.hsl;
+    $('#vHsv').textContent = copyVals.hsv;
+    $('#vCmyk').textContent = copyVals.cmyk;
+    $('#vName').textContent = nm.n;
+    $('#nameDot').style.background = nm.h;
+  } else {
+    copyVals = {};
+    ['#vHex', '#vR', '#vG', '#vB', '#vHsl', '#vHsv', '#vCmyk', '#vName'].forEach(s => $(s).textContent = '—');
+    $('#nameDot').style.background = 'transparent';
+  }
+  $$('.copy').forEach(b => b.disabled = !has);
+  $('#btnSave').disabled = !has;
+  markPalette();
+  syncGen(opts.except);
+  if (activeTab === 'learn') renderLearn();
+}
 
-        // --- 1. Mode Switching ---
-        function switchMode(mode) {
-            stopCamera();
-            currentMode = mode;
-            
-            viewLanding.classList.add('hidden-view');
-            viewDesktop.classList.add('hidden-view');
-            viewMobile.classList.add('hidden-view');
-            viewConverter.classList.add('hidden-view');
+/* ---------- 複製、提示 ---------- */
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1700);
+}
+async function copyText(txt) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(txt); return true; } } catch (e) {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = txt; ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-999px;top:0;opacity:0';
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, 9999);
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch (e) { return false; }
+}
+$$('.copy').forEach(btn => btn.addEventListener('click', async () => {
+  const v = copyVals[btn.dataset.copy]; if (!v) return;
+  toast((await copyText(v)) ? `已複製 ${v}` : '複製失敗，請手動選取文字');
+}));
 
-            if (mode === 'landing') {
-                viewLanding.classList.remove('hidden-view');
-                sharedWrapper.style.display = 'none';
-            } 
-            else if (mode === 'desktop') {
-                viewDesktop.classList.remove('hidden-view');
-                document.getElementById('desktop-placeholder').style.display = 'none';
-                desktopContainer.appendChild(sharedWrapper);
-                sharedWrapper.style.display = isImageLoaded ? 'flex' : 'none';
-                if(isImageLoaded) requestAnimationFrame(fitImageToContainer);
-            } 
-            else if (mode === 'mobile') {
-                viewMobile.classList.remove('hidden-view');
-                mobilePlaceholder.style.display = 'block';
-                mobileContainer.appendChild(sharedWrapper);
-                sharedWrapper.style.display = isImageLoaded ? 'flex' : 'none';
-                
-                if(isImageLoaded) {
-                    mobilePlaceholder.style.display = 'none';
-                    requestAnimationFrame(fitImageToContainer);
-                }
-            }
-            else if (mode === 'converter') {
-                viewConverter.classList.remove('hidden-view');
-            }
-        }
+/* ---------- 取樣核心 ---------- */
+const loupeCv = $('#loupe'), lctx = loupeCv.getContext('2d');
+const tmpCv = document.createElement('canvas'), tctx = tmpCv.getContext('2d');
+function averageBox(d, n, ox, oy, m) {
+  let R = 0, G = 0, B = 0;
+  for (let y = oy; y < oy + m; y++) for (let x = ox; x < ox + m; x++) {
+    const i = (y * n + x) * 4; R += d[i]; G += d[i + 1]; B += d[i + 2];
+  }
+  const k = m * m; return [Math.round(R / k), Math.round(G / k), Math.round(B / k)];
+}
+function drawLoupe({ imageData, n, m, ox, oy }) {
+  if (tmpCv.width !== n) { tmpCv.width = n; tmpCv.height = n; }
+  tctx.putImageData(imageData, 0, 0);
+  const S = loupeCv.width / n;
+  lctx.imageSmoothingEnabled = false;
+  lctx.clearRect(0, 0, loupeCv.width, loupeCv.height);
+  lctx.drawImage(tmpCv, 0, 0, loupeCv.width, loupeCv.height);
+  lctx.lineWidth = 3; lctx.strokeStyle = '#000'; lctx.strokeRect(ox * S + 1, oy * S + 1, m * S - 2, m * S - 2);
+  lctx.lineWidth = 1.5; lctx.strokeStyle = '#fff'; lctx.strokeRect(ox * S + 1, oy * S + 1, m * S - 2, m * S - 2);
+}
+/* 以 (cx,cy) 為中心，取得 n×n 區域與其中 m×m 取樣框的位置 */
+function regionLayout(cx, cy, w, h) {
+  const n = Math.min(LOUPE, w, h), m = Math.min(SAMPLE, n);
+  const sx = clamp(cx - Math.floor(n / 2), 0, w - n), sy = clamp(cy - Math.floor(n / 2), 0, h - n);
+  const bx = clamp(cx - Math.floor(m / 2), 0, w - m), by = clamp(cy - Math.floor(m / 2), 0, h - m);
+  return { n, m, sx, sy, ox: bx - sx, oy: by - sy };
+}
+function applySample(reg, source, detail) {
+  const [r, g, b] = averageBox(reg.imageData.data, reg.n, reg.ox, reg.oy, reg.m);
+  drawLoupe(reg);
+  setColor(r, g, b, source, detail);
+}
 
-        // --- 2. Camera Handling ---
-        async function handleMobileCamera() {
-            if (isCameraActive) return;
+/* ---------- 舞台尺寸（等比縮放進容器，取樣座標與顯示成線性對應） ---------- */
+const DESK = matchMedia('(min-width:900px),(min-width:760px) and (orientation:landscape)');
+function maxStageH() {
+  const vh = window.innerHeight;
+  return DESK.matches ? clamp(vh - 230, 320, 760) : clamp(vh * 0.46, 220, 520);
+}
+function fit(stage, host, nw, nh) {
+  if (!nw || !nh || stage.hidden) return;
+  const aw = host.clientWidth; if (!aw) return;
+  const s = Math.min(aw / nw, maxStageH() / nh);
+  stage.style.width = Math.max(1, Math.floor(nw * s)) + 'px';
+  stage.style.height = Math.max(1, Math.floor(nh * s)) + 'px';
+  if (stage.id === 'imgStage') img.canvas.style.imageRendering = s > 1.5 ? 'pixelated' : 'auto';
+}
+function refit() {
+  fit($('#imgStage'), $('#imgHost'), img.w, img.h);
+  fit($('#camStage'), $('#camHost'), video.videoWidth, video.videoHeight);
+}
+window.addEventListener('resize', refit);
+window.addEventListener('orientationchange', () => setTimeout(refit, 200));
+if ('ResizeObserver' in window) { const ro = new ResizeObserver(refit); ro.observe($('#imgHost')); ro.observe($('#camHost')); }
 
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: { ideal: "environment" } } 
-                    });
-                    
-                    startCameraStream(stream);
-                    mobRefs.hint.textContent = "📷 拍攝中：按下快門定格畫面";
-                } catch (err) {
-                    console.warn("Camera access failed", err);
-                    alert("無法開啟即時相機，請檢查權限或改用上傳功能。");
-                }
-            } else {
-                alert("您的瀏覽器不支援即時相機功能，請使用上傳功能。");
-            }
-        }
+const RETICLE_SVG = `<svg viewBox="-22 -22 44 44" fill="none" stroke-linecap="round" aria-hidden="true">
+<g stroke="#000" stroke-opacity=".55" stroke-width="4.4"><circle r="15"/><path d="M0-15V-6M0 15V6M-15 0H-6M15 0H6"/></g>
+<g stroke="#fff" stroke-width="2"><circle r="15"/><path d="M0-15V-6M0 15V6M-15 0H-6M15 0H6"/></g></svg>`;
+$('#imgReticle').innerHTML = RETICLE_SVG; $('#camReticle').innerHTML = RETICLE_SVG;
 
-        function startCameraStream(stream) {
-            cameraStream = stream;
-            videoFeed.srcObject = stream;
-            videoFeed.play();
-            isCameraActive = true;
-            isImageLoaded = true;
+/* ================= 圖片模式 ================= */
+const img = { canvas: $('#imgCanvas'), w: 0, h: 0, has: false, pick: null };
+img.ctx = img.canvas.getContext('2d', { willReadFrequently: true });
+const MAX_IMG = 3000;
 
-            mobilePlaceholder.style.display = 'none';
-            sharedWrapper.style.display = 'flex';
-            fixedCrosshair.style.display = 'block';
-            shutterBtn.style.display = 'block';
+function drawToCanvas(source, sw, sh, label) {
+  const sc = Math.min(1, MAX_IMG / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * sc)), h = Math.max(1, Math.round(sh * sc));
+  img.canvas.width = w; img.canvas.height = h; img.w = w; img.h = h;
+  const c = img.ctx;
+  c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);      // 透明背景視為白色
+  c.imageSmoothingQuality = 'high'; c.drawImage(source, 0, 0, w, h);
+  img.has = true; img.pick = null;
+  $('#imgEmpty').hidden = true; $('#imgStage').hidden = false; $('#imgReticle').hidden = true;
+  $('#imgInfo').textContent = `${label}・${sw}×${sh} 像素` + (sc < 1 ? `（為節省記憶體，已縮小為 ${w}×${h}）` : '') +
+    '。點一下圖片，或按住拖曳，即時讀取顏色（取樣點周圍 5×5 像素平均）。';
+  refit();
+}
+async function loadImageFile(file) {
+  if (!file || !file.type.startsWith('image/')) { toast('請選擇圖片檔'); return; }
+  const url = URL.createObjectURL(file);
+  try {
+    const im = new Image(); im.src = url; await im.decode();
+    drawToCanvas(im, im.naturalWidth, im.naturalHeight, file.name || '貼上的圖片');
+  } catch (e) { toast('無法讀取這張圖片'); }
+  finally { URL.revokeObjectURL(url); }
+}
+function drawSampleChart() {
+  const W = 960, H = 640, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const rows = [
+    ['#FF0000', '#00FF00', '#0000FF', '#00FFFF', '#FF00FF', '#FFFF00', '#000000', '#FFFFFF'],
+    ['#000000', '#242424', '#494949', '#6D6D6D', '#929292', '#B6B6B6', '#DBDBDB', '#FFFFFF'],
+    ['#FF8800', '#8B4513', '#FFC0CB', '#800080', '#008080', '#808000', '#C19A6B', '#2F6FED']
+  ];
+  const pw = W / 8, ph = 150;
+  rows.forEach((row, ri) => row.forEach((col, ci) => {
+    c.fillStyle = col; c.fillRect(ci * pw, ri * ph, pw, ph);
+    const v = parseInt(col.slice(1), 16);
+    c.fillStyle = isLight(v >> 16, (v >> 8) & 255, v & 255) ? '#000' : '#fff';
+    c.font = '600 20px ui-monospace,Menlo,Consolas,monospace'; c.textBaseline = 'bottom';
+    c.fillText(col, ci * pw + 10, ri * ph + ph - 8);
+  }));
+  const g = c.createLinearGradient(0, 0, W, 0);
+  for (let i = 0; i <= 12; i++) g.addColorStop(i / 12, `hsl(${i * 30},100%,50%)`);
+  c.fillStyle = g; c.fillRect(0, 3 * ph, W, ph);
+  const g2 = c.createLinearGradient(0, 0, W, 0); g2.addColorStop(0, '#000'); g2.addColorStop(1, '#fff');
+  c.fillStyle = g2; c.fillRect(0, 4 * ph - 0, W, H - 4 * ph);
+  drawToCanvas(cv, W, H, '範例色卡');
+}
 
-            // Reset transform & scale
-            currentTranslateX = 0;
-            currentTranslateY = 0;
-            previousTranslateX = 0;
-            previousTranslateY = 0;
-            currentScale = 1; 
-            updateCanvasTransform();
+function pickImageAt(cx, cy) {
+  cx = clamp(cx, 0, img.w - 1); cy = clamp(cy, 0, img.h - 1);
+  img.pick = { x: cx, y: cy };
+  const L = regionLayout(cx, cy, img.w, img.h);
+  const imageData = img.ctx.getImageData(L.sx, L.sy, L.n, L.n);
+  const rt = $('#imgReticle'); rt.hidden = false;
+  rt.style.left = ((cx + 0.5) / img.w * 100) + '%'; rt.style.top = ((cy + 0.5) / img.h * 100) + '%';
+  applySample({ imageData, ...L }, 'image', `圖片座標 (${cx}, ${cy})`);
+}
+function pickImageEvt(e) {
+  const r = img.canvas.getBoundingClientRect();
+  pickImageAt(Math.floor(clamp((e.clientX - r.left) / r.width, 0, 0.999999) * img.w),
+              Math.floor(clamp((e.clientY - r.top) / r.height, 0, 0.999999) * img.h));
+}
+let dragging = false;
+img.canvas.addEventListener('pointerdown', e => {
+  if (!img.has) return; dragging = true;
+  try { img.canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  pickImageEvt(e);
+});
+img.canvas.addEventListener('pointermove', e => { if (dragging) pickImageEvt(e); });
+['pointerup', 'pointercancel'].forEach(t => img.canvas.addEventListener(t, () => dragging = false));
+img.canvas.addEventListener('keydown', e => {
+  const step = e.shiftKey ? 10 : 1, d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!d || !img.has) return; e.preventDefault();
+  const p = img.pick || { x: Math.floor(img.w / 2), y: Math.floor(img.h / 2) };
+  pickImageAt(p.x + d[0] * step, p.y + d[1] * step);
+});
+$('#file').addEventListener('change', e => { loadImageFile(e.target.files[0]); e.target.value = ''; });
+$('#btnSample').addEventListener('click', drawSampleChart);
+const imgHost = $('#imgHost');
+['dragenter', 'dragover'].forEach(t => imgHost.addEventListener(t, e => { e.preventDefault(); imgHost.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(t => imgHost.addEventListener(t, e => { e.preventDefault(); imgHost.classList.remove('drag'); }));
+imgHost.addEventListener('drop', e => loadImageFile(e.dataTransfer.files[0]));
+document.addEventListener('paste', e => {
+  const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => f.type.startsWith('image/'));
+  if (f) { showTab('image'); loadImageFile(f); }
+});
 
-            loopCamera();
-        }
+/* ================= 相機模式 ================= */
+const video = $('#video');
+const camCv = document.createElement('canvas'); camCv.width = camCv.height = LOUPE;
+const camCtx = camCv.getContext('2d', { willReadFrequently: true });
+const cam = { stream: null, raf: 0, last: 0, frozen: false, facing: 'environment', token: 0 };
+const camMsg = t => $('#camMsg').textContent = t;
+const DEFAULT_CAM_MSG = '相機需在 https:// 網址下才能使用。畫面不會上傳，全部在本機運算。';
 
-        function loopCamera() {
-            if (!isCameraActive) return;
+function readVideoRegion(cx, cy) {
+  const L = regionLayout(cx, cy, video.videoWidth, video.videoHeight);
+  camCtx.drawImage(video, L.sx, L.sy, L.n, L.n, 0, 0, L.n, L.n);
+  return { imageData: camCtx.getImageData(0, 0, L.n, L.n), ...L };
+}
+function camLoop(ts) {
+  cam.raf = requestAnimationFrame(camLoop);
+  if (ts - cam.last < 70) return; cam.last = ts;
+  if (cam.frozen || video.readyState < 2 || !video.videoWidth) return;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  applySample(readVideoRegion(Math.floor(vw / 2), Math.floor(vh / 2)), 'camera', `相機正中央・${vw}×${vh}`);
+}
+function camError(e) {
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'SecurityError') camMsg('相機權限被拒絕。請在瀏覽器網址列旁的網站設定中允許相機，再按「啟動相機」。');
+  else if (n === 'NotFoundError' || n === 'DevicesNotFoundError') camMsg('找不到相機裝置。');
+  else if (n === 'NotReadableError' || n === 'AbortError') camMsg('相機可能正被其他程式使用，請關閉後再試。');
+  else camMsg('無法啟動相機：' + (n || '') + ' ' + ((e && e.message) || ''));
+  stopCamera(true);
+}
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    camMsg(window.isSecureContext
+      ? '這個瀏覽器不支援相機存取。'
+      : '相機功能需要以 https:// 開啟（GitHub Pages 網址即可）。若是在 LINE、Facebook 等 App 內建瀏覽器開啟，請改用 Chrome 或 Safari。');
+    return;
+  }
+  stopCamera(true);
+  const token = ++cam.token;
+  camMsg('正在啟動相機…');
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cam.facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  } catch (e) {
+    if (e && (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError')) {
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false }); } catch (e2) { return camError(e2); }
+    } else return camError(e);
+  }
+  if (token !== cam.token || activeTab !== 'camera') { stream.getTracks().forEach(t => t.stop()); return; }
+  cam.stream = stream; video.srcObject = stream;
+  try { await video.play(); } catch (e) { /* autoplay 由使用者手勢啟動，通常不會失敗 */ }
+  $('#camEmpty').hidden = true; $('#camStage').hidden = false;
+  $('#camStart').textContent = '重新啟動';
+  $('#camFreeze').disabled = false; $('#camStop').disabled = false;
+  camMsg(DEFAULT_CAM_MSG);
+  refit();
+  cancelAnimationFrame(cam.raf); cam.raf = requestAnimationFrame(camLoop);
+  try {
+    const ds = await navigator.mediaDevices.enumerateDevices();
+    $('#camFlip').hidden = ds.filter(d => d.kind === 'videoinput').length < 2;
+  } catch (e) {}
+}
+function stopCamera(keepMsg) {
+  cam.token++;
+  cancelAnimationFrame(cam.raf); cam.raf = 0;
+  if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());
+  cam.stream = null; video.srcObject = null; setFrozen(false);
+  $('#camStage').hidden = true; $('#camEmpty').hidden = false;
+  $('#camStart').textContent = '啟動相機';
+  $('#camFreeze').disabled = true; $('#camStop').disabled = true;
+  if (!keepMsg) camMsg(DEFAULT_CAM_MSG);
+}
+function setFrozen(on) {
+  cam.frozen = on;
+  $('#camStage').classList.toggle('frozen', on);
+  $('#camBadge').hidden = !on;
+  $('#camFreeze').textContent = on ? '繼續' : '定格';
+  const rt = $('#camReticle'); rt.style.left = '50%'; rt.style.top = '50%';
+  if (on) video.pause(); else if (cam.stream) video.play().catch(() => {});
+}
+$('#camStart').addEventListener('click', startCamera);
+$('#camStop').addEventListener('click', () => stopCamera());
+$('#camFreeze').addEventListener('click', () => setFrozen(!cam.frozen));
+$('#camFlip').addEventListener('click', () => { cam.facing = cam.facing === 'environment' ? 'user' : 'environment'; startCamera(); });
+video.addEventListener('resize', refit);
+video.addEventListener('loadedmetadata', refit);
+function pickFrozenEvt(e) {
+  const r = $('#camStage').getBoundingClientRect(), vw = video.videoWidth, vh = video.videoHeight;
+  const fx = clamp((e.clientX - r.left) / r.width, 0, 0.999999), fy = clamp((e.clientY - r.top) / r.height, 0, 0.999999);
+  const cx = Math.floor(fx * vw), cy = Math.floor(fy * vh);
+  const rt = $('#camReticle'); rt.style.left = ((cx + 0.5) / vw * 100) + '%'; rt.style.top = ((cy + 0.5) / vh * 100) + '%';
+  applySample(readVideoRegion(cx, cy), 'camera', `相機定格・(${cx}, ${cy})`);
+}
+let camDrag = false;
+const camStage = $('#camStage');
+camStage.addEventListener('pointerdown', e => { if (!cam.frozen) return; camDrag = true; try { camStage.setPointerCapture(e.pointerId); } catch (_) {} pickFrozenEvt(e); });
+camStage.addEventListener('pointermove', e => { if (camDrag && cam.frozen) pickFrozenEvt(e); });
+['pointerup', 'pointercancel'].forEach(t => camStage.addEventListener(t, () => camDrag = false));
+document.addEventListener('visibilitychange', () => { if (document.hidden && cam.stream) { stopCamera(true); camMsg('頁面切到背景，相機已自動關閉。要繼續請按「啟動相機」。'); } });
 
-            if (videoFeed.readyState === videoFeed.HAVE_ENOUGH_DATA) {
-                if (canvas.width !== videoFeed.videoWidth || canvas.height !== videoFeed.videoHeight) {
-                    canvas.width = videoFeed.videoWidth;
-                    canvas.height = videoFeed.videoHeight;
-                    fitImageToContainer(); 
-                }
-                ctx.drawImage(videoFeed, 0, 0, canvas.width, canvas.height);
-                analyzeCenter();
-            }
-            cameraLoopId = requestAnimationFrame(loopCamera);
-        }
+/* ================= 色碼產生 ================= */
+const inHex = $('#inHex'), nums = [$('#inR'), $('#inG'), $('#inB')], rngs = [$('#rgR'), $('#rgG'), $('#rgB')];
+const genMsg = t => $('#genMsg').textContent = t;
+function syncGen(except) {
+  const p = $('#genPreview');
+  if (!state.has) { p.classList.add('empty'); p.style.background = ''; $('#genHex').textContent = '輸入色碼後顯示'; $('#genRgb').textContent = ''; return; }
+  const { r, g, b } = state, hex = toHex(r, g, b), col = isLight(r, g, b) ? '#000' : '#fff';
+  p.classList.remove('empty'); p.style.background = hex; p.style.color = col;
+  $('#genHex').textContent = hex; $('#genRgb').textContent = `RGB ${r}, ${g}, ${b}`;
+  if (except !== inHex) inHex.value = hex.slice(1);
+  [r, g, b].forEach((v, i) => { if (except !== nums[i]) nums[i].value = v; rngs[i].value = v; });
+}
+function fromCode(r, g, b, except) { genMsg(''); setColor(r, g, b, 'code', '輸入色碼', { except }); }
+inHex.addEventListener('input', () => {
+  inHex.classList.remove('bad');
+  const v = parseColor(inHex.value.replace(/^#/, '#'));
+  if (v) { genMsg(''); fromCode(v[0], v[1], v[2], inHex); }
+});
+inHex.addEventListener('change', () => {
+  if (!inHex.value.trim()) { genMsg(''); return; }
+  const v = parseColor(inHex.value);
+  if (v) { inHex.classList.remove('bad'); fromCode(v[0], v[1], v[2]); inHex.value = toHex(...v).slice(1); }
+  else { inHex.classList.add('bad'); genMsg('格式不符：請輸入 3 或 6 位 16 進位碼（例如 FF8800），或 rgb(255,136,0)。'); }
+});
+nums.forEach((el, i) => {
+  el.addEventListener('input', () => {
+    if (el.value === '') return;
+    const n = Math.round(Number(el.value)); if (Number.isNaN(n)) return;
+    const cur = state.has ? [state.r, state.g, state.b] : [0, 0, 0];
+    cur[i] = clamp(n, 0, 255);
+    fromCode(cur[0], cur[1], cur[2], el);
+    genMsg(n < 0 || n > 255 ? '數值須介於 0～255，已自動調整為 ' + cur[i] + '。' : '');
+  });
+  el.addEventListener('change', () => { if (state.has) el.value = [state.r, state.g, state.b][i]; });
+});
+rngs.forEach((el, i) => el.addEventListener('input', () => {
+  const cur = state.has ? [state.r, state.g, state.b] : [0, 0, 0];
+  cur[i] = Number(el.value); inHex.classList.remove('bad'); fromCode(cur[0], cur[1], cur[2]);
+}));
+$('#btnRandom').addEventListener('click', () => { const R = () => Math.floor(Math.random() * 256); inHex.classList.remove('bad'); fromCode(R(), R(), R()); });
+$('#btnLink').addEventListener('click', async () => {
+  if (!state.has) { toast('請先輸入或取得一個顏色'); return; }
+  const url = location.href.split('#')[0] + '#c=' + toHex(state.r, state.g, state.b).slice(1);
+  toast((await copyText(url)) ? '已複製分享連結' : '複製失敗');
+});
+/* 全螢幕色卡 */
+const fs = $('#fs');
+function openFs() {
+  if (!state.has) { toast('請先輸入或取得一個顏色'); return; }
+  const { r, g, b } = state;
+  fs.style.background = toHex(r, g, b); fs.style.color = isLight(r, g, b) ? '#000' : '#fff';
+  $('#fsHex').textContent = toHex(r, g, b); $('#fsRgb').textContent = `RGB ${r}, ${g}, ${b}`;
+  fs.hidden = false;
+  try { if (fs.requestFullscreen) fs.requestFullscreen().catch(() => {}); } catch (e) {}
+}
+function closeFs() { fs.hidden = true; if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); }
+$('#btnFull').addEventListener('click', openFs);
+fs.addEventListener('click', closeFs);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !fs.hidden) closeFs(); });
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) fs.hidden = true; });
 
-        function snapPhoto() {
-            if (!isCameraActive) return;
-            if (cameraLoopId) cancelAnimationFrame(cameraLoopId);
-            
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            isCameraActive = false;
-            shutterBtn.style.display = 'none';
-            mobRefs.hint.textContent = "已定格：拖曳圖片以分析顏色，或按「相機」重新拍攝";
-        }
+/* ================= 色票收藏 ================= */
+const PAL_KEY = 'colorReader.palette.v1', PAL_MAX = 48;
+let palette = [];
+try { const v = JSON.parse(localStorage.getItem(PAL_KEY)); if (Array.isArray(v)) palette = v.filter(x => /^[0-9A-F]{6}$/.test(x)).slice(0, PAL_MAX); } catch (e) {}
+const savePal = () => { try { localStorage.setItem(PAL_KEY, JSON.stringify(palette)); } catch (e) {} };
+function renderPalette() {
+  const grid = $('#palGrid'); grid.innerHTML = '';
+  palette.forEach(h => {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.hex = h;
+    b.style.background = '#' + h; b.title = '#' + h; b.setAttribute('aria-label', '色票 #' + h);
+    b.addEventListener('click', () => { const v = parseInt(h, 16); setColor(v >> 16, (v >> 8) & 255, v & 255, 'palette', '色票收藏'); });
+    grid.appendChild(b);
+  });
+  $('#palEmpty').hidden = palette.length > 0;
+  $('#palCount').textContent = palette.length + ' 個';
+  $('#palCopyAll').disabled = $('#palClear').disabled = palette.length === 0;
+  markPalette();
+}
+function markPalette() {
+  const cur = state.has ? toHex(state.r, state.g, state.b).slice(1) : null;
+  let any = false;
+  $$('#palGrid button').forEach(b => { const on = b.dataset.hex === cur; b.classList.toggle('sel', on); any = any || on; });
+  $('#palRemove').disabled = !any;
+}
+$('#btnSave').addEventListener('click', () => {
+  if (!state.has) return;
+  const h = toHex(state.r, state.g, state.b).slice(1);
+  if (palette.includes(h)) { toast('這個顏色已在色票中'); return; }
+  palette.unshift(h); if (palette.length > PAL_MAX) palette.pop();
+  savePal(); renderPalette(); toast('已收藏 #' + h);
+});
+$('#palRemove').addEventListener('click', () => {
+  const h = toHex(state.r, state.g, state.b).slice(1);
+  palette = palette.filter(x => x !== h); savePal(); renderPalette(); toast('已移除 #' + h);
+});
+$('#palClear').addEventListener('click', () => { if (confirm('確定清空所有色票？')) { palette = []; savePal(); renderPalette(); } });
+$('#palCopyAll').addEventListener('click', async () => {
+  const txt = palette.map(h => { const v = parseInt(h, 16); return `#${h}  (${v >> 16}, ${(v >> 8) & 255}, ${v & 255})`; }).join('\n');
+  toast((await copyText(txt)) ? `已複製 ${palette.length} 個色票` : '複製失敗');
+});
 
-        function stopCamera() {
-            isCameraActive = false;
-            if (cameraLoopId) cancelAnimationFrame(cameraLoopId);
-            
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            shutterBtn.style.display = 'none';
-            mobRefs.hint.textContent = "移動圖片以偵測準心顏色";
-        }
+/* ================= 原理：換算表 ================= */
+function renderLearn() {
+  const tb = $('#learnBody');
+  if (!state.has) { tb.innerHTML = '<tr><td colspan="5" class="muted" style="white-space:normal">先在「圖片」「相機」或「色碼」取得一個顏色，這裡就會顯示它的換算過程。</td></tr>'; return; }
+  const H = '0123456789ABCDEF';
+  tb.innerHTML = [['R', state.r], ['G', state.g], ['B', state.b]].map(([n, v]) => {
+    const bin = v.toString(2).padStart(8, '0'), hi = v >> 4, lo = v & 15;
+    return `<tr><th>${n}</th><td class="mono">${v}</td><td class="mono bin"><span>${bin.slice(0, 4)}</span><span>${bin.slice(4)}</span></td>` +
+           `<td class="mono">${v} = ${hi}×16 + ${lo}</td><td class="mono strong">${H[hi]}${H[lo]}</td></tr>`;
+  }).join('');
+}
 
-        function triggerUpload() {
-            stopCamera();
-            imageInput.click();
-        }
+/* ================= 分頁 ================= */
+const tabBtns = $$('.tab');
+function showTab(name) {
+  activeTab = name;
+  $$('.pane').forEach(p => p.hidden = p.id !== 'pane-' + name);
+  tabBtns.forEach(b => { const on = b.dataset.tab === name; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
+  if (name !== 'camera' && cam.stream) { stopCamera(); }
+  if (name === 'learn') renderLearn();
+  window.scrollTo(0, 0);
+  refit();
+}
+tabBtns.forEach((b, i) => {
+  b.addEventListener('click', () => showTab(b.dataset.tab));
+  b.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const n = tabBtns[(i + (e.key === 'ArrowRight' ? 1 : tabBtns.length - 1)) % tabBtns.length];
+    n.focus(); showTab(n.dataset.tab);
+  });
+});
 
-        // --- 3. Image Handling ---
-        imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                img = new Image();
-                img.onload = function() {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    
-                    isImageLoaded = true;
-                    sharedWrapper.style.display = 'flex';
-                    
-                    document.getElementById('desktop-placeholder').style.display = 'none';
-                    document.getElementById('mobile-placeholder').style.display = 'none';
-                    fixedCrosshair.style.display = 'block';
-                    shutterBtn.style.display = 'none';
-
-                    // Reset transform & scale on new image
-                    currentTranslateX = 0;
-                    currentTranslateY = 0;
-                    previousTranslateX = 0;
-                    previousTranslateY = 0;
-                    currentScale = 1;
-                    
-                    fitImageToContainer();
-                    analyzeCenter();
-                }
-                img.src = event.target.result;
-            }
-            reader.readAsDataURL(file);
-            imageInput.value = '';
-        });
-
-        function fitImageToContainer() {
-            updateCanvasTransform();
-        }
-
-        // --- 4. Panning & Zooming Logic ---
-        function getDistance(touch1, touch2) {
-            const dx = touch1.clientX - touch2.clientX;
-            const dy = touch1.clientY - touch2.clientY;
-            return Math.hypot(dx, dy);
-        }
-
-        function handleTouchStart(e) {
-            if (!isImageLoaded) return;
-            
-            // Two fingers: Zoom
-            if (e.touches.length === 2) {
-                isZooming = true;
-                isDragging = false;
-                initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
-                initialScale = currentScale;
-            } 
-            // One finger: Pan
-            else if (e.touches.length === 1) {
-                isDragging = true;
-                startX = e.touches[0].clientX;
-                startY = e.touches[0].clientY;
-                sharedWrapper.style.cursor = 'grabbing';
-            }
-        }
-
-        function handleTouchMove(e) {
-            if (!isImageLoaded) return;
-            e.preventDefault(); 
-
-            // Zooming
-            if (isZooming && e.touches.length === 2) {
-                const currentDistance = getDistance(e.touches[0], e.touches[1]);
-                if (initialPinchDistance > 0) {
-                    const scaleFactor = currentDistance / initialPinchDistance;
-                    currentScale = Math.min(Math.max(initialScale * scaleFactor, 0.1), 10);
-                    updateCanvasTransform();
-                    analyzeCenter();
-                }
-            }
-            // Panning
-            else if (isDragging && e.touches.length === 1) {
-                const clientX = e.touches[0].clientX;
-                const clientY = e.touches[0].clientY;
-
-                const deltaX = clientX - startX;
-                const deltaY = clientY - startY;
-
-                currentTranslateX = previousTranslateX + deltaX;
-                currentTranslateY = previousTranslateY + deltaY;
-
-                updateCanvasTransform();
-                analyzeCenter();
-            }
-        }
-
-        function handleTouchEnd(e) {
-            if (isZooming) {
-                if (e.touches.length < 2) {
-                    isZooming = false;
-                }
-            }
-            if (isDragging) {
-                isDragging = false;
-                previousTranslateX = currentTranslateX;
-                previousTranslateY = currentTranslateY;
-                sharedWrapper.style.cursor = 'move';
-            }
-        }
-        
-        function handleMouseDown(e) {
-            if (!isImageLoaded) return;
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            sharedWrapper.style.cursor = 'grabbing';
-        }
-
-        function handleMouseMove(e) {
-            if (!isDragging) return;
-            e.preventDefault();
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            currentTranslateX = previousTranslateX + deltaX;
-            currentTranslateY = previousTranslateY + deltaY;
-            updateCanvasTransform();
-            analyzeCenter();
-        }
-
-        function handleMouseUp() {
-            if (!isDragging) return;
-            isDragging = false;
-            previousTranslateX = currentTranslateX;
-            previousTranslateY = currentTranslateY;
-            sharedWrapper.style.cursor = 'move';
-        }
-
-        sharedWrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
-        sharedWrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
-        sharedWrapper.addEventListener('touchend', handleTouchEnd);
-        
-        sharedWrapper.addEventListener('mousedown', handleMouseDown);
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-
-        function updateCanvasTransform() {
-            canvas.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${currentScale})`;
-        }
-
-        // --- 5. Analysis Logic ---
-        function analyzeCenter() {
-            if (!isImageLoaded && !isCameraActive) return;
-
-            const activeContainer = currentMode === 'desktop' ? desktopContainer : mobileContainer;
-            if (!activeContainer) return;
-
-            const canvasCenterX = canvas.width / 2;
-            const canvasCenterY = canvas.height / 2;
-            
-            const pixelX = Math.floor(canvasCenterX - (currentTranslateX / currentScale));
-            const pixelY = Math.floor(canvasCenterY - (currentTranslateY / currentScale));
-
-            if (pixelX >= 0 && pixelX < canvas.width && pixelY >= 0 && pixelY < canvas.height) {
-                const pixel = ctx.getImageData(pixelX, pixelY, 1, 1).data;
-                updateUI(pixel[0], pixel[1], pixel[2]);
-            } else {
-                updateUI(0, 0, 0);
-            }
-        }
-
-        // --- 6. UI Update ---
-        function updateUI(r, g, b) {
-            const rgbString = `rgb(${r}, ${g}, ${b})`;
-            const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-            const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-
-            if (currentMode === 'desktop') {
-                deskRefs.preview.style.backgroundColor = rgbString;
-                deskRefs.hex.textContent = hex;
-                deskRefs.r.textContent = r;
-                deskRefs.g.textContent = g;
-                deskRefs.b.textContent = b;
-                deskRefs.barR.style.width = (r/255*100) + '%';
-                deskRefs.barG.style.width = (g/255*100) + '%';
-                deskRefs.barB.style.width = (b/255*100) + '%';
-                deskRefs.lum.textContent = lum;
-            }
-
-            if (currentMode === 'mobile') {
-                mobRefs.preview.style.backgroundColor = rgbString;
-                mobRefs.hex.textContent = hex;
-                mobRefs.r.textContent = r;
-                mobRefs.g.textContent = g;
-                mobRefs.b.textContent = b;
-            }
-        }
-
-        // --- 7. Color Converter Functions ---
-        
-        // Add Input Listener for Hex
-        /* cvtRefs.hex.addEventListener('input', function() {
-            convertColors('fromHex');
-        }); */ 
-        // 已經移至 HTML oninput 屬性，確保事件綁定正確
-
-        function convertColors(source) {
-            let r, g, b, hex;
-
-            if (source === 'fromRGB') {
-                // 若為空字串，視為 0 計算，但不覆蓋輸入框
-                let rVal = cvtRefs.r.value === '' ? 0 : parseInt(cvtRefs.r.value);
-                let gVal = cvtRefs.g.value === '' ? 0 : parseInt(cvtRefs.g.value);
-                let bVal = cvtRefs.b.value === '' ? 0 : parseInt(cvtRefs.b.value);
-
-                // 限制範圍 0-255
-                if (rVal > 255) rVal = 255; if (rVal < 0) rVal = 0;
-                if (gVal > 255) gVal = 255; if (gVal < 0) gVal = 0;
-                if (bVal > 255) bVal = 255; if (bVal < 0) bVal = 0;
-
-                r = rVal; g = gVal; b = bVal;
-
-                hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-                
-                // 即時更新 HEX 輸入框 (若非輸入中)
-                // 為了更好的體驗，我們可以更新它，但要注意游標問題。
-                // 由於這裡是從 RGB 改，HEX 應該要更新
-                cvtRefs.hex.value = hex;
-            } 
-            else if (source === 'fromHex') {
-                hex = cvtRefs.hex.value;
-                if (!hex.startsWith('#') && hex.length > 0) hex = '#' + hex;
-                
-                if (/^#[0-9A-F]{6}$/i.test(hex)) {
-                    let bigint = parseInt(hex.slice(1), 16);
-                    r = (bigint >> 16) & 255;
-                    g = (bigint >> 8) & 255;
-                    b = bigint & 255;
-                    
-                    // 即時更新 RGB 輸入框
-                    cvtRefs.r.value = r;
-                    cvtRefs.g.value = g;
-                    cvtRefs.b.value = b;
-                } else {
-                    // Invalid hex, do not update RGB or preview yet
-                    return; 
-                }
-            }
-            
-            updateConverterUI(r, g, b, hex);
-        }
-
-        function updateConverterUI(r, g, b, hex) {
-            const color = `rgb(${r}, ${g}, ${b})`;
-            cvtRefs.preview.style.backgroundColor = color;
-            
-            // 更新左上角文字
-            cvtRefs.infoBox.classList.remove('hidden');
-            cvtRefs.infoBox.classList.add('flex');
-            cvtRefs.hexDisplay.textContent = hex || "#000000";
-            cvtRefs.rgbDisplay.textContent = `RGB: ${r}, ${g}, ${b}`;
-            
-            // 根據背景亮度調整文字顏色
-            const lum = 0.299*r + 0.587*g + 0.114*b;
-            const textColor = lum > 128 ? 'black' : 'white';
-            const textShadow = lum > 128 ? '0 1px 2px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.8)';
-            
-            cvtRefs.infoBox.style.color = textColor;
-            cvtRefs.infoBox.style.textShadow = textShadow;
-        }
-
-        function saveColorCard() {
-            // Get current color values (use placeholders as fallback 0)
-            const r = cvtRefs.r.value === '' ? 0 : parseInt(cvtRefs.r.value);
-            const g = cvtRefs.g.value === '' ? 0 : parseInt(cvtRefs.g.value);
-            const b = cvtRefs.b.value === '' ? 0 : parseInt(cvtRefs.b.value);
-            let hex = cvtRefs.hex.value;
-            
-            if (!hex) hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-
-            // Create canvas
-            const saveCanvas = document.createElement('canvas');
-            saveCanvas.width = 600;
-            saveCanvas.height = 600;
-            const sCtx = saveCanvas.getContext('2d');
-
-            // Draw Background
-            sCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            sCtx.fillRect(0, 0, 600, 600);
-
-            // Draw Text Info
-            const lum = 0.299*r + 0.587*g + 0.114*b;
-            const textColor = lum > 128 ? '#000' : '#fff';
-            
-            sCtx.font = "bold 40px 'Noto Sans TC', sans-serif";
-            sCtx.textAlign = "center";
-            sCtx.fillStyle = textColor;
-            sCtx.fillText(hex, 300, 500);
-            sCtx.font = "30px 'Noto Sans TC', sans-serif";
-            sCtx.fillText(`RGB: ${r}, ${g}, ${b}`, 300, 550);
-
-            // Generate Image
-            const dataUrl = saveCanvas.toDataURL();
-            
-            // Show Modal instead of direct download
-            saveModalImg.src = dataUrl;
-            saveModal.classList.remove('hidden');
-        }
-        
-        function closeSaveModal() {
-            saveModal.classList.add('hidden');
-        }
-
-        window.addEventListener('resize', () => {
-            if(isImageLoaded) analyzeCenter();
-        });
-
-    </script>
+/* ================= 初始化 ================= */
+renderPalette(); render();
+(function initFromHash() {
+  const m = location.hash.match(/c=([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/);
+  if (m) { const v = parseColor(m[1]); if (v) { setColor(v[0], v[1], v[2], 'code', '分享連結'); showTab('gen'); } }
+})();
+</script>
 </body>
 </html>
