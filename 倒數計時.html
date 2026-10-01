@@ -170,6 +170,28 @@ body.present .clock-digits{font-size:min(19cqw,24vh)}
   .cd-digits.flash{animation:none}
   .card.finished{animation:none}
 }
+
+/* ---------- 浮動視窗（Document PiP）：只作用在小窗內與主頁佔位卡 ---------- */
+body.pip{overflow:hidden}
+body.pip #pipRoot{height:100vh;height:100dvh;display:flex;flex-direction:column;padding:8px;gap:6px}
+body.pip .pip-clock{flex:none;display:flex;align-items:baseline;justify-content:center;gap:8px;color:#9bdcff;font-weight:700;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;font-size:clamp(1rem,6.5vw,1.7rem)}
+body.pip .pip-clock small{color:var(--muted);font-weight:400;font-size:.55em;letter-spacing:.06em}
+body.pip .cd-card{flex:1;min-height:0;border-radius:16px;padding:10px 12px}
+body.pip .card-label{font-size:clamp(.75rem,3.6cqw,1rem)}
+body.pip .cd-digits{font-size:min(20cqw,15vh);margin-top:2px}
+body.pip .cd-digits.short{font-size:min(26cqw,19vh)}
+body.pip.theme-plain .cd-digits{font-size:min(22cqw,30vh)}
+body.pip.theme-plain .cd-digits.short{font-size:min(30cqw,40vh)}
+body.pip .cd-info{font-size:clamp(.7rem,3.2cqw,.95rem)}
+body.pip .stage-wrap{min-height:0}
+body.pip .banner{font-size:clamp(1.2rem,10cqw,3rem)}
+body.pip .paused-tag{font-size:.8rem;padding:2px 10px}
+body.pip .pip-bar{position:fixed;right:12px;bottom:12px;display:flex;gap:6px;z-index:20;opacity:.28;transition:opacity .2s}
+body.pip .pip-bar:hover,body.pip .pip-bar:focus-within{opacity:1}
+body.pip .pip-bar .btn{min-height:34px;padding:5px 12px;font-size:.9rem}
+.pip-holder{justify-content:center;align-items:center;text-align:center;gap:14px;color:#b8c6e6}
+.pip-holder .big{font-size:clamp(1.1rem,4cqw,1.8rem);font-weight:700;color:var(--text)}
 </style>
 </head>
 <body class="theme-bomb">
@@ -178,6 +200,7 @@ body.present .clock-digits{font-size:min(19cqw,24vh)}
     <div class="title">⏳ 倒數計時器<small>臺中二中 阿發老師 設計</small></div>
     <div class="top-actions">
       <button class="btn" id="btnSound" title="音效開關 (M)" aria-label="音效開關">🔊</button>
+      <button class="btn" id="btnPiP" title="把倒數卡移到永遠置頂的浮動小窗，可疊在 PPT 播放畫面上">🗔 浮動視窗</button>
       <button class="btn" id="btnPresent" title="投影模式 (F)">⛶ 投影模式</button>
     </div>
   </header>
@@ -1185,6 +1208,7 @@ function applyTheme(t, save) {
   Stage.reset();
   if (run.state === 'finished') { Stage.burst(); el.banner.textContent = BANNER[t]; }
   if (save) saveCfg();
+  PiP.syncBody();   // 浮動視窗開啟時，同步小窗的主題 class
   requestAnimationFrame(() => Stage.resize());
 }
 document.querySelectorAll('#themeSeg button').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.theme, true)));
@@ -1338,16 +1362,125 @@ function init() {
   syncTime(false).then(() => { lastClockSec = -1; });
   if (pr.auto) setTimeout(start, 0);
 
-  let last = 0;
-  function frame(ts) {
-    const dt = Math.min(0.05, ((ts - last) / 1000) || 0.016); last = ts;
+  let last = 0, loopGen = 0;
+  // 浮動視窗開啟時改由小窗的 rAF 驅動（主視窗被 PPT 全螢幕遮住時，瀏覽器會暫停主視窗的 rAF）
+  // 時間一律取主視窗的 performance.now()，避免兩個視窗的時間基準不同造成動畫跳動
+  function frame(gen) {
+    if (gen !== loopGen) return;          // 已切換到另一個視窗的迴圈，舊迴圈自動結束
+    const ts = performance.now();
+    const dt = Math.min(0.05, Math.max(0, (ts - last) / 1000) || 0.016); last = ts;
     update(nowMs());
     Stage.draw(dt, ts / 1000, view);
-    requestAnimationFrame(frame);
+    (PiP.win || window).requestAnimationFrame(() => frame(gen));
   }
-  requestAnimationFrame(frame);
+  PiP.restartLoop = () => { const g = ++loopGen; (PiP.win || window).requestAnimationFrame(() => frame(g)); };
+  PiP.restartLoop();
   setInterval(() => update(nowMs()), 200);   // 背景分頁時 rAF 會暫停，靠它維持計時與結束判斷
 }
+
+/* =====================================================================
+   浮動視窗（Document Picture-in-Picture）
+   把倒數卡搬到永遠置頂的小窗，可疊在 PPT 全螢幕播放畫面上
+   倒數邏輯、音效、校時仍在主頁執行；關閉小窗時把元素搬回原位
+   ===================================================================== */
+const PiP = {
+  win: null, ro: null, mo: null, holder: null, restartLoop: () => {},
+  supported: 'documentPictureInPicture' in window,
+  plain: false, modeBtn: null,     // 小窗專用的「純數字」顯示切換（不更動設定裡的主題）
+  syncBody() {
+    if (!this.win) return;
+    const usePlain = this.plain && cfg.theme !== 'plain';
+    this.win.document.body.className = 'pip ' + (usePlain ? 'theme-plain' :
+      [...document.body.classList].filter(c => c.startsWith('theme-')).join(' '));
+    if (this.modeBtn) {
+      const NAME = { bomb: '💣 炸彈', balloon: '🎈 氣球', water: '💧 水球' };
+      this.modeBtn.hidden = cfg.theme === 'plain';          // 主題本來就是純數字時不需要切換
+      this.modeBtn.textContent = usePlain ? (NAME[cfg.theme] || '動畫') : '🔢 純數字';
+      this.modeBtn.title = usePlain ? '切回動畫主題' : '切換成純數字';
+    }
+  },
+  async open() {
+    if (this.win) { this.win.focus(); return; }
+    Sound.ensure();
+    let w;
+    try { w = await documentPictureInPicture.requestWindow({ width: 340, height: 440 }); }
+    catch (e) { showMsg('無法開啟浮動視窗：' + (e && e.message ? e.message : e)); return; }
+    this.win = w;
+    const d = w.document;
+    d.title = '倒數計時器';
+    d.head.appendChild(document.querySelector('style').cloneNode(true));
+    this.syncBody();
+
+    // 小窗頂端：目前時刻（鏡射主頁時鐘的文字）
+    const root = d.createElement('div'); root.id = 'pipRoot';
+    const clk = d.createElement('div'); clk.className = 'pip-clock';
+    clk.innerHTML = '<small>中原標準時間</small><span></span>';
+    const clkSpan = clk.querySelector('span');
+    const mirror = () => { clkSpan.textContent = el.clockDigits.textContent; };
+    mirror();
+    this.mo = new MutationObserver(mirror);
+    this.mo.observe(el.clockDigits, { childList: true, characterData: true, subtree: true });
+
+    // 主頁留下佔位卡
+    this.holder = document.createElement('section');
+    this.holder.className = 'card pip-holder';
+    this.holder.innerHTML = '<div class="big">⏳ 倒數正在浮動視窗中</div><div class="hint">下方控制面板仍可照常操作</div><button class="btn primary">↩ 收回</button>';
+    this.holder.querySelector('button').addEventListener('click', () => this.close());
+    el.cdCard.replaceWith(this.holder);
+
+    // 搬移倒數卡與「開始/暫停、重設」按鈕（事件與狀態更新都跟著元素走）
+    const bar = d.createElement('div'); bar.className = 'pip-bar';
+    this.modeBtn = d.createElement('button'); this.modeBtn.className = 'btn';
+    this.modeBtn.addEventListener('click', () => { this.plain = !this.plain; this.syncBody(); });
+    bar.append(this.modeBtn, el.miniStart, el.miniReset);
+    this.syncBody();
+    root.append(clk, el.cdCard);
+    d.body.append(root, bar);
+
+    // 畫布尺寸改由小窗的 ResizeObserver 追蹤
+    this.ro = new w.ResizeObserver(() => Stage.resize());
+    this.ro.observe(el.cdCard);
+    this.ro.observe(el.cdCard.querySelector('.stage-wrap'));
+
+    // 小窗內的快捷鍵：空白鍵＝開始/暫停、R＝重設、M＝靜音
+    w.addEventListener('keydown', e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = (e.key || '').toLowerCase();
+      if (e.code === 'Space') { if (e.target.closest && e.target.closest('button')) return; e.preventDefault(); toggleMain(); }
+      else if (k === 'r') reset();
+      else if (k === 'm') { Sound.ensure(); cfg.sound = !cfg.sound; renderSoundBtn(); saveCfg(); }
+    });
+    d.addEventListener('click', e => { const b = e.target.closest && e.target.closest('button'); if (b) b.blur(); });
+    d.addEventListener('dblclick', e => e.stopPropagation(), true);   // 小窗內雙擊不觸發主頁的投影模式
+    w.addEventListener('pointerdown', () => Sound.ensure(), { passive: true });
+    w.addEventListener('pagehide', () => this.close(true));
+
+    $('#btnPiP').textContent = '↩ 收回小窗';
+    this.restartLoop();
+    w.requestAnimationFrame(() => Stage.resize());
+  },
+  close(fromPagehide) {
+    const w = this.win;
+    if (!w) return;
+    this.win = null;
+    if (this.ro) this.ro.disconnect();
+    if (this.mo) this.mo.disconnect();
+    this.holder.replaceWith(el.cdCard);
+    this.holder = null;
+    this.modeBtn = null;
+    $('#miniBar').prepend(el.miniStart, el.miniReset);
+    if (!fromPagehide) w.close();
+    $('#btnPiP').textContent = '🗔 浮動視窗';
+    this.restartLoop();
+    requestAnimationFrame(() => Stage.resize());
+  }
+};
+{
+  const b = $('#btnPiP');
+  if (!PiP.supported) b.hidden = true;     // 不支援的瀏覽器（Firefox、Safari、手機）直接隱藏
+  else b.addEventListener('click', () => { PiP.win ? PiP.close() : PiP.open(); });
+}
+
 init();
 </script>
 </body>
