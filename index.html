@@ -1,213 +1,732 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>α老師物理模擬動畫實驗室</title>
-    <style>
-        body { 
-            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
-            background-color: #f0f2f5; 
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050812">
+  <title>α PHYSICS LAB｜物理模擬動畫實驗室</title>
+  <style>
+    :root {
+      --bg: #050812;
+      --panel: rgba(9, 17, 32, 0.72);
+      --panel-strong: rgba(8, 15, 29, 0.92);
+      --line: rgba(120, 220, 255, 0.20);
+      --line-hot: rgba(90, 218, 255, 0.72);
+      --text: #ecf8ff;
+      --muted: #8ea7b8;
+      --cyan: #42d9ff;
+      --violet: #9a79ff;
+      --mint: #42ffd2;
+      --amber: #ffc86b;
+      --pink: #ff62b0;
+      --blue: #62a9ff;
+    }
 
-        .main-layout {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center; 
-            gap: 40px;
-            max-width: 1400px; 
-            width: 100%;
-            /* 關鍵修改：強制不換行，讓這三個區塊始終保持在同一列 */
-            flex-wrap: nowrap; 
-        }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; }
 
-        .content-area {
-            /* 允許主內容區塊在空間不夠時縮小，內部的卡片會自動往下排 */
-            flex: 1 1 auto; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 300px;
-        }
+    body {
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "Heiti TC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
 
-        .teacher-img {
-            /* 讓圖片也能配合視窗稍微縮小，避免把右側卡片擠走 */
-            flex: 0 1 350px; 
-            max-width: 350px;
-            width: 100%;
-            height: auto;
-            filter: drop-shadow(10px 10px 20px rgba(0,0,0,0.2));
-            animation: float 3s ease-in-out infinite;
-            border-radius: 20px; 
-        }
+    #scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
 
-        .right-area {
-            /* 讓右側個人工具卡片保持原始大小，不被過度壓縮 */
-            flex: 0 0 auto; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 200px;
-        }
+    .scanlines,
+    .vignette,
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
 
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
+    .scanlines {
+      opacity: .07;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,.55) 0, rgba(255,255,255,.55) 1px, transparent 1px, transparent 5px);
+      mix-blend-mode: screen;
+    }
 
-        h1 { 
-            color: #333; 
-            margin-bottom: 40px; 
-            text-align: center; 
-            font-size: 4.0em; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1); 
-            line-height: 1.2;
-        }
-        
-        .menu-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            justify-content: center; 
-            gap: 30px; 
-            width: 100%; 
-            max-width: 800px; 
-        }
-        
-        .category-card {
-            background-color: #fff;
-            width: 200px; 
-            padding: 25px 15px;
-            text-decoration: none;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-            border-top: 5px solid #007bff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-sizing: border-box;
-        }
-        
-        .category-card:hover { 
-            transform: translateY(-5px); 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15); 
-        }
-        
-        .icon { font-size: 3em; margin-bottom: 15px; }
-        .title { color: #333; font-size: 1.3em; font-weight: bold; margin-bottom: 10px; }
-        .desc { color: #666; font-size: 0.9em; line-height: 1.5; }
-        
-        /* 各分類顏色設定 */
-        .card-motion { border-top-color: #ff6b6b; } 
-        .card-waves { border-top-color: #4ecdc4; }  
-        .card-optics { border-top-color: #ffe66d; } 
-        .card-modern { border-top-color: #2ecc71; } 
-        .card-tools { border-top-color: #a55eea; }  
-        .card-inquiry { border-top-color: #ff9f43; } 
-        .card-personal { border-top-color: #e84393; }
+    .grid-overlay {
+      opacity: .24;
+      background-image:
+        linear-gradient(rgba(70, 190, 255, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(70, 190, 255, .035) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: linear-gradient(to bottom, transparent 0, rgba(0,0,0,.8) 40%, rgba(0,0,0,1) 100%);
+    }
 
-        /* 響應式調整：當螢幕小於 1200px 時改為垂直排列 */
-        @media (max-width: 1200px) {
-            .main-layout {
-                flex-direction: column; /* 改為垂直排列 */
-                gap: 30px;
-            }
-            .teacher-img { order: 1; max-width: 250px; }
-            .content-area { order: 2; }
-            .right-area { order: 3; }
-            
-            h1 { font-size: 3em; }
-        }
-    </style>
+    .vignette {
+      background: radial-gradient(circle at 50% 42%, transparent 0 35%, rgba(0,0,0,.36) 74%, rgba(0,0,0,.72) 100%);
+    }
 
-    <script>
-        function checkPersonalPassword(event) {
-            // 阻止原本的直接跳轉行為
-            event.preventDefault(); 
-            
-            // 1. 彈出視窗詢問密碼
-            var password = prompt("請輸入 6 位數個人工具專用密碼：");
+    .app {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px clamp(18px, 3vw, 48px) 24px;
+    }
 
-            // 2. 檢查密碼 (這裡預設是 123456，老師可以在這裡修改)
-            if (password === "601021") {
-                // 密碼正確 -> 跳轉到目標檔案
-                window.location.href = "personal.html"; 
-            } else if (password != null) {
-                // 密碼錯誤 -> 顯示警告 (排除按取消的情況)
-                alert("密碼錯誤，存取被拒絕 🚫");
-            }
-        }
-    </script>
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      min-height: 44px;
+      letter-spacing: .06em;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: .18em;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border: 1px solid rgba(120,220,255,.62);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--cyan);
+      box-shadow: 0 0 18px rgba(66,217,255,.18), inset 0 0 12px rgba(66,217,255,.08);
+      position: relative;
+    }
+
+    .brand-mark::before,
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(154,121,255,.55);
+      inset: 5px;
+      transform: rotate(55deg) scaleX(1.65);
+    }
+    .brand-mark::after { transform: rotate(-55deg) scaleX(1.65); }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 14px rgba(66,255,210,.95);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100% { opacity:.45; } 50% { opacity: 1; } }
+
+    .hero {
+      width: min(1420px, 100%);
+      flex: 1;
+      min-height: 690px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) minmax(320px, 480px) minmax(240px, 1fr);
+      grid-template-rows: auto 1fr auto;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+    }
+
+    .title-block {
+      grid-column: 1 / 4;
+      grid-row: 1;
+      text-align: center;
+      padding-top: 16px;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 10px;
+      letter-spacing: .32em;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      text-shadow: 0 0 16px rgba(66,217,255,.35);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 68px);
+      line-height: .95;
+      letter-spacing: .12em;
+      font-weight: 900;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff 0%, #bceeff 45%, #a989ff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 18px rgba(85,210,255,.10));
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      color: #9eb9ca;
+      font-size: clamp(13px, 1.4vw, 17px);
+      letter-spacing: .22em;
+    }
+
+    .left-stack,
+    .right-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-self: center;
+    }
+
+    .left-stack { grid-column: 1; grid-row: 2; }
+    .right-stack { grid-column: 3; grid-row: 2; }
+
+    .card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 15px;
+      min-height: 132px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(11,23,40,.84), rgba(4,10,19,.62));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 42px rgba(0,0,0,.25);
+      text-decoration: none;
+      color: inherit;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease, background .22s ease;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      right: -80px;
+      top: -100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent), transparent 66%);
+      opacity: .12;
+      filter: blur(3px);
+      transition: opacity .2s ease, transform .3s ease;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 0 42%, rgba(255,255,255,.08) 50%, transparent 58%);
+      transform: translateX(-130%);
+      transition: transform .8s ease;
+    }
+
+    .card:hover {
+      transform: perspective(900px) rotateX(3deg) rotateY(-3deg) translateY(-4px);
+      border-color: color-mix(in srgb, var(--accent) 62%, white 10%);
+      box-shadow: 0 18px 55px rgba(0,0,0,.38), 0 0 28px color-mix(in srgb, var(--accent) 16%, transparent);
+      background: linear-gradient(135deg, rgba(14,29,48,.94), rgba(6,13,24,.78));
+    }
+    .card:hover::before { opacity: .25; transform: scale(1.2); }
+    .card:hover::after { transform: translateX(130%); }
+
+    .icon-box {
+      width: 50px;
+      height: 50px;
+      border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 9%, transparent);
+      box-shadow: inset 0 0 16px color-mix(in srgb, var(--accent) 8%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 6%, transparent);
+      position: relative;
+      z-index: 1;
+    }
+
+    .icon-box svg { width: 28px; height: 28px; stroke: currentColor; }
+
+    .card-copy { position: relative; z-index: 1; min-width: 0; }
+    .code {
+      font-size: 9px;
+      color: var(--accent);
+      letter-spacing: .18em;
+      opacity: .9;
+      text-transform: uppercase;
+    }
+    .card h2 { margin: 7px 0 5px; font-size: 20px; letter-spacing: .08em; }
+    .card p { margin: 0; color: #8ea7b8; font-size: 11px; line-height: 1.6; }
+    .enter { margin-top: 9px; color: #d5effc; font-size: 10px; letter-spacing: .16em; opacity: .62; }
+
+    .card-motion { --accent: #62a9ff; }
+    .card-waves { --accent: #42d9ff; }
+    .card-optics { --accent: #ffc86b; }
+    .card-modern { --accent: #9a79ff; }
+    .card-tools { --accent: #42ffd2; }
+    .card-inquiry { --accent: #ff9e62; }
+    .card-personal { --accent: #ff62b0; }
+
+    .card-personal { min-height: 160px; grid-template-columns: 58px 1fr; }
+    .card-personal .icon-box { width: 58px; height: 58px; border-radius: 17px; }
+    .private-note { margin-top: 10px; color: #ffbadb; font-size: 9px; letter-spacing: .08em; }
+
+    .teacher-zone {
+      grid-column: 2;
+      grid-row: 2;
+      min-height: 470px;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .teacher-zone::before {
+      content: "";
+      position: absolute;
+      width: min(36vw, 420px);
+      height: min(36vw, 420px);
+      border: 1px solid rgba(66,217,255,.12);
+      border-radius: 50%;
+      box-shadow: 0 0 65px rgba(66,217,255,.07), inset 0 0 70px rgba(154,121,255,.05);
+      animation: spin 28s linear infinite;
+    }
+    .teacher-zone::after {
+      content: "";
+      position: absolute;
+      width: min(27vw, 320px);
+      height: min(17vw, 210px);
+      border: 1px solid rgba(154,121,255,.16);
+      border-radius: 50%;
+      transform: rotate(27deg);
+      box-shadow: 0 0 35px rgba(154,121,255,.06);
+      animation: spin2 18s linear infinite reverse;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin2 { to { transform: rotate(387deg); } }
+
+    .teacher-img {
+      width: min(340px, 70%);
+      max-height: 500px;
+      object-fit: contain;
+      object-position: center bottom;
+      filter: drop-shadow(0 25px 24px rgba(0,0,0,.55)) drop-shadow(0 0 35px rgba(66,217,255,.10));
+      animation: float 4.5s ease-in-out infinite;
+      z-index: 2;
+    }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+    .hud-corner {
+      position: absolute;
+      width: 72px;
+      height: 72px;
+      border-color: rgba(66,217,255,.42);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .hud-corner.tl { left: 13%; top: 18%; border-top: 1px solid; border-left: 1px solid; }
+    .hud-corner.tr { right: 13%; top: 18%; border-top: 1px solid; border-right: 1px solid; }
+    .hud-corner.bl { left: 13%; bottom: 18%; border-bottom: 1px solid; border-left: 1px solid; }
+    .hud-corner.br { right: 13%; bottom: 18%; border-bottom: 1px solid; border-right: 1px solid; }
+
+    .system-panel {
+      grid-column: 1 / 4;
+      grid-row: 3;
+      width: min(760px, 100%);
+      justify-self: center;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      border: 1px solid rgba(110,205,255,.15);
+      border-radius: 14px;
+      background: rgba(6,14,25,.62);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .metric {
+      padding: 12px 16px;
+      border-right: 1px solid rgba(110,205,255,.10);
+      text-align: center;
+    }
+    .metric:last-child { border-right: 0; }
+    .metric small { display:block; color:#6f8796; font-size:8px; letter-spacing:.18em; }
+    .metric strong { display:block; margin-top:4px; font-size:14px; letter-spacing:.08em; color:#dff6ff; }
+
+    .footer {
+      display:flex;
+      justify-content:center;
+      gap:20px;
+      color:#61798a;
+      font-size:9px;
+      letter-spacing:.12em;
+      padding-top:12px;
+    }
+
+    /* Password modal: the password is posted to the private gateway, never compared in this HTML. */
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(1,5,11,.74);
+      backdrop-filter: blur(9px);
+    }
+    .modal.show { display: grid; }
+    .modal-box {
+      width: min(430px, 100%);
+      border:1px solid rgba(255,98,176,.35);
+      border-radius:22px;
+      padding:28px;
+      background:linear-gradient(145deg, rgba(17,20,35,.96), rgba(5,10,20,.96));
+      box-shadow: 0 28px 100px rgba(0,0,0,.56), 0 0 40px rgba(255,98,176,.08);
+    }
+    .modal-kicker { color:#ff77ba; font-size:9px; letter-spacing:.22em; }
+    .modal h3 { margin:9px 0 7px; font-size:25px; }
+    .modal p { margin:0 0 20px; color:#91a8b8; font-size:12px; line-height:1.65; }
+    .password-input {
+      width:100%;
+      padding:14px 15px;
+      border:1px solid rgba(130,180,210,.22);
+      border-radius:12px;
+      outline:none;
+      background:#060c16;
+      color:#eaf8ff;
+      font-size:16px;
+      letter-spacing:.18em;
+    }
+    .password-input:focus { border-color:rgba(255,98,176,.65); box-shadow:0 0 0 3px rgba(255,98,176,.08); }
+    .modal-actions { display:flex; gap:10px; margin-top:14px; }
+    .btn { flex:1; border:1px solid rgba(150,190,210,.18); border-radius:11px; padding:12px 15px; cursor:pointer; background:#0b1421; color:#b7cdd9; }
+    .btn-primary { background:linear-gradient(135deg, rgba(255,98,176,.22), rgba(154,121,255,.16)); border-color:rgba(255,98,176,.42); color:#fff; }
+    .login-status { min-height:18px; margin-top:11px; color:#ff94c9; font-size:10px; }
+
+    @media (max-width: 1100px) {
+      .hero { grid-template-columns: 1fr 1fr; grid-template-rows:auto auto auto auto; min-height: auto; padding: 30px 0; }
+      .title-block { grid-column:1/3; grid-row:1; }
+      .left-stack { grid-column:1; grid-row:2; }
+      .teacher-zone { grid-column:2; grid-row:2 / 4; min-height:510px; }
+      .right-stack { grid-column:1; grid-row:3; }
+      .system-panel { grid-column:1/3; grid-row:4; }
+      .card { min-height:125px; }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 16px 14px; }
+      .hero { display:flex; flex-direction:column; align-items:stretch; gap:16px; padding-top:20px; }
+      .title-block { order:1; }
+      .teacher-zone { order:2; min-height:350px; }
+      .left-stack { order:3; }
+      .right-stack { order:4; }
+      .system-panel { order:5; width:100%; grid-template-columns:repeat(2,1fr); }
+      .metric:nth-child(1), .metric:nth-child(2) { border-bottom:1px solid rgba(110,205,255,.10); }
+      .metric:nth-child(2) { border-right:0; }
+      .metric:nth-child(3) { border-right:1px solid rgba(110,205,255,.10); }
+      .teacher-img { width:min(260px,62%); }
+      .teacher-zone::before { width:280px; height:280px; }
+      .teacher-zone::after { width:215px; height:140px; }
+      .hud-corner { display:none; }
+      .topbar .status { display:none; }
+      .card { min-height:116px; }
+      .footer { flex-wrap:wrap; }
+    }
+  </style>
 </head>
 <body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="scanlines"></div>
+  <div class="grid-overlay"></div>
+  <div class="vignette"></div>
 
-    <div class="main-layout">
-        
-        <!-- 左側區塊：主內容與選單 -->
-        <div class="content-area">
-            <h1>α老師物理模擬動畫實驗室</h1>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">α</div>
+        <div>PHYSICS LAB / SIMULATION HUB</div>
+      </div>
+      <div class="status"><span class="status-dot"></span> SYSTEM ONLINE · THREE.JS ENGINE</div>
+    </header>
 
-            <div class="menu-container">
-                <a href="motion.html" class="category-card card-motion">
-                    <div class="icon">🏎️</div>
-                    <div class="title">運動與力</div>
-                    <div class="desc">牛頓定律、拋體運動等經典力學。</div>
-                </a>
+    <section class="hero">
+      <div class="title-block">
+        <div class="eyebrow">DIGITAL PHYSICS EXPERIMENT LABORATORY</div>
+        <h1>α PHYSICS LAB</h1>
+        <p class="subtitle">物理模擬動畫實驗室</p>
+      </div>
 
-                <a href="waves.html" class="category-card card-waves">
-                    <div class="icon">🌊</div>
-                    <div class="title">波動</div>
-                    <div class="desc">水波、駐波、干涉與繞射現象。</div>
-                </a>
+      <div class="left-stack">
+        <a href="motion.html" class="card card-motion">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><path d="M3 17h3l2-7 4 8 3-12 2 6h4" stroke-width="1.6"/><path d="M4 20h16" stroke-width="1.2"/></svg></div>
+          <div class="card-copy"><div class="code">01 / MOTION</div><h2>運動與力</h2><p>牛頓定律、拋體、碰撞與經典力學模擬。</p><div class="enter">OPEN SIMULATION →</div></div>
+        </a>
+        <a href="waves.html" class="card card-waves">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><path d="M2 12c2.6-8 5.4-8 8 0s5.4 8 8 0 5.4-8 8 0" stroke-width="1.6"/><path d="M2 12h20" stroke-width=".9" opacity=".45"/></svg></div>
+          <div class="card-copy"><div class="code">02 / WAVES</div><h2>波動</h2><p>水波、駐波、重疊、干涉與繞射現象。</p><div class="enter">OPEN SIMULATION →</div></div>
+        </a>
+        <a href="optics.html" class="card card-optics">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h7M14 12h7" stroke-width="1.4"/><path d="M10 5c3.5 3 3.5 11 0 14M14 5c-3.5 3-3.5 11 0 14" stroke-width="1.6"/><path d="M2 8l3 4-3 4" stroke-width="1.1"/></svg></div>
+          <div class="card-copy"><div class="code">03 / OPTICS</div><h2>光學</h2><p>面鏡、透鏡、折射與光線傳播的視覺化。</p><div class="enter">OPEN SIMULATION →</div></div>
+        </a>
+      </div>
 
-                <a href="optics.html" class="category-card card-optics">
-                    <div class="icon">🔦</div>
-                    <div class="title">光學</div>
-                    <div class="desc">面鏡成像、透鏡折射與光學儀器。</div>
-                </a>
+      <div class="teacher-zone">
+        <span class="hud-corner tl"></span><span class="hud-corner tr"></span><span class="hud-corner bl"></span><span class="hud-corner br"></span>
+        <img src="teacher.png" alt="α老師" class="teacher-img" onerror="this.style.opacity='0.15'">
+      </div>
 
-                <a href="modern.html" class="category-card card-modern">
-                    <div class="icon">⚛️</div>
-                    <div class="title">近代物理</div>
-                    <div class="desc">量子論、波粒二象性與原子模型。</div>
-                </a>
+      <div class="right-stack">
+        <a href="modern.html" class="card card-modern">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2.1" stroke-width="1.4"/><ellipse cx="12" cy="12" rx="9" ry="3.5" stroke-width="1.25"/><ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(60 12 12)" stroke-width="1.25"/><ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(120 12 12)" stroke-width="1.25"/></svg></div>
+          <div class="card-copy"><div class="code">04 / MODERN</div><h2>近代物理</h2><p>量子論、波粒二象性與原子模型。</p><div class="enter">OPEN SIMULATION →</div></div>
+        </a>
+        <a href="tools.html" class="card card-tools">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke-width="1.5"/><path d="M8 9h8M8 13h5M8 16h3" stroke-width="1.35"/></svg></div>
+          <div class="card-copy"><div class="code">05 / TOOLS</div><h2>小工具</h2><p>計時器、計算機與課堂教學輔助工具。</p><div class="enter">OPEN TOOLS →</div></div>
+        </a>
+        <a href="探究與實作.html" class="card card-inquiry">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><path d="M8 3h8M9 3v5l-4 7.2A3.2 3.2 0 0 0 7.7 20h8.6A3.2 3.2 0 0 0 19 15.2L15 8V3" stroke-width="1.45"/><path d="M7 15h10" stroke-width="1.1"/><circle cx="12" cy="12" r=".9" fill="currentColor"/></svg></div>
+          <div class="card-copy"><div class="code">06 / INQUIRY</div><h2>探究與實作</h2><p>實驗設計、數據分析與誤差傳播。</p><div class="enter">OPEN LAB →</div></div>
+        </a>
+        <a href="#" id="personalEntry" class="card card-personal">
+          <div class="icon-box"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" stroke-width="1.35"/><circle cx="12" cy="12" r="3.1" stroke-width="1.6"/></svg></div>
+          <div class="card-copy"><div class="code">07 / PRIVATE</div><h2>個人工具</h2><p>自訂實驗參數、儲存模擬進度與教學筆記。</p><div class="private-note">SECURE GATEWAY / PASSWORD PROTECTED</div><div class="enter">AUTHENTICATE →</div></div>
+        </a>
+      </div>
 
-                <a href="tools.html" class="category-card card-tools">
-                    <div class="icon">🧰</div>
-                    <div class="title">小工具</div>
-                    <div class="desc">包含計時器、計算機等教學輔助工具。</div>
-                </a>
+      <div class="system-panel">
+        <div class="metric"><small>ENGINE</small><strong>THREE.JS</strong></div>
+        <div class="metric"><small>SCENE</small><strong>3D PARTICLES</strong></div>
+        <div class="metric"><small>MODULES</small><strong>07 ACTIVE</strong></div>
+        <div class="metric"><small>STATUS</small><strong>ONLINE</strong></div>
+      </div>
+    </section>
 
-                <a href="探究與實作.html" class="category-card card-inquiry">
-                    <div class="icon">🧪</div>
-                    <div class="title">探究與實作</div>
-                    <div class="desc">實驗設計、數據分析與誤差傳播。</div>
-                </a>
-            </div>
-        </div>
+    <div class="footer"><span>α 老師物理模擬動畫實驗室</span><span>BUILD · 2026</span><span>INTERACTIVE PHYSICS</span></div>
+  </main>
 
-        <!-- 中間區塊：α老師人像 -->
-        <img src="teacher.png" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMzAwIj4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNSwwKSI+CiAgICA8IS0tIEJvZHkgLS0+CiAgICA8cGF0aCBkPSJNODUsMjgwIEw4NSwxNjAgTDUwLDE2MCBMNDAsMjIwIEwzMCwyMjAgTDQwLDE1MCBMNTAsMTAwIEwxMjAsMTAwIEwxMzAsMTUwIEwxNDAsMjIwIEwxMzAsMjIwIEwxMjAsMTYwIEw4NSwxNjAgTDg1LDI4MCIgZmlsbD0iIzMzMyIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIEhlYWQgLS0+CiAgICA8Y2lyY2xlIGN4PSI4NSIgY3k9IjYwIiByPSI0MCIgZmlsbD0iI2Y1YzJiNyIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIEhhaXIgLS0+CiAgICA8cGF0aCBkPSJNNDUsNjAgQzQ1LDIwIDg1LTAgMTI1LDYwIEwxMjUsNzAgQzEyNSwzMCA4NSwxMCA0NSw3MCBaIiBmaWxsPSIjMzMzIi8+CiAgICA8IS0tIEZhY2UgLS0+CiAgICA8Y2lyY2xlIGN4PSI3MCIgY3k9IjU1IiByPSI0IiBmaWxsPSJibGFjayIvPgogICAgPGNpcmNsZSBjeT0iMTAwIiBjeT0iNTUiIHI9IjQiIGZpbGw9ImJsYWNrIi8+CiAgICA8cGF0aCBkPSJNNzAsODAgUTg1LDkwIDEwMCw4MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgICA8IS0tIFNoaXJ0IExvZ28gLS0+CiAgICA8dGV4dCB4PSI4NSIgeT0iMTQ1IiBmb250LWZhbWlseT0ic2VyaWYiIGZvbnQtc2l6ZT0iNDAiIGZpbGw9IiNmZGQ4MzUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiYjOTQ1OzwvdGV4dD4KICA8L2c+Cjwvc3ZnPg=='" alt="α老師" class="teacher-img">
+  <div class="modal" id="passwordModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <form class="modal-box" id="passwordForm">
+      <div class="modal-kicker">PRIVATE ACCESS / SECURE GATEWAY</div>
+      <h3 id="modalTitle">進入個人工具</h3>
+      <p>密碼會透過 HTTPS 傳送至私有驗證服務。本頁不保存、比對或硬編碼密碼。</p>
+      <input id="password" class="password-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="輸入密碼" required>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancelLogin">取消</button>
+        <button type="submit" class="btn btn-primary">驗證並進入</button>
+      </div>
+      <div class="login-status" id="loginStatus"></div>
+    </form>
+  </div>
 
-        <!-- 右側區塊：新增的個人工具卡片 -->
-        <div class="right-area">
-            <a href="personal.html" onclick="checkPersonalPassword(event)" class="category-card card-personal">
-                <div class="icon">⚙️</div>
-                <div class="title">個人工具</div>
-                <div class="desc">自訂實驗參數、儲存模擬進度與教學筆記。</div>
-            </a>
-        </div>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
 
-    </div>
+    // =============================
+    //  Private gateway configuration
+    // =============================
+    // IMPORTANT: Do NOT place the password or password hash here.
+    // Replace this with your Cloudflare Worker URL after deployment.
+    const PRIVATE_GATEWAY = 'https://YOUR-PRIVATE-GATEWAY.example.workers.dev';
 
+    const modal = document.getElementById('passwordModal');
+    const form = document.getElementById('passwordForm');
+    const passwordInput = document.getElementById('password');
+    const loginStatus = document.getElementById('loginStatus');
+
+    document.getElementById('personalEntry').addEventListener('click', (event) => {
+      event.preventDefault();
+      loginStatus.textContent = '';
+      passwordInput.value = '';
+      modal.classList.add('show');
+      setTimeout(() => passwordInput.focus(), 80);
+    });
+
+    document.getElementById('cancelLogin').addEventListener('click', () => modal.classList.remove('show'));
+    modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      loginStatus.textContent = '';
+      const password = passwordInput.value;
+
+      if (PRIVATE_GATEWAY.includes('YOUR-PRIVATE-GATEWAY')) {
+        loginStatus.textContent = '請先設定 PRIVATE_GATEWAY，首頁不會在此存放任何密碼。';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${PRIVATE_GATEWAY}/api/login`, {
+          method: 'POST',
+          mode: 'cors',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        if (!response.ok) {
+          if (response.status === 429) throw new Error('嘗試次數過多，請稍後再試。');
+          throw new Error('密碼錯誤或驗證失敗。');
+        }
+
+        modal.classList.remove('show');
+        window.location.href = `${PRIVATE_GATEWAY}/private/`;
+      } catch (error) {
+        loginStatus.textContent = error instanceof Error ? error.message : '驗證失敗。';
+      }
+    });
+
+    // =============================
+    // Three.js interactive background
+    // =============================
+    const canvas = document.getElementById('scene');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x050812, 1);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050812, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 180);
+    camera.position.set(0, 2.8, 19);
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    // Particle field
+    const particleCount = 2300;
+    const positions = new Float32Array(particleCount * 3);
+    const speeds = new Float32Array(particleCount);
+    for (let i = 0; i < particleCount; i++) {
+      const i3 = i * 3;
+      positions[i3] = (Math.random() - 0.5) * 50;
+      positions[i3 + 1] = (Math.random() - 0.5) * 30;
+      positions[i3 + 2] = (Math.random() - 0.5) * 55;
+      speeds[i] = 0.08 + Math.random() * 0.26;
+    }
+    const particleGeometry = new THREE.BufferGeometry();
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMaterial = new THREE.PointsMaterial({
+      color: 0x79dfff,
+      size: 0.045,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false
+    });
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    root.add(particles);
+
+    // 3D scientific grid
+    const grid = new THREE.GridHelper(56, 28, 0x214f67, 0x102838);
+    grid.position.y = -7.6;
+    grid.rotation.y = 0.12;
+    if (grid.material && 'transparent' in grid.material) {
+      grid.material.transparent = true;
+      grid.material.opacity = 0.34;
+    }
+    root.add(grid);
+
+    // Orbit rings around the teacher zone
+    const rings = new THREE.Group();
+    root.add(rings);
+    const ringSpecs = [
+      [4.2, 0.9, 0x35c8ff, 0.24, 0.12],
+      [5.1, 1.1, 0x8a68ff, 0.18, -0.08],
+      [6.0, 0.78, 0x43ffd4, 0.14, 0.05]
+    ];
+    for (const [scale, rot, color, opacity, z] of ringSpecs) {
+      const geo = new THREE.TorusGeometry(scale, 0.012, 8, 180);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity });
+      const torus = new THREE.Mesh(geo, mat);
+      torus.rotation.x = rot;
+      torus.rotation.z = rot * 1.6;
+      torus.position.z = z;
+      rings.add(torus);
+    }
+
+    // Wave / trajectory curves
+    const curveGroup = new THREE.Group();
+    root.add(curveGroup);
+    function makeCurve(color, yOffset, zOffset, amplitude, frequency, span) {
+      const points = [];
+      for (let i = 0; i <= 140; i++) {
+        const t = i / 140;
+        const x = (t - .5) * span;
+        const y = yOffset + Math.sin(t * Math.PI * 2 * frequency) * amplitude * (0.25 + 0.75 * Math.sin(Math.PI * t));
+        const z = zOffset + Math.cos(t * Math.PI * 1.4) * 0.5;
+        points.push(new THREE.Vector3(x, y, z));
+      }
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: .22 });
+      return new THREE.Line(geometry, material);
+    }
+    curveGroup.add(makeCurve(0x38cfff, 3.2, -3, .7, 3.2, 28));
+    curveGroup.add(makeCurve(0x9a79ff, -3.2, -1, .58, 2.7, 24));
+
+    const mouse = new THREE.Vector2(0, 0);
+    const target = new THREE.Vector2(0, 0);
+    window.addEventListener('pointermove', (event) => {
+      target.x = (event.clientX / window.innerWidth) * 2 - 1;
+      target.y = (event.clientY / window.innerHeight) * 2 - 1;
+    }, { passive: true });
+
+    const clock = new THREE.Clock();
+    function animate() {
+      const elapsed = clock.getElapsedTime();
+      mouse.lerp(target, .045);
+
+      particles.rotation.y = elapsed * 0.006;
+      particles.rotation.x = elapsed * 0.002;
+      const pos = particleGeometry.attributes.position.array;
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        pos[i3 + 2] += speeds[i] * 0.025;
+        if (pos[i3 + 2] > 28) pos[i3 + 2] = -28;
+      }
+      particleGeometry.attributes.position.needsUpdate = true;
+
+      rings.rotation.y += 0.0012;
+      rings.rotation.x = Math.sin(elapsed * .13) * .03;
+      curveGroup.rotation.z = Math.sin(elapsed * .15) * .025;
+
+      camera.position.x += ((mouse.x * 1.2) - camera.position.x) * .018;
+      camera.position.y += ((2.8 - mouse.y * 0.7) - camera.position.y) * .018;
+      camera.lookAt(0, 0, -1);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+  </script>
 </body>
 </html>
