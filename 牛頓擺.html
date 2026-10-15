@@ -1,663 +1,429 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高中物理實驗室：牛頓擺 (Newton's Cradle)</title>
-    <style>
-        :root {
-            --primary-color: #3b82f6;
-            --bg-color: #1e293b;
-            --panel-bg: #334155;
-            --text-color: #f8fafc;
-            --accent-color: #10b981;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            justify-content: center; 
-        }
-
-        header {
-            width: 100%;
-            padding: 1rem 0;
-            background-color: rgba(30, 41, 59, 0.95);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            position: relative;
-            z-index: 10;
-            flex-shrink: 0; 
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }
-
-        .subtitle {
-            font-size: 0.9rem;
-            color: #94a3b8;
-            margin-top: 5px;
-        }
-
-        /* 主容器 */
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            max-width: 1000px;
-            padding: 15px 20px; /* 減少上下內距 */
-            flex-grow: 1;
-            justify-content: center;
-        }
-
-        /* Canvas 區域 */
-        .canvas-wrapper {
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            background: radial-gradient(circle at center, #475569 0%, #1e293b 100%);
-            margin-bottom: 15px; /* 減少間距 */
-            border: 1px solid #475569;
-            max-width: 100%;
-        }
-
-        canvas {
-            display: block;
-            cursor: pointer;
-            width: 100%;
-            height: auto;
-        }
-
-        /* 控制面板 */
-        .controls {
-            background-color: var(--panel-bg);
-            padding: 20px;
-            border-radius: 12px;
-            width: 100%;
-            max-width: 800px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: rgba(0,0,0,0.1);
-            padding: 10px;
-            border-radius: 8px;
-        }
-
-        .control-label {
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-            color: #cbd5e1;
-            font-weight: bold;
-        }
-
-        /* 按鈕群組 */
-        .btn-group {
-            display: flex;
-            gap: 8px;
-            background: #1e293b;
-            padding: 5px;
-            border-radius: 8px;
-        }
-
-        .btn-select {
-            background: transparent;
-            border: none;
-            color: #94a3b8;
-            padding: 6px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-
-        .btn-select:hover {
-            color: white;
-            background-color: rgba(255,255,255,0.1);
-        }
-
-        .btn-select.active {
-            background-color: var(--primary-color);
-            color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        /* 參數滑桿區域 */
-        .slider-group {
-            grid-column: 1 / -1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 0; /* 移除外距 */
-            background: rgba(0,0,0,0.2);
-            padding: 15px; /* 稍微減少內距 */
-            border-radius: 8px;
-        }
-
-        .slider-label {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 500px;
-            color: #cbd5e1;
-            font-size: 0.95rem;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-
-        input[type=range] {
-            width: 100%;
-            max-width: 500px;
-            cursor: pointer;
-            height: 6px;
-        }
-
-        /* 動作按鈕區域 (移到 Canvas 內) */
-        .actions-overlay {
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            z-index: 20;
-            pointer-events: none; /* 讓點擊穿透背景，只在按鈕上生效 */
-        }
-
-        .btn-action {
-            pointer-events: auto; /* 恢復按鈕點擊 */
-            padding: 10px 30px;
-            border: none;
-            border-radius: 30px; /* 圓角更明顯，像膠囊 */
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4); /* 增加陰影讓它在 Canvas 上更浮凸 */
-            backdrop-filter: blur(4px); /* 毛玻璃效果 */
-        }
-
-        .btn-start {
-            background-color: rgba(16, 185, 129, 0.9); /* 稍微透明 */
-            color: #fff;
-        }
-
-        .btn-reset {
-            background-color: rgba(239, 68, 68, 0.9);
-            color: white;
-        }
-
-        .btn-action:hover {
-            transform: translateY(-2px);
-            filter: brightness(110%);
-        }
-
-        .btn-action:active {
-            transform: translateY(0);
-        }
-
-        .btn-action:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-            background-color: rgba(100, 116, 139, 0.8);
-        }
-
-        /* 物理參數說明 */
-        .info-panel {
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #94a3b8;
-            text-align: center;
-            line-height: 1.5;
-            max-width: 800px;
-            background: rgba(30, 41, 59, 0.6);
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid rgba(148, 163, 184, 0.1);
-        }
-
-        /* ---------- 針對手機版面的優化 (依據阿發老師需求調整) ---------- */
-        @media (max-width: 600px) {
-            /* 1. 壓縮控制面板整體高度 (約0.8倍) */
-            .controls {
-                grid-template-columns: 1fr;
-                gap: 10px; /* 原本 20px */
-                padding: 12px; /* 原本 20px */
-            }
-            .control-group {
-                padding: 6px; /* 原本 10px */
-            }
-            .control-label {
-                margin-bottom: 4px; /* 原本 8px */
-                font-size: 0.85rem;
-            }
-            .btn-group {
-                padding: 3px; /* 原本 5px */
-            }
-            .btn-select {
-                padding: 4px 12px; /* 縮減上下 padding，壓縮高度 */
-                font-size: 1rem;
-            }
-            .slider-group {
-                padding: 10px; /* 原本 15px */
-            }
-            
-            /* 2. 將動作按鈕往下拉，並微調按鈕高度以完全避開鋼球 */
-            .actions-overlay {
-                bottom: 2px; /* 原本 15px，現在往下貼近 Canvas 邊緣 */
-                gap: 10px;
-            }
-            .btn-action {
-                padding: 6px 20px; /* 縮減按鈕上下 padding，讓它更修長，不擋住球 */
-                font-size: 0.85rem;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>牛頓擺</title>
+<style>
+  :root{
+    --bg:#11161f; --panel:#1a2230; --line:#2c3850; --text:#e6ecf5; --sub:#9aa8c0;
+    --accent:#4fa3ff; --accent2:#ffb347; --btn:#243046; --btnh:#2f3e5a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+    font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif}
+  #view{position:absolute;left:0;top:0;bottom:0;right:310px}
+  #view canvas{display:block;width:100%;height:100%;touch-action:none}
+  #title{position:absolute;left:16px;top:12px;font-size:22px;font-weight:700;letter-spacing:1px;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);pointer-events:none}
+  #title small{font-size:13px;color:var(--sub);font-weight:400;margin-left:8px}
+  #hint{position:absolute;left:16px;bottom:12px;font-size:13px;color:var(--sub);pointer-events:none;
+    text-shadow:0 1px 4px rgba(0,0,0,.8)}
+  #panel{position:absolute;right:0;top:0;bottom:0;width:310px;background:var(--panel);
+    border-left:1px solid var(--line);padding:16px 16px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+  .grp{display:flex;flex-direction:column;gap:7px}
+  .lbl{font-size:14px;color:var(--sub);display:flex;justify-content:space-between;align-items:center}
+  .lbl b{color:var(--text);font-weight:600}
+  .seg{display:flex;gap:5px}
+  .seg button{flex:1}
+  button{background:var(--btn);color:var(--text);border:1px solid var(--line);border-radius:7px;
+    padding:8px 0;font-size:15px;cursor:pointer;font-family:inherit;transition:background .15s}
+  button:hover:not(:disabled){background:var(--btnh)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  #btnRelease{background:#2d7a46;border-color:#3a9a5a;font-weight:700}
+  #btnRelease:hover:not(:disabled){background:#359152}
+  #btnReset{background:#5a3340;border-color:#7a4655}
+  #btnReset:hover{background:#6c3e4d}
+  input[type=range]{width:100%;accent-color:var(--accent);height:22px}
+  .chk{display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer}
+  .chk input{width:18px;height:18px;accent-color:var(--accent)}
+  #status{font-size:14px;padding:8px 10px;border-radius:7px;background:#121a26;border:1px solid var(--line);color:var(--accent2)}
+  .note{font-size:12.5px;color:var(--sub);line-height:1.6}
+  #credit{margin-top:auto;font-size:12.5px;color:var(--sub);text-align:center;padding-top:8px;border-top:1px solid var(--line)}
+  @media (max-width:760px){
+    #view{right:0;bottom:auto;height:52vh}
+    #panel{top:52vh;width:100%;border-left:none;border-top:1px solid var(--line);gap:11px;padding:12px}
+    #title{font-size:18px}
+    #hint{font-size:11.5px;bottom:6px}
+    button{font-size:14px;padding:7px 0}
+  }
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
 </head>
 <body>
-
-<header>
-    <h1>牛頓擺模擬(阿發老師設計)</h1>
-</header>
-
-<div class="container">
-    <div class="canvas-wrapper">
-        <canvas id="simCanvas" width="800" height="500"></canvas>
-        
-        <!-- 動作按鈕現在懸浮在 Canvas 底部 -->
-        <div class="actions-overlay">
-            <button class="btn-action btn-start" id="startBtn" onclick="startSimulation()">
-                <span>▶ 開始實驗</span>
-            </button>
-            <button class="btn-action btn-reset" id="resetBtn" onclick="resetSimulation()" disabled>
-                <span>↺ 重置實驗</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="controls">
-        <!-- 左側控制 -->
-        <div class="control-group">
-            <div class="control-label">左側拉起數量</div>
-            <div class="btn-group" id="leftBtns">
-                <button class="btn-select active" onclick="setLeft(0)">0</button>
-                <button class="btn-select" onclick="setLeft(1)">1</button>
-                <button class="btn-select" onclick="setLeft(2)">2</button>
-                <button class="btn-select" onclick="setLeft(3)">3</button>
-                <button class="btn-select" onclick="setLeft(4)">4</button>
-            </div>
-        </div>
-
-        <!-- 右側控制 -->
-        <div class="control-group">
-            <div class="control-label">右側拉起數量</div>
-            <div class="btn-group" id="rightBtns">
-                <button class="btn-select active" onclick="setRight(0)">0</button>
-                <button class="btn-select" onclick="setRight(1)">1</button>
-                <button class="btn-select" onclick="setRight(2)">2</button>
-                <button class="btn-select" onclick="setRight(3)">3</button>
-                <button class="btn-select" onclick="setRight(4)">4</button>
-            </div>
-        </div>
-        
-        <!-- 恢復係數控制 -->
-        <div class="slider-group">
-            <div class="slider-label">
-                <span>恢復係數 (e)</span>
-                <span id="restitutionVal">1.00</span>
-            </div>
-            <input type="range" id="restitutionRange" min="0" max="1" step="0.01" value="1.0" oninput="updateRestitutionLabel(this.value)">
-            <div style="font-size: 0.85rem; color: #64748b; margin-top: 5px;">
-                0 = 完全非彈性 &nbsp;|&nbsp; 1 = 完全彈性
-            </div>
-        </div>
-    </div>
-
-    <div class="info-panel">
-        <strong>物理筆記：</strong>
-        若 e=1，表示系統無動能損耗 (理想狀態)，擺動將無限持續。
-        當兩側拉起數量不同時，碰撞後會交換速度與數量，這是動量守恆最迷人的展示。
-    </div>
+<div id="view">
+  <div id="title">牛頓擺<small>Newton's Cradle</small></div>
+  <div id="hint">可直接拖曳球（放手即釋放）；拖曳空白處旋轉視角、滾輪縮放</div>
 </div>
 
-<script>
-    // --- 物理常數 ---
-    const CONFIG = {
-        gravity: 0.4,       // 重力加速度
-        damping: 0.999,     // 非理想狀態下的空氣阻力
-        ballRadius: 25,     // 球半徑
-        stringLen: 280,     // 擺長
-        spacing: 0,         // 球之間的額外間隙
-        topY: 100,          // 支架頂點Y座標
-        centerX: 400,       // 畫布中心X
-        pullAngle: Math.PI / 4 // 拉起時的角度 (45度)
-    };
+<aside id="panel">
+  <div class="grp">
+    <div class="lbl">球數</div>
+    <div class="seg" id="segN"></div>
+  </div>
+  <div class="grp">
+    <div class="lbl">左邊拉起球數</div>
+    <div class="seg" id="segL"></div>
+  </div>
+  <div class="grp">
+    <div class="lbl">右邊拉起球數</div>
+    <div class="seg" id="segR"></div>
+  </div>
+  <div class="seg">
+    <button id="btnRelease">釋放</button>
+    <button id="btnReset">重置</button>
+  </div>
+  <div class="grp">
+    <div class="lbl">恢復係數 e <b id="eVal">1.00</b></div>
+    <input type="range" id="eSlider" min="0" max="1" step="0.01" value="1">
+    <div class="note">e = 1 完全彈性碰撞；e = 0 完全非彈性碰撞</div>
+  </div>
+  <div class="grp">
+    <div class="lbl">空氣阻力 <b id="dVal">0.00</b></div>
+    <input type="range" id="dSlider" min="0" max="1" step="0.05" value="0">
+  </div>
+  <div class="grp">
+    <div class="lbl">播放速度</div>
+    <div class="seg" id="segS"></div>
+  </div>
+  <label class="chk"><input type="checkbox" id="sndChk" checked>碰撞音效</label>
+  <div id="status">—</div>
+  <div id="credit">臺中二中 阿發老師 設計</div>
+</aside>
 
-    // --- 變數 ---
-    let canvas, ctx;
-    let balls = [];
-    let isSimulating = false;
-    let requestID = null;
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-    // 狀態設定
-    let leftCount = 0;
-    let rightCount = 0;
-    let restitution = 1.0;
+/* ================= 參數 ================= */
+const G = 9.8;          // 重力加速度 (m/s²)
+const LP = 0.30;        // 物理擺長 (m)，週期約 1.1 s
+const LV = 3.0;         // 畫面擺長
+const R = 0.3;          // 畫面球半徑（相鄰懸點間距 = 2R，靜止時恰好相接）
+const LIFT = 30 * Math.PI / 180;   // 按鍵拉起角度
+const MAXA = 80 * Math.PI / 180;   // 拖曳最大角度
+const H = 0.0005;       // 積分子步長 (s)
 
-    // --- 球體類別 ---
-    class Ball {
-        constructor(id, xOrigin, yOrigin) {
-            this.id = id;
-            this.origin = { x: xOrigin, y: yOrigin }; // 懸掛點
-            this.length = CONFIG.stringLen;
-            this.radius = CONFIG.ballRadius;
-            this.angle = 0;      // 擺角 (弧度，0為垂直向下)
-            this.aVelocity = 0;  // 角速度
-            this.aAcceleration = 0; // 角加速度
-            
-            // 當前位置 (由 angle 計算)
-            this.x = 0;
-            this.y = 0;
-            this.updatePosition();
-        }
+let N = 5, leftN = 1, rightN = 0, custom = false;
+let theta = [], omega = [], held = [];
+let state = 'ready';    // 'ready'：拉起靜止中；'running'：擺動中
+let speed = 1, e = 1, damp = 0, soundOn = true;
+let dragIdx = -1, dragTarget = 0;
 
-        updatePosition() {
-            this.x = this.origin.x + Math.sin(this.angle) * this.length;
-            this.y = this.origin.y + Math.cos(this.angle) * this.length;
-        }
+/* ================= 場景 ================= */
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+view.appendChild(renderer.domElement);
 
-        // 物理更新 (單擺運動)
-        update(dt) {
-            if (!isSimulating) return;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2130);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-            // 角加速度公式: alpha = -(g / L) * sin(theta)
-            this.aAcceleration = (-1 * CONFIG.gravity / this.length) * Math.sin(this.angle);
-            
-            // 速度更新
-            this.aVelocity += this.aAcceleration * dt;
-            
-            // 智慧空氣阻力：當 e=1 時，假設為理想真空 (阻力=0)，否則套用設定值
-            let currentDamping = (restitution >= 1.0) ? 1.0 : CONFIG.damping;
-            this.aVelocity *= currentDamping;
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+camera.position.set(2.2, 0.3, 11.5);
 
-            this.angle += this.aVelocity * dt;
+scene.add(new THREE.HemisphereLight(0xdde8ff, 0x303040, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(4, 8, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 30 });
+sun.shadow.bias = -0.0005;
+scene.add(sun);
 
-            this.updatePosition();
-        }
+// 地面
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color: 0x252c38, roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -4.23; floor.receiveShadow = true;
+scene.add(floor);
 
-        // 繪製球體
-        draw(ctx) {
-            // 畫線
-            ctx.beginPath();
-            ctx.moveTo(this.origin.x, this.origin.y);
-            ctx.lineTo(this.x, this.y);
-            ctx.strokeStyle = "rgba(200, 200, 200, 0.5)";
-            ctx.lineWidth = 2;
-            ctx.stroke();
+// 框架
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x5b3a22, roughness: 0.6 });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0xb8bec8, metalness: 0.9, roughness: 0.3 });
+const base = new THREE.Mesh(new THREE.BoxGeometry(9.8, 0.25, 2.4), woodMat);
+base.position.y = -4.1; base.castShadow = base.receiveShadow = true; scene.add(base);
+for (const sx of [-4.6, 4.6]) {
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4.1, 20), metalMat);
+  post.position.set(sx, -1.95, 0); post.castShadow = true; scene.add(post);
+  const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.08, 24), metalMat);
+  foot.position.set(sx, -3.94, 0); scene.add(foot);
+}
+const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 9.2, 20), metalMat);
+bar.rotation.z = Math.PI / 2; bar.position.y = 0.06; bar.castShadow = true; scene.add(bar);
 
-            // 畫陰影
-            let groundY = CONFIG.topY + CONFIG.stringLen + CONFIG.ballRadius + 20;
-            let shadowScale = 1 - (groundY - this.y) / 200;
-            if (shadowScale < 0) shadowScale = 0;
-            
-            ctx.beginPath();
-            ctx.ellipse(this.x, groundY, this.radius * shadowScale, this.radius * 0.3 * shadowScale, 0, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(0, 0, 0, ${0.2 * shadowScale})`;
-            ctx.fill();
+// 擺
+const ballGeo = new THREE.SphereGeometry(R, 48, 32);
+const ballMat = new THREE.MeshStandardMaterial({ color: 0xe8ecf2, metalness: 1, roughness: 0.1 });
+const strGeo = new THREE.CylinderGeometry(0.012, 0.012, LV - R, 6);
+const strMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.5 });
+const pendulums = [], balls = [];
 
-            // 畫球 (金屬質感)
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            
-            let grad = ctx.createRadialGradient(
-                this.x - this.radius * 0.3, 
-                this.y - this.radius * 0.3, 
-                this.radius * 0.1, 
-                this.x, 
-                this.y, 
-                this.radius
-            );
-            grad.addColorStop(0, "#f1f5f9");
-            grad.addColorStop(0.3, "#cbd5e1");
-            grad.addColorStop(1, "#334155");
+function buildPendulums() {
+  pendulums.forEach(p => scene.remove(p));
+  pendulums.length = 0; balls.length = 0;
+  for (let i = 0; i < N; i++) {
+    const g = new THREE.Group();
+    g.position.set((i - (N - 1) / 2) * 2 * R, 0, 0);
+    const s = new THREE.Mesh(strGeo, strMat);
+    s.position.y = -(LV - R) / 2; s.castShadow = true;
+    const b = new THREE.Mesh(ballGeo, ballMat);
+    b.position.y = -LV; b.castShadow = true; b.userData.index = i;
+    g.add(s, b); scene.add(g);
+    pendulums.push(g); balls.push(b);
+  }
+  theta = new Array(N).fill(0); omega = new Array(N).fill(0); held = new Array(N).fill(false);
+}
 
-            ctx.fillStyle = grad;
-            ctx.fill();
-            
-            ctx.strokeStyle = "#1e293b";
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        }
+/* ================= 物理 ================= */
+// 非線性單擺 + 線性空氣阻力
+const acc = (th, w) => -(G / LP) * Math.sin(th) - damp * w;
+
+function rk4(i, h) {
+  const t0 = theta[i], w0 = omega[i];
+  const k1t = w0,               k1w = acc(t0, w0);
+  const k2t = w0 + 0.5*h*k1w,   k2w = acc(t0 + 0.5*h*k1t, w0 + 0.5*h*k1w);
+  const k3t = w0 + 0.5*h*k2w,   k3w = acc(t0 + 0.5*h*k2t, w0 + 0.5*h*k2w);
+  const k4t = w0 + h*k3w,       k4w = acc(t0 + h*k3t, w0 + h*k3w);
+  theta[i] = t0 + h/6*(k1t + 2*k2t + 2*k3t + k4t);
+  omega[i] = w0 + h/6*(k1w + 2*k2w + 2*k3w + k4w);
+}
+
+// 懸點間距 2R、擺長相同：兩球接觸 ⇔ 擺角相等，此時法線為水平，
+// 等質量碰撞可直接以角速度做一維恢復係數計算。
+// 依序兩兩處理（正反方向交替掃描），直到沒有任何一對接觸且互相靠近。
+function resolveCollisions() {
+  let maxV = 0;
+  for (let pass = 0; pass < 400; pass++) {
+    let any = false;
+    const fwd = (pass % 2 === 0);
+    for (let k = 0; k < N - 1; k++) {
+      const i = fwd ? k : N - 2 - k, j = i + 1;
+      if (theta[j] - theta[i] > 1e-6) continue;        // 未接觸
+      const rel = omega[i] - omega[j];                  // 靠近的相對角速度
+      if (rel <= 1e-9) continue;
+      if (held[i] && held[j]) continue;
+      any = true;
+      maxV = Math.max(maxV, rel * LP);
+      if (held[i])      omega[j] = omega[i] + e * rel;  // 手持球視為無限大質量
+      else if (held[j]) omega[i] = omega[j] - e * rel;
+      else { const d = (1 + e) * rel / 2; omega[i] -= d; omega[j] += d; }
     }
+    if (!any) break;
+  }
+  return maxV;
+}
 
-    // --- 初始化與主邏輯 ---
+function physicsStep(h) {
+  for (let i = 0; i < N; i++) if (!held[i]) rk4(i, h);
+  return resolveCollisions();
+}
 
-    function init() {
-        canvas = document.getElementById('simCanvas');
-        ctx = canvas.getContext('2d');
-        
-        let totalWidth = 5 * (CONFIG.ballRadius * 2 + CONFIG.spacing);
-        let startX = CONFIG.centerX - totalWidth / 2 + CONFIG.ballRadius;
+/* ================= 拖曳 ================= */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+const hitPt = new THREE.Vector3();
 
-        for (let i = 0; i < 5; i++) {
-            let xPos = startX + i * (CONFIG.ballRadius * 2 + CONFIG.spacing);
-            balls.push(new Ball(i, xPos, CONFIG.topY));
-        }
+function setPointer(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+  pointer.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+}
 
-        draw();
-        updateUI();
+function updateDragTarget() {
+  if (!raycaster.ray.intersectPlane(dragPlane, hitPt)) return;
+  const p = pendulums[dragIdx].position;
+  let a = Math.atan2(hitPt.x - p.x, p.y - hitPt.y);
+  dragTarget = Math.max(-MAXA, Math.min(MAXA, a));
+}
+
+// 手持球及被它推到的球組成一組，跟著滑鼠移動
+function applyDrag(dtSim) {
+  const delta = dragTarget - theta[dragIdx];
+  const wh = dtSim > 0 ? Math.max(-25, Math.min(25, delta / dtSim)) : 0;
+  for (let k = 0; k < N; k++) if (held[k]) { theta[k] = dragTarget; omega[k] = wh; }
+  if (delta < 0) {          // 往左移：推左側的球
+    let m = held.indexOf(true);
+    for (let j = m - 1; j >= 0; j--) {
+      if (theta[j] > dragTarget) { held[j] = true; theta[j] = dragTarget; omega[j] = wh; } else break;
     }
-
-    // 設定初始角度
-    function applySetup() {
-        isSimulating = false;
-        
-        balls.forEach(b => {
-            b.angle = 0;
-            b.aVelocity = 0;
-            b.aAcceleration = 0;
-            b.updatePosition();
-        });
-
-        // 左側拉起
-        if (leftCount > 0) {
-            for (let i = 0; i < leftCount; i++) {
-                let ballIndex = i;
-                balls[ballIndex].angle = -CONFIG.pullAngle; 
-                balls[ballIndex].updatePosition();
-            }
-        }
-
-        // 右側拉起
-        if (rightCount > 0) {
-            let totalBalls = balls.length;
-            for (let i = 0; i < rightCount; i++) {
-                let ballIndex = totalBalls - 1 - i;
-                balls[ballIndex].angle = CONFIG.pullAngle; 
-                balls[ballIndex].updatePosition();
-            }
-        }
-        
-        draw();
+  } else if (delta > 0) {   // 往右移：推右側的球
+    let m = held.lastIndexOf(true);
+    for (let j = m + 1; j < N; j++) {
+      if (theta[j] < dragTarget) { held[j] = true; theta[j] = dragTarget; omega[j] = wh; } else break;
     }
+  }
+}
 
-    // --- 碰撞處理 ---
-    function checkCollisions() {
-        let e = restitution;
+// 必須在 OrbitControls 建立前註冊，才能先行關閉視角旋轉
+renderer.domElement.addEventListener('pointerdown', ev => {
+  unlockAudio();
+  setPointer(ev);
+  const hit = raycaster.intersectObjects(balls, false)[0];
+  if (!hit) return;
+  dragIdx = hit.object.userData.index;
+  held.fill(false); held[dragIdx] = true;
+  dragTarget = theta[dragIdx];
+  controls.enabled = false;
+  custom = true; refreshButtons();
+  renderer.domElement.setPointerCapture(ev.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', ev => {
+  if (dragIdx < 0) return;
+  setPointer(ev); updateDragTarget();
+});
+function endDrag() {
+  if (dragIdx < 0) return;
+  for (let k = 0; k < N; k++) if (held[k]) omega[k] = 0;   // 由靜止釋放
+  held.fill(false); dragIdx = -1;
+  controls.enabled = true;
+  state = 'running'; refreshButtons();
+}
+renderer.domElement.addEventListener('pointerup', endDrag);
+renderer.domElement.addEventListener('pointercancel', endDrag);
 
-        for (let i = 0; i < balls.length - 1; i++) {
-            let b1 = balls[i];
-            let b2 = balls[i+1];
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, -2, 0);
+controls.enableDamping = true;
+controls.minDistance = 5; controls.maxDistance = 25;
+controls.update();
 
-            let dx = b2.x - b1.x;
-            let dy = b2.y - b1.y;
-            let distance = Math.sqrt(dx * dx + dy * dy);
-            let minDist = b1.radius + b2.radius; 
+/* ================= 音效 ================= */
+let actx = null, lastSnd = 0, noiseBuf = null;
+function unlockAudio() {
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = Math.floor(actx.sampleRate * 0.03);
+    noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (actx.state === 'suspended') actx.resume();
+}
+function playClick(v) {
+  if (!soundOn || !actx) return;
+  const now = actx.currentTime;
+  if (now - lastSnd < 0.03) return;
+  lastSnd = now;
+  const vol = Math.min(1, v / 1.2) * 0.9;     // 音量正比於碰撞相對速率
+  const out = actx.createGain();
+  out.gain.value = vol; out.connect(actx.destination);
+  for (const [f, d, a] of [[2650, 0.07, 0.5], [4150, 0.04, 0.3], [6400, 0.025, 0.18]]) {
+    const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(a, now + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    o.connect(g).connect(out); o.start(now); o.stop(now + d + 0.02);
+  }
+  const src = actx.createBufferSource(); src.buffer = noiseBuf;
+  const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 1.2;
+  const ng = actx.createGain();
+  ng.gain.setValueAtTime(0.6, now); ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.018);
+  src.connect(bp).connect(ng).connect(out); src.start(now);
+}
 
-            if (distance < minDist) {
-                // === 碰撞發生 ===
-                let v1 = b1.aVelocity;
-                let v2 = b2.aVelocity;
+/* ================= 介面 ================= */
+const segN = document.getElementById('segN'), segL = document.getElementById('segL'),
+      segR = document.getElementById('segR'), segS = document.getElementById('segS');
+const btnRelease = document.getElementById('btnRelease'), statusEl = document.getElementById('status');
 
-                let v1_new = (v1 * (1 - e) + v2 * (1 + e)) / 2;
-                let v2_new = (v1 * (1 + e) + v2 * (1 - e)) / 2;
+function makeSeg(el, items, onClick) {
+  items.forEach(([label, val]) => {
+    const b = document.createElement('button');
+    b.textContent = label; b.dataset.v = val;
+    b.addEventListener('click', () => { unlockAudio(); onClick(val); });
+    el.appendChild(b);
+  });
+}
+makeSeg(segN, [3,4,5,6,7].map(n => [n, n]), n => { N = n; leftN = 0; rightN = 0; buildPendulums(); applyLift(); });
+makeSeg(segL, [0,1,2,3,4].map(n => [n, n]), n => { if (n + (custom ? 0 : rightN) > N) return; if (custom) rightN = 0; leftN = n; applyLift(); });
+makeSeg(segR, [0,1,2,3,4].map(n => [n, n]), n => { if (n + (custom ? 0 : leftN) > N) return; if (custom) leftN = 0; rightN = n; applyLift(); });
+makeSeg(segS, [['暫停', 0], ['0.25×', 0.25], ['0.5×', 0.5], ['1×', 1]], s => { speed = s; refreshButtons(); });
 
-                b1.aVelocity = v1_new;
-                b2.aVelocity = v2_new;
+function applyLift() {
+  custom = false;
+  dragIdx = -1; controls.enabled = true;
+  for (let i = 0; i < N; i++) { theta[i] = 0; omega[i] = 0; held[i] = false; }
+  for (let i = 0; i < leftN; i++) theta[i] = -LIFT;
+  for (let i = N - rightN; i < N; i++) theta[i] = LIFT;
+  state = 'ready';
+  refreshButtons();
+}
 
-                // 位置修正 (推開防黏)
-                let overlap = minDist - distance;
-                let pushAmt = (overlap / CONFIG.stringLen) * 0.5;
-                
-                if (b1.angle > b2.angle) {
-                     let temp = b1.angle; b1.angle = b2.angle; b2.angle = temp;
-                } else {
-                     b1.angle -= pushAmt;
-                     b2.angle += pushAmt;
-                }
-            }
-        }
-    }
+function refreshButtons() {
+  segN.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === N));
+  const l = custom ? 0 : leftN, r = custom ? 0 : rightN;
+  segL.querySelectorAll('button').forEach(b => {
+    const v = +b.dataset.v;
+    b.classList.toggle('on', !custom && v === leftN);
+    b.disabled = v + r > N;
+  });
+  segR.querySelectorAll('button').forEach(b => {
+    const v = +b.dataset.v;
+    b.classList.toggle('on', !custom && v === rightN);
+    b.disabled = v + l > N;
+  });
+  segS.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === speed));
+  btnRelease.disabled = state !== 'ready';
+  if (state === 'ready') statusEl.textContent = '已拉起，按「釋放」開始擺動';
+  else if (speed === 0) statusEl.textContent = '暫停中';
+  else statusEl.textContent = '擺動中' + (speed < 1 ? `（${speed}× 慢動作）` : '');
+}
 
-    // --- 動畫迴圈 ---
-    function animate() {
-        if (!isSimulating) return;
+btnRelease.addEventListener('click', () => { unlockAudio(); if (state === 'ready') { state = 'running'; refreshButtons(); } });
+document.getElementById('btnReset').addEventListener('click', () => { leftN = 0; rightN = 0; applyLift(); });
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 繪製標題文字
-        ctx.font = "bold 36px 'Segoe UI', sans-serif";
-        ctx.fillStyle = "#cbd5e1";
-        ctx.textAlign = "center";
-        ctx.fillText("牛頓擺", CONFIG.centerX, CONFIG.topY - 40);
+const eSlider = document.getElementById('eSlider'), eVal = document.getElementById('eVal');
+eSlider.addEventListener('input', () => { e = +eSlider.value; eVal.textContent = e.toFixed(2); });
+const dSlider = document.getElementById('dSlider'), dVal = document.getElementById('dVal');
+dSlider.addEventListener('input', () => { damp = +dSlider.value * 0.8; dVal.textContent = (+dSlider.value).toFixed(2); });
+document.getElementById('sndChk').addEventListener('change', ev => { soundOn = ev.target.checked; });
 
-        // 支架
-        ctx.beginPath();
-        ctx.moveTo(balls[0].origin.x - 20, CONFIG.topY);
-        ctx.lineTo(balls[4].origin.x + 20, CONFIG.topY);
-        ctx.strokeStyle = "#94a3b8";
-        ctx.lineWidth = 6;
-        ctx.lineCap = "round";
-        ctx.stroke();
+/* ================= 尺寸 ================= */
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = camera.aspect < 1.2 ? Math.min(70, 38 * 1.2 / camera.aspect) : 38;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+resize();
 
-        // 物理更新
-        const steps = 4; 
-        const dt = 1.0 / steps; 
+/* ================= 主迴圈 ================= */
+buildPendulums();
+applyLift();
 
-        for(let s=0; s<steps; s++) {
-            balls.forEach(b => b.update(dt)); 
-            checkCollisions();
-        }
-
-        balls.forEach(b => b.draw(ctx));
-
-        requestID = requestAnimationFrame(animate);
-    }
-
-    function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 繪製標題文字
-        ctx.font = "bold 36px 'Segoe UI', sans-serif";
-        ctx.fillStyle = "#cbd5e1";
-        ctx.textAlign = "center";
-        ctx.fillText("牛頓擺", CONFIG.centerX, CONFIG.topY - 40);
-
-        ctx.beginPath();
-        ctx.moveTo(balls[0].origin.x - 20, CONFIG.topY);
-        ctx.lineTo(balls[4].origin.x + 20, CONFIG.topY);
-        ctx.strokeStyle = "#94a3b8";
-        ctx.lineWidth = 6;
-        ctx.lineCap = "round";
-        ctx.stroke();
-
-        balls.forEach(b => b.draw(ctx));
-    }
-
-    // --- UI 控制 ---
-
-    function updateRestitutionLabel(val) {
-        document.getElementById('restitutionVal').textContent = parseFloat(val).toFixed(2);
-        restitution = parseFloat(val);
-    }
-
-    function updateUI() {
-        document.querySelectorAll('#leftBtns button').forEach((btn, idx) => {
-            btn.className = idx === leftCount ? 'btn-select active' : 'btn-select';
-        });
-        document.querySelectorAll('#rightBtns button').forEach((btn, idx) => {
-            btn.className = idx === rightCount ? 'btn-select active' : 'btn-select';
-        });
-
-        document.getElementById('startBtn').disabled = isSimulating;
-        document.getElementById('resetBtn').disabled = !isSimulating;
-        
-        const disableSelect = isSimulating;
-        document.querySelectorAll('.btn-select').forEach(b => b.disabled = disableSelect);
-    }
-
-    function setLeft(n) {
-        if (isSimulating) return;
-        if (n + rightCount > 5) rightCount = 5 - n;
-        leftCount = n;
-        updateUI();
-        applySetup();
-    }
-
-    function setRight(n) {
-        if (isSimulating) return;
-        if (n + leftCount > 5) leftCount = 5 - n;
-        rightCount = n;
-        updateUI();
-        applySetup();
-    }
-
-    function startSimulation() {
-        if (isSimulating) return;
-        isSimulating = true;
-        updateUI();
-        animate();
-    }
-
-    function resetSimulation() {
-        isSimulating = false;
-        if (requestID) cancelAnimationFrame(requestID);
-        updateUI();
-        applySetup();
-    }
-
-    window.onload = init;
-
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const realDt = Math.min(clock.getDelta(), 1 / 30);
+  const running = state === 'running' && speed > 0;
+  const dtSim = running ? realDt * speed : 0;
+  if (dragIdx >= 0) applyDrag(dtSim);
+  let maxV = 0;
+  if (running) {
+    const n = Math.ceil(dtSim / H), h = dtSim / n;
+    for (let s = 0; s < n; s++) maxV = Math.max(maxV, physicsStep(h));
+  }
+  if (maxV > 0.015) playClick(maxV);
+  for (let i = 0; i < N; i++) pendulums[i].rotation.z = theta[i];
+  controls.update();
+  renderer.render(scene, camera);
+});
 </script>
-
 </body>
 </html>
