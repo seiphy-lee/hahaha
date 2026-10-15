@@ -1,649 +1,2001 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雙狹縫與單狹縫干涉繞射模擬</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Urbanist:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        /* 1. 基礎設定 */
-        * {
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光的干涉與繞射</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141a2e; --panel2:#1b2340; --line:#2c3658;
+    --text:#e6e9f2; --dim:#9aa3bd; --accent:#7fb2ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif}
+  body{min-height:100vh}
+  header{padding:10px 18px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:20px;font-weight:700;letter-spacing:1px}
+  header .sub{font-size:13px;color:var(--dim)}
+  .app{display:grid;grid-template-columns:280px 1fr 34%;gap:12px;padding:12px;height:calc(100vh - 82px)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-height:0}
+  .left{display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+  .center{display:flex;flex-direction:column;align-items:center;gap:10px;overflow-y:auto}
+  .right{display:flex;flex-direction:column;padding:0;overflow:hidden;position:relative}
+  .ptitle{font-size:14px;color:var(--accent);font-weight:700;margin-bottom:8px}
+  #holeCanvas{width:100%;aspect-ratio:6/5;display:block;border-radius:6px;background:#0d1224}
+  .ctrl{margin-bottom:12px}
+  .ctrl label{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px}
+  .ctrl label b{color:#fff;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  #lamSlider{accent-color:auto}
+  .lamBar{height:6px;border-radius:3px;margin-top:3px;
+    background:linear-gradient(90deg,#8300b5,#3b00ff,#0080ff,#00ffd0,#3fff00,#ffe600,#ff7b00,#ff0000,#b00000)}
+  .btnrow{display:flex;gap:6px;flex-wrap:wrap}
+  .btn{flex:1;min-width:52px;padding:6px 8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+    border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit}
+  .btn.on{background:#2d4a85;border-color:var(--accent);color:#fff}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:14px;margin:6px 0;cursor:pointer;user-select:none}
+  .toggle input{width:16px;height:16px;accent-color:var(--accent)}
+  .readout{font-size:13px;line-height:1.75;background:var(--panel2);border-radius:6px;padding:8px 10px;font-variant-numeric:tabular-nums}
+  .readout .k{color:var(--dim)}
+  .formula{font-size:13px;color:var(--dim);text-align:center;margin-top:4px}
+  #patternCanvas{width:min(100%, calc(100vh - 150px));aspect-ratio:1;display:block;border-radius:6px;background:#000}
+  #curveWrap{width:min(100%, calc(100vh - 150px));display:none}
+  #curveCanvas{width:100%;aspect-ratio:640/200;display:block;border-radius:6px;background:#060912}
+  .viewbar{width:min(100%, calc(100vh - 150px));display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--dim);gap:8px;flex-wrap:wrap}
+  #threeBox{flex:1;min-height:0;position:relative}
+  #threeBox canvas{display:block}
+  .rtitle{position:absolute;top:10px;left:12px;font-size:14px;color:var(--accent);font-weight:700;pointer-events:none;z-index:2}
+  .rnote{position:absolute;bottom:8px;left:12px;font-size:12px;color:var(--dim);pointer-events:none;z-index:2}
+  footer{text-align:center;font-size:13px;color:var(--dim);padding:6px 0 10px}
+  @media (max-width:900px){
+    .app{grid-template-columns:1fr;height:auto}
+    .center{order:1;overflow:visible}
+    .left{order:2;overflow:visible}
+    .right{order:3;height:380px}
+    #patternCanvas,#curveWrap,.viewbar{width:100%}
+  }
 
-        body {
-            background-color: #0f172a; /* 深色背景 */
-            color: #f1f5f9;
-            font-family: 'Noto Sans TC', 'Urbanist', sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
+  /* ===== 分頁列 ===== */
+  .tabs{margin-left:auto;display:flex;gap:6px}
+  .credit{margin-left:auto;font-size:13px;color:var(--dim);align-self:center}
+  .credit + .tabs{margin-left:0}
+  .tab{padding:5px 14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+    border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit}
+  .tab.on{background:#2d4a85;border-color:var(--accent);color:#fff}
+  .app.hidden{display:none !important}
 
-        .container {
-            width: 100%;
-            max-width: 1280px;
-            background-color: #1e293b;
-            border-radius: 16px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-            padding: 30px;
-            border: 1px solid #334155;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
+  /* ===== 分頁二：雙狹縫干涉 ===== */
+  #holeCanvas2{width:100%;aspect-ratio:6/5;display:block;border-radius:6px;background:#0d1224}
+  #lamSlider2{accent-color:auto}
+  #patternCanvas2{width:min(100%, calc(100vh - 150px));aspect-ratio:640/288;display:block;border-radius:6px;background:#000}
+  #curveWrap2{width:min(100%, calc(100vh - 150px));display:none}
+  #curveCanvas2{width:100%;aspect-ratio:640/200;display:block;border-radius:6px;background:#060912}
+  #threeBox2{flex:1;min-height:0;position:relative}
+  #threeBox2 canvas{display:block}
+  @media (max-width:900px){
+    #patternCanvas2,#curveWrap2{width:100%}
+  }
 
-        /* 標題區 */
-        .header-title {
-            text-align: left;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: baseline;
-            gap: 12px;
-        }
+  /* ===== 分頁三：單狹縫繞射 ===== */
+  #holeCanvas3{width:100%;aspect-ratio:6/5;display:block;border-radius:6px;background:#0d1224}
+  #lamSlider3{accent-color:auto}
+  #patternCanvas3{width:min(100%, calc(100vh - 150px));aspect-ratio:640/288;display:block;border-radius:6px;background:#000}
+  #curveWrap3{width:min(100%, calc(100vh - 150px));display:none}
+  #curveCanvas3{width:100%;aspect-ratio:640/200;display:block;border-radius:6px;background:#060912}
+  #threeBox3{flex:1;min-height:0;position:relative}
+  #threeBox3 canvas{display:block}
+  .smtab{width:100%;border-collapse:collapse;margin-top:4px;font-size:12px}
+  .smtab th,.smtab td{padding:2px 4px;text-align:right;border-bottom:1px solid #2c3658}
+  .smtab th{color:var(--dim);font-weight:400}
+  @media (max-width:900px){
+    #patternCanvas3,#curveWrap3{width:100%}
+  }
 
-        .header-title h1 {
-            color: #FFFF00;
-            font-size: 22px;
-            font-weight: 700;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        .header-title h2 {
-            color: #FFFF99;
-            font-size: 14px;
-            font-weight: 500;
-            margin: 0;
-            line-height: 1.2;
-        }
-
-        /* 導覽列 */
-        .nav-tabs {
-            display: flex;
-            gap: 10px;
-            border-bottom: 1px solid #334155;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-
-        .nav-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            color: #94a3b8;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            transition: all 0.2s;
-            font-family: 'Noto Sans TC', sans-serif;
-        }
-
-        .nav-btn:hover {
-            color: #f1f5f9;
-            background-color: #334155;
-        }
-
-        .nav-btn.active {
-            background-color: #deff9a;
-            color: #0f172a;
-            font-weight: 700;
-        }
-
-        /* 2. 模擬視圖佈局 */
-        .sim-layout {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .sim-visuals {
-            display: flex;
-            flex-direction: row;
-            gap: 20px;
-            height: 400px;
-        }
-
-        @media (max-width: 768px) {
-            .sim-visuals {
-                flex-direction: column;
-                height: auto;
-            }
-        }
-
-        /* 面板通用樣式 */
-        .panel {
-            position: relative;
-            background-color: #020617;
-            border: 1px solid #475569;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .setup-panel {
-            flex: 0 0 35%; /* 左側佔 35% */
-        }
-
-        .pattern-panel {
-            flex: 1; /* 右側佔剩餘空間 */
-        }
-
-        .panel-label {
-            position: absolute;
-            top: 10px;
-            left: 15px;
-            color: #94a3b8;
-            font-size: 14px;
-            font-weight: 500;
-            background: rgba(15, 23, 42, 0.9);
-            padding: 4px 8px;
-            border-radius: 4px;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* 比較模式的特殊佈局：上下分割 */
-        #compareWrapper {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-        }
-
-        .split-canvas-container {
-            flex: 1;
-            position: relative;
-            border-bottom: 1px solid #334155;
-        }
-        .split-canvas-container:last-child {
-            border-bottom: none;
-        }
-
-        /* 3. 控制面板區域 */
-        .controls-container {
-            background-color: #334155;
-            border-radius: 12px;
-            padding: 20px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            flex: 1;
-            transition: opacity 0.3s;
-        }
-        
-        .control-group.disabled {
-            opacity: 0.3;
-            pointer-events: none;
-        }
-
-        .control-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-        }
-
-        .control-title {
-            color: #f8fafc;
-            font-weight: 500;
-            font-size: 16px;
-        }
-
-        .control-value {
-            color: #deff9a;
-            font-family: 'Urbanist', monospace;
-            font-weight: 700;
-            font-size: 18px;
-        }
-
-        /* 滑桿樣式 */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-
-        input[type=range]:focus {
-            outline: none;
-        }
-
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: #64748b;
-            border-radius: 3px;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #deff9a;
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -7px;
-            box-shadow: 0 0 10px rgba(222, 255, 154, 0.3);
-            border: 2px solid #334155;
-        }
-
-        #wavelength::-webkit-slider-thumb {
-            background: #ffffff;
-            border-color: #000;
-        }
-
-        #wavelength::-webkit-slider-runnable-track {
-            background: linear-gradient(to right, #5d00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ffa500, #ff0000);
-        }
-
-    </style>
+  /* ===== 分頁四：雙狹縫 vs 單狹縫（無實驗器材，條紋橫向加長） ===== */
+  #tab4{display:flex;flex-direction:column;gap:12px;height:auto}
+  #tab4 .stripWrap{display:flex;flex-direction:column;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#000}
+  #tab4 canvas{display:block;width:100%;height:auto}
+  #tab4 .ctrlGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 24px;align-items:start}
+  #tab4 .ctrlGrid .ctrl{margin-bottom:6px}
+  #lamSlider4{accent-color:auto}
+  #tab4 .readout{column-count:2;column-gap:28px}
+  @media (max-width:900px){
+    #tab4 .ctrlGrid{grid-template-columns:1fr}
+    #tab4 .readout{column-count:1}
+  }
+</style>
 </head>
 <body>
+<header>
+  <h1 id="pageTitle">光的干涉與繞射</h1>
+  <span class="sub" id="pageSub">Airy 繞射圖樣　｜　屏幕距離 L = 1 m（固定）</span>
+  <span class="credit">臺中二中 阿發老師 設計</span>
+  <nav class="tabs">
+    <button class="tab on" data-tab="2">雙狹縫干涉</button>
+    <button class="tab" data-tab="3">單狹縫繞射</button>
+    <button class="tab" data-tab="4">雙狹縫 vs 單狹縫</button>
+    <button class="tab" data-tab="1">圓孔繞射</button>
+  </nav>
+</header>
 
-<div class="container">
-    
-    <!-- 標題區 -->
-    <div class="header-title">
-        <h1>光波的干涉與繞射</h1>
-        <h2>(臺中二中 阿發老師 設計)</h2>
+<div class="app" id="tab1">
+  <!-- 左側：圓孔示意 + 控制 -->
+  <div class="panel left">
+    <div>
+      <div class="ptitle">圓孔實際大小示意</div>
+      <canvas id="holeCanvas" width="360" height="300"></canvas>
     </div>
 
-    <!-- 導覽列 -->
-    <div class="nav-tabs">
-        <button class="nav-btn active" onclick="setMode('double')">1. 雙狹縫干涉</button>
-        <button class="nav-btn" onclick="setMode('single')">2. 單狹縫繞射</button>
-        <button class="nav-btn" onclick="setMode('compare')">3. 綜合對照</button>
-    </div>
-    
-    <div class="sim-layout">
-        
-        <!-- 上方：視覺化區域 -->
-        <div class="sim-visuals">
-            
-            <!-- 左側：實驗裝置 (共用 Canvas) -->
-            <div class="panel setup-panel">
-                <div class="panel-label" id="setupLabel">實驗裝置</div>
-                <canvas id="setupCanvas" width="400" height="400"></canvas>
-            </div>
-
-            <!-- 右側：結果展示 (根據模式切換內容) -->
-            <div class="panel pattern-panel">
-                
-                <!-- 模式 1 & 2: 單一滿版畫布 -->
-                <div id="singlePatternContainer" style="width: 100%; height: 100%;">
-                    <div class="panel-label" id="singlePatternLabel">干涉圖樣</div>
-                    <canvas id="patternCanvas" width="800" height="400"></canvas>
-                </div>
-
-                <!-- 模式 3: 上下分割對照 -->
-                <div id="compareWrapper" style="display: none;">
-                    <!-- 上半部：雙狹縫 -->
-                    <div class="split-canvas-container">
-                        <div class="panel-label">雙狹縫干涉 (受單狹縫包絡調變)</div>
-                        <canvas id="compareDoubleCanvas" width="800" height="200"></canvas>
-                    </div>
-                    <!-- 下半部：單狹縫 -->
-                    <div class="split-canvas-container">
-                        <div class="panel-label">單狹縫繞射 (對照組)</div>
-                        <canvas id="compareSingleCanvas" width="800" height="200"></canvas>
-                    </div>
-                </div>
-
-            </div>
-            
+    <div>
+      <div class="ctrl">
+        <label>圓孔直徑 D <b id="dVal">50 μm</b></label>
+        <input type="range" id="dSlider" min="20" max="200" step="1" value="50">
+      </div>
+      <div class="ctrl">
+        <label>波長 λ <b id="lamVal">550 nm</b></label>
+        <input type="range" id="lamSlider" min="400" max="700" step="1" value="550">
+        <div class="lamBar"></div>
+      </div>
+      <div class="ctrl">
+        <label>曝光度（模擬照片過曝） <b id="expVal">×20</b></label>
+        <input type="range" id="expSlider" min="0" max="100" step="1" value="43">
+      </div>
+      <div class="ctrl">
+        <label>亮度 Gamma <b id="gamVal">0.5</b></label>
+        <div class="btnrow" id="gamBtns">
+          <button class="btn" data-g="1">1.0 線性</button>
+          <button class="btn on" data-g="0.5">0.5</button>
+          <button class="btn" data-g="0.3">0.3</button>
         </div>
-
-        <!-- 下方：參數控制 -->
-        <div class="controls-container">
-            
-            <!-- 1. 波長控制 -->
-            <div class="control-group">
-                <div class="control-header">
-                    <span class="control-title">波長 (λ)</span>
-                    <span id="val-lambda" class="control-value">550 nm</span>
-                </div>
-                <input type="range" id="wavelength" min="400" max="700" value="550" step="1">
-            </div>
-
-            <!-- 2. 狹縫間距控制 (單狹縫模式時隱藏) -->
-            <div class="control-group" id="group-d">
-                <div class="control-header">
-                    <span class="control-title">狹縫間距 (d)</span>
-                    <span id="val-d" class="control-value">100 μm</span>
-                </div>
-                <input type="range" id="separation" min="50" max="300" value="100" step="1">
-            </div>
-
-            <!-- 3. 狹縫寬度控制 -->
-            <div class="control-group">
-                <div class="control-header">
-                    <span class="control-title">單狹縫寬度 (a)</span>
-                    <span id="val-a" class="control-value">20 μm</span>
-                </div>
-                <input type="range" id="width" min="5" max="45" value="20" step="1">
-            </div>
-
-        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="zoomChk"> 放大檢視（×5）</label>
+      <label class="toggle"><input type="checkbox" id="ringChk" checked> 標示第一暗環</label>
+      <label class="toggle"><input type="checkbox" id="curveChk"> 顯示強度分布曲線</label>
     </div>
+
+    <div class="readout" id="readout"></div>
+    <div class="formula">第一暗環：sin θ₁ = 1.22 λ / D</div>
+  </div>
+
+  <!-- 中央：繞射圖樣 -->
+  <div class="panel center">
+    <div class="viewbar">
+      <span class="ptitle" style="margin:0">屏幕上的繞射圖樣</span>
+      <span id="fieldLabel">視野 ±50 mm</span>
+    </div>
+    <canvas id="patternCanvas" width="640" height="640"></canvas>
+    <div id="curveWrap">
+      <canvas id="curveCanvas" width="640" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- 右側：Three.js 裝置圖 -->
+  <div class="panel right">
+    <div class="rtitle">實驗裝置示意圖</div>
+    <div id="threeBox"></div>
+    <div class="rnote">示意圖，非比例（圓孔已誇大）｜可拖曳旋轉、滾輪縮放</div>
+  </div>
 </div>
 
+<!-- ================== 分頁二：雙狹縫干涉 ================== -->
+<div class="app hidden" id="tab2">
+  <div class="panel left">
+    <div>
+      <div class="ptitle">雙狹縫實際大小示意</div>
+      <canvas id="holeCanvas2" width="360" height="300"></canvas>
+    </div>
+
+    <div>
+      <div class="ctrl">
+        <label>狹縫間距 d <b id="dVal2">0.20 mm</b></label>
+        <input type="range" id="dSlider2" min="0.05" max="0.5" step="0.01" value="0.2">
+      </div>
+      <div class="ctrl">
+        <label>狹縫寬度 a <b id="aVal2">20 μm</b></label>
+        <input type="range" id="aSlider2" min="20" max="100" step="1" value="20">
+      </div>
+      <div class="ctrl">
+        <label>波長 λ <b id="lamVal2">550 nm</b></label>
+        <input type="range" id="lamSlider2" min="400" max="700" step="1" value="550">
+        <div class="lamBar"></div>
+      </div>
+      <div class="ctrl">
+        <label>曝光度（模擬照片過曝） <b id="expVal2">×3.0</b></label>
+        <input type="range" id="expSlider2" min="0" max="100" step="1" value="16">
+      </div>
+      <div class="ctrl">
+        <label>亮度 Gamma <b id="gamVal2">0.5</b></label>
+        <div class="btnrow" id="gamBtns2">
+          <button class="btn" data-g="1">1.0 線性</button>
+          <button class="btn on" data-g="0.5">0.5</button>
+          <button class="btn" data-g="0.3">0.3</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>光源（條紋型態）</label>
+        <div class="btnrow" id="srcBtns2">
+          <button class="btn on" data-m="laser">雷射（光點列）</button>
+          <button class="btn" data-m="lamp">單色光源＋單狹縫（直條紋）</button>
+        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="zoomChk2"> 放大檢視（×5）</label>
+      <label class="toggle"><input type="checkbox" id="fringeChk2" checked> 標示亮紋位置</label>
+      <label class="toggle"><input type="checkbox" id="curveChk2"> 顯示強度分布曲線</label>
+    </div>
+
+    <div class="readout" id="readout2"></div>
+    <div class="formula">亮紋間距：Δy = λL / d　｜　包絡暗紋：a sin θ = λ</div>
+  </div>
+
+  <div class="panel center">
+    <div class="viewbar">
+      <span class="ptitle" style="margin:0">屏幕上的干涉條紋</span>
+      <span id="fieldLabel2">視野 ±25 mm</span>
+    </div>
+    <canvas id="patternCanvas2" width="640" height="288"></canvas>
+    <div id="curveWrap2">
+      <canvas id="curveCanvas2" width="640" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="panel right">
+    <div class="rtitle">實驗裝置示意圖</div>
+    <div id="threeBox2"></div>
+    <div class="rnote">示意圖，非比例（狹縫已誇大）｜可拖曳旋轉、滾輪縮放</div>
+  </div>
+</div>
+
+<!-- ================== 分頁三：單狹縫繞射 ================== -->
+<div class="app hidden" id="tab3">
+  <div class="panel left">
+    <div>
+      <div class="ptitle">單狹縫實際大小示意</div>
+      <canvas id="holeCanvas3" width="360" height="300"></canvas>
+    </div>
+
+    <div>
+      <div class="ctrl">
+        <label>狹縫寬度 a <b id="aVal3">50 μm</b></label>
+        <input type="range" id="aSlider3" min="20" max="200" step="1" value="50">
+      </div>
+      <div class="ctrl">
+        <label>波長 λ <b id="lamVal3">550 nm</b></label>
+        <input type="range" id="lamSlider3" min="400" max="700" step="1" value="550">
+        <div class="lamBar"></div>
+      </div>
+      <div class="ctrl">
+        <label>曝光度（模擬照片過曝） <b id="expVal3">×4.9</b></label>
+        <input type="range" id="expSlider3" min="0" max="100" step="1" value="23">
+      </div>
+      <div class="ctrl">
+        <label>亮度 Gamma <b id="gamVal3">0.5</b></label>
+        <div class="btnrow" id="gamBtns3">
+          <button class="btn" data-g="1">1.0 線性</button>
+          <button class="btn on" data-g="0.5">0.5</button>
+          <button class="btn" data-g="0.3">0.3</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>光源（條紋型態）</label>
+        <div class="btnrow" id="srcBtns3">
+          <button class="btn on" data-m="laser">雷射（光點列）</button>
+          <button class="btn" data-m="lamp">單色光源＋單狹縫（直條紋）</button>
+        </div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="zoomChk3"> 放大檢視（×5）</label>
+      <label class="toggle"><input type="checkbox" id="darkChk3" checked> 標示暗紋位置</label>
+      <label class="toggle"><input type="checkbox" id="secChk3" checked> 標示次亮紋（精確 vs 課本近似）</label>
+      <label class="toggle"><input type="checkbox" id="curveChk3"> 顯示強度分布曲線</label>
+    </div>
+
+    <div class="readout" id="readout3"></div>
+    <div class="formula">暗紋：a sin θ = mλ　｜　次亮紋（近似）：a sin θ ≈ (m+½)λ</div>
+  </div>
+
+  <div class="panel center">
+    <div class="viewbar">
+      <span class="ptitle" style="margin:0">屏幕上的繞射條紋</span>
+      <span id="fieldLabel3">視野 ±50 mm</span>
+    </div>
+    <canvas id="patternCanvas3" width="640" height="288"></canvas>
+    <div id="curveWrap3">
+      <canvas id="curveCanvas3" width="640" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="panel right">
+    <div class="rtitle">實驗裝置示意圖</div>
+    <div id="threeBox3"></div>
+    <div class="rnote">示意圖，非比例（狹縫已誇大）｜可拖曳旋轉、滾輪縮放</div>
+  </div>
+</div>
+<!-- ================== 分頁四：雙狹縫 vs 單狹縫 ================== -->
+<div class="app hidden" id="tab4">
+  <div class="panel">
+    <div class="viewbar" style="width:100%;margin-bottom:8px">
+      <span class="ptitle" style="margin:0">單狹縫繞射對雙狹縫干涉條紋亮暗的影響</span>
+      <span id="fieldLabel4">視野 ±60 mm</span>
+    </div>
+    <div class="stripWrap">
+      <canvas id="stripDouble4" width="1600" height="208"></canvas>
+      <canvas id="stripSingle4" width="1600" height="238"></canvas>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ctrlGrid">
+      <div>
+        <div class="ctrl">
+          <label>波長 λ <b id="lamVal4">550 nm</b></label>
+          <input type="range" id="lamSlider4" min="400" max="700" step="1" value="550">
+          <div class="lamBar"></div>
+        </div>
+        <div class="ctrl">
+          <label>雙狹縫間距 d <b id="dVal4">0.10 mm</b></label>
+          <input type="range" id="dSlider4" min="0.05" max="0.5" step="0.01" value="0.1">
+        </div>
+        <div class="ctrl">
+          <label>單狹縫寬度 a <b id="aVal4">5 μm</b></label>
+          <input type="range" id="aSlider4" min="5" max="60" step="1" value="5">
+          <div class="formula" id="aLimit4" style="text-align:left"></div>
+        </div>
+      </div>
+      <div>
+        <div class="ctrl">
+          <label>曝光度（模擬照片過曝） <b id="expVal4">×3.0</b></label>
+          <input type="range" id="expSlider4" min="0" max="100" step="1" value="16">
+        </div>
+        <div class="ctrl">
+          <label>亮度 Gamma <b id="gamVal4">0.5</b></label>
+          <div class="btnrow" id="gamBtns4">
+            <button class="btn" data-g="1">1.0 線性</button>
+            <button class="btn on" data-g="0.5">0.5</button>
+            <button class="btn" data-g="0.3">0.3</button>
+          </div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="zoomChk4"> 放大檢視（×5）</label>
+        <label class="toggle"><input type="checkbox" id="guideChk4"> 標示單狹縫暗紋對齊線</label>
+      </div>
+      <div>
+        <div class="readout" id="readout4"></div>
+        <div class="formula">雙狹縫：I = cos²(πd sinθ/λ) × [sinβ/β]²　｜　單狹縫：I = [sinβ/β]²，β = πa sinθ/λ</div>
+      </div>
+    </div>
+  </div>
+</div>
+<footer>臺中二中 阿發老師 設計</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-    // --- 系統狀態 ---
-    const L = 1.0; // 屏幕距離 (公尺)
-    
-    // 初始狀態
-    const state = {
-        mode: 'double', // 'double', 'single', 'compare'
-        lambda: 550,    // nm
-        d: 100,         // micrometers
-        a: 20           // micrometers
-    };
+// ================== 物理參數 ==================
+const L = 1.0;              // 屏幕距離 (m)
+const FIELD = 50;           // 固定視野半寬 (mm)
+const ZOOM = 5;             // 放大倍率
+const X1 = 3.8317;          // J1 第一個零點
+const state = { D:50, lam:550, gain:20, gamma:0.5, zoom:false, ring:true, curve:false };
 
-    // --- DOM 元素 ---
-    const canvasSetup = document.getElementById('setupCanvas');
-    const ctxSetup = canvasSetup.getContext('2d');
+// 一階貝索函數 J1（Numerical Recipes 多項式近似）
+function besselJ1(x){
+  const ax = Math.abs(x);
+  if (ax < 8.0){
+    const y = x*x;
+    const a1 = x*(72362614232.0+y*(-7895059235.0+y*(242396853.1+y*(-2972611.439+y*(15704.48260+y*(-30.16036606))))));
+    const a2 = 144725228442.0+y*(2300535178.0+y*(18583304.74+y*(99447.43394+y*(376.9991397+y*1.0))));
+    return a1/a2;
+  } else {
+    const z = 8.0/ax, y = z*z, xx = ax-2.356194491;
+    const a1 = 1.0+y*(0.183105e-2+y*(-0.3516396496e-4+y*(0.2457520174e-5+y*(-0.240337019e-6))));
+    const a2 = 0.04687499995+y*(-0.2002690873e-3+y*(0.8449199096e-5+y*(-0.88228987e-6+y*0.105787412e-6)));
+    const ans = Math.sqrt(0.636619772/ax)*(Math.cos(xx)*a1 - z*Math.sin(xx)*a2);
+    return x < 0 ? -ans : ans;
+  }
+}
 
-    // 模式 1 & 2 的畫布
-    const singleContainer = document.getElementById('singlePatternContainer');
-    const canvasPattern = document.getElementById('patternCanvas');
-    const ctxPattern = canvasPattern.getContext('2d');
-    const labelSingle = document.getElementById('singlePatternLabel');
-    const labelSetup = document.getElementById('setupLabel');
+// 屏幕上距中心 r(mm) 處的相對強度
+function intensityAt(r_mm){
+  const r = r_mm*1e-3;
+  const s = r/Math.sqrt(r*r + L*L);                 // sinθ
+  const x = Math.PI*(state.D*1e-6)*s/(state.lam*1e-9);
+  if (x < 1e-8) return 1;
+  const v = 2*besselJ1(x)/x;
+  return v*v;
+}
 
-    // 模式 3 的畫布
-    const compareWrapper = document.getElementById('compareWrapper');
-    const canvasCompDouble = document.getElementById('compareDoubleCanvas');
-    const ctxCompDouble = canvasCompDouble.getContext('2d');
-    const canvasCompSingle = document.getElementById('compareSingleCanvas');
-    const ctxCompSingle = canvasCompSingle.getContext('2d');
+// 第 n 暗環半徑 (mm)，x_n 為 J1 零點
+function darkRingR(xn){
+  const s = xn*(state.lam*1e-9)/(Math.PI*state.D*1e-6);
+  if (s >= 1) return Infinity;
+  return L*Math.tan(Math.asin(s))*1e3;
+}
 
-    // 控制項
-    const inputLambda = document.getElementById('wavelength');
-    const inputD = document.getElementById('separation');
-    const inputA = document.getElementById('width');
-    const groupD = document.getElementById('group-d');
+// 波長 → RGB（Bruton 演算法，含兩端亮度衰減）
+function lamToRGB(l){
+  let r=0,g=0,b=0;
+  if (l<440){ r=-(l-440)/60; b=1; }
+  else if (l<490){ g=(l-440)/50; b=1; }
+  else if (l<510){ g=1; b=-(l-510)/20; }
+  else if (l<580){ r=(l-510)/70; g=1; }
+  else if (l<645){ r=1; g=-(l-645)/65; }
+  else { r=1; }
+  let f = 1;
+  if (l<420) f = 0.3+0.7*(l-380)/40;
+  else if (l>680) f = 0.3+0.7*(780-l)/100;
+  return [r*f, g*f, b*f];
+}
 
-    const displayLambda = document.getElementById('val-lambda');
-    const displayD = document.getElementById('val-d');
-    const displayA = document.getElementById('val-a');
-
-    const navButtons = document.querySelectorAll('.nav-btn');
-
-    // --- 核心運算 ---
-
-    function wavelengthToRGB(wavelength) {
-        var r, g, b;
-        if (wavelength >= 380 && wavelength < 440) {
-            r = -1 * (wavelength - 440) / (440 - 380); g = 0; b = 1;
-        } else if (wavelength >= 440 && wavelength < 490) {
-            r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
-        } else if (wavelength >= 490 && wavelength < 510) {
-            r = 0; g = 1; b = -1 * (wavelength - 510) / (510 - 490);
-        } else if (wavelength >= 510 && wavelength < 580) {
-            r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
-        } else if (wavelength >= 580 && wavelength < 645) {
-            r = 1; g = -1 * (wavelength - 645) / (645 - 580); b = 0;
-        } else if (wavelength >= 645 && wavelength <= 780) {
-            r = 1; g = 0; b = 0;
-        } else {
-            r = 0; g = 0; b = 0;
-        }
-        return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+// ================== 繞射圖樣繪製 ==================
+const NPROF = 4096;
+function renderPattern(ctx, size, half){
+  const rmax = half*Math.SQRT2;
+  const prof = new Float32Array(NPROF);
+  const [cr,cg,cb] = lamToRGB(state.lam);
+  for (let i=0;i<NPROF;i++){
+    const I = intensityAt(i*rmax/(NPROF-1));
+    prof[i] = Math.pow(Math.min(1, I*state.gain), state.gamma);
+  }
+  const img = ctx.createImageData(size,size);
+  const d = img.data, c = size/2, k = 2*half/size, sc = (NPROF-1)/rmax;
+  let p = 0;
+  for (let y=0;y<size;y++){
+    const dy = (y+0.5-c)*k;
+    for (let x=0;x<size;x++){
+      const dx = (x+0.5-c)*k;
+      const v = prof[Math.round(Math.sqrt(dx*dx+dy*dy)*sc)];
+      d[p++] = 255*cr*v; d[p++] = 255*cg*v; d[p++] = 255*cb*v; d[p++] = 255;
     }
+  }
+  ctx.putImageData(img,0,0);
+}
 
-    // 計算強度
-    // y: 位置
-    // calcMode: 'double' (雙狹縫) 或 'single' (單狹縫)
-    function calculateIntensity(y, calcMode) {
-        const lambdaM = state.lambda * 1e-9;
-        const dM = state.d * 1e-6;
-        const aM = state.a * 1e-6;
-        
-        const theta = Math.atan(y / L);
-        const sinTheta = Math.sin(theta);
+const pCan = document.getElementById('patternCanvas');
+const pCtx = pCan.getContext('2d');
+const texCan = document.createElement('canvas');
+texCan.width = texCan.height = 256;
+const texCtx = texCan.getContext('2d');
 
-        // 繞射參數 alpha
-        const alpha = (Math.PI * aM * sinTheta) / lambdaM;
-        // 繞射項 sinc^2
-        let sincSq = (Math.abs(alpha) < 1e-6) ? 1 : Math.pow(Math.sin(alpha) / alpha, 2);
+function drawPatternView(){
+  const S = pCan.width;
+  const half = state.zoom ? FIELD/ZOOM : FIELD;
+  renderPattern(pCtx, S, half);
 
-        if (calcMode === 'single') {
-            return sincSq;
-        } else {
-            // 干涉參數 beta
-            const beta = (Math.PI * dM * sinTheta) / lambdaM;
-            // 干涉項 cos^2
-            const cosSq = Math.pow(Math.cos(beta), 2);
-            return sincSq * cosSq;
-        }
+  // 刻度（下緣與左緣）
+  const step = state.zoom ? 2 : 10;
+  pCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+  pCtx.fillStyle = 'rgba(255,255,255,0.75)';
+  pCtx.font = '13px sans-serif';
+  pCtx.lineWidth = 1;
+  pCtx.textAlign = 'center';
+  for (let v=-half; v<=half+1e-9; v+=step){
+    const px = (v+half)/(2*half)*S;
+    const len = Math.abs(v)<1e-9 ? 12 : 7;
+    pCtx.beginPath(); pCtx.moveTo(px,S); pCtx.lineTo(px,S-len); pCtx.stroke();
+    pCtx.beginPath(); pCtx.moveTo(0,px); pCtx.lineTo(len,px); pCtx.stroke();
+    if (Math.abs(v)>1e-9 && Math.abs(Math.abs(v)-half)>1e-9)
+      pCtx.fillText(Math.round(v).toString(), px, S-16);
+  }
+  pCtx.textAlign = 'right';
+  pCtx.fillText('mm', S-6, S-16);
+
+  // 第一暗環標示
+  if (state.ring){
+    const r1 = darkRingR(X1);
+    const rpx = r1/half*S/2;
+    if (rpx < S*0.75){
+      pCtx.save();
+      pCtx.setLineDash([6,5]);
+      pCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+      pCtx.lineWidth = 1.5;
+      pCtx.beginPath(); pCtx.arc(S/2,S/2,rpx,0,Math.PI*2); pCtx.stroke();
+      pCtx.setLineDash([]);
+      pCtx.textAlign = 'left';
+      pCtx.font = '15px sans-serif';
+      const ang = -Math.PI/4;
+      let tx = S/2 + rpx*Math.cos(ang) + 8, ty = S/2 + rpx*Math.sin(ang) - 6;
+      tx = Math.min(tx, S-170); ty = Math.max(ty, 22);
+      pCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      pCtx.fillRect(tx-4, ty-16, 166, 22);
+      pCtx.fillStyle = '#fff';
+      pCtx.fillText('第一暗環 r₁ = ' + r1.toFixed(2) + ' mm', tx, ty);
+      pCtx.restore();
     }
+  }
 
-    // --- 繪圖邏輯 ---
+  // 3D 屏幕貼圖：永遠是完整視野 ±50 mm
+  renderPattern(texCtx, 256, FIELD);
+  if (screenTex) screenTex.needsUpdate = true;
 
-    // 繪製左側裝置圖
-    function drawSetup() {
-        const w = canvasSetup.width;
-        const h = canvasSetup.height;
-        const cx = w / 2;
-        const cy = h / 2;
-        
-        ctxSetup.clearRect(0, 0, w, h);
-        const color = wavelengthToRGB(state.lambda);
-        const barrierY = h - 120;
+  document.getElementById('fieldLabel').textContent =
+    state.zoom ? '放大 ×5：視野 ±10 mm' : '視野 ±50 mm';
+}
 
-        // 1. 光源 (共同部分)
-        ctxSetup.fillStyle = color;
-        ctxSetup.globalAlpha = 0.15;
-        ctxSetup.fillRect(0, barrierY, w, h - barrierY);
-        
-        ctxSetup.globalAlpha = 0.8;
-        ctxSetup.strokeStyle = color;
-        ctxSetup.lineWidth = 2;
-        ctxSetup.beginPath();
-        for(let i=1; i<8; i++) {
-            let xPos = (w/8) * i;
-            ctxSetup.moveTo(xPos, h);
-            ctxSetup.lineTo(xPos, barrierY);
-        }
-        ctxSetup.stroke();
+// ================== 強度曲線 ==================
+const cCan = document.getElementById('curveCanvas');
+const cCtx = cCan.getContext('2d');
+function drawCurve(){
+  if (!state.curve) return;
+  const W = cCan.width, H = cCan.height;
+  const padT = 14, padB = 26, ph = H-padT-padB;
+  const half = state.zoom ? FIELD/ZOOM : FIELD;
+  const [cr,cg,cb] = lamToRGB(state.lam);
+  const col = `rgb(${Math.round(255*cr)},${Math.round(255*cg)},${Math.round(255*cb)})`;
+  cCtx.clearRect(0,0,W,H);
 
-        // 2. 擋板繪製
-        const visualScale = 1.0; 
-        const a_vis = Math.max(state.a * visualScale, 3); 
-        const barrierHeight = 8;
-        ctxSetup.fillStyle = '#64748b';
-        ctxSetup.globalAlpha = 1.0;
+  // 座標軸
+  cCtx.strokeStyle = '#3a4570'; cCtx.lineWidth = 1;
+  cCtx.beginPath(); cCtx.moveTo(0,padT+ph); cCtx.lineTo(W,padT+ph); cCtx.stroke();
+  cCtx.beginPath(); cCtx.moveTo(W/2,padT); cCtx.lineTo(W/2,padT+ph); cCtx.stroke();
+  const step = state.zoom ? 2 : 10;
+  cCtx.fillStyle = '#9aa3bd'; cCtx.font = '12px sans-serif'; cCtx.textAlign = 'center';
+  for (let v=-half; v<=half+1e-9; v+=step){
+    const px = (v+half)/(2*half)*W;
+    cCtx.beginPath(); cCtx.moveTo(px,padT+ph); cCtx.lineTo(px,padT+ph+5); cCtx.stroke();
+    if (Math.abs(Math.abs(v)-half)>1e-9) cCtx.fillText(Math.round(v).toString(), px, H-6);
+  }
 
-        // 根據模式決定繪製 單狹縫(中央) 還是 雙狹縫(左右)
-        // 注意：在 Compare 模式，左側我們顯示雙狹縫裝置，因為這是主要的比較基準
-        const isSingleMode = (state.mode === 'single');
+  // ±r1 標線
+  const r1 = darkRingR(X1);
+  if (r1 < half){
+    cCtx.setLineDash([4,4]); cCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+    [-r1, r1].forEach(v=>{
+      const px = (v+half)/(2*half)*W;
+      cCtx.beginPath(); cCtx.moveTo(px,padT); cCtx.lineTo(px,padT+ph); cCtx.stroke();
+    });
+    cCtx.setLineDash([]);
+  }
 
-        if (isSingleMode) {
-            // --- 單狹縫模式：中央一個開口 ---
-            // 左擋板
-            ctxSetup.fillRect(0, barrierY, cx - (a_vis/2), barrierHeight);
-            // 右擋板
-            ctxSetup.fillRect(cx + (a_vis/2), barrierY, w - (cx + (a_vis/2)), barrierHeight);
-
-            // 光波：從中央發出
-            ctxSetup.strokeStyle = color;
-            ctxSetup.lineWidth = 1;
-            ctxSetup.globalAlpha = 0.5;
-            for(let r=0; r < barrierY; r+=25) {
-                ctxSetup.beginPath();
-                ctxSetup.arc(cx, barrierY, r, Math.PI, 2 * Math.PI);
-                ctxSetup.stroke();
-            }
-
-        } else {
-            // --- 雙狹縫模式 (含 Compare) ---
-            const d_vis = state.d * visualScale;
-            const s1_x = cx - (d_vis/2);
-            const s2_x = cx + (d_vis/2);
-
-            // 左擋塊
-            ctxSetup.fillRect(0, barrierY, s1_x - (a_vis/2), barrierHeight);
-            // 中間擋塊
-            ctxSetup.fillRect(s1_x + (a_vis/2), barrierY, d_vis - a_vis, barrierHeight);
-            // 右擋塊
-            ctxSetup.fillRect(s2_x + (a_vis/2), barrierY, w - (s2_x + (a_vis/2)), barrierHeight);
-
-            // 光波：從兩點發出
-            ctxSetup.strokeStyle = color;
-            ctxSetup.lineWidth = 1;
-            ctxSetup.globalAlpha = 0.5;
-            for(let r=0; r < barrierY; r+=25) {
-                ctxSetup.beginPath();
-                ctxSetup.arc(s1_x, barrierY, r, Math.PI, 2 * Math.PI);
-                ctxSetup.stroke();
-                ctxSetup.beginPath();
-                ctxSetup.arc(s2_x, barrierY, r, Math.PI, 2 * Math.PI);
-                ctxSetup.stroke();
-            }
-        }
+  // 曲線：線性 I（實線）、I×20（虛線，看外環）
+  const N = 800;
+  const plot = (mult, dashed, color) => {
+    cCtx.strokeStyle = color; cCtx.lineWidth = dashed ? 1.2 : 2;
+    cCtx.setLineDash(dashed ? [5,4] : []);
+    cCtx.beginPath();
+    for (let i=0;i<=N;i++){
+      const xv = -half + 2*half*i/N;
+      const I = Math.min(1, intensityAt(Math.abs(xv))*mult);
+      const px = i/N*W, py = padT + ph*(1-I);
+      i ? cCtx.lineTo(px,py) : cCtx.moveTo(px,py);
     }
+    cCtx.stroke(); cCtx.setLineDash([]);
+  };
+  plot(20, true, 'rgba(200,210,235,0.6)');
+  plot(1, false, col);
 
-    // 通用圖樣繪製函式
-    function drawPatternOnCanvas(targetCtx, targetW, targetH, calcMode) {
-        targetCtx.clearRect(0, 0, targetW, targetH);
-        
-        const cx = targetW / 2;
-        const colorStr = wavelengthToRGB(state.lambda);
-        // 設定物理寬度比例尺 (0.15m)
-        const physicalScreenWidth = 0.15; 
+  cCtx.textAlign = 'left'; cCtx.fillStyle = '#c8d2eb';
+  cCtx.fillText('— I / I₀（線性）', 8, padT+4);
+  cCtx.fillText('- - I / I₀ × 20（觀察外環）', 8, padT+20);
+  cCtx.textAlign = 'right';
+  cCtx.fillText('屏幕位置 (mm)', W-6, padT+4);
+}
 
-        targetCtx.fillStyle = '#000';
-        targetCtx.fillRect(0,0, targetW, targetH);
-        targetCtx.fillStyle = colorStr;
+// ================== 圓孔示意圖 ==================
+const hCan = document.getElementById('holeCanvas');
+const hCtx = hCan.getContext('2d');
+function drawHole(){
+  const W = hCan.width, H = hCan.height;
+  const cx = W/2, cy = H/2 - 14;
+  const span = 260;                       // 畫面寬度代表 260 μm
+  const pxPerUm = W/span;
+  const grd = hCtx.createLinearGradient(0,0,W,H);
+  grd.addColorStop(0,'#5a6070'); grd.addColorStop(1,'#33373f');
+  hCtx.fillStyle = grd; hCtx.fillRect(0,0,W,H);
 
-        for (let x = 0; x < targetW; x++) {
-            const y_pos = ((x - cx) / targetW) * physicalScreenWidth;
-            const intensity = calculateIntensity(y_pos, calcMode);
-            const gammaCorrected = Math.pow(intensity, 0.5); // Gamma校正
+  const r = state.D/2*pxPerUm;
+  const [cr,cg,cb] = lamToRGB(state.lam);
+  const glow = hCtx.createRadialGradient(cx,cy,0,cx,cy,r);
+  glow.addColorStop(0,`rgba(${255*cr|0},${255*cg|0},${255*cb|0},1)`);
+  glow.addColorStop(1,`rgba(${255*cr*0.6|0},${255*cg*0.6|0},${255*cb*0.6|0},1)`);
+  hCtx.fillStyle = glow;
+  hCtx.beginPath(); hCtx.arc(cx,cy,r,0,Math.PI*2); hCtx.fill();
+  hCtx.strokeStyle = '#1b1d22'; hCtx.lineWidth = 2; hCtx.stroke();
 
-            targetCtx.globalAlpha = gammaCorrected;
-            targetCtx.fillRect(x, 0, 1, targetH);
-        }
-        
-        targetCtx.globalAlpha = 1.0;
-        targetCtx.fillStyle = '#ffffff';
-        // 中央標記
-        targetCtx.fillRect(cx-1, targetH-6, 2, 6);
-    }
+  // 直徑標示
+  hCtx.strokeStyle = '#fff'; hCtx.fillStyle = '#fff'; hCtx.lineWidth = 1.2;
+  const yy = cy + r + 14;
+  hCtx.beginPath(); hCtx.moveTo(cx-r,yy); hCtx.lineTo(cx+r,yy); hCtx.stroke();
+  hCtx.beginPath(); hCtx.moveTo(cx-r,yy-5); hCtx.lineTo(cx-r,yy+5); hCtx.moveTo(cx+r,yy-5); hCtx.lineTo(cx+r,yy+5); hCtx.stroke();
+  hCtx.font = 'bold 18px sans-serif'; hCtx.textAlign = 'center';
+  hCtx.fillText('D = ' + state.D + ' μm', cx, Math.min(yy+22, H-34));
 
-    function draw() {
-        // 1. 畫左側裝置
-        drawSetup();
+  // 比例尺 100 μm
+  const sb = 100*pxPerUm, sx = 14, sy = H-16;
+  hCtx.fillStyle = 'rgba(0,0,0,0.45)'; hCtx.fillRect(sx-6, sy-22, sb+12, 30);
+  hCtx.strokeStyle = '#fff'; hCtx.lineWidth = 3;
+  hCtx.beginPath(); hCtx.moveTo(sx,sy); hCtx.lineTo(sx+sb,sy); hCtx.stroke();
+  hCtx.fillStyle = '#fff'; hCtx.font = '14px sans-serif';
+  hCtx.fillText('100 μm', sx+sb/2, sy-8);
+}
 
-        // 2. 畫右側圖樣
-        if (state.mode === 'double') {
-            // 模式1：畫在主畫布，計算模式 Double
-            drawPatternOnCanvas(ctxPattern, canvasPattern.width, canvasPattern.height, 'double');
-        } else if (state.mode === 'single') {
-            // 模式2：畫在主畫布，計算模式 Single
-            drawPatternOnCanvas(ctxPattern, canvasPattern.width, canvasPattern.height, 'single');
-        } else if (state.mode === 'compare') {
-            // 模式3：畫兩個小畫布
-            // 上方：雙狹縫
-            drawPatternOnCanvas(ctxCompDouble, canvasCompDouble.width, canvasCompDouble.height, 'double');
-            // 下方：單狹縫
-            drawPatternOnCanvas(ctxCompSingle, canvasCompSingle.width, canvasCompSingle.height, 'single');
-        }
-    }
+// ================== 數值讀出 ==================
+function updateReadout(){
+  const s1 = 1.22*state.lam*1e-9/(state.D*1e-6);
+  const th = Math.asin(s1);
+  const r1 = darkRingR(X1);
+  document.getElementById('readout').innerHTML =
+    `<span class="k">圓孔直徑 D：</span>${state.D} μm<br>` +
+    `<span class="k">波長 λ：</span>${state.lam} nm<br>` +
+    `<span class="k">第一暗環角 θ₁：</span>${(th*1e3).toFixed(2)} mrad（${(th*180/Math.PI).toFixed(3)}°）<br>` +
+    `<span class="k">Airy 盤半徑 r₁：</span>${r1.toFixed(2)} mm<br>` +
+    `<span class="k">Airy 盤直徑 2r₁：</span>${(2*r1).toFixed(2)} mm`;
+}
 
-    function updateControls() {
-        // 更新數值顯示
-        displayLambda.textContent = state.lambda + ' nm';
-        displayD.textContent = state.d + ' μm';
-        displayA.textContent = state.a + ' μm';
-        
-        // 控制項可見性邏輯
-        // 在單狹縫模式下，隱藏或禁用 d (狹縫間距)
-        if (state.mode === 'single') {
-            groupD.style.opacity = '0.2';
-            groupD.style.pointerEvents = 'none';
-        } else {
-            groupD.style.opacity = '1';
-            groupD.style.pointerEvents = 'auto';
-        }
+// ================== Three.js 裝置圖 ==================
+let renderer, scene, camera, controls, screenTex, plateMesh, beamIn, beamCone, laserTip, coneMat, beamMat, tipMat;
+const PLATE_X = -1.5, SCREEN_X = 3.0, LASER_X = -3.8;
 
-        // 更新導覽列按鈕狀態
-        navButtons.forEach((btn, index) => {
-            btn.classList.remove('active');
-            if (
-                (index === 0 && state.mode === 'double') ||
-                (index === 1 && state.mode === 'single') ||
-                (index === 2 && state.mode === 'compare')
-            ) {
-                btn.classList.add('active');
-            }
-        });
+function makeLabel(text, scale=1){
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+  ctx.font = 'bold 44px "Microsoft JhengHei", sans-serif';
+  const w = Math.ceil(ctx.measureText(text).width) + 30;
+  c.width = w; c.height = 64;
+  ctx.font = 'bold 44px "Microsoft JhengHei", sans-serif';
+  ctx.fillStyle = 'rgba(10,15,30,0.7)';
+  ctx.fillRect(0,0,w,64);
+  ctx.fillStyle = '#ffffff'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 15, 34);
+  const tex = new THREE.CanvasTexture(c);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false}));
+  spr.scale.set(w/64*0.32*scale, 0.32*scale, 1);
+  spr.renderOrder = 10;
+  return spr;
+}
 
-        // 更新右側面板顯示
-        if (state.mode === 'compare') {
-            singleContainer.style.display = 'none';
-            compareWrapper.style.display = 'flex';
-            labelSetup.textContent = '實驗裝置 (雙狹縫)'; // 修正：強制更新標題為雙狹縫
-        } else {
-            singleContainer.style.display = 'block';
-            compareWrapper.style.display = 'none';
-            
-            // 更新主畫布標題
-            if (state.mode === 'single') {
-                labelSingle.textContent = '單狹縫繞射圖樣';
-                labelSetup.textContent = '實驗裝置 (單狹縫)';
-            } else {
-                labelSingle.textContent = '雙狹縫干涉圖樣';
-                labelSetup.textContent = '實驗裝置 (雙狹縫)';
-            }
-        }
-    }
+function buildPlate(){
+  if (plateMesh){ scene.remove(plateMesh); plateMesh.geometry.dispose(); }
+  const hw = 0.6;
+  const shape = new THREE.Shape();
+  shape.moveTo(-hw,-hw); shape.lineTo(hw,-hw); shape.lineTo(hw,hw); shape.lineTo(-hw,hw); shape.lineTo(-hw,-hw);
+  const hr = 0.015 + (state.D-20)/180*0.06;  // 示意：直徑 0.03～0.15，小於光束直徑 0.20
+  const hole = new THREE.Path();
+  hole.absarc(0,0,hr,0,Math.PI*2,true);
+  shape.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(shape,{depth:0.04,bevelEnabled:false,curveSegments:48});
+  geo.translate(0,0,-0.02);
+  plateMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0x8a8f99,metalness:0.7,roughness:0.35}));
+  plateMesh.rotation.y = Math.PI/2;
+  plateMesh.position.set(PLATE_X,0,0);
+  scene.add(plateMesh);
+}
 
-    // --- 公開給 HTML 呼叫的切換函式 ---
-    window.setMode = function(mode) {
-        state.mode = mode;
-        updateControls();
-        draw();
-    };
+function initThree(){
+  const box = document.getElementById('threeBox');
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setClearColor(0x0b1020);
+  box.appendChild(renderer.domElement);
 
-    function onInputChanged() {
-        state.lambda = parseInt(inputLambda.value);
-        state.d = parseInt(inputD.value);
-        state.a = parseInt(inputA.value);
-        updateControls();
-        draw();
-    }
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(40,1,0.1,100);
+  camera.position.set(-1.2,2.6,7.2);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(-0.3,-0.2,0);
+  controls.enableDamping = true;
 
-    // --- 事件監聽 ---
-    inputLambda.addEventListener('input', onInputChanged);
-    inputD.addEventListener('input', onInputChanged);
-    inputA.addEventListener('input', onInputChanged);
+  scene.add(new THREE.AmbientLight(0xffffff,0.55));
+  const dl = new THREE.DirectionalLight(0xffffff,0.8);
+  dl.position.set(2,5,4); scene.add(dl);
 
-    // 初始化
-    updateControls();
-    draw();
+  // 光學軌道
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(8.0,0.12,0.4),
+    new THREE.MeshStandardMaterial({color:0x3a4256,metalness:0.6,roughness:0.5}));
+  rail.position.set(-0.55,-1.15,0); scene.add(rail);
+  const standMat = new THREE.MeshStandardMaterial({color:0x555c6c,metalness:0.5,roughness:0.5});
+  [[LASER_X,0.95],[PLATE_X,0.5],[SCREEN_X,0.0]].forEach(([x,h])=>{
+    const len = 1.1 - (h>0.9?0.12:0);
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,len,16), standMat);
+    st.position.set(x,-1.1+len/2,0); scene.add(st);
+  });
 
+  // 雷射
+  const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.9,32),
+    new THREE.MeshStandardMaterial({color:0x22252c,metalness:0.6,roughness:0.4}));
+  laser.rotation.z = Math.PI/2; laser.position.set(LASER_X,0,0); scene.add(laser);
+  tipMat = new THREE.MeshBasicMaterial({color:0xffffff});
+  laserTip = new THREE.Mesh(new THREE.SphereGeometry(0.10,16,16), tipMat);
+  laserTip.position.set(LASER_X+0.46,0,0); scene.add(laserTip);
+
+  // 入射光束
+  const inLen = PLATE_X - (LASER_X+0.45);
+  beamMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85});
+  beamIn = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,inLen,24), beamMat);
+  beamIn.rotation.z = Math.PI/2;
+  beamIn.position.set((LASER_X+0.45+PLATE_X)/2,0,0); scene.add(beamIn);
+
+  // 繞射後擴散光錐（寬度對應 Airy 盤）
+  const coneLen = SCREEN_X - PLATE_X;
+  coneMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.16,side:THREE.DoubleSide,depthWrite:false});
+  beamCone = new THREE.Mesh(new THREE.CylinderGeometry(0.02,1,coneLen,48,1,true), coneMat);
+  beamCone.rotation.z = Math.PI/2;
+  beamCone.position.set((PLATE_X+SCREEN_X)/2,0,0); scene.add(beamCone);
+
+  buildPlate();
+
+  // 屏幕（貼圖 = 完整視野 ±50 mm 的繞射圖樣）
+  screenTex = new THREE.CanvasTexture(texCan);
+  const scr = new THREE.Mesh(new THREE.PlaneGeometry(2,2), new THREE.MeshBasicMaterial({map:screenTex}));
+  scr.rotation.y = -Math.PI/2; scr.position.set(SCREEN_X-0.031,0,0); scene.add(scr);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06,2.12,2.12),
+    new THREE.MeshStandardMaterial({color:0xd8dbe2,roughness:0.8}));
+  frame.position.set(SCREEN_X,0,0); scene.add(frame);
+
+  // L 標示線
+  const lineMat = new THREE.LineBasicMaterial({color:0xaab4d0});
+  const pts = [new THREE.Vector3(PLATE_X,-1.45,0.6), new THREE.Vector3(SCREEN_X,-1.45,0.6)];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+  [PLATE_X,SCREEN_X].forEach(x=>{
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      [new THREE.Vector3(x,-1.35,0.6), new THREE.Vector3(x,-1.55,0.6)]), lineMat));
+  });
+
+  // 標籤
+  const lab = (t,x,y,z,s)=>{ const sp = makeLabel(t,s); sp.position.set(x,y,z); scene.add(sp); };
+  lab('雷射', LASER_X, 0.5, 0, 1);
+  lab('圓孔 D', PLATE_X, 0.95, 0, 1);
+  lab('屏幕', SCREEN_X, 1.35, 0, 1);
+  lab('L = 1 m', (PLATE_X+SCREEN_X)/2, -1.7, 0.6, 1);
+
+  window.addEventListener('resize', resizeThree);
+  resizeThree();
+  (function loop(){ requestAnimationFrame(loop); if (window.activeTab !== 1) return; controls.update(); renderer.render(scene,camera); })();
+}
+
+function resizeThree(){
+  const box = document.getElementById('threeBox');
+  const w = box.clientWidth, h = box.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w,h);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+
+function updateThree(){
+  if (!scene) return;
+  const [r,g,b] = lamToRGB(state.lam);
+  const c = new THREE.Color(r,g,b);
+  beamMat.color.copy(c); coneMat.color.copy(c); tipMat.color.copy(c);
+  const r1 = darkRingR(X1);
+  const s = Math.max(0.04, Math.min(1, r1/FIELD));   // 屏幕 2 單位 = 100 mm
+  beamCone.scale.set(s,1,s);
+  buildPlate();
+}
+
+// ================== 事件 ==================
+function updateAll(){
+  drawHole();
+  drawPatternView();
+  drawCurve();
+  updateReadout();
+  updateThree();
+}
+
+const dSlider = document.getElementById('dSlider');
+const lamSlider = document.getElementById('lamSlider');
+const expSlider = document.getElementById('expSlider');
+
+dSlider.addEventListener('input', ()=>{
+  state.D = +dSlider.value;
+  document.getElementById('dVal').textContent = state.D + ' μm';
+  updateAll();
+});
+lamSlider.addEventListener('input', ()=>{
+  state.lam = +lamSlider.value;
+  document.getElementById('lamVal').textContent = state.lam + ' nm';
+  const [r,g,b] = lamToRGB(state.lam);
+  lamSlider.style.accentColor = `rgb(${255*r|0},${255*g|0},${255*b|0})`;
+  updateAll();
+});
+expSlider.addEventListener('input', ()=>{
+  state.gain = Math.pow(10, 3*(+expSlider.value)/100);   // ×1 ~ ×1000
+  document.getElementById('expVal').textContent = '×' + (state.gain<10 ? state.gain.toFixed(1) : Math.round(state.gain));
+  drawPatternView();
+});
+document.querySelectorAll('#gamBtns .btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#gamBtns .btn').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    state.gamma = +btn.dataset.g;
+    document.getElementById('gamVal').textContent = btn.dataset.g === '1' ? '1.0' : btn.dataset.g;
+    drawPatternView();
+  });
+});
+document.getElementById('zoomChk').addEventListener('change', e=>{
+  state.zoom = e.target.checked; drawPatternView(); drawCurve();
+});
+document.getElementById('ringChk').addEventListener('change', e=>{
+  state.ring = e.target.checked; drawPatternView();
+});
+document.getElementById('curveChk').addEventListener('change', e=>{
+  state.curve = e.target.checked;
+  document.getElementById('curveWrap').style.display = state.curve ? 'block' : 'none';
+  drawCurve();
+});
+
+// 初始化
+initThree();
+lamSlider.dispatchEvent(new Event('input'));
+expSlider.dispatchEvent(new Event('input'));
 </script>
 
+<script>
+// ===================================================================
+// 分頁二：雙狹縫干涉（獨立命名空間，不更動分頁一的任何變數）
+// 共用分頁一的純函式：lamToRGB()、makeLabel()
+// ===================================================================
+(function(){
+  const L = 1.0;             // 屏幕距離 (m)
+  const FIELD = 25;          // 固定視野半寬 (mm)
+  const ZOOM = 5;            // 放大倍率
+  const BEAM_W = 3;          // 雷射光束在屏上的 1/e² 半高 (mm)
+  const st = { d:0.20, a:20, lam:550, gain:3, gamma:0.5, zoom:false, fringe:true, curve:false, mode:'laser' };
+  const $ = id => document.getElementById(id);
+
+  // ---------- 物理 ----------
+  function sinT(y_mm){ const y = y_mm*1e-3; return y/Math.sqrt(y*y + L*L); }
+  function envelope(y_mm){                         // 單狹縫包絡 sinc²
+    const b = Math.PI*(st.a*1e-6)*sinT(y_mm)/(st.lam*1e-9);
+    if (Math.abs(b) < 1e-9) return 1;
+    const s = Math.sin(b)/b; return s*s;
+  }
+  function intensity(y_mm){                        // cos² × 包絡
+    const g = Math.PI*(st.d*1e-3)*sinT(y_mm)/(st.lam*1e-9);
+    const c = Math.cos(g);
+    return c*c*envelope(y_mm);
+  }
+  function brightY(m){                             // 第 m 亮紋位置 (mm)：d sinθ = mλ
+    const s = m*(st.lam*1e-9)/(st.d*1e-3);
+    if (Math.abs(s) >= 1) return NaN;
+    return L*Math.tan(Math.asin(s))*1e3;
+  }
+  function envZeroY(){                             // 包絡第一暗紋 (mm)：a sinθ = λ
+    const s = (st.lam*1e-9)/(st.a*1e-6);
+    if (s >= 1) return Infinity;
+    return L*Math.tan(Math.asin(s))*1e3;
+  }
+  function ratioDA(){ return st.d*1000/st.a; }    // d/a（同為 μm）
+  function isMissing(m){                           // 缺級：d/a 為整數且 m 為其倍數
+    const r = ratioDA(), ri = Math.round(r);
+    return m !== 0 && Math.abs(r-ri) < 1e-6 && m % ri === 0;
+  }
+
+  // ---------- 條紋繪製 ----------
+  function render(ctx, size, half, H){
+    H = H || size;                                 // 高度可小於寬度（垂直裁切），比例尺不變
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    const k = 2*half/size;
+    const colI = new Float32Array(size);
+    for (let x=0;x<size;x++){                      // 每欄 4 點超取樣，避免疊紋
+      let s = 0;
+      for (let q=0;q<4;q++) s += intensity((x+(q+0.5)/4-size/2)*k);
+      colI[x] = s/4;
+    }
+    const rowG = new Float32Array(H);
+    for (let y=0;y<H;y++){
+      const yy = (y+0.5-H/2)*k;
+      rowG[y] = st.mode === 'laser' ? Math.exp(-2*(yy/BEAM_W)*(yy/BEAM_W)) : 1;
+    }
+    const img = ctx.createImageData(size,H);
+    const d = img.data;
+    let p = 0;
+    for (let y=0;y<H;y++){
+      const g = rowG[y]*st.gain;
+      for (let x=0;x<size;x++){
+        const v = Math.pow(Math.min(1, colI[x]*g), st.gamma);
+        d[p++] = 255*cr*v; d[p++] = 255*cg*v; d[p++] = 255*cb*v; d[p++] = 255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+
+  const pCan = $('patternCanvas2'), pCtx = pCan.getContext('2d');
+  const texCan = document.createElement('canvas');
+  texCan.width = texCan.height = 512;
+  const texCtx = texCan.getContext('2d');
+  let screenTex = null;
+
+  function drawView(){
+    const S = pCan.width, H = pCan.height;
+    const half = st.zoom ? FIELD/ZOOM : FIELD;
+    render(pCtx, S, half, H);
+
+    // 刻度
+    const step = st.zoom ? 1 : 5;
+    pCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+    pCtx.fillStyle = 'rgba(255,255,255,0.75)';
+    pCtx.font = '13px sans-serif'; pCtx.lineWidth = 1; pCtx.textAlign = 'center';
+    for (let i=-Math.round(half/step); i<=Math.round(half/step); i++){
+      const v = i*step, px = (v+half)/(2*half)*S;
+      const len = i===0 ? 12 : 7;
+      pCtx.beginPath(); pCtx.moveTo(px,H); pCtx.lineTo(px,H-len); pCtx.stroke();
+      const py = H/2 + v/(2*half)*S;               // 左緣刻度（與水平同比例尺）
+      if (py >= 0 && py <= H){ pCtx.beginPath(); pCtx.moveTo(0,py); pCtx.lineTo(len,py); pCtx.stroke(); }
+      if (i!==0 && Math.abs(Math.abs(v)-half)>1e-9) pCtx.fillText(String(v), px, H-16);
+    }
+    pCtx.textAlign = 'right'; pCtx.fillText('mm', S-6, H-16);
+
+    // 亮紋位置標示
+    if (st.fringe){
+      const dy = brightY(1);
+      const spacePx = dy/half*S/2;
+      const every = Math.max(1, Math.ceil(26/spacePx));   // 標籤至少間隔 26 px
+      const M = Math.floor(half/dy) + 1;
+      pCtx.textAlign = 'center'; pCtx.font = '12px sans-serif';
+      for (let m=-M; m<=M; m++){
+        const y = brightY(m);
+        if (!isFinite(y) || Math.abs(y) > half) continue;
+        const px = (y+half)/(2*half)*S;
+        if (isMissing(m)){
+          pCtx.strokeStyle = '#ff6b6b'; pCtx.lineWidth = 1.5;
+          pCtx.beginPath(); pCtx.moveTo(px-4,3); pCtx.lineTo(px+4,11); pCtx.moveTo(px+4,3); pCtx.lineTo(px-4,11); pCtx.stroke();
+          if (m % every === 0){ pCtx.fillStyle = '#ff6b6b'; pCtx.fillText('缺', px, 24); }
+          continue;
+        }
+        pCtx.fillStyle = m===0 ? '#ffffff' : 'rgba(255,255,255,0.8)';
+        pCtx.beginPath(); pCtx.moveTo(px-5,2); pCtx.lineTo(px+5,2); pCtx.lineTo(px,11); pCtx.closePath(); pCtx.fill();
+        if (m % every === 0) pCtx.fillText(String(m), px, 24);
+      }
+      // Δy 標尺（m = 0 → m = 1）
+      const x0 = S/2, x1 = (brightY(1)+half)/(2*half)*S;
+      if (x1 < S-10){
+        const yb = 40;
+        pCtx.strokeStyle = '#fff'; pCtx.lineWidth = 1.2;
+        pCtx.beginPath(); pCtx.moveTo(x0,yb); pCtx.lineTo(x1,yb);
+        pCtx.moveTo(x0,yb-5); pCtx.lineTo(x0,yb+5); pCtx.moveTo(x1,yb-5); pCtx.lineTo(x1,yb+5); pCtx.stroke();
+        const txt = 'Δy = ' + dy.toFixed(2) + ' mm';
+        pCtx.font = '15px sans-serif'; pCtx.textAlign = 'left';
+        let tx = Math.max(x1, x0+20) + 8; tx = Math.min(tx, S-130);
+        pCtx.fillStyle = 'rgba(0,0,0,0.55)'; pCtx.fillRect(tx-4, yb-11, 124, 22);
+        pCtx.fillStyle = '#fff'; pCtx.fillText(txt, tx, yb+5);
+      }
+    }
+
+    // 3D 屏幕貼圖：永遠是完整視野 ±25 mm
+    render(texCtx, 512, FIELD);
+    if (screenTex) screenTex.needsUpdate = true;
+
+    $('fieldLabel2').textContent = st.zoom ? '放大 ×5：視野 ±5 mm' : '視野 ±25 mm';
+  }
+
+  // ---------- 強度曲線 ----------
+  const cCan = $('curveCanvas2'), cCtx = cCan.getContext('2d');
+  function drawCurve(){
+    if (!st.curve) return;
+    const W = cCan.width, H = cCan.height;
+    const padT = 14, padB = 26, ph = H-padT-padB;
+    const half = st.zoom ? FIELD/ZOOM : FIELD;
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    const col = `rgb(${Math.round(255*cr)},${Math.round(255*cg)},${Math.round(255*cb)})`;
+    cCtx.clearRect(0,0,W,H);
+
+    cCtx.strokeStyle = '#3a4570'; cCtx.lineWidth = 1;
+    cCtx.beginPath(); cCtx.moveTo(0,padT+ph); cCtx.lineTo(W,padT+ph); cCtx.stroke();
+    cCtx.beginPath(); cCtx.moveTo(W/2,padT); cCtx.lineTo(W/2,padT+ph); cCtx.stroke();
+    const step = st.zoom ? 1 : 5;
+    cCtx.fillStyle = '#9aa3bd'; cCtx.font = '12px sans-serif'; cCtx.textAlign = 'center';
+    for (let i=-Math.round(half/step); i<=Math.round(half/step); i++){
+      const v = i*step, px = (v+half)/(2*half)*W;
+      cCtx.beginPath(); cCtx.moveTo(px,padT+ph); cCtx.lineTo(px,padT+ph+5); cCtx.stroke();
+      if (Math.abs(Math.abs(v)-half)>1e-9) cCtx.fillText(String(v), px, H-6);
+    }
+
+    // ±包絡第一暗紋
+    const ez = envZeroY();
+    if (ez < half){
+      cCtx.setLineDash([4,4]); cCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+      [-ez, ez].forEach(v=>{
+        const px = (v+half)/(2*half)*W;
+        cCtx.beginPath(); cCtx.moveTo(px,padT); cCtx.lineTo(px,padT+ph); cCtx.stroke();
+      });
+      cCtx.setLineDash([]);
+    }
+
+    const N = 1600;
+    const plot = (fn, dashed, color) => {
+      cCtx.strokeStyle = color; cCtx.lineWidth = dashed ? 1.2 : 1.6;
+      cCtx.setLineDash(dashed ? [5,4] : []);
+      cCtx.beginPath();
+      for (let i=0;i<=N;i++){
+        const xv = -half + 2*half*i/N;
+        const px = i/N*W, py = padT + ph*(1-fn(xv));
+        i ? cCtx.lineTo(px,py) : cCtx.moveTo(px,py);
+      }
+      cCtx.stroke(); cCtx.setLineDash([]);
+    };
+    plot(intensity, false, col);
+    plot(envelope, true, 'rgba(200,210,235,0.7)');
+
+    cCtx.textAlign = 'left'; cCtx.fillStyle = '#c8d2eb';
+    cCtx.fillText('— I / I₀', 8, padT+4);
+    cCtx.fillText('- - 單狹縫包絡', 8, padT+20);
+    cCtx.textAlign = 'right';
+    cCtx.fillText('屏幕位置 (mm)', W-6, padT+4);
+  }
+
+  // ---------- 雙狹縫示意圖 ----------
+  const hCan = $('holeCanvas2'), hCtx = hCan.getContext('2d');
+  function drawSlits(){
+    const W = hCan.width, H = hCan.height;
+    const span = 700;                         // 畫面寬度代表 700 μm
+    const k = W/span;
+    const grd = hCtx.createLinearGradient(0,0,W,H);
+    grd.addColorStop(0,'#5a6070'); grd.addColorStop(1,'#33373f');
+    hCtx.fillStyle = grd; hCtx.fillRect(0,0,W,H);
+
+    const cx = W/2, top = 34, bot = 186;
+    const dpx = st.d*1000*k, apx = Math.max(1.5, st.a*k);
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    hCtx.fillStyle = `rgb(${255*cr|0},${255*cg|0},${255*cb|0})`;
+    [cx-dpx/2, cx+dpx/2].forEach(x=> hCtx.fillRect(x-apx/2, top, apx, bot-top));
+
+    hCtx.fillStyle = '#fff'; hCtx.strokeStyle = '#fff'; hCtx.lineWidth = 1.2;
+    hCtx.font = 'bold 16px sans-serif'; hCtx.textAlign = 'center';
+    hCtx.fillText('a = ' + st.a + ' μm', cx, 22);
+
+    // d 標示（兩縫中心）
+    const yy = bot + 14;
+    hCtx.beginPath();
+    hCtx.moveTo(cx-dpx/2,yy); hCtx.lineTo(cx+dpx/2,yy);
+    hCtx.moveTo(cx-dpx/2,yy-5); hCtx.lineTo(cx-dpx/2,yy+5);
+    hCtx.moveTo(cx+dpx/2,yy-5); hCtx.lineTo(cx+dpx/2,yy+5);
+    hCtx.stroke();
+    hCtx.font = 'bold 18px sans-serif';
+    hCtx.fillText('d = ' + st.d.toFixed(2) + ' mm', cx, yy+24);
+
+    // 比例尺 100 μm
+    const sb = 100*k, sx = 14, sy = H-16;
+    hCtx.fillStyle = 'rgba(0,0,0,0.45)'; hCtx.fillRect(sx-6, sy-22, Math.max(sb,56)+12, 30);
+    hCtx.strokeStyle = '#fff'; hCtx.lineWidth = 3;
+    hCtx.beginPath(); hCtx.moveTo(sx,sy); hCtx.lineTo(sx+sb,sy); hCtx.stroke();
+    hCtx.fillStyle = '#fff'; hCtx.font = '14px sans-serif'; hCtx.textAlign = 'left';
+    hCtx.fillText('100 μm', sx, sy-8);
+  }
+
+  // ---------- 數值讀出 ----------
+  function updateReadout(){
+    const dy = brightY(1);
+    const th1 = Math.asin(st.lam*1e-9/(st.d*1e-3));
+    const ez = envZeroY();
+    const r = ratioDA(), ri = Math.round(r), isInt = Math.abs(r-ri) < 1e-6;
+    const n = Math.floor(r - 1e-9);
+    const count = 2*n + 1;
+    let html =
+      `<span class="k">狹縫間距 d：</span>${st.d.toFixed(2)} mm<br>` +
+      `<span class="k">狹縫寬度 a：</span>${st.a} μm<br>` +
+      `<span class="k">波長 λ：</span>${st.lam} nm<br>` +
+      `<span class="k">亮紋間距 Δy：</span>${dy.toFixed(3)} mm<br>` +
+      `<span class="k">第一亮紋角 θ₁：</span>${(th1*1e3).toFixed(2)} mrad<br>` +
+      `<span class="k">包絡第一暗紋：</span>±${ez.toFixed(2)} mm<br>` +
+      `<span class="k">d / a：</span>${r.toFixed(2)}<br>` +
+      `<span class="k">中央包絡內亮紋數：</span>${count} 條`;
+    if (isInt) html += `<br><span style="color:#ff8a8a">缺級：m = ±${ri}, ±${2*ri}, …</span>`;
+    $('readout2').innerHTML = html;
+  }
+
+  // ---------- Three.js 裝置圖 ----------
+  let renderer, scene, camera, controls, plateMesh, fanMesh, laserGroup, lampGroup;
+  let beamMat, tipMat, fanMat, filterMat, sheetMat, glowMat;
+  const PLATE_X = -1.5, SCREEN_X = 3.0, SRC_X = -3.8, SS_X = -2.7;
+
+  function buildPlate(){
+    if (plateMesh){ scene.remove(plateMesh); plateMesh.geometry.dispose(); }
+    const hw = 0.6, hh = 0.45;
+    const shape = new THREE.Shape();
+    shape.moveTo(-hw,-hw); shape.lineTo(hw,-hw); shape.lineTo(hw,hw); shape.lineTo(-hw,hw); shape.lineTo(-hw,-hw);
+    const w = 0.006 + (st.a-20)/80*0.010;                 // 示意：縫寬 0.006～0.016
+    const c = 0.04 + (st.d*1000-50)/450*0.10;             // 示意：中心距 0.04～0.14（外緣 < 光束直徑 0.20）
+    [-c/2, c/2].forEach(x0=>{
+      const h = new THREE.Path();
+      h.moveTo(x0-w/2,-hh); h.lineTo(x0-w/2,hh); h.lineTo(x0+w/2,hh); h.lineTo(x0+w/2,-hh); h.lineTo(x0-w/2,-hh);
+      shape.holes.push(h);
+    });
+    const geo = new THREE.ExtrudeGeometry(shape,{depth:0.04,bevelEnabled:false});
+    geo.translate(0,0,-0.02);
+    plateMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0x8a8f99,metalness:0.7,roughness:0.35}));
+    plateMesh.rotation.y = Math.PI/2;
+    plateMesh.position.set(PLATE_X,0,0);
+    scene.add(plateMesh);
+  }
+
+  function buildFan(){
+    if (fanMesh){ scene.remove(fanMesh); fanMesh.geometry.dispose(); }
+    const len = SCREEN_X - PLATE_X;
+    const H = st.mode === 'laser' ? 0.09 : 0.9;           // 雷射：薄扇面；單色光源：高度為狹縫長
+    const sh = new THREE.Shape();
+    sh.moveTo(0,-0.01); sh.lineTo(len,-1); sh.lineTo(len,1); sh.lineTo(0,0.01); sh.lineTo(0,-0.01);
+    const geo = new THREE.ExtrudeGeometry(sh,{depth:H,bevelEnabled:false});
+    geo.translate(0,0,-H/2);
+    fanMesh = new THREE.Mesh(geo, fanMat);
+    fanMesh.rotation.x = Math.PI/2;                       // 局部 y → 世界 z（水平展開）
+    fanMesh.position.set(PLATE_X,0,0);
+    fanMesh.scale.y = Math.max(0.05, Math.min(1, envZeroY()/FIELD));  // 屏幕 2 單位 = 50 mm
+    scene.add(fanMesh);
+  }
+
+  function singleSlitPlate(){
+    const hw = 0.5, w = 0.20, hh = 0.45;   // 光源狹縫寬 = 雷射光徑 0.20
+    const shape = new THREE.Shape();
+    shape.moveTo(-hw,-hw); shape.lineTo(hw,-hw); shape.lineTo(hw,hw); shape.lineTo(-hw,hw); shape.lineTo(-hw,-hw);
+    const h = new THREE.Path();
+    h.moveTo(-w/2,-hh); h.lineTo(-w/2,hh); h.lineTo(w/2,hh); h.lineTo(w/2,-hh); h.lineTo(-w/2,-hh);
+    shape.holes.push(h);
+    const geo = new THREE.ExtrudeGeometry(shape,{depth:0.04,bevelEnabled:false});
+    geo.translate(0,0,-0.02);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:0x6f7480,metalness:0.6,roughness:0.4}));
+    m.rotation.y = Math.PI/2; m.position.set(SS_X,0,0);
+    return m;
+  }
+
+  function initThree(){
+    const box = $('threeBox2');
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setClearColor(0x0b1020);
+    box.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(40,1,0.1,100);
+    camera.position.set(-1.2,2.6,7.2);
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(-0.3,-0.2,0);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff,0.55));
+    const dl = new THREE.DirectionalLight(0xffffff,0.8);
+    dl.position.set(2,5,4); scene.add(dl);
+
+    // 軌道與支架
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(8.0,0.12,0.4),
+      new THREE.MeshStandardMaterial({color:0x3a4256,metalness:0.6,roughness:0.5}));
+    rail.position.set(-0.55,-1.15,0); scene.add(rail);
+    const standMat = new THREE.MeshStandardMaterial({color:0x555c6c,metalness:0.5,roughness:0.5});
+    const stand = (x,len)=>{
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,len,16), standMat);
+      s.position.set(x,-1.1+len/2,0); return s;
+    };
+    scene.add(stand(PLATE_X,0.5), stand(SCREEN_X,0.6));
+
+    // --- 雷射組 ---
+    laserGroup = new THREE.Group();
+    const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.9,32),
+      new THREE.MeshStandardMaterial({color:0x22252c,metalness:0.6,roughness:0.4}));
+    laser.rotation.z = Math.PI/2; laser.position.set(SRC_X,0,0);
+    tipMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.10,16,16), tipMat);
+    tip.position.set(SRC_X+0.46,0,0);
+    const inLen = PLATE_X - (SRC_X+0.45);
+    beamMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85});
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,inLen,24), beamMat);
+    beam.rotation.z = Math.PI/2; beam.position.set((SRC_X+0.45+PLATE_X)/2,0,0);
+    const lb1 = makeLabel('雷射'); lb1.position.set(SRC_X,0.5,0);
+    laserGroup.add(laser, tip, beam, lb1, stand(SRC_X,0.98));
+    scene.add(laserGroup);
+
+    // --- 單色光源＋單狹縫組 ---
+    lampGroup = new THREE.Group();
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.7,0.7),
+      new THREE.MeshStandardMaterial({color:0x2a2e38,metalness:0.4,roughness:0.6}));
+    lamp.position.set(SRC_X,0,0);
+    filterMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const filter = new THREE.Mesh(new THREE.PlaneGeometry(0.20,0.5), filterMat);
+    filter.rotation.y = Math.PI/2; filter.position.set(SRC_X+0.301,0,0);
+    // 光源 → 單狹縫：寬光束
+    const g1Len = SS_X - (SRC_X+0.3);
+    glowMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.14,depthWrite:false});
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(g1Len,0.5,0.20), glowMat);
+    glow.position.set((SS_X+SRC_X+0.3)/2,0,0);
+    // 單狹縫 → 雙狹縫：垂直光片
+    const g2Len = PLATE_X - SS_X;
+    sheetMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.3,side:THREE.DoubleSide,depthWrite:false});
+    const sheet = new THREE.Mesh(new THREE.BoxGeometry(g2Len,0.9,0.20), sheetMat);
+    sheet.position.set((SS_X+PLATE_X)/2,0,0);
+    const lb2 = makeLabel('單色光源'); lb2.position.set(SRC_X,0.6,0);
+    const lb3 = makeLabel('單狹縫');   lb3.position.set(SS_X,0.8,0);
+    lampGroup.add(lamp, filter, glow, sheet, singleSlitPlate(), lb2, lb3, stand(SRC_X,0.75), stand(SS_X,0.6));
+    lampGroup.visible = false;
+    scene.add(lampGroup);
+
+    // --- 繞射後扇形光 ---
+    fanMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.16,side:THREE.DoubleSide,depthWrite:false});
+    buildPlate();
+    buildFan();
+
+    // --- 屏幕 ---
+    screenTex = new THREE.CanvasTexture(texCan);
+    screenTex.repeat.set(1, 0.45); screenTex.offset.set(0, 0.275);   // 屏高 = 狹縫長 0.9：只取貼圖中段，不壓縮比例
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(2,0.9), new THREE.MeshBasicMaterial({map:screenTex}));
+    scr.rotation.y = -Math.PI/2; scr.position.set(SCREEN_X-0.031,0,0); scene.add(scr);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.02,2.12),
+      new THREE.MeshStandardMaterial({color:0xd8dbe2,roughness:0.8}));
+    frame.position.set(SCREEN_X,0,0); scene.add(frame);
+
+    // --- L 標示 ---
+    const lineMat = new THREE.LineBasicMaterial({color:0xaab4d0});
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      [new THREE.Vector3(PLATE_X,-1.45,0.6), new THREE.Vector3(SCREEN_X,-1.45,0.6)]), lineMat));
+    [PLATE_X,SCREEN_X].forEach(x=>{
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+        [new THREE.Vector3(x,-1.35,0.6), new THREE.Vector3(x,-1.55,0.6)]), lineMat));
+    });
+
+    const lab = (t,x,y,z)=>{ const sp = makeLabel(t); sp.position.set(x,y,z); scene.add(sp); };
+    lab('雙狹縫', PLATE_X, 0.95, 0);
+    lab('屏幕', SCREEN_X, 0.8, 0);
+    lab('L = 1 m', (PLATE_X+SCREEN_X)/2, -1.7, 0.6);
+
+    window.addEventListener('resize', resize);
+    (function loop(){
+      requestAnimationFrame(loop);
+      if (window.activeTab !== 2) return;
+      controls.update(); renderer.render(scene,camera);
+    })();
+  }
+
+  function resize(){
+    const box = $('threeBox2');
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w,h);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+
+  function updateThree(){
+    if (!scene) return;
+    const [r,g,b] = lamToRGB(st.lam);
+    const c = new THREE.Color(r,g,b);
+    [beamMat, tipMat, fanMat, filterMat, sheetMat, glowMat].forEach(m=>m.color.copy(c));
+    laserGroup.visible = st.mode === 'laser';
+    lampGroup.visible  = st.mode === 'lamp';
+    buildPlate();
+    buildFan();
+  }
+
+  // ---------- 事件 ----------
+  function updateAll(){ drawSlits(); drawView(); drawCurve(); updateReadout(); updateThree(); }
+
+  const dS = $('dSlider2'), aS = $('aSlider2'), lS = $('lamSlider2'), eS = $('expSlider2');
+  dS.addEventListener('input', ()=>{ st.d = +dS.value; $('dVal2').textContent = st.d.toFixed(2)+' mm'; updateAll(); });
+  aS.addEventListener('input', ()=>{ st.a = +aS.value; $('aVal2').textContent = st.a+' μm'; updateAll(); });
+  lS.addEventListener('input', ()=>{
+    st.lam = +lS.value; $('lamVal2').textContent = st.lam+' nm';
+    const [r,g,b] = lamToRGB(st.lam);
+    lS.style.accentColor = `rgb(${255*r|0},${255*g|0},${255*b|0})`;
+    updateAll();
+  });
+  eS.addEventListener('input', ()=>{
+    st.gain = Math.pow(10, 3*(+eS.value)/100);             // ×1 ~ ×1000
+    $('expVal2').textContent = '×' + (st.gain<10 ? st.gain.toFixed(1) : Math.round(st.gain));
+    drawView();
+  });
+  document.querySelectorAll('#gamBtns2 .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#gamBtns2 .btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      st.gamma = +btn.dataset.g;
+      $('gamVal2').textContent = btn.dataset.g === '1' ? '1.0' : btn.dataset.g;
+      drawView();
+    });
+  });
+  document.querySelectorAll('#srcBtns2 .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#srcBtns2 .btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      st.mode = btn.dataset.m;
+      drawView(); updateThree();
+    });
+  });
+  $('zoomChk2').addEventListener('change', e=>{ st.zoom = e.target.checked; drawView(); drawCurve(); });
+  $('fringeChk2').addEventListener('change', e=>{ st.fringe = e.target.checked; drawView(); });
+  $('curveChk2').addEventListener('change', e=>{
+    st.curve = e.target.checked;
+    $('curveWrap2').style.display = st.curve ? 'block' : 'none';
+    drawCurve();
+  });
+
+  // ---------- 分頁切換 ----------
+  const titles = {
+    1: ['光的干涉與繞射', '圓孔繞射：Airy 繞射圖樣　｜　屏幕距離 L = 1 m（固定）'],
+    2: ['光的干涉與繞射', '雙狹縫干涉：楊氏雙狹縫實驗　｜　屏幕距離 L = 1 m（固定）'],
+    3: ['光的干涉與繞射', '單狹縫繞射：夫朗和斐單狹縫繞射　｜　屏幕距離 L = 1 m（固定）'],
+    4: ['光的干涉與繞射', '雙狹縫 vs 單狹縫：單狹縫繞射對雙狹縫干涉的影響　｜　屏幕距離 L = 1 m（固定）']
+  };
+  window.activeTab = 1;
+  function showTab(n){
+    window.activeTab = n;
+    $('tab1').classList.toggle('hidden', n !== 1);
+    $('tab2').classList.toggle('hidden', n !== 2);
+    $('tab3').classList.toggle('hidden', n !== 3);
+    $('tab4').classList.toggle('hidden', n !== 4);
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', +t.dataset.tab === n));
+    $('pageTitle').textContent = titles[n][0];
+    $('pageSub').textContent = titles[n][1];
+    if (n === 1) resizeThree();
+    else if (n === 2) resize();
+    else if (window.resizeTab3) window.resizeTab3();
+  }
+  document.querySelectorAll('.tab').forEach(t=> t.addEventListener('click', ()=> showTab(+t.dataset.tab)));
+
+  // ---------- 初始化 ----------
+  initThree();
+  lS.dispatchEvent(new Event('input'));
+  eS.dispatchEvent(new Event('input'));
+  showTab(2);                                   // 預設開啟最左邊的「雙狹縫干涉」
+})();
+</script>
+
+<script>
+// ===================================================================
+// 分頁三：單狹縫繞射（獨立命名空間，不更動分頁一、二的任何變數）
+// 共用分頁一的純函式：lamToRGB()、makeLabel()
+// ===================================================================
+(function(){
+  const L = 1.0;             // 屏幕距離 (m)
+  const FIELD = 50;          // 固定視野半寬 (mm)
+  const ZOOM = 5;            // 放大倍率
+  const BEAM_W = 3;          // 雷射光束在屏上的 1/e² 半高 (mm)
+  const NSEC = 3;            // 讀出表列出的次亮紋數
+  const st = { a:50, lam:550, gain:4.9, gamma:0.5, zoom:false, dark:true, sec:true, curve:false, mode:'laser' };
+  const $ = id => document.getElementById(id);
+
+  // ---------- 物理 ----------
+  function sinT(y_mm){ const y = y_mm*1e-3; return y/Math.sqrt(y*y + L*L); }
+  function intensity(y_mm){                        // (sinβ/β)²
+    const b = Math.PI*(st.a*1e-6)*sinT(y_mm)/(st.lam*1e-9);
+    if (Math.abs(b) < 1e-9) return 1;
+    const s = Math.sin(b)/b; return s*s;
+  }
+  function yFromBeta(beta){                        // β → 屏上位置 (mm)
+    const s = beta*(st.lam*1e-9)/(Math.PI*st.a*1e-6);
+    if (Math.abs(s) >= 1) return NaN;
+    return L*Math.tan(Math.asin(s))*1e3;
+  }
+  // 次亮紋精確位置：tan β = β，於 (mπ, (m+½)π) 內二分法求根
+  const SEC_BETA = [];
+  for (let m=1; m<=60; m++){
+    let lo = m*Math.PI + 1e-9, hi = (m+0.5)*Math.PI - 1e-9;
+    const f = x => x*Math.cos(x) - Math.sin(x);
+    for (let i=0;i<80;i++){ const mid=(lo+hi)/2; (f(lo)*f(mid) <= 0) ? hi=mid : lo=mid; }
+    SEC_BETA[m] = (lo+hi)/2;
+  }
+  const darkY   = m => yFromBeta(m*Math.PI);
+  const secY    = m => yFromBeta(SEC_BETA[m]);
+  const approxY = m => yFromBeta((m+0.5)*Math.PI);
+  function secI(m){ const b = SEC_BETA[m], s = Math.sin(b)/b; return s*s; }
+
+  // ---------- 條紋繪製 ----------
+  function render(ctx, size, half, H){
+    H = H || size;                                 // 高度可小於寬度（垂直裁切），比例尺不變
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    const k = 2*half/size;
+    const colI = new Float32Array(size);
+    for (let x=0;x<size;x++){                      // 每欄 4 點超取樣
+      let s = 0;
+      for (let q=0;q<4;q++) s += intensity((x+(q+0.5)/4-size/2)*k);
+      colI[x] = s/4;
+    }
+    const rowG = new Float32Array(H);
+    for (let y=0;y<H;y++){
+      const yy = (y+0.5-H/2)*k;
+      rowG[y] = st.mode === 'laser' ? Math.exp(-2*(yy/BEAM_W)*(yy/BEAM_W)) : 1;
+    }
+    const img = ctx.createImageData(size,H);
+    const d = img.data;
+    let p = 0;
+    for (let y=0;y<H;y++){
+      const g = rowG[y]*st.gain;
+      for (let x=0;x<size;x++){
+        const v = Math.pow(Math.min(1, colI[x]*g), st.gamma);
+        d[p++] = 255*cr*v; d[p++] = 255*cg*v; d[p++] = 255*cb*v; d[p++] = 255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+
+  const pCan = $('patternCanvas3'), pCtx = pCan.getContext('2d');
+  const texCan = document.createElement('canvas');
+  texCan.width = texCan.height = 512;
+  const texCtx = texCan.getContext('2d');
+  let screenTex = null;
+
+  function drawView(){
+    const S = pCan.width, H = pCan.height;
+    const half = st.zoom ? FIELD/ZOOM : FIELD;
+    const toPx = v => (v+half)/(2*half)*S;
+    render(pCtx, S, half, H);
+
+    // 刻度
+    const step = st.zoom ? 2 : 10;
+    pCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+    pCtx.fillStyle = 'rgba(255,255,255,0.75)';
+    pCtx.font = '13px sans-serif'; pCtx.lineWidth = 1; pCtx.textAlign = 'center';
+    for (let i=-Math.round(half/step); i<=Math.round(half/step); i++){
+      const v = i*step, px = toPx(v);
+      const len = i===0 ? 12 : 7;
+      pCtx.beginPath(); pCtx.moveTo(px,H); pCtx.lineTo(px,H-len); pCtx.stroke();
+      const py = H/2 + v/(2*half)*S;               // 左緣刻度（與水平同比例尺）
+      if (py >= 0 && py <= H){ pCtx.beginPath(); pCtx.moveTo(0,py); pCtx.lineTo(len,py); pCtx.stroke(); }
+      if (i!==0 && Math.abs(Math.abs(v)-half)>1e-9) pCtx.fillText(String(v), px, H-16);
+    }
+    pCtx.textAlign = 'right'; pCtx.fillText('mm', S-6, H-16);
+
+    const y1 = darkY(1);
+    const spacePx = y1/half*S/2;                       // 相鄰暗紋間距 (px)
+    const every = Math.max(1, Math.ceil(26/spacePx));  // 標籤至少間隔 26 px
+    const M = Math.ceil(half/y1) + 1;
+
+    // 暗紋位置（上緣白色 ▼ + 級數）
+    if (st.dark){
+      pCtx.font = '12px sans-serif'; pCtx.textAlign = 'center';
+      for (let m=-M; m<=M; m++){
+        if (m === 0) continue;
+        const y = darkY(Math.abs(m))*Math.sign(m);
+        if (!isFinite(y) || Math.abs(y) > half) continue;
+        const px = toPx(y);
+        pCtx.fillStyle = 'rgba(255,255,255,0.85)';
+        pCtx.beginPath(); pCtx.moveTo(px-5,2); pCtx.lineTo(px+5,2); pCtx.lineTo(px,11); pCtx.closePath(); pCtx.fill();
+        if (Math.abs(m) % every === 0) pCtx.fillText(String(m), px, 24);
+      }
+      // 中央亮紋寬度標尺（-y1 → +y1）
+      if (y1 < half){
+        const xa = toPx(-y1), xb = toPx(y1), yb = 72;
+        pCtx.strokeStyle = '#fff'; pCtx.lineWidth = 1.2;
+        pCtx.beginPath(); pCtx.moveTo(xa,yb); pCtx.lineTo(xb,yb);
+        pCtx.moveTo(xa,yb-5); pCtx.lineTo(xa,yb+5); pCtx.moveTo(xb,yb-5); pCtx.lineTo(xb,yb+5); pCtx.stroke();
+        const txt = '中央亮紋寬 ' + (2*y1).toFixed(2) + ' mm';
+        pCtx.font = '15px sans-serif'; pCtx.textAlign = 'left';
+        let tx = xb + 8; tx = Math.min(tx, S-170);
+        const ty = (tx < xb) ? yb + 26 : yb + 5;
+        pCtx.fillStyle = 'rgba(0,0,0,0.55)'; pCtx.fillRect(tx-4, ty-16, 166, 22);
+        pCtx.fillStyle = '#fff'; pCtx.fillText(txt, tx, ty);
+      }
+    }
+
+    // 次亮紋：精確（實心黃點）vs 課本近似（空心青圈）
+    if (st.sec){
+      for (let m=-M; m<=M; m++){
+        if (m === 0) continue;
+        const am = Math.abs(m), sg = Math.sign(m);
+        const ye = secY(am)*sg, ya = approxY(am)*sg;
+        if (isFinite(ye) && Math.abs(ye) <= half){
+          pCtx.fillStyle = '#ffd75e';
+          pCtx.beginPath(); pCtx.arc(toPx(ye), 38, 3.5, 0, Math.PI*2); pCtx.fill();
+        }
+        if (isFinite(ya) && Math.abs(ya) <= half){
+          pCtx.strokeStyle = '#5ee0ff'; pCtx.lineWidth = 1.5;
+          pCtx.beginPath(); pCtx.arc(toPx(ya), 50, 3.5, 0, Math.PI*2); pCtx.stroke();
+        }
+      }
+      // 圖例（左下）
+      const lx = 10, ly = H-62;
+      pCtx.fillStyle = 'rgba(0,0,0,0.6)'; pCtx.fillRect(lx-4, ly-14, 218, 40);
+      pCtx.font = '13px sans-serif'; pCtx.textAlign = 'left';
+      pCtx.fillStyle = '#ffd75e';
+      pCtx.beginPath(); pCtx.arc(lx+6, ly-4, 3.5, 0, Math.PI*2); pCtx.fill();
+      pCtx.fillText('次亮紋精確位置（tan β = β）', lx+16, ly);
+      pCtx.strokeStyle = '#5ee0ff'; pCtx.lineWidth = 1.5;
+      pCtx.beginPath(); pCtx.arc(lx+6, ly+14, 3.5, 0, Math.PI*2); pCtx.stroke();
+      pCtx.fillStyle = '#5ee0ff';
+      pCtx.fillText('課本近似 a sin θ = (m+½)λ', lx+16, ly+18);
+    }
+
+    // 3D 屏幕貼圖：永遠是完整視野 ±50 mm
+    render(texCtx, 512, FIELD);
+    if (screenTex) screenTex.needsUpdate = true;
+
+    $('fieldLabel3').textContent = st.zoom ? '放大 ×5：視野 ±10 mm' : '視野 ±50 mm';
+  }
+
+  // ---------- 強度曲線 ----------
+  const cCan = $('curveCanvas3'), cCtx = cCan.getContext('2d');
+  function drawCurve(){
+    if (!st.curve) return;
+    const W = cCan.width, H = cCan.height;
+    const padT = 14, padB = 26, ph = H-padT-padB;
+    const half = st.zoom ? FIELD/ZOOM : FIELD;
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    const col = `rgb(${Math.round(255*cr)},${Math.round(255*cg)},${Math.round(255*cb)})`;
+    cCtx.clearRect(0,0,W,H);
+
+    cCtx.strokeStyle = '#3a4570'; cCtx.lineWidth = 1;
+    cCtx.beginPath(); cCtx.moveTo(0,padT+ph); cCtx.lineTo(W,padT+ph); cCtx.stroke();
+    cCtx.beginPath(); cCtx.moveTo(W/2,padT); cCtx.lineTo(W/2,padT+ph); cCtx.stroke();
+    const step = st.zoom ? 2 : 10;
+    cCtx.fillStyle = '#9aa3bd'; cCtx.font = '12px sans-serif'; cCtx.textAlign = 'center';
+    for (let i=-Math.round(half/step); i<=Math.round(half/step); i++){
+      const v = i*step, px = (v+half)/(2*half)*W;
+      cCtx.beginPath(); cCtx.moveTo(px,padT+ph); cCtx.lineTo(px,padT+ph+5); cCtx.stroke();
+      if (Math.abs(Math.abs(v)-half)>1e-9) cCtx.fillText(String(v), px, H-6);
+    }
+
+    // ±第一暗紋
+    const y1 = darkY(1);
+    if (y1 < half){
+      cCtx.setLineDash([4,4]); cCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+      [-y1, y1].forEach(v=>{
+        const px = (v+half)/(2*half)*W;
+        cCtx.beginPath(); cCtx.moveTo(px,padT); cCtx.lineTo(px,padT+ph); cCtx.stroke();
+      });
+      cCtx.setLineDash([]);
+    }
+
+    const N = 1200;
+    const plot = (mult, dashed, color) => {
+      cCtx.strokeStyle = color; cCtx.lineWidth = dashed ? 1.2 : 2;
+      cCtx.setLineDash(dashed ? [5,4] : []);
+      cCtx.beginPath();
+      for (let i=0;i<=N;i++){
+        const xv = -half + 2*half*i/N;
+        const I = Math.min(1, intensity(xv)*mult);
+        const px = i/N*W, py = padT + ph*(1-I);
+        i ? cCtx.lineTo(px,py) : cCtx.moveTo(px,py);
+      }
+      cCtx.stroke(); cCtx.setLineDash([]);
+    };
+    plot(10, true, 'rgba(200,210,235,0.6)');
+    plot(1, false, col);
+
+    cCtx.textAlign = 'left'; cCtx.fillStyle = '#c8d2eb';
+    cCtx.fillText('— I / I₀（線性）', 8, padT+4);
+    cCtx.fillText('- - I / I₀ × 10（觀察次亮紋）', 8, padT+20);
+    cCtx.textAlign = 'right';
+    cCtx.fillText('屏幕位置 (mm)', W-6, padT+4);
+  }
+
+  // ---------- 單狹縫示意圖 ----------
+  const hCan = $('holeCanvas3'), hCtx = hCan.getContext('2d');
+  function drawSlit(){
+    const W = hCan.width, H = hCan.height;
+    const span = 260;                         // 畫面寬度代表 260 μm（與分頁一相同）
+    const k = W/span;
+    const grd = hCtx.createLinearGradient(0,0,W,H);
+    grd.addColorStop(0,'#5a6070'); grd.addColorStop(1,'#33373f');
+    hCtx.fillStyle = grd; hCtx.fillRect(0,0,W,H);
+
+    const cx = W/2, top = 24, bot = 186;
+    const apx = st.a*k;
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    hCtx.fillStyle = `rgb(${255*cr|0},${255*cg|0},${255*cb|0})`;
+    hCtx.fillRect(cx-apx/2, top, apx, bot-top);
+
+    // a 標示
+    hCtx.fillStyle = '#fff'; hCtx.strokeStyle = '#fff'; hCtx.lineWidth = 1.2;
+    const yy = bot + 14;
+    hCtx.beginPath();
+    hCtx.moveTo(cx-apx/2,yy); hCtx.lineTo(cx+apx/2,yy);
+    hCtx.moveTo(cx-apx/2,yy-5); hCtx.lineTo(cx-apx/2,yy+5);
+    hCtx.moveTo(cx+apx/2,yy-5); hCtx.lineTo(cx+apx/2,yy+5);
+    hCtx.stroke();
+    hCtx.font = 'bold 18px sans-serif'; hCtx.textAlign = 'center';
+    hCtx.fillText('a = ' + st.a + ' μm', cx, yy+24);
+
+    // 比例尺 100 μm
+    const sb = 100*k, sx = 14, sy = H-16;
+    hCtx.fillStyle = 'rgba(0,0,0,0.45)'; hCtx.fillRect(sx-6, sy-22, sb+12, 30);
+    hCtx.strokeStyle = '#fff'; hCtx.lineWidth = 3;
+    hCtx.beginPath(); hCtx.moveTo(sx,sy); hCtx.lineTo(sx+sb,sy); hCtx.stroke();
+    hCtx.fillStyle = '#fff'; hCtx.font = '14px sans-serif'; hCtx.textAlign = 'center';
+    hCtx.fillText('100 μm', sx+sb/2, sy-8);
+  }
+
+  // ---------- 數值讀出 ----------
+  function updateReadout(){
+    const th1 = Math.asin(st.lam*1e-9/(st.a*1e-6));
+    const y1 = darkY(1), y2 = darkY(2);
+    const wc = 2*y1, wo = y2 - y1;
+    let rows = '';
+    for (let m=1; m<=NSEC; m++){
+      rows += `<tr><td>${m}</td><td>${(SEC_BETA[m]/Math.PI).toFixed(4)}π</td>` +
+              `<td>${secY(m).toFixed(2)}</td><td>${approxY(m).toFixed(2)}</td>` +
+              `<td>${(secI(m)*100).toFixed(2)}%</td></tr>`;
+    }
+    $('readout3').innerHTML =
+      `<span class="k">狹縫寬度 a：</span>${st.a} μm<br>` +
+      `<span class="k">波長 λ：</span>${st.lam} nm<br>` +
+      `<span class="k">第一暗紋角 θ₁：</span>${(th1*1e3).toFixed(2)} mrad（${(th1*180/Math.PI).toFixed(3)}°）<br>` +
+      `<span class="k">第一暗紋位置 y₁：</span>±${y1.toFixed(2)} mm<br>` +
+      `<span class="k">中央亮紋寬度：</span>${wc.toFixed(2)} mm<br>` +
+      `<span class="k">其他亮紋寬度：</span>${wo.toFixed(2)} mm<br>` +
+      `<span class="k">兩者比值：</span>${(wc/wo).toFixed(3)}<br>` +
+      `<span class="k">次亮紋位置 (mm)：</span>` +
+      `<table class="smtab"><tr><th>m</th><th>精確 β</th><th>精確 y</th><th>近似 y</th><th>I/I₀</th></tr>${rows}</table>`;
+  }
+
+  // ---------- Three.js 裝置圖 ----------
+  let renderer, scene, camera, controls, plateMesh, fanMesh, laserGroup, lampGroup;
+  let beamMat, tipMat, fanMat, filterMat, sheetMat, glowMat;
+  const PLATE_X = -1.5, SCREEN_X = 3.0, SRC_X = -3.8, SS_X = -2.7;
+
+  function slitPlate(w, hw, color, x){
+    const hh = 0.45;
+    const shape = new THREE.Shape();
+    shape.moveTo(-hw,-hw); shape.lineTo(hw,-hw); shape.lineTo(hw,hw); shape.lineTo(-hw,hw); shape.lineTo(-hw,-hw);
+    const h = new THREE.Path();
+    h.moveTo(-w/2,-hh); h.lineTo(-w/2,hh); h.lineTo(w/2,hh); h.lineTo(w/2,-hh); h.lineTo(-w/2,-hh);
+    shape.holes.push(h);
+    const geo = new THREE.ExtrudeGeometry(shape,{depth:0.04,bevelEnabled:false});
+    geo.translate(0,0,-0.02);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color,metalness:0.7,roughness:0.35}));
+    m.rotation.y = Math.PI/2; m.position.set(x,0,0);
+    return m;
+  }
+
+  function buildPlate(){
+    if (plateMesh){ scene.remove(plateMesh); plateMesh.geometry.dispose(); }
+    const w = 0.02 + (st.a-20)/180*0.13;               // 示意：縫寬 0.02～0.15，小於光束直徑 0.20
+    plateMesh = slitPlate(w, 0.6, 0x8a8f99, PLATE_X);
+    scene.add(plateMesh);
+  }
+
+  function buildFan(){
+    if (fanMesh){ scene.remove(fanMesh); fanMesh.geometry.dispose(); }
+    const len = SCREEN_X - PLATE_X;
+    const H = st.mode === 'laser' ? 0.09 : 0.9;
+    const sh = new THREE.Shape();
+    sh.moveTo(0,-0.01); sh.lineTo(len,-1); sh.lineTo(len,1); sh.lineTo(0,0.01); sh.lineTo(0,-0.01);
+    const geo = new THREE.ExtrudeGeometry(sh,{depth:H,bevelEnabled:false});
+    geo.translate(0,0,-H/2);
+    fanMesh = new THREE.Mesh(geo, fanMat);
+    fanMesh.rotation.x = Math.PI/2;
+    fanMesh.position.set(PLATE_X,0,0);
+    fanMesh.scale.y = Math.max(0.03, Math.min(1, darkY(1)/FIELD));   // 屏幕 2 單位 = 100 mm
+    scene.add(fanMesh);
+  }
+
+  function initThree(){
+    const box = $('threeBox3');
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setClearColor(0x0b1020);
+    box.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(40,1,0.1,100);
+    camera.position.set(-1.2,2.6,7.2);
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(-0.3,-0.2,0);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff,0.55));
+    const dl = new THREE.DirectionalLight(0xffffff,0.8);
+    dl.position.set(2,5,4); scene.add(dl);
+
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(8.0,0.12,0.4),
+      new THREE.MeshStandardMaterial({color:0x3a4256,metalness:0.6,roughness:0.5}));
+    rail.position.set(-0.55,-1.15,0); scene.add(rail);
+    const standMat = new THREE.MeshStandardMaterial({color:0x555c6c,metalness:0.5,roughness:0.5});
+    const stand = (x,len)=>{
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,len,16), standMat);
+      s.position.set(x,-1.1+len/2,0); return s;
+    };
+    scene.add(stand(PLATE_X,0.5), stand(SCREEN_X,0.6));
+
+    // --- 雷射組 ---
+    laserGroup = new THREE.Group();
+    const laser = new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.13,0.9,32),
+      new THREE.MeshStandardMaterial({color:0x22252c,metalness:0.6,roughness:0.4}));
+    laser.rotation.z = Math.PI/2; laser.position.set(SRC_X,0,0);
+    tipMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.10,16,16), tipMat);
+    tip.position.set(SRC_X+0.46,0,0);
+    const inLen = PLATE_X - (SRC_X+0.45);
+    beamMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.85});
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.10,inLen,24), beamMat);
+    beam.rotation.z = Math.PI/2; beam.position.set((SRC_X+0.45+PLATE_X)/2,0,0);
+    const lb1 = makeLabel('雷射'); lb1.position.set(SRC_X,0.5,0);
+    laserGroup.add(laser, tip, beam, lb1, stand(SRC_X,0.98));
+    scene.add(laserGroup);
+
+    // --- 單色光源＋光源狹縫組 ---
+    lampGroup = new THREE.Group();
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.7,0.7),
+      new THREE.MeshStandardMaterial({color:0x2a2e38,metalness:0.4,roughness:0.6}));
+    lamp.position.set(SRC_X,0,0);
+    filterMat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const filter = new THREE.Mesh(new THREE.PlaneGeometry(0.20,0.5), filterMat);
+    filter.rotation.y = Math.PI/2; filter.position.set(SRC_X+0.301,0,0);
+    const g1Len = SS_X - (SRC_X+0.3);
+    glowMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.14,depthWrite:false});
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(g1Len,0.5,0.20), glowMat);
+    glow.position.set((SS_X+SRC_X+0.3)/2,0,0);
+    const g2Len = PLATE_X - SS_X;
+    sheetMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.3,side:THREE.DoubleSide,depthWrite:false});
+    const sheet = new THREE.Mesh(new THREE.BoxGeometry(g2Len,0.9,0.20), sheetMat);
+    sheet.position.set((SS_X+PLATE_X)/2,0,0);
+    const lb2 = makeLabel('單色光源'); lb2.position.set(SRC_X,0.6,0);
+    const lb3 = makeLabel('光源狹縫'); lb3.position.set(SS_X,0.8,0);
+    lampGroup.add(lamp, filter, glow, sheet, slitPlate(0.20, 0.5, 0x6f7480, SS_X), lb2, lb3, stand(SRC_X,0.75), stand(SS_X,0.6));
+    lampGroup.visible = false;
+    scene.add(lampGroup);
+
+    // --- 繞射後扇形光 ---
+    fanMat = new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.16,side:THREE.DoubleSide,depthWrite:false});
+    buildPlate();
+    buildFan();
+
+    // --- 屏幕 ---
+    screenTex = new THREE.CanvasTexture(texCan);
+    screenTex.repeat.set(1, 0.45); screenTex.offset.set(0, 0.275);   // 屏高 = 狹縫長 0.9：只取貼圖中段，不壓縮比例
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(2,0.9), new THREE.MeshBasicMaterial({map:screenTex}));
+    scr.rotation.y = -Math.PI/2; scr.position.set(SCREEN_X-0.031,0,0); scene.add(scr);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.06,1.02,2.12),
+      new THREE.MeshStandardMaterial({color:0xd8dbe2,roughness:0.8}));
+    frame.position.set(SCREEN_X,0,0); scene.add(frame);
+
+    // --- L 標示 ---
+    const lineMat = new THREE.LineBasicMaterial({color:0xaab4d0});
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      [new THREE.Vector3(PLATE_X,-1.45,0.6), new THREE.Vector3(SCREEN_X,-1.45,0.6)]), lineMat));
+    [PLATE_X,SCREEN_X].forEach(x=>{
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+        [new THREE.Vector3(x,-1.35,0.6), new THREE.Vector3(x,-1.55,0.6)]), lineMat));
+    });
+
+    const lab = (t,x,y,z)=>{ const sp = makeLabel(t); sp.position.set(x,y,z); scene.add(sp); };
+    lab('單狹縫 a', PLATE_X, 0.95, 0);
+    lab('屏幕', SCREEN_X, 0.8, 0);
+    lab('L = 1 m', (PLATE_X+SCREEN_X)/2, -1.7, 0.6);
+
+    window.addEventListener('resize', resize);
+    (function loop(){
+      requestAnimationFrame(loop);
+      if (window.activeTab !== 3) return;
+      controls.update(); renderer.render(scene,camera);
+    })();
+  }
+
+  function resize(){
+    const box = $('threeBox3');
+    const w = box.clientWidth, h = box.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w,h);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  window.resizeTab3 = resize;
+
+  function updateThree(){
+    if (!scene) return;
+    const [r,g,b] = lamToRGB(st.lam);
+    const c = new THREE.Color(r,g,b);
+    [beamMat, tipMat, fanMat, filterMat, sheetMat, glowMat].forEach(m=>m.color.copy(c));
+    laserGroup.visible = st.mode === 'laser';
+    lampGroup.visible  = st.mode === 'lamp';
+    buildPlate();
+    buildFan();
+  }
+
+  // ---------- 事件 ----------
+  function updateAll(){ drawSlit(); drawView(); drawCurve(); updateReadout(); updateThree(); }
+
+  const aS = $('aSlider3'), lS = $('lamSlider3'), eS = $('expSlider3');
+  aS.addEventListener('input', ()=>{ st.a = +aS.value; $('aVal3').textContent = st.a+' μm'; updateAll(); });
+  lS.addEventListener('input', ()=>{
+    st.lam = +lS.value; $('lamVal3').textContent = st.lam+' nm';
+    const [r,g,b] = lamToRGB(st.lam);
+    lS.style.accentColor = `rgb(${255*r|0},${255*g|0},${255*b|0})`;
+    updateAll();
+  });
+  eS.addEventListener('input', ()=>{
+    st.gain = Math.pow(10, 3*(+eS.value)/100);             // ×1 ~ ×1000
+    $('expVal3').textContent = '×' + (st.gain<10 ? st.gain.toFixed(1) : Math.round(st.gain));
+    drawView();
+  });
+  document.querySelectorAll('#gamBtns3 .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#gamBtns3 .btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      st.gamma = +btn.dataset.g;
+      $('gamVal3').textContent = btn.dataset.g === '1' ? '1.0' : btn.dataset.g;
+      drawView();
+    });
+  });
+  document.querySelectorAll('#srcBtns3 .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#srcBtns3 .btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      st.mode = btn.dataset.m;
+      drawView(); updateThree();
+    });
+  });
+  $('zoomChk3').addEventListener('change', e=>{ st.zoom = e.target.checked; drawView(); drawCurve(); });
+  $('darkChk3').addEventListener('change', e=>{ st.dark = e.target.checked; drawView(); });
+  $('secChk3').addEventListener('change', e=>{ st.sec = e.target.checked; drawView(); });
+  $('curveChk3').addEventListener('change', e=>{
+    st.curve = e.target.checked;
+    $('curveWrap3').style.display = st.curve ? 'block' : 'none';
+    drawCurve();
+  });
+
+  // ---------- 初始化 ----------
+  initThree();
+  lS.dispatchEvent(new Event('input'));
+  eS.dispatchEvent(new Event('input'));
+})();
+</script>
+<script>
+// ===================================================================
+// 分頁四：雙狹縫 vs 單狹縫（無 3D；獨立命名空間，只共用 lamToRGB()）
+// ===================================================================
+(function(){
+  const L = 1.0;              // 屏幕距離 (m)
+  const FIELD = 60;           // 固定視野半寬 (mm)
+  const ZOOM = 5;             // 放大倍率
+  const GAP_MIN = 10;         // 兩縫之間擋板最小寬度 (μm)：a ≤ d − 10 μm
+  const st = { lam:550, d:0.10, a:5, gain:3, gamma:0.5, zoom:false, guide:false };
+  const $ = id => document.getElementById(id);
+
+  // ---------- 物理（兩條各自以中央最亮處 = 1 正規化） ----------
+  function sinT(y_mm){ const y = y_mm*1e-3; return y/Math.sqrt(y*y + L*L); }
+  function single(y_mm){
+    const b = Math.PI*(st.a*1e-6)*sinT(y_mm)/(st.lam*1e-9);
+    if (Math.abs(b) < 1e-9) return 1;
+    const s = Math.sin(b)/b; return s*s;
+  }
+  function double(y_mm){
+    const g = Math.PI*(st.d*1e-3)*sinT(y_mm)/(st.lam*1e-9);
+    const c = Math.cos(g);
+    return c*c*single(y_mm);
+  }
+  function yOf(s){ return Math.abs(s) >= 1 ? NaN : L*Math.tan(Math.asin(s))*1e3; }
+  const envZero = k => yOf(k*(st.lam*1e-9)/(st.a*1e-6));     // 單狹縫第 k 暗紋
+  const bright  = m => yOf(m*(st.lam*1e-9)/(st.d*1e-3));     // 雙狹縫第 m 亮紋
+  const ratio   = () => st.d*1000/st.a;
+  function missingStep(){                                     // d/a 為整數 → 缺級間隔
+    const r = ratio(), ri = Math.round(r);
+    return Math.abs(r-ri) < 1e-6 ? ri : 0;
+  }
+
+  // ---------- 繪製 ----------
+  const cD = $('stripDouble4'), xD = cD.getContext('2d');
+  const cS = $('stripSingle4'), xS = cS.getContext('2d');
+  const AXIS_H = 30;                                          // 單狹縫條下方刻度區
+
+  function paint(ctx, W, H, fn, half){
+    const [cr,cg,cb] = lamToRGB(st.lam);
+    const k = 2*half/W;
+    const img = ctx.createImageData(W,1), d = img.data;
+    for (let x=0;x<W;x++){                                    // 每欄 4 點超取樣
+      let s = 0;
+      for (let q=0;q<4;q++) s += fn((x+(q+0.5)/4-W/2)*k);
+      const v = Math.pow(Math.min(1, s/4*st.gain), st.gamma);
+      const p = 4*x;
+      d[p] = 255*cr*v; d[p+1] = 255*cg*v; d[p+2] = 255*cb*v; d[p+3] = 255;
+    }
+    for (let y=0;y<H;y++) ctx.putImageData(img,0,y);
+  }
+
+  function tag(ctx, text){
+    ctx.font = 'bold 22px "Microsoft JhengHei", sans-serif';
+    const w = ctx.measureText(text).width + 24;
+    ctx.fillStyle = 'rgba(15,22,45,0.8)'; ctx.fillRect(14,14,w,36);
+    ctx.fillStyle = '#c8d2eb'; ctx.textAlign = 'left'; ctx.fillText(text, 26, 40);
+  }
+
+  function guides(ctx, H, half, W){
+    if (!st.guide) return;
+    ctx.save();
+    ctx.setLineDash([8,6]); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 1.5;
+    for (let k=1;;k++){
+      const y = envZero(k);
+      if (!isFinite(y) || y > half) break;
+      [-y, y].forEach(v=>{
+        const px = (v+half)/(2*half)*W;
+        ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,H); ctx.stroke();
+      });
+    }
+    ctx.restore();
+  }
+
+  function draw(){
+    const W = cD.width, half = st.zoom ? FIELD/ZOOM : FIELD;
+    const toPx = v => (v+half)/(2*half)*W;
+
+    // 上：雙狹縫
+    paint(xD, W, cD.height, double, half);
+    guides(xD, cD.height, half, W);
+    // 缺級標示（紅 ×）
+    const ms = missingStep();
+    if (ms && st.guide){
+      xD.strokeStyle = '#ff6b6b'; xD.fillStyle = '#ff6b6b'; xD.lineWidth = 2;
+      xD.font = 'bold 16px sans-serif'; xD.textAlign = 'center';
+      for (let m=ms;;m+=ms){
+        const y = bright(m);
+        if (!isFinite(y) || y > half) break;
+        [-1,1].forEach(sg=>{
+          const px = toPx(sg*y), yy = cD.height - 40;
+          xD.beginPath(); xD.moveTo(px-7,yy-7); xD.lineTo(px+7,yy+7); xD.moveTo(px+7,yy-7); xD.lineTo(px-7,yy+7); xD.stroke();
+          xD.fillText('缺級 m=' + (sg*m), px, yy+26);
+        });
+      }
+    }
+    tag(xD, '雙狹縫干涉（受單狹縫包絡調變）');
+
+    // 下：單狹縫（對照組）＋ 刻度
+    const HS = cS.height - AXIS_H;
+    paint(xS, W, HS, single, half);
+    guides(xS, HS, half, W);
+    xS.fillStyle = '#0d1224'; xS.fillRect(0, HS, W, AXIS_H);
+    xS.strokeStyle = 'rgba(255,255,255,0.6)'; xS.fillStyle = 'rgba(255,255,255,0.8)';
+    xS.lineWidth = 1; xS.font = '15px sans-serif'; xS.textAlign = 'center';
+    const step = st.zoom ? 2 : 10;
+    for (let i=-Math.round(half/step); i<=Math.round(half/step); i++){
+      const v = i*step, px = toPx(v);
+      xS.beginPath(); xS.moveTo(px,HS); xS.lineTo(px,HS+(i===0?10:6)); xS.stroke();
+      if (Math.abs(Math.abs(v)-half) > 1e-9) xS.fillText(String(v), px, HS+25);
+    }
+    xS.textAlign = 'right'; xS.fillText('mm', W-8, HS+25);
+    // 兩條之間的分隔線
+    xS.strokeStyle = 'rgba(120,140,190,0.6)'; xS.lineWidth = 2;
+    xS.beginPath(); xS.moveTo(0,1); xS.lineTo(W,1); xS.stroke();
+    tag(xS, '單狹縫繞射（對照組）');
+
+    $('fieldLabel4').textContent = st.zoom ? '放大 ×5：視野 ±12 mm' : '視野 ±60 mm';
+  }
+
+  // ---------- 數值讀出 ----------
+  function readout(){
+    const r = ratio(), n = Math.floor(r - 1e-9), ms = missingStep();
+    let html =
+      `<span class="k">波長 λ：</span>${st.lam} nm<br>` +
+      `<span class="k">雙狹縫間距 d：</span>${st.d.toFixed(2)} mm<br>` +
+      `<span class="k">單狹縫寬度 a：</span>${st.a} μm<br>` +
+      `<span class="k">兩縫間擋板寬 d − a：</span>${Math.round(st.d*1000 - st.a)} μm<br>` +
+      `<span class="k">雙狹縫亮紋間距 Δy：</span>${bright(1).toFixed(2)} mm<br>` +
+      `<span class="k">單狹縫第一暗紋：</span>±${envZero(1).toFixed(2)} mm<br>` +
+      `<span class="k">d / a：</span>${r.toFixed(2)}<br>` +
+      `<span class="k">中央包絡內亮紋數：</span>${2*n+1} 條`;
+    if (ms && st.guide) html += `<br><span style="color:#ff8a8a">缺級：m = ±${ms}, ±${2*ms}, …（亮紋恰落在單狹縫暗紋上）</span>`;
+    $('readout4').innerHTML = html;
+  }
+
+  function update(){ draw(); readout(); }
+
+  // ---------- a ≤ d − 10 μm 動態上限 ----------
+  const lS = $('lamSlider4'), dS = $('dSlider4'), aS = $('aSlider4'), eS = $('expSlider4');
+  function applyALimit(){
+    const aMax = Math.min(60, Math.round(st.d*1000) - GAP_MIN);
+    aS.max = aMax;
+    if (st.a > aMax){ st.a = aMax; }
+    aS.value = st.a;
+    $('aVal4').textContent = st.a + ' μm';
+    $('aLimit4').textContent = aMax < 60
+      ? `目前上限 ${aMax} μm（a ≤ d − ${GAP_MIN} μm，避免兩縫重疊）`
+      : `上限 60 μm（a ≤ d − ${GAP_MIN} μm）`;
+  }
+
+  // ---------- 事件 ----------
+  lS.addEventListener('input', ()=>{
+    st.lam = +lS.value; $('lamVal4').textContent = st.lam + ' nm';
+    const [r,g,b] = lamToRGB(st.lam);
+    lS.style.accentColor = `rgb(${255*r|0},${255*g|0},${255*b|0})`;
+    update();
+  });
+  dS.addEventListener('input', ()=>{
+    st.d = +dS.value; $('dVal4').textContent = st.d.toFixed(2) + ' mm';
+    applyALimit(); update();
+  });
+  aS.addEventListener('input', ()=>{
+    st.a = +aS.value; applyALimit(); update();
+  });
+  eS.addEventListener('input', ()=>{
+    st.gain = Math.pow(10, 3*(+eS.value)/100);             // ×1 ~ ×1000
+    $('expVal4').textContent = '×' + (st.gain<10 ? st.gain.toFixed(1) : Math.round(st.gain));
+    draw();
+  });
+  document.querySelectorAll('#gamBtns4 .btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#gamBtns4 .btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      st.gamma = +btn.dataset.g;
+      $('gamVal4').textContent = btn.dataset.g === '1' ? '1.0' : btn.dataset.g;
+      draw();
+    });
+  });
+  $('zoomChk4').addEventListener('change', e=>{ st.zoom = e.target.checked; draw(); });
+  $('guideChk4').addEventListener('change', e=>{ st.guide = e.target.checked; draw(); readout(); });
+
+  // ---------- 初始化 ----------
+  applyALimit();
+  lS.dispatchEvent(new Event('input'));
+  eS.dispatchEvent(new Event('input'));
+})();
+</script>
 </body>
 </html>
