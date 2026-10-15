@@ -115,7 +115,7 @@ let N = 5, leftN = 1, rightN = 0, custom = false;
 let theta = [], omega = [], held = [];
 let state = 'ready';    // 'ready'：拉起靜止中；'running'：擺動中
 let speed = 1, e = 1, damp = 0, soundOn = true;
-let dragIdx = -1, dragTarget = 0;
+let dragIdx = -1, dragTarget = 0, grabOffset = 0;
 
 /* ================= 場景 ================= */
 const view = document.getElementById('view');
@@ -243,27 +243,37 @@ function setPointer(ev) {
   raycaster.setFromCamera(pointer, camera);
 }
 
-function updateDragTarget() {
-  if (!raycaster.ray.intersectPlane(dragPlane, hitPt)) return;
+// 游標射線與 z=0 平面交點相對於懸點的角度（無交點回傳 null）
+function pointerAngle() {
+  if (!raycaster.ray.intersectPlane(dragPlane, hitPt)) return null;
   const p = pendulums[dragIdx].position;
-  let a = Math.atan2(hitPt.x - p.x, p.y - hitPt.y);
-  dragTarget = Math.max(-MAXA, Math.min(MAXA, a));
+  return Math.atan2(hitPt.x - p.x, p.y - hitPt.y);
 }
 
-// 手持球及被它推到的球組成一組，跟著滑鼠移動
+function updateDragTarget() {
+  const a = pointerAngle();
+  if (a === null) return;
+  dragTarget = Math.max(-MAXA, Math.min(MAXA, a - grabOffset));
+}
+
+// 手持球跟著滑鼠移動；相鄰球每幀重新判斷：
+// 位置碰到/重疊，且被壓向手持球（重力或推動方向）時才一起帶著走，否則脫離自由擺動
 function applyDrag(dtSim) {
-  const delta = dragTarget - theta[dragIdx];
+  const i = dragIdx, target = dragTarget;
+  const delta = target - theta[i];
   const wh = dtSim > 0 ? Math.max(-25, Math.min(25, delta / dtSim)) : 0;
-  for (let k = 0; k < N; k++) if (held[k]) { theta[k] = dragTarget; omega[k] = wh; }
-  if (delta < 0) {          // 往左移：推左側的球
-    let m = held.indexOf(true);
-    for (let j = m - 1; j >= 0; j--) {
-      if (theta[j] > dragTarget) { held[j] = true; theta[j] = dragTarget; omega[j] = wh; } else break;
+  held.fill(false); held[i] = true;
+  theta[i] = target; omega[i] = wh;
+  const pressL = target < 0 || delta < 0;   // 左側球被壓向手持球
+  const pressR = target > 0 || delta > 0;   // 右側球被壓向手持球
+  if (pressL) {
+    for (let j = i - 1; j >= 0; j--) {
+      if (theta[j] >= target - 1e-6) { held[j] = true; theta[j] = target; omega[j] = wh; } else break;
     }
-  } else if (delta > 0) {   // 往右移：推右側的球
-    let m = held.lastIndexOf(true);
-    for (let j = m + 1; j < N; j++) {
-      if (theta[j] < dragTarget) { held[j] = true; theta[j] = dragTarget; omega[j] = wh; } else break;
+  }
+  if (pressR) {
+    for (let j = i + 1; j < N; j++) {
+      if (theta[j] <= target + 1e-6) { held[j] = true; theta[j] = target; omega[j] = wh; } else break;
     }
   }
 }
@@ -277,6 +287,8 @@ renderer.domElement.addEventListener('pointerdown', ev => {
   dragIdx = hit.object.userData.index;
   held.fill(false); held[dragIdx] = true;
   dragTarget = theta[dragIdx];
+  const a0 = pointerAngle();
+  grabOffset = (a0 === null) ? 0 : a0 - theta[dragIdx];   // 按下瞬間 delta = 0
   controls.enabled = false;
   custom = true; refreshButtons();
   renderer.domElement.setPointerCapture(ev.pointerId);
