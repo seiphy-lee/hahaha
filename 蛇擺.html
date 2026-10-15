@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蛇擺 Pendulum Wave 模擬</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#171e2e; --panel2:#1e2739; --line:#2c3850;
+    --text:#e6ebf5; --muted:#93a0b8; --accent:#4fb3ff; --accent2:#ffb347;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif}
+  #app{display:flex;height:100vh;width:100vw}
+  #view{position:relative;flex:1;min-width:0}
+  #view canvas{display:block;width:100%;height:100%}
+  #panel{width:340px;flex:none;background:var(--panel);border-left:1px solid var(--line);
+    overflow-y:auto;padding:14px 16px 24px}
+  h1{font-size:19px;margin:0 0 2px;letter-spacing:1px}
+  .sub{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .sec{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .sec h2{font-size:13px;color:var(--accent);margin:0 0 8px;font-weight:600}
+  .row{margin:8px 0}
+  .row label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+  .row label b{color:var(--accent2);font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .seg{display:flex;gap:4px;flex-wrap:wrap}
+  .seg button,.btn{flex:1;background:#253049;color:var(--text);border:1px solid var(--line);
+    border-radius:7px;padding:7px 6px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .seg button.on{background:var(--accent);color:#06121f;border-color:var(--accent);font-weight:600}
+  .btn:hover,.seg button:hover{filter:brightness(1.15)}
+  .btn.primary{background:var(--accent2);color:#1c1200;border-color:var(--accent2);font-weight:700}
+  .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:6px}
+  .warn{color:#ff8a80}
+  .formula{font-size:14px;text-align:center;padding:6px 0;font-family:"Times New Roman",serif;font-style:italic}
+  .check{display:flex;align-items:center;gap:6px;font-size:13px;margin:6px 0;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  th,td{padding:3px 4px;text-align:right;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500}
+  td:first-child,th:first-child{text-align:center}
+  details summary{cursor:pointer;font-size:13px;color:var(--accent)}
+  /* overlay */
+  #hud{position:absolute;left:12px;top:12px;background:rgba(15,20,32,.82);border:1px solid var(--line);
+    border-radius:10px;padding:8px 12px;font-size:13px;line-height:1.7;pointer-events:none;min-width:190px}
+  #hud .big{font-size:20px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums}
+  #hud .num{font-variant-numeric:tabular-nums}
+  #prog{height:6px;background:#26314a;border-radius:3px;overflow:hidden;margin-top:4px}
+  #progbar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+  #views{position:absolute;right:12px;top:12px;display:flex;gap:4px}
+  #views button{background:rgba(23,30,46,.88);color:var(--text);border:1px solid var(--line);border-radius:7px;
+    padding:6px 10px;font-size:13px;cursor:pointer;font-family:inherit}
+  #views button.on{background:var(--accent);color:#06121f;border-color:var(--accent)}
+  #credit{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--muted);pointer-events:none}
+  @media (max-width:820px){
+    #app{flex-direction:column;height:auto;min-height:100vh}
+    #view{flex:none;height:58vh}
+    #panel{width:100%;border-left:none;border-top:1px solid var(--line)}
+    #hud{font-size:12px;min-width:150px;padding:6px 9px}
+    #hud .big{font-size:16px}
+    #views{top:auto;bottom:30px;right:8px;left:8px;justify-content:center}
+    #views button{padding:5px 8px;font-size:12px}
+    #credit{bottom:6px}
+  }
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="view">
+    <div id="hud">
+      <div>時間 t = <span class="big num" id="hT">0.00</span> s</div>
+      <div class="num">t / Γ′ = <span id="hR">0.000</span></div>
+      <div class="num" id="hG">循環週期 Γ′ = 60.00 s</div>
+      <div id="prog"><div id="progbar"></div></div>
+    </div>
+    <div id="views">
+      <button data-v="persp" class="on">斜視</button>
+      <button data-v="top">俯視</button>
+      <button data-v="side">側視</button>
+      <button data-v="end">端視</button>
+    </div>
+    <div id="credit">臺中二中 阿發老師 設計</div>
+  </div>
+
+  <aside id="panel">
+    <h1>蛇擺 Pendulum Wave</h1>
+    <div class="sub">單擺週期 × 相位差 的視覺化</div>
+
+    <div class="sec">
+      <h2>播放控制</h2>
+      <div class="seg">
+        <button class="btn primary" id="bPlay">▶ 播放</button>
+        <button class="btn" id="bReset">⟲ 重新釋放</button>
+      </div>
+      <div class="row">
+        <label>時間倍率 <b id="vSpeed">1.00×</b></label>
+        <input type="range" id="sSpeed" min="0.1" max="3" step="0.05" value="1">
+      </div>
+      <div class="note" style="margin-top:2px">跳到特定時刻（以循環週期 Γ′ 為單位）</div>
+      <div class="seg" id="jumps" style="margin-top:4px">
+        <button data-f="0">0</button>
+        <button data-f="0.25">Γ′/4</button>
+        <button data-f="0.3333333333">Γ′/3</button>
+        <button data-f="0.5">Γ′/2</button>
+        <button data-f="1">Γ′</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>蛇擺設計參數</h2>
+      <div class="formula">L<sub>i</sub> = g [ Γ / 2π(N + i) ]²</div>
+      <div class="row">
+        <label>擺錘數量 n <b id="vN">15</b></label>
+        <input type="range" id="sN" min="5" max="30" step="1" value="15">
+      </div>
+      <div class="row">
+        <label>最長擺在 Γ 內擺動次數 N <b id="vNN">51</b></label>
+        <input type="range" id="sNN" min="30" max="80" step="1" value="51">
+      </div>
+      <div class="row">
+        <label>設計循環週期 Γ <b id="vG">60 s</b></label>
+        <input type="range" id="sG" min="30" max="90" step="1" value="60">
+      </div>
+      <div class="note">第 i 個擺在 Γ 內擺 N+i 次。增減擺錘只在<b>短擺端</b>加減，原有擺長不變。</div>
+    </div>
+
+    <div class="sec">
+      <h2>釋放條件與運動模型</h2>
+      <div class="row">
+        <label>釋放方式</label>
+        <div class="seg" id="segRel">
+          <button data-r="angle" class="on">等角度</button>
+          <button data-r="disp">等水平位移</button>
+        </div>
+      </div>
+      <div class="row">
+        <label id="lAmp">初始擺角 θ₀ <b id="vAmp">12°</b></label>
+        <input type="range" id="sAmp" min="2" max="45" step="1" value="12">
+      </div>
+      <div class="row">
+        <label>運動模型</label>
+        <div class="seg" id="segModel">
+          <button data-m="ideal" class="on">理想小角度</button>
+          <button data-m="nonlinear">非線性精確解</button>
+        </div>
+      </div>
+      <div class="note" id="modelNote"></div>
+    </div>
+
+    <div class="sec">
+      <h2>顯示</h2>
+      <label class="check"><input type="checkbox" id="cWave"> 連線顯示波形（俯視最明顯）</label>
+      <label class="check"><input type="checkbox" id="cGhost"> 顯示平衡位置參考線</label>
+    </div>
+
+    <div class="sec">
+      <details>
+        <summary>各擺資料表</summary>
+        <table>
+          <thead><tr><th>#</th><th>Γ內次數</th><th>擺長(cm)</th><th>週期(s)</th><th>θ₀</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="note">週期為所選模型下的實際週期；g = 9.8 m/s²</div>
+      </details>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const g = 9.8;
+const DEG = Math.PI / 180;
+
+/* ================= 物理 ================= */
+// 第一類完全橢圓積分 K(m)，AGM
+function ellipK(m){
+  let a = 1, b = Math.sqrt(1 - m);
+  for (let i = 0; i < 40 && Math.abs(a - b) > 1e-15; i++){ const an = (a + b) / 2; b = Math.sqrt(a * b); a = an; }
+  return Math.PI / (2 * a);
+}
+// Jacobi sn(u|m)，降冪 AGM 法
+function jacobiSn(u, m){
+  if (m < 1e-14) return Math.sin(u);
+  const a = [1], c = [Math.sqrt(m)];
+  let b = Math.sqrt(1 - m), i = 0;
+  while (Math.abs(c[i]) > 1e-15 && i < 20){ const ai = a[i]; a.push((ai + b) / 2); c.push((ai - b) / 2); b = Math.sqrt(ai * b); i++; }
+  let phi = Math.pow(2, i) * a[i] * u;
+  for (let j = i; j > 0; j--) phi = (Math.asin(c[j] * Math.sin(phi) / a[j]) + phi) / 2;
+  return Math.sin(phi);
+}
+
+const P = { n:15, N:51, G:60, amp:12, release:'angle', model:'ideal', speed:1, wave:false, ghost:false };
+let pend = [];          // 各擺物理資料
+let simT = 0, playing = false;
+let clampedAny = false;
+
+function computePendulums(){
+  pend = [];
+  clampedAny = false;
+  const L0 = g * Math.pow(P.G / (2 * Math.PI * P.N), 2);
+  const x0 = L0 * Math.sin(P.amp * DEG);           // 等水平位移時的共同位移
+  for (let i = 0; i < P.n; i++){
+    const osc = P.N + i;
+    const L = g * Math.pow(P.G / (2 * Math.PI * osc), 2);
+    const w = Math.sqrt(g / L);
+    const T0 = 2 * Math.PI / w;
+    let th0;
+    if (P.release === 'angle') th0 = P.amp * DEG;
+    else {
+      const s = x0 / L;
+      const sMax = Math.sin(85 * DEG);
+      if (s > sMax){ th0 = 85 * DEG; clampedAny = true; } else th0 = Math.asin(s);
+    }
+    const m = Math.pow(Math.sin(th0 / 2), 2);
+    const K = ellipK(m);
+    const T = P.model === 'ideal' ? T0 : T0 * 2 * K / Math.PI;
+    pend.push({ i, osc, L, w, T0, T, th0, m, K, k: Math.sqrt(m) });
+  }
+}
+
+function theta(p, t){
+  if (P.model === 'ideal') return p.th0 * Math.cos(p.w * t);
+  // θ(t) = 2 asin( k · sn(K − ωt | m) )，t=0 時 θ=θ₀、角速度 0
+  const per = 4 * p.K;
+  let u = p.K - p.w * t;
+  u = ((u % per) + per) % per;
+  const s = p.k * jacobiSn(u, p.m);
+  return 2 * Math.asin(Math.max(-1, Math.min(1, s)));
+}
+
+// 有效循環週期 Γ′
+function effectiveGamma(){
+  if (P.model === 'ideal' || P.release === 'angle') return P.G * (pend[0].T / pend[0].T0);
+  return P.G; // 等位移+非線性：無精確重現，仍以設計值 Γ 為參考
+}
+
+/* ================= 場景 ================= */
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0f1420);
+scene.fog = new THREE.Fog(0x0f1420, 10, 40);
+
+const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 200);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x30281e, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun, sun.target);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshStandardMaterial({ color:0x2a3142, roughness:0.95 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(1, 20, 0x3c4a66, 0x2f3a52);
+scene.add(grid);
+
+let rig = null;            // 支架＋擺群
+let bobs = [], strings = null, waveLine = null, ghostLine = null;
+let geo = {};              // 幾何尺寸
+const woodMat  = new THREE.MeshStandardMaterial({ color:0x8a6a48, roughness:0.7 });
+const metalMat = new THREE.MeshStandardMaterial({ color:0xb8c2d0, metalness:0.8, roughness:0.3 });
+
+function disposeRig(){
+  if (!rig) return;
+  rig.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material && o.material !== woodMat && o.material !== metalMat) o.material.dispose();
+  });
+  scene.remove(rig);
+}
+
+function buildRig(){
+  disposeRig();
+  rig = new THREE.Group();
+  scene.add(rig);
+
+  const L0 = pend[0].L;
+  const u = Math.max(0.045, 0.13 * L0);        // 擺錘間距
+  const r = u * 0.32;                           // 擺錘半徑
+  const H = L0 + r + Math.max(0.05, L0 * 0.18); // 橫桿高度
+  const half = (P.n - 1) / 2 * u;
+  const zOf = i => (i - (P.n - 1) / 2) * u;
+  const dV = u * 0.75;                          // V 型雙線在橫桿上的間距
+  const reach = L0 * Math.sin(Math.max(...pend.map(p => p.th0)) ) + r;
+  geo = { L0, u, r, H, half, zOf, dV, reach };
+
+  // 支架
+  const barLen = 2 * half + 2 * u;
+  const barR = Math.max(0.008, u * 0.15);
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(barR, barR, barLen + barR * 4, 24), metalMat);
+  bar.rotation.x = Math.PI / 2;
+  bar.position.set(0, H, 0);
+  bar.castShadow = true;
+  rig.add(bar);
+
+  const postW = Math.max(0.025, u * 0.45);
+  const baseW = Math.max(0.3, (reach + r) * 2.6);
+  for (const s of [-1, 1]){
+    const z = s * (half + u);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(postW, H + postW, postW), woodMat);
+    post.position.set(0, (H + postW) / 2, z);
+    post.castShadow = true; post.receiveShadow = true;
+    rig.add(post);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(baseW, postW * 0.6, postW * 1.6), woodMat);
+    foot.position.set(0, postW * 0.3, z);
+    foot.castShadow = true; foot.receiveShadow = true;
+    rig.add(foot);
+  }
+
+  // 擺錘
+  bobs = [];
+  const sphere = new THREE.SphereGeometry(r, 32, 20);
+  for (let i = 0; i < P.n; i++){
+    const hue = 0.58 - 0.58 * (P.n === 1 ? 0 : i / (P.n - 1));   // 藍→紅
+    const mat = new THREE.MeshStandardMaterial({
+      color:new THREE.Color().setHSL(hue, 0.75, 0.55), metalness:0.35, roughness:0.35
+    });
+    const b = new THREE.Mesh(sphere, mat);
+    b.castShadow = true;
+    rig.add(b);
+    bobs.push(b);
+    // 懸掛點小環
+    for (const s of [-1, 1]){
+      const ring = new THREE.Mesh(new THREE.SphereGeometry(barR * 0.7, 10, 8), metalMat);
+      ring.position.set(0, H, zOf(i) + s * dV / 2);
+      rig.add(ring);
+    }
+  }
+
+  // 擺繩（每擺 2 條，共 4 點）
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P.n * 4 * 3), 3));
+  strings = new THREE.LineSegments(sg, new THREE.LineBasicMaterial({ color:0xd8dde6, transparent:true, opacity:0.75 }));
+  rig.add(strings);
+
+  // 波形連線
+  const wg = new THREE.BufferGeometry();
+  wg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P.n * 3), 3));
+  waveLine = new THREE.Line(wg, new THREE.LineBasicMaterial({ color:0xffb347 }));
+  waveLine.visible = P.wave;
+  rig.add(waveLine);
+
+  // 平衡位置參考線（各擺最低點連線）
+  const gg = new THREE.BufferGeometry();
+  const gp = new Float32Array(P.n * 3);
+  for (let i = 0; i < P.n; i++){ gp[i*3] = 0; gp[i*3+1] = H - pend[i].L; gp[i*3+2] = zOf(i); }
+  gg.setAttribute('position', new THREE.BufferAttribute(gp, 3));
+  ghostLine = new THREE.Line(gg, new THREE.LineDashedMaterial({ color:0x7d8aa6, dashSize:r*0.8, gapSize:r*0.6 }));
+  ghostLine.computeLineDistances();
+  ghostLine.visible = P.ghost;
+  rig.add(ghostLine);
+
+  // 地面、光源、霧依尺寸調整
+  const size = Math.max(H, 2 * half + 2 * u, baseW);
+  ground.scale.set(size * 8, size * 8, 1);
+  grid.scale.setScalar(size * 8);
+  grid.position.y = 0.0005;
+  sun.position.set(size * 1.2, size * 2.2, size * 0.8);
+  sun.target.position.set(0, 0, 0);
+  const sc = sun.shadow.camera;
+  sc.left = sc.bottom = -size * 1.2; sc.right = sc.top = size * 1.2;
+  sc.near = 0.01; sc.far = size * 6;
+  sc.updateProjectionMatrix();
+  scene.fog.near = size * 4; scene.fog.far = size * 14;
+  camera.near = size * 0.005; camera.far = size * 40; camera.updateProjectionMatrix();
+}
+
+function updatePendulums(){
+  const { H, zOf, dV } = geo;
+  const sp = strings.geometry.attributes.position.array;
+  const wp = waveLine.geometry.attributes.position.array;
+  for (let i = 0; i < P.n; i++){
+    const p = pend[i];
+    const th = theta(p, simT);
+    const x = p.L * Math.sin(th);
+    const y = H - p.L * Math.cos(th);
+    const z = zOf(i);
+    bobs[i].position.set(x, y, z);
+    const o = i * 12;
+    sp[o]   = 0; sp[o+1] = H; sp[o+2]  = z - dV / 2;
+    sp[o+3] = x; sp[o+4] = y; sp[o+5]  = z;
+    sp[o+6] = 0; sp[o+7] = H; sp[o+8]  = z + dV / 2;
+    sp[o+9] = x; sp[o+10]= y; sp[o+11] = z;
+    wp[i*3] = x; wp[i*3+1] = y; wp[i*3+2] = z;
+  }
+  strings.geometry.attributes.position.needsUpdate = true;
+  waveLine.geometry.attributes.position.needsUpdate = true;
+  waveLine.geometry.computeBoundingSphere();
+}
+
+/* ================= 視角 ================= */
+let curView = 'persp';
+let camAnim = null;
+function viewPose(v){
+  const { H, half, u, reach } = geo;
+  const rowLen = 2 * half + 2 * u;
+  const tgtY = H * 0.55;
+  const fit = Math.max(H, rowLen) * 1.25 / Math.tan(camera.fov * DEG / 2) * 0.5;
+  const aspect = camera.aspect;
+  const fitW = (rowLen * 1.15 / 2) / Math.tan(camera.fov * DEG / 2) / Math.max(aspect, 0.3);
+  const d = Math.max(fit, fitW);
+  switch (v){
+    case 'top':  return { pos:new THREE.Vector3(0.0001, H + d * 1.05, 0), tgt:new THREE.Vector3(0, H * 0.4, 0) };
+    case 'side': return { pos:new THREE.Vector3(d * 1.05, tgtY, 0), tgt:new THREE.Vector3(0, tgtY, 0) };
+    case 'end':  {
+      const de = Math.max(H, reach * 2) * 1.4 / Math.tan(camera.fov * DEG / 2) * 0.5 + half;
+      return { pos:new THREE.Vector3(0, tgtY, -(de + half * 0.2)), tgt:new THREE.Vector3(0, tgtY, 0) };
+    }
+    default:     return { pos:new THREE.Vector3(d * 0.75, H * 0.95 + d * 0.25, d * 0.7), tgt:new THREE.Vector3(0, tgtY, 0) };
+  }
+}
+function setView(v, instant){
+  curView = v;
+  document.querySelectorAll('#views button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  const pose = viewPose(v);
+  if (instant){
+    camera.position.copy(pose.pos); controls.target.copy(pose.tgt); controls.update(); camAnim = null; return;
+  }
+  camAnim = { t:0, p0:camera.position.clone(), t0:controls.target.clone(), p1:pose.pos, t1:pose.tgt };
+}
+
+/* ================= UI ================= */
+const $ = id => document.getElementById(id);
+const bPlay = $('bPlay');
+
+function setPlaying(v){
+  playing = v;
+  bPlay.textContent = v ? '❚❚ 暫停' : '▶ 播放';
+}
+
+function fmtDeg(r){ return (r / DEG).toFixed(1) + '°'; }
+
+function refreshInfo(){
+  // 資料表
+  const tb = $('tbody');
+  tb.innerHTML = pend.map(p =>
+    `<tr><td>${p.i + 1}</td><td>${p.osc}</td><td>${(p.L * 100).toFixed(2)}</td><td>${p.T.toFixed(4)}</td><td>${fmtDeg(p.th0)}</td></tr>`
+  ).join('');
+
+  // 模型說明
+  const note = $('modelNote');
+  const f0 = pend[0].T / pend[0].T0;
+  let html = '';
+  if (P.model === 'ideal'){
+    html = '以 θ = θ₀cos(ωt) 計算，週期與振幅無關，圖樣每 Γ 完全重現。';
+  } else if (P.release === 'angle'){
+    html = `以橢圓積分精確解計算。各擺擺角相同，週期修正因子 2K/π = ${f0.toFixed(5)} 皆相同，`
+         + `圖樣仍會重現，但循環週期延長為 Γ′ = ${(P.G * f0).toFixed(2)} s。`;
+  } else {
+    const fs = pend.map(p => p.T / p.T0);
+    html = `以橢圓積分精確解計算。等水平位移下，短擺擺角較大，修正因子介於 ${Math.min(...fs).toFixed(4)}～${Math.max(...fs).toFixed(4)}，`
+         + `各擺修正不一致，<b>圖樣無法完全重現</b>，會逐漸走樣（Γ′ 以設計值 Γ 參考）。`;
+  }
+  if (P.release === 'disp'){
+    html += `<br>等水平位移：各擺偏離平衡位置的水平距離皆為 ${(pend[0].L * Math.sin(P.amp * DEG) * 100).toFixed(2)} cm，擺角 ${fmtDeg(pend[0].th0)}～${fmtDeg(pend[P.n - 1].th0)}。`;
+    if (clampedAny) html += `<br><span class="warn">部分短擺所需擺角超過 85°，已限制為 85°，請降低振幅。</span>`;
+  }
+  note.innerHTML = html;
+  $('lAmp').firstChild.textContent = P.release === 'angle' ? '初始擺角 θ₀ ' : '最長擺的初始擺角 ';
+}
+
+function updateHUD(){
+  const Ge = effectiveGamma();
+  $('hT').textContent = simT.toFixed(2);
+  $('hR').textContent = (simT / Ge).toFixed(3);
+  $('hG').textContent = `循環週期 Γ′ = ${Ge.toFixed(2)} s`;
+  const frac = (simT / Ge) % 1;
+  $('progbar').style.width = (frac * 100).toFixed(2) + '%';
+}
+
+// 參數改變：重新計算並重新釋放
+function rebuild(keepView){
+  computePendulums();
+  buildRig();
+  simT = 0;
+  updatePendulums();
+  refreshInfo();
+  updateHUD();
+  setView(curView, !keepView);
+}
+// 只改釋放/模型（擺長不變，不需重建支架）
+function rerelease(){
+  computePendulums();
+  buildRig();
+  simT = 0;
+  updatePendulums();
+  refreshInfo();
+  updateHUD();
+}
+
+$('sN').addEventListener('input', e => { P.n = +e.target.value; $('vN').textContent = P.n; rebuild(true); });
+$('sNN').addEventListener('input', e => { P.N = +e.target.value; $('vNN').textContent = P.N; rebuild(true); });
+$('sG').addEventListener('input', e => { P.G = +e.target.value; $('vG').textContent = P.G + ' s'; rebuild(true); });
+$('sAmp').addEventListener('input', e => { P.amp = +e.target.value; $('vAmp').textContent = P.amp + '°'; rerelease(); });
+$('sSpeed').addEventListener('input', e => { P.speed = +e.target.value; $('vSpeed').textContent = P.speed.toFixed(2) + '×'; });
+
+$('segRel').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  P.release = b.dataset.r;
+  $('segRel').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  rerelease();
+});
+$('segModel').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  P.model = b.dataset.m;
+  $('segModel').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  rerelease();
+});
+$('jumps').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  simT = +b.dataset.f * effectiveGamma();
+  setPlaying(false);
+  updatePendulums(); updateHUD();
+});
+$('cWave').addEventListener('change', e => { P.wave = e.target.checked; waveLine.visible = P.wave; });
+$('cGhost').addEventListener('change', e => { P.ghost = e.target.checked; ghostLine.visible = P.ghost; });
+
+bPlay.addEventListener('click', () => setPlaying(!playing));
+$('bReset').addEventListener('click', () => { simT = 0; setPlaying(false); updatePendulums(); updateHUD(); });
+document.querySelectorAll('#views button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !(e.target instanceof HTMLInputElement && e.target.type !== 'range' && e.target.type !== 'checkbox')){
+    e.preventDefault(); setPlaying(!playing);
+  }
+});
+
+/* ================= 迴圈 ================= */
+function resize(){
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+resize();
+
+rebuild(false);
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
+  if (playing){
+    simT += dt * P.speed;     // 模擬時間累積；位置由 t 解析計算，不會相位漂移
+    updatePendulums();
+    updateHUD();
+  }
+  if (camAnim){
+    camAnim.t = Math.min(1, camAnim.t + dt / 0.7);
+    const k = camAnim.t < 0.5 ? 2 * camAnim.t * camAnim.t : 1 - Math.pow(-2 * camAnim.t + 2, 2) / 2;
+    camera.position.lerpVectors(camAnim.p0, camAnim.p1, k);
+    controls.target.lerpVectors(camAnim.t0, camAnim.t1, k);
+    if (camAnim.t >= 1) camAnim = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
