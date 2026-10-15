@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>克卜勒行星運動三定律 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#04060d; --panel:#0c1322; --panel2:#111b30; --line:#24324f; --text:#e8eefc; --muted:#9fb0d0;
+  --gold:#ffcf5a; --cyan:#5fd3ff; --coral:#ff8c6b; --green:#7dffb0; --violet:#b9a3ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column}
+header{flex:0 0 auto;display:flex;align-items:flex-end;gap:22px;padding:10px 18px 0;
+  background:linear-gradient(#0d1730,#08101f);border-bottom:1px solid var(--line)}
+.brand{font-size:25px;font-weight:700;letter-spacing:1px;padding-bottom:12px;white-space:nowrap}
+.brand b{color:var(--gold)}
+.tabs{display:flex;gap:6px}
+.tabs button{font:inherit;font-size:20px;font-weight:500;color:var(--muted);background:#0f1a31;
+  border:1px solid var(--line);border-bottom:none;border-radius:12px 12px 0 0;padding:9px 22px;cursor:pointer}
+.tabs button .no{font-size:15px;opacity:.7;margin-right:6px}
+.tabs button.on{color:#0b1020;background:var(--gold);border-color:var(--gold);font-weight:700}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1;position:relative;min-width:0;overflow:hidden}
+#stage canvas{display:block;touch-action:none}
+.labels{position:absolute;left:0;top:0;pointer-events:none;z-index:2}
+#panel{flex:0 0 400px;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);
+  padding:16px 18px 40px;font-size:18px}
+.pane{display:none}.pane.on{display:block}
+.sec{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:12px 0}
+.sec-t{font-weight:700;color:var(--gold);margin-bottom:8px;font-size:18px}
+.sec-t small{color:var(--muted);font-weight:400;font-size:14px;margin-left:6px}
+.btn{font:inherit;font-size:18px;color:var(--text);background:#1a2747;border:1px solid #33497a;border-radius:10px;
+  padding:8px 14px;cursor:pointer;transition:background .15s}
+.btn:hover{background:#243661}
+.btn.on{background:var(--cyan);color:#06101f;border-color:var(--cyan);font-weight:700}
+.btn.law{width:100%;font-size:20px;font-weight:700;background:linear-gradient(90deg,#3a2a08,#4a360c);border-color:#8a6a1e;color:var(--gold)}
+.btn.data{width:100%;margin-top:8px;font-weight:700}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg .btn{flex:1;padding:8px 6px;text-align:center}
+.slider-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.slider-row .sl-l{flex:0 0 auto;color:var(--muted)}
+.slider-row input[type=range]{flex:1;accent-color:var(--gold);height:26px}
+.slider-row output{flex:0 0 auto;min-width:70px;text-align:right;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+.chk{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer}
+.chk input{width:22px;height:22px;accent-color:var(--gold)}
+.sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-left:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.kv td{padding:4px 6px;border-bottom:1px solid #1f2c48}
+.kv td:last-child{text-align:right;font-weight:700}
+.kv .f{color:var(--muted);font-size:15px}
+.etab th,.etab td,.mini th,.mini td{border:1px solid #26365a;padding:5px 6px;text-align:center}
+.etab th,.mini th{background:#16223f;color:var(--muted);font-weight:500;font-size:16px}
+.etab tr.r{cursor:pointer}.etab tr.r:hover td{background:#1c2a4c}
+.mini td.k{color:var(--green);font-weight:700}
+.note{color:var(--muted);font-size:15px;line-height:1.6;margin-top:8px}
+.hud{position:absolute;left:14px;top:12px;z-index:5;background:rgba(8,14,28,.78);border:1px solid #2a3b60;
+  border-radius:12px;padding:10px 16px;font-size:20px;line-height:1.6;pointer-events:none;max-width:calc(100% - 260px)}
+.hud .t{color:var(--gold);font-weight:700}
+.hud .s{font-size:16px;color:var(--muted)}
+.viewbtns{position:absolute;right:14px;top:12px;z-index:5;display:flex;gap:8px}
+.viewbtns .btn{font-size:16px;padding:6px 12px;background:rgba(20,32,60,.85)}
+.viewbtns .btn.on{background:var(--cyan);color:#06101f}
+.hint{position:absolute;left:14px;bottom:10px;z-index:5;font-size:15px;color:#7f90b2;pointer-events:none}
+.credit{position:absolute;right:14px;bottom:10px;z-index:5;font-size:16px;color:#a9b8d8;pointer-events:none;letter-spacing:1px}
+/* 3D labels */
+.lbl{font-size:20px;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;
+  text-shadow:0 0 3px #000,0 0 6px #000,0 0 10px #000}
+.lbl.it{font-family:"Times New Roman",serif;font-style:italic;font-size:26px}
+.lbl.small{font-size:17px}
+.lbl.vt{text-align:center;line-height:1.15}
+/* 控制面板收合（僅 04、05 分頁） */
+#panel{transition:transform .35s ease,margin-right .35s ease}
+#panelHide{display:none;width:100%;margin-bottom:10px;font-size:16px;padding:6px}
+#panelShow{display:none;position:absolute;right:14px;bottom:40px;z-index:6;font-size:16px;padding:6px 14px;background:rgba(20,32,60,.9)}
+main.can-hide #panelHide{display:block}
+main.can-hide.hidep #panel{transform:translateY(100%);margin-right:-400px;overflow:hidden}
+main.can-hide.hidep #panelShow{display:block}
+#satSelList .chk .sw{margin-left:auto}
+.lbl.tag{background:rgba(8,14,30,.72);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:2px 8px;text-shadow:none}
+.lbl.secl{font-size:17px;line-height:1.3;text-align:center}
+.lbl.secl .n{display:inline-block;min-width:22px;padding:0 5px;border-radius:6px;background:rgba(255,255,255,.16);margin-right:4px}
+.lbl.body{font-size:18px}
+/* windows */
+.win{position:fixed;z-index:50;display:none;flex-direction:column;max-height:84vh;width:min(680px,92vw);
+  background:rgba(13,21,40,.97);border:1px solid #3a4f7a;border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.65)}
+.win.open{display:flex}
+.win-hd{flex:0 0 auto;cursor:move;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 16px;background:#17244a;border-radius:14px 14px 0 0;font-size:21px;font-weight:700;user-select:none;touch-action:none}
+.win-x{font:inherit;font-size:22px;line-height:1;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 6px}
+.win-x:hover{color:#fff}
+.win-bd{padding:14px 20px 18px;overflow:auto;font-size:19px;line-height:1.75}
+.win-bd .law-s{font-size:22px;font-weight:700;color:var(--gold);background:#1d2a12;border-left:5px solid var(--gold);
+  padding:10px 14px;border-radius:6px;margin:4px 0 12px}
+.win-bd h4{margin:14px 0 4px;color:var(--cyan);font-size:19px}
+.win-bd ul{margin:4px 0;padding-left:24px}
+.win-bd .eq{font-family:"Times New Roman",serif;font-style:italic;font-size:21px;color:#fff}
+.dtab th,.dtab td{border:1px solid #2c3d63;padding:6px 7px;text-align:center;font-size:17px;white-space:nowrap}
+.dtab th{background:#16223f;color:#c9d6f2;font-weight:500}
+.dtab td.k{color:var(--green);font-weight:700}
+.dtab tr.hl td{background:#2a2410}
+.dtab tr.tw td:first-child{color:#ffb35c;font-weight:700}
+.unitbar{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:17px;color:var(--muted)}
+.unitbar .seg{flex:1}.unitbar .btn{font-size:16px;padding:5px 8px}
+.ratio{margin-top:10px;padding:8px 12px;border-radius:8px;background:#122a1c;border:1px solid #2d6b45;color:#bff5d2;font-size:17px}
+#chart{display:block;width:100%;height:min(60vh,600px);background:#060a15;border-radius:8px;margin:10px 0 4px}
+.chartbar{display:flex;gap:12px;flex-wrap:wrap}.chartbar .seg{flex:1 1 300px}
+#t3pre .btn{flex:1 0 28%;font-size:16px}
+.info-t{font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px}
+#t4info table td,#t5info table td{padding:3px 4px;border-bottom:1px solid #1f2c48;color:var(--text)}
+#t4info table td:last-child,#t5info table td:last-child{text-align:right;font-weight:700}
+.lbl.pass{color:#ffe14d !important;text-shadow:0 0 6px #ff9a00,0 0 12px #ff9a00}
+.lbl.tw{font-size:16px;color:#ff6b6b}
+@media (max-width:820px){
+  header{flex-wrap:wrap;gap:6px;padding:8px 10px 0}
+  .brand{font-size:20px;padding-bottom:4px;width:100%}
+  .tabs{max-width:100%;overflow-x:auto;scrollbar-width:none}
+  .tabs button{font-size:16px;padding:7px 12px;white-space:nowrap;flex:0 0 auto}
+  main{flex-direction:column;overflow-y:auto}
+  #stage{flex:0 0 58vh}
+  #panel{flex:0 0 auto;border-left:none;border-top:1px solid var(--line);overflow:visible}
+  .hud{font-size:15px;max-width:calc(100% - 28px);top:54px}
+  .lbl{font-size:15px}.lbl.it{font-size:20px}.lbl.secl,.lbl.small,.lbl.body{font-size:13px}
+  .hint{display:none}
+  main.can-hide.hidep #panel{display:none}
+  main.can-hide.hidep #stage{flex:1 1 auto}
+}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<header>
+  <div class="brand"><b>克卜勒</b>行星運動三定律 3D</div>
+  <nav class="tabs" id="tabs">
+    <button data-i="0" class="on"><span class="no">01</span>第一定律</button>
+    <button data-i="1"><span class="no">02</span>第二定律</button>
+    <button data-i="2"><span class="no">03</span>第三定律</button>
+    <button data-i="3"><span class="no">04</span>我們的太陽系</button>
+    <button data-i="4"><span class="no">05</span>我們的地球</button>
+  </nav>
+</header>
+<main>
+  <div id="stage">
+    <div class="hud" id="hud"></div>
+    <div class="viewbtns">
+      <button class="btn" data-view="tilt">斜視</button>
+      <button class="btn" data-view="top">俯視</button>
+    </div>
+    <div class="hint">拖曳旋轉　滾輪縮放　右鍵平移</div>
+    <div class="credit">臺中二中 阿發老師 設計</div>
+    <button class="btn" id="panelShow">▲ 控制面板</button>
+  </div>
+  <aside id="panel">
+    <button class="btn" id="panelHide">▼ 收起控制面板</button>
+    <!-- ===== 第一定律 ===== -->
+    <section class="pane on" data-tab="0">
+      <button class="btn law" data-win="winLaw1">📖 第一定律說明</button>
+      <div class="sec">
+        <div class="sec-t">離心率 e</div>
+        <div class="slider-row"><input type="range" id="t1e" min="0" max="0.9" step="0.01" value="0.5"><output id="t1eV">0.50</output></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">顯示項目</div>
+        <label class="chk"><input type="checkbox" data-t1="foci" checked><span>焦點 F₁、F₂</span></label>
+        <label class="chk"><input type="checkbox" data-t1="center" checked><span>中心 O</span></label>
+        <label class="chk"><input type="checkbox" data-t1="axes" checked><span>長軸 2a、短軸 2b</span></label>
+        <label class="chk"><input type="checkbox" data-t1="semi" checked><span>半長軸 a、半短軸 b、焦距 c</span></label>
+        <label class="chk"><input type="checkbox" data-t1="apsis" checked><span>近日點、遠日點</span></label>
+        <label class="chk"><input type="checkbox" data-t1="dist" checked><span>r₁ + r₂ = 2a 連線</span></label>
+        <label class="chk"><input type="checkbox" data-t1="tri"><span>a² = b² + c² 直角三角形</span></label>
+      </div>
+      <div class="sec">
+        <div class="sec-t">動畫</div>
+        <div class="btns"><button class="btn" id="t1play">⏸ 暫停</button></div>
+        <div class="slider-row"><span class="sl-l">週期</span><input type="range" id="t1spd" min="5" max="30" step="1" value="14"><output id="t1spdV">14 秒</output></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">橢圓數值<small>半長軸 a 固定為 10</small></div>
+        <table class="kv" id="t1vals"></table>
+      </div>
+      <div class="sec">
+        <div class="sec-t">太陽系天體的軌道離心率<small>點選可套用</small></div>
+        <table class="etab" id="t1etab"></table>
+      </div>
+    </section>
+
+    <!-- ===== 第二定律 ===== -->
+    <section class="pane" data-tab="1">
+      <button class="btn law" data-win="winLaw2">📖 第二定律說明</button>
+      <div class="sec">
+        <div class="sec-t">離心率 e</div>
+        <div class="slider-row"><input type="range" id="t2e" min="0" max="0.9" step="0.01" value="0.6"><output id="t2eV">0.60</output></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">等間隔掃描</div>
+        <div class="slider-row"><span class="sl-l">一週期分成</span></div>
+        <div class="seg" id="t2N">
+          <button class="btn on" data-n="12">12 份</button><button class="btn" data-n="16">16 份</button><button class="btn" data-n="24">24 份</button>
+        </div>
+        <div class="slider-row"><span class="sl-l">保留塊數</span><input type="range" id="t2K" min="2" max="8" step="1" value="6"><output id="t2KV">6 塊</output></div>
+        <div class="slider-row"><span class="sl-l">週期</span><input type="range" id="t2spd" min="6" max="40" step="1" value="16"><output id="t2spdV">16 秒</output></div>
+        <div class="btns"><button class="btn" id="t2play">⏸ 暫停</button><button class="btn" id="t2reset">↺ 重新開始</button></div>
+      </div>
+      <div class="sec">
+        <button class="btn" id="t2cmp" style="width:100%">⚖ 近日點 vs 遠日點 比較</button>
+        <label class="chk" style="margin-top:8px"><input type="checkbox" id="t2showA" checked><span>顯示面積數值</span></label>
+        <label class="chk"><input type="checkbox" id="t2showS"><span>顯示弧長數值</span></label>
+      </div>
+      <div class="sec">
+        <div class="sec-t">畫面中的扇形</div>
+        <table class="etab" id="t2tab"></table>
+        <div class="note" id="t2note"></div>
+      </div>
+    </section>
+
+    <!-- ===== 第三定律 ===== -->
+    <section class="pane" data-tab="2">
+      <button class="btn law" data-win="winLaw3">📖 第三定律說明</button>
+      <button class="btn data" data-win="winChart">📈 T² – a³ 關係圖</button>
+      <button class="btn data" data-win="winPlanets">🪐 太陽系行星數據</button>
+      <button class="btn data" data-win="winSats">🛰 地球人造衛星與月球數據</button>
+      <div class="sec">
+        <div class="sec-t">另一顆行星<small>點選預設或自行調整</small></div>
+        <div class="seg" id="t3pre"></div>
+        <div class="slider-row" style="margin-top:10px"><span class="sl-l">半長軸 a</span><input type="range" id="t3a" min="-0.7" max="1.3" step="0.001" value="0.183"><output id="t3aV"></output></div>
+        <div class="slider-row"><span class="sl-l">離心率 e</span><input type="range" id="t3e" min="0" max="0.97" step="0.001" value="0.093"><output id="t3eV"></output></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">時間</div>
+        <div class="slider-row"><span class="sl-l">倍率</span><input type="range" id="t3spd" min="-1.3" max="0.7" step="0.01" value="-0.6"><output id="t3spdV"></output></div>
+        <div class="btns"><button class="btn" id="t3play">⏸ 暫停</button><button class="btn" id="t3reset">↺ 重新開始</button></div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">兩者比較</div>
+        <div id="t3info"></div>
+      </div>
+    </section>
+
+    <!-- ===== 我們的太陽系 ===== -->
+    <section class="pane" data-tab="3">
+      <button class="btn law" data-win="winLaw3">📖 第三定律說明</button>
+      <button class="btn data" data-win="winPlanets">🪐 太陽系行星數據</button>
+      <div class="sec">
+        <div class="sec-t">鏡頭</div>
+        <div class="seg" id="t4cam">
+          <button class="btn" data-c="inner">內太陽系</button><button class="btn" data-c="all">全太陽系</button><button class="btn" data-c="halley">跟隨哈雷</button>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">時間</div>
+        <div class="slider-row"><span class="sl-l">倍率</span><input type="range" id="t4spd" min="0" max="3.86" step="0.01" value="1.48"><output id="t4spdV"></output></div>
+        <div class="btns"><button class="btn" id="t4play">⏸ 暫停</button><button class="btn" id="t4now">↺ 回到今天</button></div>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="t4orb" checked><span>顯示軌道</span></label>
+        <label class="chk"><input type="checkbox" id="t4lbl" checked><span>顯示名稱</span></label>
+        <label class="chk"><input type="checkbox" id="t4ast" checked><span>顯示小行星帶</span></label>
+      </div>
+      <div class="sec">
+        <div class="sec-t">天體資訊<small>點選畫面中的天體</small></div>
+        <div id="t4info" class="note">尚未選取天體。</div>
+        <button class="btn" id="t4follow" style="width:100%;margin-top:8px;display:none">🎥 鏡頭跟隨</button>
+      </div>
+    </section>
+
+    <!-- ===== 我們的地球 ===== -->
+    <section class="pane" data-tab="4">
+      <button class="btn law" data-win="winLaw3">📖 第三定律說明</button>
+      <button class="btn data" data-win="winSats">🛰 地球人造衛星與月球數據</button>
+      <button class="btn data" data-win="winSatSel">☑ 顯示衛星</button>
+      <div class="sec">
+        <div class="sec-t">鏡頭</div>
+        <div class="seg" id="t5cam">
+          <button class="btn" data-c="leo">低軌道</button><button class="btn" data-c="all">全部衛星</button><button class="btn" data-c="moon">含月球</button>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">時間</div>
+        <div class="slider-row"><span class="sl-l">倍率</span><input type="range" id="t5spd" min="1" max="4.94" step="0.01" value="2.08"><output id="t5spdV"></output></div>
+        <div class="btns"><button class="btn" id="t5play">⏸ 暫停</button></div>
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="t5orb" checked><span>顯示軌道</span></label>
+        <label class="chk"><input type="checkbox" id="t5lbl" checked><span>顯示名稱</span></label>
+        <label class="chk"><input type="checkbox" id="t5moon"><span>顯示月球</span></label>
+        <label class="chk"><input type="checkbox" id="t5tw" checked><span>標示臺灣、過境提示</span></label>
+      </div>
+      <div class="sec">
+        <div class="sec-t">衛星資訊<small>點選畫面中的衛星</small></div>
+        <div id="t5info" class="note">尚未選取衛星。</div>
+        <button class="btn" id="t5follow" style="width:100%;margin-top:8px;display:none">🎥 鏡頭跟隨</button>
+      </div>
+    </section>
+  </aside>
+</main>
+
+<!-- ===== 視窗 ===== -->
+<div class="win" id="winLaw1">
+  <div class="win-hd"><span>克卜勒第一定律（軌道定律）</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="law-s">所有行星繞太陽運行的軌道都是橢圓，太陽位於橢圓的一個焦點上。</div>
+    <h4>橢圓的名詞</h4>
+    <ul>
+      <li><b>焦點 F₁、F₂</b>：橢圓上任一點到兩焦點的距離和為定值，<span class="eq">r</span>₁ + <span class="eq">r</span>₂ = 2<span class="eq">a</span>。太陽在其中一個焦點，另一個焦點是空的。</li>
+      <li><b>中心 O</b>：兩焦點連線的中點。</li>
+      <li><b>長軸 2a</b>、<b>半長軸 a</b>；<b>短軸 2b</b>、<b>半短軸 b</b>。</li>
+      <li><b>焦距 c</b>：中心到焦點的距離，滿足 <span class="eq">a</span>² = <span class="eq">b</span>² + <span class="eq">c</span>²。</li>
+      <li><b>離心率 e</b> = <span class="eq">c</span> / <span class="eq">a</span>，0 ≤ <span class="eq">e</span> &lt; 1；<span class="eq">e</span> = 0 時兩焦點重合，橢圓變成圓。</li>
+      <li><b>近日點</b>距離 = <span class="eq">a</span> − <span class="eq">c</span> = <span class="eq">a</span>(1 − <span class="eq">e</span>)；<b>遠日點</b>距離 = <span class="eq">a</span> + <span class="eq">c</span> = <span class="eq">a</span>(1 + <span class="eq">e</span>)。</li>
+    </ul>
+    <h4>補充</h4>
+    <ul>
+      <li>克卜勒分析第谷（Tycho Brahe）留下的火星觀測資料，於 1609 年在《新天文學》中發表第一、第二定律。</li>
+      <li>大多數行星的離心率很小（地球約 0.017），軌道看起來幾乎是圓；動畫中把離心率放大，方便觀察。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="win" id="winLaw2">
+  <div class="win-hd"><span>克卜勒第二定律（等面積定律）</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="law-s">行星與太陽的連線，在相等的時間內掃過相等的面積。</div>
+    <h4>重點</h4>
+    <ul>
+      <li>面積速率為定值：<span class="eq">ΔA</span> / <span class="eq">Δt</span> = π<span class="eq">ab</span> / <span class="eq">T</span>。</li>
+      <li>近日點附近連線短，行星必須走得快；遠日點附近連線長，行星走得慢。</li>
+      <li>在近日點與遠日點，速度與連線垂直：<span class="eq">r</span><sub>近</sub><span class="eq">v</span><sub>近</sub> = <span class="eq">r</span><sub>遠</sub><span class="eq">v</span><sub>遠</sub>，所以 <span class="eq">v</span><sub>近</sub> / <span class="eq">v</span><sub>遠</sub> = (1 + <span class="eq">e</span>) / (1 − <span class="eq">e</span>)。</li>
+    </ul>
+    <h4>物理本質</h4>
+    <ul>
+      <li>太陽對行星的引力永遠指向太陽（連心力），對太陽的力矩為零，所以行星的角動量 <span class="eq">L</span> 守恆。</li>
+      <li>面積速率 <span class="eq">ΔA</span> / <span class="eq">Δt</span> = <span class="eq">L</span> / 2<span class="eq">m</span>，角動量守恆就等於面積速率固定。</li>
+    </ul>
+    <h4>生活中的例子</h4>
+    <ul>
+      <li>地球約在 1 月初經過近日點、7 月初經過遠日點，所以北半球的「秋分→春分」比「春分→秋分」少了約一週。</li>
+    </ul>
+    <h4>動畫說明</h4>
+    <ul><li>每一塊扇形都是經過相同時間 <span class="eq">Δt</span> = <span class="eq">T</span> / <span class="eq">N</span> 掃過的區域。形狀不同，但面積相同；弧長則不相等。</li></ul>
+  </div>
+</div>
+
+<div class="win" id="winLaw3">
+  <div class="win-hd"><span>克卜勒第三定律（週期定律）</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="law-s">行星公轉週期 T 的平方，與軌道半長軸 a 的三次方成正比：T² / a³ = k（定值）。</div>
+    <h4>重點</h4>
+    <ul>
+      <li>以「年」為週期單位、「天文單位 AU」為距離單位時，太陽系所有行星的 <span class="eq">k</span> ≈ 1 年²/AU³。</li>
+      <li><span class="eq">k</span> 只由中心天體決定。以圓軌道推導：<span class="eq">GMm</span>/<span class="eq">r</span>² = <span class="eq">m</span>(2π/<span class="eq">T</span>)²<span class="eq">r</span>，得 <span class="eq">T</span>²/<span class="eq">r</span>³ = 4π²/<span class="eq">GM</span>。</li>
+      <li>繞地球運行的人造衛星與月球，有另一個共同的 <span class="eq">k</span> 值，約 9.90 × 10⁻¹⁴ s²/m³（太陽系為 2.97 × 10⁻¹⁹ s²/m³）。</li>
+      <li>兩者的比值 <span class="eq">k</span><sub>地</sub> / <span class="eq">k</span><sub>日</sub> = <span class="eq">M</span><sub>日</sub> / <span class="eq">M</span><sub>地</sub> ≈ 3.33 × 10⁵。</li>
+      <li>離中心天體越遠，週期越長，平均速率也越慢。</li>
+    </ul>
+    <h4>補充</h4>
+    <ul>
+      <li>克卜勒於 1619 年在《世界的和諧》中發表第三定律。後來牛頓用萬有引力定律證明了三大定律。</li>
+      <li>嚴格來說應寫成 <span class="eq">T</span>²/<span class="eq">a</span>³ = 4π²/<span class="eq">G</span>(<span class="eq">M</span>+<span class="eq">m</span>)；繞行天體質量遠小於中心天體時，可省略 <span class="eq">m</span>。</li>
+      <li>動畫中各天體的軌道距離與週期都依真實比例；天體大小則放大顯示。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="win" id="winChart">
+  <div class="win-hd"><span>📈 T² – a³ 關係圖</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="chartbar">
+      <div class="seg" id="t3mode"><button class="btn on" data-m="sun">太陽系</button><button class="btn" data-m="earth">地球衛星</button><button class="btn" data-m="log">對數座標</button></div>
+      <div class="seg" id="t3range"></div>
+    </div>
+    <canvas id="chart"></canvas>
+    <div class="note" id="t3note" style="font-size:17px;color:var(--text)"></div>
+  </div>
+</div>
+
+<div class="win" id="winSatSel">
+  <div class="win-hd"><span>☑ 顯示衛星</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div id="satSelList"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn" id="satAll">全選</button><button class="btn" id="satNone">全不選</button></div>
+  </div>
+</div>
+
+<div class="win" id="winPlanets">
+  <div class="win-hd"><span>🪐 太陽系行星數據</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="unitbar">單位：<span class="seg unitseg"></span></div>
+    <table class="dtab" id="planetTable"></table>
+    <div class="note">1 AU（天文單位）= 1.496 × 10¹¹ m，即地球軌道半長軸；1 年（恆星年）= 365.256 天 = 3.156 × 10⁷ s。<br>每個天體的 T²/a³ 都約為同一個定值，這就是第三定律。<br>冥王星為矮行星；哈雷彗星為逆行軌道（傾角 162°）。<br>外行星略小 0.1%：嚴格式為 T²/a³ = 4π²/G(M+m)，木星等大行星的質量 m 不能完全忽略。</div>
+    <div class="ratio"></div>
+  </div>
+</div>
+
+<div class="win" id="winSats">
+  <div class="win-hd"><span>🛰 地球人造衛星與月球數據</span><button class="win-x">✕</button></div>
+  <div class="win-bd">
+    <div class="unitbar">單位：<span class="seg unitseg"></span></div>
+    <table class="dtab" id="satTable"></table>
+    <div class="note">r 為到地心的距離 = 地球赤道半徑 6378 km + 離地高度 h。標「*」的週期由軌道高度推算。<br>人造衛星的 T²/r³ 都約為同一個定值（= 4π²/GM<sub>地</sub>）。<br>月球的數值約小 1%：月球質量約為地球的 1/81，不可忽略，應以 G(M+m) 計算；此外月球軌道也受太陽引力攝動。</div>
+    <div class="ratio"></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+
+const TAU = Math.PI * 2, DEG = Math.PI / 180;
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const f = (v, d = 2) => Number(v).toFixed(d);
+
+/* ================= 渲染器與相機 ================= */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.prepend(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 3000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 2; controls.maxDistance = 200;
+let W = 1, H = 1;
+const lineMats = new Set();
+
+/* ================= 貼圖（真實行星貼圖，CDN 失敗時改用 GitHub 原始檔） ================= */
+const TEX_BASES = [
+  'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/',
+  'https://raw.githubusercontent.com/jeromeetienne/threex.planets/master/images/'
+];
+const texPromises = {};
+function getTex(name, srgb = true) {
+  const key = name + (srgb ? '' : '#lin');
+  if (!texPromises[key]) texPromises[key] = new Promise((res, rej) => {
+    let i = 0; const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const t = new THREE.Texture(img);
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      t.needsUpdate = true; res(t);
+    };
+    img.onerror = () => { if (++i < TEX_BASES.length) img.src = TEX_BASES[i] + name; else rej(); };
+    img.src = TEX_BASES[0] + name;
+  });
+  return texPromises[key];
+}
+function applyTex(mat, name, prop = 'map', srgb = true) {
+  getTex(name, srgb).then(t => {
+    mat[prop] = t; if (prop === 'map') mat.color.set(0xffffff); mat.needsUpdate = true;
+  }).catch(() => {});
+}
+
+/* ================= 共用小工具 ================= */
+const P = (x, y, h = 0) => new THREE.Vector3(x, h, -y);   // 數學平面 (x,y) → 場景
+function solveE(M, e) {
+  M = ((M % TAU) + TAU) % TAU;
+  let E = e < 0.8 ? M : Math.PI;
+  for (let k = 0; k < 40; k++) {
+    const d = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    E -= d; if (Math.abs(d) < 1e-12) break;
+  }
+  return E;
+}
+// 以焦點（太陽）為原點，phase = t/T（由近日點起算）
+function orbitXY(a, e, phase) {
+  const E = solveE(TAU * phase, e), b = a * Math.sqrt(1 - e * e);
+  return { x: a * (Math.cos(E) - e), y: b * Math.sin(E) };
+}
+function ellipsePts(a, e, n = 256, h = 0) {
+  const b = a * Math.sqrt(1 - e * e), c = a * e, pts = [];
+  for (let i = 0; i <= n; i++) { const t = i / n * TAU; pts.push(P(-c + a * Math.cos(t), b * Math.sin(t), h)); }
+  return pts;
+}
+function fatLine(pts, color, width = 3, o = {}) {
+  const g = new LineGeometry(); const arr = [];
+  pts.forEach(p => arr.push(p.x, p.y, p.z)); g.setPositions(arr);
+  const m = new LineMaterial({ color, linewidth: width, dashed: !!o.dashed, dashSize: o.dash || 0.5, gapSize: o.gap || 0.3,
+    transparent: true, opacity: o.opacity ?? 1, depthWrite: o.depthWrite ?? true });
+  m.resolution.set(W, H); lineMats.add(m);
+  const l = new Line2(g, m); l.computeLineDistances();
+  l.userData.dispose = () => { g.dispose(); m.dispose(); lineMats.delete(m); };
+  return l;
+}
+const UP = new THREE.Vector3(0, 1, 0);
+function mkRod(color, r = 0.05) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 12), new THREE.MeshBasicMaterial({ color }));
+  m.userData.r = r;
+  m.setEnds = function (p1, p2) {
+    const d = new THREE.Vector3().subVectors(p2, p1), L = d.length();
+    this.position.copy(p1).addScaledVector(d, 0.5);
+    this.scale.set(r, Math.max(L, 1e-4), r);
+    if (L > 1e-6) this.quaternion.setFromUnitVectors(UP, d.divideScalar(L));
+  };
+  return m;
+}
+function mkLabel(html, cls = 'lbl', cx = 0.5, cy = 0.5) {
+  const d = document.createElement('div'); d.className = cls; d.innerHTML = html;
+  const o = new CSS2DObject(d); o.center.set(cx, cy); return o;
+}
+function setVis(obj, v) {
+  obj.visible = v;
+  obj.traverse(o => { if (o.isCSS2DObject) o.visible = v && !o.userData.off; });
+}
+function clearGroup(g) {
+  g.traverse(o => {
+    if (o === g) return;
+    if (o.isCSS2DObject) o.element.remove();
+    if (o.userData.dispose) o.userData.dispose();
+    else {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material && !o.userData.keepMat) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose());
+    }
+  });
+  while (g.children.length) g.remove(g.children[0]);
+}
+function makeCss() {
+  const c = new CSS2DRenderer(); c.domElement.className = 'labels'; c.domElement.style.display = 'none';
+  stage.appendChild(c.domElement); return c;
+}
+const glowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(255,245,210,1)'); gr.addColorStop(0.18, 'rgba(255,205,100,.85)');
+  gr.addColorStop(0.42, 'rgba(255,140,40,.28)'); gr.addColorStop(1, 'rgba(255,110,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+function mkGlow(color, size) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.scale.set(size, size, 1); return s;
+}
+function mkSun(r) {
+  const g = new THREE.Group();
+  const m = new THREE.MeshBasicMaterial({ color: 0xffb030 }); applyTex(m, 'sunmap.jpg');
+  const core = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), m);
+  g.add(core); g.add(mkGlow(0xffc060, r * 5.5)); g.userData.core = core;
+  return g;
+}
+function mkBody(r, tex, color, tilt = 0, ring = false) {
+  const pivot = new THREE.Group(), tg = new THREE.Group(); tg.rotation.z = tilt * DEG; pivot.add(tg);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 1, metalness: 0 });
+  if (tex) applyTex(mat, tex);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), mat); tg.add(mesh);
+  if (ring) {
+    const r0 = r * 1.24, r1 = r * 2.27;
+    const rg = new THREE.RingGeometry(r0, r1, 128, 1);
+    const pos = rg.attributes.position, uv = rg.attributes.uv, v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); uv.setXY(i, (v.length() - r0) / (r1 - r0), 0.5); }
+    const rm = new THREE.MeshStandardMaterial({ color: 0xd8c8a0, side: THREE.DoubleSide, transparent: true, opacity: 0.92, depthWrite: false, roughness: 1 });
+    applyTex(rm, 'saturnringcolor.jpg'); applyTex(rm, 'saturnringpattern.gif', 'alphaMap', false);
+    const ringM = new THREE.Mesh(rg, rm); ringM.rotation.x = -Math.PI / 2; tg.add(ringM);
+  }
+  pivot.userData.spin = mesh;
+  return pivot;
+}
+function mkSat(color = 0xffd27a) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.12), new THREE.MeshStandardMaterial({ color: 0xd9b45a, metalness: 0.6, roughness: 0.4 }));
+  const pm = new THREE.MeshStandardMaterial({ color: 0x2a5bd7, metalness: 0.3, roughness: 0.5, side: THREE.DoubleSide });
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.006, 0.08), pm);
+  g.add(body, panel, mkGlow(color, 0.55));
+  return g;
+}
+function mkStars() {
+  const n = 2600, p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const u = Math.random() * 2 - 1, t = Math.random() * TAU, R = 500 + Math.random() * 400, s = Math.sqrt(1 - u * u);
+    p[i * 3] = R * s * Math.cos(t); p[i * 3 + 1] = R * u; p[i * 3 + 2] = R * s * Math.sin(t);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, sizeAttenuation: false, transparent: true, opacity: 0.75 }));
+}
+function mkPlanetScene() {
+  const s = new THREE.Scene(); s.add(mkStars());
+  s.add(new THREE.AmbientLight(0xffffff, 0.28));
+  s.add(new THREE.PointLight(0xffffff, 3.2, 0, 0));
+  return s;
+}
+
+/* ================= 相機飛行 ================= */
+const tween = { on: false };
+function fitDist(R) {
+  const vf = camera.fov * DEG, hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+  return R / Math.sin(Math.min(vf, hf) / 2);
+}
+function flyTo(center, R, mode = 'tilt', dur = 0.9) {
+  const dir = mode === 'top' ? new THREE.Vector3(0, 1, 0.0008).normalize() : new THREE.Vector3(0, 0.80, 0.60).normalize();
+  const d = fitDist(R) * (mode === 'top' ? 1 : 0.92);
+  Object.assign(tween, { on: true, t: 0, dur, p0: camera.position.clone(), t0: controls.target.clone(),
+    p1: center.clone().addScaledVector(dir, d), t1: center.clone() });
+}
+function stepTween(dt) {
+  if (!tween.on) return;
+  tween.t += dt; let k = Math.min(tween.t / tween.dur, 1); k = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  camera.position.lerpVectors(tween.p0, tween.p1, k); controls.target.lerpVectors(tween.t0, tween.t1, k);
+  if (k >= 1) tween.on = false;
+}
+
+/* ================= HUD ================= */
+const hud = $('#hud'); let hudHtml = '';
+function setHud(h) { if (h !== hudHtml) { hud.innerHTML = h; hudHtml = h; } }
+
+/* =====================================================================
+   分頁一：第一定律
+   ===================================================================== */
+const ECC = [['水星', 0.206], ['金星', 0.007], ['地球', 0.017], ['火星', 0.093], ['木星', 0.049],
+  ['土星', 0.057], ['天王星', 0.046], ['海王星', 0.009], ['冥王星（矮行星）', 0.249]];
+const C_A = 0xff8c6b, C_B = 0x7dffb0, C_C = 0x5fd3ff, C_R1 = 0xffa94d, C_R2 = 0x6ec8ff;
+const T1 = {
+  a: 10, e: 0.5, period: 14, phase: 0.1, playing: true, view: 'tilt',
+  show: { foci: true, center: true, axes: true, semi: true, apsis: true, dist: true, tri: false },
+  init() {
+    const s = this.scene = mkPlanetScene(); this.css = makeCss();
+    this.sun = mkSun(0.5); s.add(this.sun);
+    this.planet = mkBody(0.42, 'earthmap1k.jpg', 0x3a6fd8, 23.4); s.add(this.planet);
+    const pl = mkLabel('行星', 'lbl small', 0.5, 1); pl.position.set(0, 0.65, 0); this.planet.add(pl);
+    this.orbitG = new THREE.Group(); s.add(this.orbitG);
+    this.g = {};
+    ['foci', 'center', 'axes', 'semi', 'apsis', 'tri', 'dist'].forEach(k => { this.g[k] = new THREE.Group(); s.add(this.g[k]); });
+    this.rod1 = mkRod(C_R1, 0.045); this.rod2 = mkRod(C_R2, 0.045);
+    this.r1L = mkLabel('', 'lbl it', 0.5, 1); this.r2L = mkLabel('', 'lbl it', 0.5, 1);
+    this.r1L.element.style.color = '#ffb866'; this.r2L.element.style.color = '#8fd6ff';
+    this.r1L.element.innerHTML = 'r<sub>1</sub>'; this.r2L.element.innerHTML = 'r<sub>2</sub>';
+    this.g.dist.add(this.rod1, this.rod2, this.r1L, this.r2L);
+    this.build();
+    // 面板
+    const tab = $('#t1etab');
+    tab.innerHTML = '<tr><th>天體</th><th>離心率 e</th></tr>' + ECC.map(([n, e]) => `<tr class="r" data-e="${e}"><td>${n}</td><td>${f(e, 3)}</td></tr>`).join('');
+    tab.addEventListener('click', ev => { const tr = ev.target.closest('tr.r'); if (tr) { $('#t1e').value = tr.dataset.e; this.setE(+tr.dataset.e); } });
+    $('#t1e').addEventListener('input', ev => this.setE(+ev.target.value));
+    $$('[data-t1]').forEach(cb => cb.addEventListener('change', () => { this.show[cb.dataset.t1] = cb.checked; this.applyVis(); }));
+    $('#t1play').onclick = () => { this.playing = !this.playing; $('#t1play').textContent = this.playing ? '⏸ 暫停' : '▶ 播放'; };
+    $('#t1spd').addEventListener('input', ev => { this.period = +ev.target.value; $('#t1spdV').textContent = this.period + ' 秒'; });
+  },
+  setE(e) { this.e = e; $('#t1eV').textContent = f(e); this.build(); },
+  build() {
+    const { a, e } = this, b = a * Math.sqrt(1 - e * e), c = a * e; this.b = b; this.c = c;
+    ['foci', 'center', 'axes', 'semi', 'apsis', 'tri'].forEach(k => clearGroup(this.g[k])); clearGroup(this.orbitG);
+    this.orbitG.add(fatLine(ellipsePts(a, e), 0xffd36b, 3.5));
+    const dot = (r, col) => new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), new THREE.MeshBasicMaterial({ color: col }));
+    const colLbl = (html, col, cls, cx, cy, pos) => { const L = mkLabel(html, cls, cx, cy); L.element.style.color = col; L.position.copy(pos); return L; };
+
+    // 焦點
+    const gf = this.g.foci;
+    gf.add(colLbl('F₁（太陽）', '#ffd36b', 'lbl', 0.5, 0, P(0, -0.8)));
+    const f2 = dot(0.13, 0xffffff); f2.position.copy(P(-2 * c, 0)); gf.add(f2);
+    const f2L = colLbl('F₂', '#ffffff', 'lbl', 0.5, 0, P(-2 * c, -0.45)); gf.add(f2L);
+    if (c < 0.45) { f2.visible = false; f2L.userData.off = true; }
+
+    // 中心
+    const gc = this.g.center;
+    const o = dot(0.11, 0xc8d2ff); o.position.copy(P(-c, 0)); gc.add(o);
+    const oL = colLbl('O', '#c8d2ff', 'lbl', 1, 0, P(-c - 0.18, -0.22)); gc.add(oL);
+    if (c < 0.45) oL.userData.off = true;
+
+    // 長軸、短軸
+    const ga = this.g.axes, dash = { dashed: true, dash: 0.45, gap: 0.3, opacity: 0.85 };
+    ga.add(fatLine([P(-a - c, 0), P(a - c, 0)], 0xc8d2ff, 2, dash));
+    ga.add(fatLine([P(-c, -b), P(-c, b)], 0xc8d2ff, 2, dash));
+    ga.add(colLbl('長軸 2<i>a</i>', '#dfe5ff', 'lbl tag', 0.5, 1, P(-c - a * 0.62, 0.25)));
+    ga.add(colLbl('短<br>軸<br>2<i>b</i>', '#dfe5ff', 'lbl vt', 1, 0.5, P(-c - 0.3, b * 0.55)));   // 直式，貼在上半短軸左側
+
+    // 半長軸 a、半短軸 b、焦距 c（尺寸標註）
+    const gs = this.g.semi;
+    const dim = (p1, p2, col, w = 2.5) => {
+      const d = new THREE.Vector3().subVectors(p2, p1).normalize(), n = new THREE.Vector3(-d.z, 0, d.x).multiplyScalar(0.22);
+      gs.add(fatLine([p1, p2], col, w));
+      [p1, p2].forEach(p => gs.add(fatLine([p.clone().add(n), p.clone().sub(n)], col, w)));
+    };
+    const yA = -(b + 0.9);
+    dim(P(-c, yA), P(a - c, yA), C_A);
+    gs.add(fatLine([P(-c, -b - 0.15), P(-c, yA - 0.3)], C_A, 1.5, { opacity: 0.6 }));
+    gs.add(fatLine([P(a - c, -0.35), P(a - c, yA - 0.3)], C_A, 1.5, { opacity: 0.6 }));
+    gs.add(colLbl('<i>a</i> 半長軸', '#ff9d80', 'lbl', 0.5, 0, P(-c + a / 2, yA - 0.3)));
+    dim(P(-c + 0.55, 0), P(-c + 0.55, -b), C_B);
+    gs.add(colLbl('<i>b</i> 半短軸', '#8dffbc', 'lbl', 0, 0.5, P(-c + 0.85, -b * 0.5)));
+    if (c > 0.6) {
+      dim(P(-c, 0.55), P(0, 0.55), C_C);
+      gs.add(colLbl('<i>c</i> 焦距', '#7fdcff', 'lbl', 0.5, 1, P(-c / 2, 0.75)));
+    }
+
+    // 近日點、遠日點
+    const gp = this.g.apsis;
+    const pp = dot(0.1, 0xffffff); pp.position.copy(P(a - c, 0)); gp.add(pp);
+    const ap = dot(0.1, 0xffffff); ap.position.copy(P(-a - c, 0)); gp.add(ap);
+    gp.add(colLbl('近日點', '#ffffff', 'lbl tag', 0, 0.5, P(a - c + 0.45, 0)));
+    gp.add(colLbl('遠日點', '#ffffff', 'lbl tag', 1, 0.5, P(-a - c - 0.45, 0)));
+
+    // a² = b² + c² 直角三角形
+    const gt = this.g.tri;
+    gt.add(fatLine([P(0, 0, 0.02), P(-c, b, 0.02)], C_A, 4.5));
+    gt.add(fatLine([P(-c, 0, 0.02), P(0, 0, 0.02)], C_C, 4.5));
+    gt.add(fatLine([P(-c, 0, 0.02), P(-c, b, 0.02)], C_B, 4.5));
+    const q = Math.min(0.5, Math.max(c * 0.4, 0.2));
+    gt.add(fatLine([P(-c + q, 0, 0.02), P(-c + q, q, 0.02), P(-c, q, 0.02)], 0xffffff, 2));
+    gt.add(colLbl('<i>a</i>', '#ff9d80', 'lbl it', 0, 1, P(-c / 2 + 0.35, b / 2 + 0.35)));
+    gt.add(colLbl('<i>b</i>', '#8dffbc', 'lbl it', 1, 0.5, P(-c - 0.3, b * 0.62)));
+    if (c > 0.6) gt.add(colLbl('<i>c</i>', '#7fdcff', 'lbl it', 0.5, 0, P(-c / 2, -0.15)));
+    gt.add(colLbl('<i>a</i>² = <i>b</i>² + <i>c</i>²', '#ffffff', 'lbl tag', 0.5, 1, P(-c / 2, b + 0.6)));
+
+    this.applyVis();
+    // 數值表
+    $('#t1vals').innerHTML = [
+      ['半長軸 a', '', a], ['半短軸 b', '√(a² − c²)', b], ['焦距 c', 'a · e', c],
+      ['近日點距離', 'a − c', a - c], ['遠日點距離', 'a + c', a + c]
+    ].map(([n, fo, v]) => `<tr><td>${n} <span class="f">${fo}</span></td><td>${f(v)}</td></tr>`).join('');
+  },
+  applyVis() { Object.keys(this.show).forEach(k => setVis(this.g[k], this.show[k])); },
+  center() { return new THREE.Vector3(-this.a * 0.25, 0, 0.8); },
+  onShow() { flyTo(this.center(), 13.5, this.view); },
+  setView(m) { this.view = m; flyTo(this.center(), 13.5, m); },
+  update(dt) {
+    if (this.playing) this.phase += dt / this.period;
+    const q = orbitXY(this.a, this.e, this.phase), p = P(q.x, q.y);
+    this.planet.position.copy(p); this.planet.userData.spin.rotation.y += dt * 1.2;
+    const F1 = P(0, 0), F2 = P(-2 * this.c, 0);
+    const r1 = Math.hypot(q.x, q.y), r2 = Math.hypot(q.x + 2 * this.c, q.y);
+    if (this.show.dist) {
+      this.rod1.setEnds(p, F1); this.rod2.setEnds(p, F2);
+      this.r1L.position.copy(p).lerp(F1, 0.5).add(new THREE.Vector3(0, 0.3, 0));
+      this.r2L.position.copy(p).lerp(F2, 0.5).add(new THREE.Vector3(0, 0.3, 0));
+    }
+    let h = `<span class="t">離心率 e = ${f(this.e)}</span>`;
+    if (this.show.dist) h += `<br><span style="color:#ffb866">r₁ = ${f(r1)}</span>　<span style="color:#8fd6ff">r₂ = ${f(r2)}</span><br>r₁ + r₂ = <b>${f(r1 + r2)}</b> = 2a`;
+    if (this.e < 0.005) h += `<br><span class="s">e = 0：兩焦點與中心重合，軌道為圓</span>`;
+    setHud(h);
+  }
+};
+
+/* =====================================================================
+   分頁二：第二定律（等間隔掃描面積，跑馬燈）
+   ===================================================================== */
+const SEC_COL = [0xffcf5a, 0x4fc8ff];
+const T2 = {
+  a: 10, e: 0.6, N: 12, K: 6, period: 16, phase: 0, cur: 0, playing: true, compare: false,
+  showA: true, showS: false, view: 'tilt', blocks: [], S: 72,
+  init() {
+    const s = this.scene = mkPlanetScene(); this.css = makeCss();
+    s.add(mkSun(0.5));
+    this.planet = mkBody(0.42, 'earthmap1k.jpg', 0x3a6fd8, 23.4); s.add(this.planet);
+    this.orbitG = new THREE.Group(); s.add(this.orbitG);
+    this.blockG = new THREE.Group(); s.add(this.blockG);
+    this.sunLine = mkRod(0xffffff, 0.04); s.add(this.sunLine);
+    // 正在掃描中的扇形（每格重算頂點）
+    const n = this.S + 2, g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const idx = []; for (let i = 1; i <= this.S; i++) idx.push(0, i, i + 1); g.setIndex(idx);
+    this.grow = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: SEC_COL[0], transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+    this.grow.frustumCulled = false; s.add(this.grow);
+    this.build();
+    // 面板
+    $('#t2e').addEventListener('input', ev => { this.e = +ev.target.value; $('#t2eV').textContent = f(this.e); this.build(); });
+    $$('#t2N .btn').forEach(bt => bt.onclick = () => {
+      $$('#t2N .btn').forEach(x => x.classList.toggle('on', x === bt)); this.N = +bt.dataset.n; this.build();
+    });
+    $('#t2K').addEventListener('input', ev => { this.K = +ev.target.value; $('#t2KV').textContent = this.K + ' 塊'; this.trim(); });
+    $('#t2spd').addEventListener('input', ev => { this.period = +ev.target.value; $('#t2spdV').textContent = this.period + ' 秒'; });
+    $('#t2play').onclick = () => { this.playing = !this.playing; $('#t2play').textContent = this.playing ? '⏸ 暫停' : '▶ 播放'; };
+    $('#t2reset').onclick = () => this.build();
+    $('#t2cmp').onclick = () => this.setCompare(!this.compare);
+    $('#t2showA').onchange = ev => { this.showA = ev.target.checked; this.relabel(); };
+    $('#t2showS').onchange = ev => { this.showS = ev.target.checked; this.relabel(); };
+  },
+  get b() { return this.a * Math.sqrt(1 - this.e * this.e); },
+  build() {
+    clearGroup(this.orbitG);
+    this.orbitG.add(fatLine(ellipsePts(this.a, this.e), 0xffd36b, 3));
+    const fd = mkLabel('太陽', 'lbl small', 0.5, 0); fd.element.style.color = '#ffd36b'; fd.position.copy(P(0, -0.8)); this.orbitG.add(fd);
+    this.clearBlocks(); this.phase = 0; this.cur = 0;
+    if (this.compare) this.makeCompare();
+    this.refreshTable();
+  },
+  clearBlocks() { this.blocks.forEach(bk => clearGroup(bk.g)); clearGroup(this.blockG); this.blocks = []; },
+  stats(ph0, ph1) {
+    let A = 0, L = 0, prev = orbitXY(this.a, this.e, ph0);
+    for (let i = 1; i <= 600; i++) {
+      const cur = orbitXY(this.a, this.e, ph0 + (ph1 - ph0) * i / 600);
+      A += 0.5 * (prev.x * cur.y - cur.x * prev.y); L += Math.hypot(cur.x - prev.x, cur.y - prev.y); prev = cur;
+    }
+    return { A: Math.abs(A), L };
+  },
+  makeSector(ph0, ph1, color, title, num) {
+    const g = new THREE.Group(), S = this.S, pts = [P(0, 0, 0.01)];
+    for (let i = 0; i <= S; i++) { const q = orbitXY(this.a, this.e, ph0 + (ph1 - ph0) * i / S); pts.push(P(q.x, q.y, 0.01)); }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const idx = []; for (let i = 1; i <= S; i++) idx.push(0, i, i + 1); geo.setIndex(idx);
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
+    g.add(new THREE.Mesh(geo, mat));
+    const edge = fatLine([...pts, pts[0]], color, 2.2, { opacity: 0.95 }); g.add(edge);
+    const st = this.stats(ph0, ph1);
+    // 標籤放在扇形弧的外側（沿太陽→弧中點方向往外推），避免狹長扇形擠在一起
+    const qm = orbitXY(this.a, this.e, (ph0 + ph1) / 2), rm = Math.hypot(qm.x, qm.y);
+    const ux = qm.x / rm, uy = qm.y / rm, push = 0.9 + 1.9 * Math.abs(ux) + 0.6 * Math.abs(uy);
+    const lbl = mkLabel('', 'lbl secl', 0.5, 0.5); lbl.position.copy(P(qm.x + ux * push, qm.y + uy * push, 0.1)); g.add(lbl);
+    lbl.element.style.color = '#' + new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.25).getHexString();
+    this.blockG.add(g);
+    const bk = { g, mat, edge, lbl, st, title, num, color, f: 1, fading: false };
+    this.labelBlock(bk);
+    return bk;
+  },
+  labelBlock(bk) {
+    const parts = [];
+    if (bk.title) parts.push(bk.title);
+    const head = bk.num ? `<span class="n">${bk.num}</span>` : '';
+    if (this.showA || bk.title) parts.push(`${head}A = ${f(bk.st.A)}`);
+    else if (head) parts.push(head);
+    if (this.showS || bk.title) parts.push(`弧長 ${f(bk.st.L)}`);
+    bk.lbl.element.innerHTML = parts.join('<br>');
+  },
+  relabel() { this.blocks.forEach(bk => this.labelBlock(bk)); },
+  addBlock(k) {
+    const N = this.N;
+    const bk = this.makeSector(k / N, (k + 1) / N, SEC_COL[k % 2], '', (k % N) + 1);
+    this.blocks.push(bk); this.trim(); this.refreshTable();
+  },
+  trim() {
+    if (this.compare) return;
+    const alive = this.blocks.filter(b => !b.fading);
+    for (let i = 0; i < alive.length - this.K; i++) alive[i].fading = true;
+  },
+  setCompare(on) {
+    this.compare = on; $('#t2cmp').classList.toggle('on', on);
+    this.clearBlocks();
+    if (on) this.makeCompare(); else this.cur = Math.floor(this.phase * this.N);
+    this.grow.visible = !on; this.refreshTable();
+  },
+  makeCompare() {
+    const h = 0.5 / this.N;
+    this.blocks.push(this.makeSector(-h, h, SEC_COL[0], '近日點附近', 0));
+    this.blocks.push(this.makeSector(0.5 - h, 0.5 + h, SEC_COL[1], '遠日點附近', 0));
+  },
+  refreshTable() {
+    const rows = this.blocks.filter(b => !b.fading);
+    $('#t2tab').innerHTML = '<tr><th>扇形</th><th>面積 A</th><th>弧長</th></tr>' +
+      rows.map(b => `<tr><td style="color:#${new THREE.Color(b.color).getHexString()}">${b.title || '第 ' + b.num + ' 塊'}</td><td>${f(b.st.A)}</td><td>${f(b.st.L)}</td></tr>`).join('');
+    const tot = Math.PI * this.a * this.b;
+    $('#t2note').innerHTML = `每塊時間 Δt = T / ${this.N}<br>橢圓面積 πab = ${f(tot)}<br>每塊面積應為 πab / ${this.N} = <b style="color:var(--green)">${f(tot / this.N)}</b>`;
+  },
+  center() { return new THREE.Vector3(-this.a * this.e, 0, 0); },
+  onShow() { flyTo(this.center(), 12.5, this.view); },
+  setView(m) { this.view = m; flyTo(this.center(), 12.5, m); },
+  update(dt) {
+    if (this.playing) this.phase += dt / this.period;
+    const ph = this.phase, q = orbitXY(this.a, this.e, ph), p = P(q.x, q.y);
+    this.planet.position.copy(p); this.planet.userData.spin.rotation.y += dt * 1.2;
+    this.sunLine.setEnds(P(0, 0, 0.02), p);
+    if (!this.compare) {
+      const nb = Math.floor(ph * this.N);
+      while (this.cur < nb) { this.addBlock(this.cur); this.cur++; }
+      const ph0 = this.cur / this.N, arr = this.grow.geometry.attributes.position.array;
+      arr[0] = 0; arr[1] = 0.012; arr[2] = 0;
+      for (let i = 0; i <= this.S; i++) {
+        const g = orbitXY(this.a, this.e, ph0 + (ph - ph0) * i / this.S);
+        arr[(i + 1) * 3] = g.x; arr[(i + 1) * 3 + 1] = 0.012; arr[(i + 1) * 3 + 2] = -g.y;
+      }
+      this.grow.geometry.attributes.position.needsUpdate = true;
+      this.grow.material.color.setHex(SEC_COL[this.cur % 2]);
+    }
+    // 淡出
+    let removed = false;
+    this.blocks = this.blocks.filter(bk => {
+      if (!bk.fading) return true;
+      bk.f -= dt / 0.7;
+      if (bk.f <= 0) { clearGroup(bk.g); this.blockG.remove(bk.g); removed = true; return false; }
+      bk.mat.opacity = 0.5 * bk.f; bk.edge.material.opacity = 0.95 * bk.f; bk.lbl.element.style.opacity = bk.f;
+      return true;
+    });
+    if (removed) this.refreshTable();
+    const r = Math.hypot(q.x, q.y), v = Math.sqrt(2 * this.a / r - 1);
+    let h = `<span class="t">每塊扇形：相同時間 Δt = T / ${this.N}</span><br>行星到太陽距離 r = ${f(r)}<br>速率（以圓軌道速率為 1）v = ${f(v)}`;
+    if (this.compare) h += `<br>v<sub>近</sub> / v<sub>遠</sub> = (1+e)/(1−e) = ${f((1 + this.e) / (1 - this.e))}`;
+    setHud(h);
+  }
+};
+
+/* =====================================================================
+   共用天體資料
+   ===================================================================== */
+const YEAR = 365.256, YEAR_S = YEAR * 86400, AU_M = 1.495978707e11;
+const GM_E = 398600.4418;            // km³/s²
+const GM_S_AUD = 2.959122083e-4;     // AU³/day²
+const R_EQ = 6378.137;               // 地球赤道半徑 km
+const J2000 = Date.UTC(2000, 0, 1, 12);
+// 行星軌道根數：JPL 行星平均軌道根數（J2000）；週期：NASA 恆星週期
+const SUNB = [   // a(AU) e i Ω ϖ L(度) T(天) rel:畫面大小比例
+  { name: '水星', tex: 'mercurymap.jpg', color: 0x9a8f86, a: 0.38709927, e: 0.20563593, i: 7.00497902, O: 48.33076593, w: 77.45779628, L: 252.25032350, T: 87.969, rel: 0.6, tilt: 0.03 },
+  { name: '金星', tex: 'venusmap.jpg', color: 0xd9b77a, a: 0.72333566, e: 0.00677672, i: 3.39467605, O: 76.67984255, w: 131.60246718, L: 181.97909950, T: 224.701, rel: 0.85, tilt: 177.4 },
+  { name: '地球', tex: 'earthmap1k.jpg', color: 0x3a6fd8, a: 1.00000261, e: 0.01671123, i: 0, O: 0, w: 102.93768193, L: 100.46457166, T: 365.256, rel: 0.9, tilt: 23.44 },
+  { name: '火星', tex: 'marsmap1k.jpg', color: 0xc1440e, a: 1.52371034, e: 0.09339410, i: 1.84969142, O: 49.55953891, w: 336.05637041, L: 355.44656795, T: 686.980, rel: 0.7, tilt: 25.19 },
+  { name: '木星', tex: 'jupitermap.jpg', color: 0xc9a27a, a: 5.20288700, e: 0.04838624, i: 1.30439695, O: 100.47390909, w: 14.72847983, L: 34.39644051, T: 4332.589, rel: 1.6, tilt: 3.13 },
+  { name: '土星', tex: 'saturnmap.jpg', color: 0xe3cf9a, a: 9.53667594, e: 0.05386179, i: 2.48599187, O: 113.66242448, w: 92.59887831, L: 49.95424423, T: 10759.22, rel: 1.3, tilt: 26.73, ring: true },
+  { name: '天王星', tex: 'uranusmap.jpg', color: 0x9fdde8, a: 19.18916464, e: 0.04725744, i: 0.77263783, O: 74.01692503, w: 170.95427630, L: 313.23810451, T: 30685.4, rel: 1.15, tilt: 97.77 },
+  { name: '海王星', tex: 'neptunemap.jpg', color: 0x4b70dd, a: 30.06992276, e: 0.00859048, i: 1.77004347, O: 131.78422574, w: 44.96476227, L: 304.87997031, T: 60189, rel: 1.1, tilt: 28.32 },
+  { name: '冥王星', note: '矮行星', tex: 'plutomap1k.jpg', color: 0xc9b29b, a: 39.48211675, e: 0.24882730, i: 17.14001206, O: 110.30393684, w: 224.06891629, L: 238.92903833, T: 90560, rel: 0.5, tilt: 122.5, dwarf: true },
+  { name: '哈雷彗星', note: '逆行', tex: 'moonmap1k.jpg', color: 0x9fe7ff, a: 17.834, e: 0.96714, i: 162.26, O: 58.42, argp: 111.33, peri: Date.UTC(1986, 1, 9, 11), T: 75.32 * 365.25, rel: 0.4, comet: true }
+];
+SUNB.forEach(p => {
+  p.el = { a: p.a, e: p.e, i: p.i * DEG, O: p.O * DEG, w: (p.argp ?? (p.w - p.O)) * DEG };
+  p.M0 = p.L != null ? (p.L - p.w) / 360 : (J2000 - p.peri) / 86400000 / p.T;   // J2000 時的平近點角（圈）
+  p.am = p.a * AU_M; p.ts = p.T * 86400;
+});
+const Tcirc = r => TAU * Math.sqrt(r * r * r / GM_E);
+// 地球衛星：h 離地高度(km)；T 週期(s)，est = 由高度推算；i 傾角；O 升交點；M0 起始相位
+const EARTHB = [
+  { name: '國際太空站 ISS', short: 'ISS', h: 420, T: 92.9 * 60, i: 51.64, O: 30, M0: 0.10, color: 0xffffff },
+  { name: '哈伯太空望遠鏡', short: '哈伯', h: 515, est: true, i: 28.47, O: 150, M0: 0.55, color: 0xffe08a },
+  { name: '福衛五號', short: '福衛五號', h: 720, est: true, i: 98.28, O: 200, M0: 0.80, color: 0xffa64d, tw: true },
+  { name: '福衛七號（6 顆）', short: '福七', h: 550, est: true, i: 24, O: 0, M0: 0.0, color: 0xffcf5a, tw: true, n: 6 },
+  { name: '福衛八號 A（齊柏林衛星）', short: '福衛八號A', h: 564.5, T: 96.0 * 60, i: 97.7, O: 210, M0: 0.35, color: 0xff7b54, tw: true },
+  { name: '獵風者衛星', short: '獵風者', h: 600, est: true, i: 97.8, O: 225, M0: 0.62, color: 0xff9ad5, tw: true },
+  { name: 'GPS 衛星', short: 'GPS', r: 26560, T: 43082, i: 55, O: 250, M0: 0.30, color: 0x9dff9d },
+  { name: '地球同步衛星', short: '同步衛星', r: 42164, T: 86164, i: 0, O: 0, geo: true, color: 0x8fd6ff },
+  { name: '月球', short: '月球', r: 384399, T: 27.321661 * 86400, i: 18.3, O: 60, M0: 0.62, e: 0.0549, moon: true, color: 0xdddddd }
+];
+EARTHB.forEach(s => {
+  if (s.r == null) s.r = R_EQ + s.h; else s.h = s.r - R_EQ;
+  if (s.T == null) s.T = Tcirc(s.r);
+  s.am = s.r * 1000; s.ts = s.T;
+});
+
+/* ---------- 數字格式 ---------- */
+const SUPS = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+const sup = n => String(n).split('').map(c => SUPS[c]).join('');
+function sci(v, p = 4) {
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 0.01 && a < 1e5) return Number(v.toPrecision(p)).toLocaleString(undefined, { minimumSignificantDigits: p, maximumSignificantDigits: p });
+  const [m, e] = v.toExponential(p - 1).split('e');
+  return `${m} × 10${sup(+e)}`;
+}
+function fmtDur(sec) {
+  if (sec < 7200) return f(sec / 60, 1) + ' 分';
+  if (sec < 172800) return f(sec / 3600, 2) + ' 小時';
+  if (sec < 86400 * 400) return f(sec / 86400, 2) + ' 天';
+  return f(sec / YEAR_S, 2) + ' 年';
+}
+
+/* ---------- 單位切換（兩個數據視窗共用） ---------- */
+const UNITS = {
+  si:   { name: '秒、公尺（SI）', L: 1, T: 1, l: 'm', t: 's' },
+  skm:  { name: '秒、公里', L: 1000, T: 1, l: 'km', t: 's' },
+  yrau: { name: '年、AU', L: AU_M, T: YEAR_S, l: 'AU', t: '年' }
+};
+let unitKey = 'si';
+const kOf = (am, ts, U) => Math.pow(ts / U.T, 2) / Math.pow(am / U.L, 3);
+function fillTables() {
+  const U = UNITS[unitKey];
+  $$('.unitseg').forEach(sg => {
+    sg.innerHTML = Object.entries(UNITS).map(([k, u]) => `<button class="btn ${k === unitKey ? 'on' : ''}" data-u="${k}">${u.name}</button>`).join('');
+  });
+  $('#planetTable').innerHTML = `<tr><th>天體</th><th>半長軸 a<br>(${U.l})</th><th>週期 T<br>(${U.t})</th><th>離心率 e</th><th>a³<br>(${U.l}³)</th><th>T²<br>(${U.t}²)</th><th>T²/a³<br>(${U.t}²/${U.l}³)</th></tr>` +
+    SUNB.map(p => {
+      const a = p.am / U.L, T = p.ts / U.T;
+      return `<tr class="${p.comet || p.dwarf ? 'hl' : ''}"><td>${p.name}${p.note ? `<br><small>（${p.note}）</small>` : ''}</td><td>${sci(a)}</td><td>${sci(T)}</td><td>${f(p.e, 3)}</td><td>${sci(a ** 3)}</td><td>${sci(T * T)}</td><td class="k">${sci(T * T / a ** 3)}</td></tr>`;
+    }).join('');
+  $('#satTable').innerHTML = `<tr><th>天體</th><th>離地高度 h<br>(km)</th><th>軌道半徑 r<br>(${U.l})</th><th>週期 T<br>(${U.t})</th><th>週期</th><th>T²/r³<br>(${U.t}²/${U.l}³)</th></tr>` +
+    EARTHB.map(s => {
+      const r = s.am / U.L, T = s.ts / U.T;
+      return `<tr class="${s.moon ? 'hl' : s.tw ? 'tw' : ''}"><td>${s.name}</td><td>${Math.round(s.h).toLocaleString()}</td><td>${sci(r)}</td><td>${sci(T)}</td><td>${fmtDur(s.T)}${s.est ? '*' : ''}</td><td class="k">${sci(T * T / r ** 3)}</td></tr>`;
+    }).join('');
+  const kS = SUNB.slice(0, 8).reduce((s, p) => s + kOf(p.am, p.ts, U), 0) / 8;
+  const arts = EARTHB.filter(s => !s.moon);
+  const kE = arts.reduce((s, b) => s + kOf(b.am, b.ts, U), 0) / arts.length;
+  const ratio = `相同單位下：k<sub>地</sub> ÷ k<sub>日</sub> = ${sci(kE, 3)} ÷ ${sci(kS, 3)} = <b>${sci(kE / kS, 3)}</b> ≈ M<sub>日</sub> / M<sub>地</sub>（3.33 × 10⁵）`;
+  $$('.ratio').forEach(d => d.innerHTML = ratio);
+}
+document.addEventListener('click', ev => {
+  const b = ev.target.closest('.unitseg .btn'); if (!b) return;
+  unitKey = b.dataset.u; fillTables();
+});
+
+/* ---------- 軌道計算 ---------- */
+function rotOrbit(xp, yp, el, s, out) {
+  const cO = Math.cos(el.O), sO = Math.sin(el.O), cw = Math.cos(el.w), sw = Math.sin(el.w), ci = Math.cos(el.i), si = Math.sin(el.i);
+  const X = (cO * cw - sO * sw * ci) * xp + (-cO * sw - sO * cw * ci) * yp;
+  const Y = (sO * cw + cO * sw * ci) * xp + (-sO * sw + cO * cw * ci) * yp;
+  const Z = (sw * si) * xp + (cw * si) * yp;
+  return out.set(X * s, Z * s, -Y * s);
+}
+function keplerPos(el, frac, s, out) {
+  const E = solveE(TAU * frac, el.e), b = el.a * Math.sqrt(1 - el.e * el.e);
+  return rotOrbit(el.a * (Math.cos(E) - el.e), b * Math.sin(E), el, s, out);
+}
+function orbitLine(el, s, color, opacity = 0.7, n = 360) {
+  const pts = [], b = el.a * Math.sqrt(1 - el.e * el.e);
+  for (let k = 0; k <= n; k++) { const E = k / n * TAU; pts.push(rotOrbit(el.a * (Math.cos(E) - el.e), b * Math.sin(E), el, s, new THREE.Vector3())); }
+  return fatLine(pts, new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.35), 2, { opacity });
+}
+const _pv = new THREE.Vector3();
+function screenOf(obj) {
+  obj.getWorldPosition(_pv); _pv.project(camera);
+  return { x: (_pv.x + 1) / 2 * W, y: (1 - _pv.y) / 2 * H, ok: _pv.z < 1 };
+}
+function pickNearest(list, x, y, max = 30) {
+  let best = null, bd = max;
+  list.forEach(it => { const p = screenOf(it.body); if (!p.ok) return; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = it; } });
+  return best;
+}
+// 鏡頭跟隨：把相機與目標一起平移
+const followPrev = new THREE.Vector3();
+function followShift(pos) {
+  const d = new THREE.Vector3().subVectors(pos, followPrev);
+  camera.position.add(d); controls.target.add(d);
+  if (tween.on) { tween.p0.add(d); tween.p1.add(d); tween.t0.add(d); tween.t1.add(d); }
+  followPrev.copy(pos);
+}
+
+/* =====================================================================
+   T² – a³ 關係圖（彈出視窗）
+   ===================================================================== */
+const CHART = {
+  mode: 'sun', range: 0, hover: null, dirty: true,
+  RANGES: {
+    sun:   [{ n: '內行星', x0: 0, x1: 4 }, { n: '至土星', x0: 0, x1: 1000 }, { n: '全部', x0: 0, x1: 65000 }],
+    earth: [{ n: '低軌衛星', x0: 3.0e11, x1: 3.65e11 }, { n: '至同步軌道', x0: 0, x1: 8e13 }, { n: '含月球', x0: 0, x1: 6e16 }],
+    log:   [{ n: '全部', x0: 19.5, x1: 39 }]
+  },
+  init() {
+    this.cv = $('#chart');
+    $$('#t3mode .btn').forEach(b => b.onclick = () => {
+      $$('#t3mode .btn').forEach(x => x.classList.toggle('on', x === b));
+      this.mode = b.dataset.m; this.range = this.mode === 'earth' ? 1 : 0; this.buildRange(); this.dirty = true;
+    });
+    this.cv.addEventListener('pointermove', ev => { this.mx = ev.offsetX; this.my = ev.offsetY; this.dirty = true; });
+    this.cv.addEventListener('pointerleave', () => { this.mx = -1; this.dirty = true; });
+    this.buildRange();
+  },
+  buildRange() {
+    const R = this.RANGES[this.mode];
+    $('#t3range').style.display = R.length > 1 ? '' : 'none';
+    $('#t3range').innerHTML = R.map((r, i) => `<button class="btn ${i === this.range ? 'on' : ''}" data-r="${i}">${r.n}</button>`).join('');
+    $$('#t3range .btn').forEach(b => b.onclick = () => { this.range = +b.dataset.r; this.buildRange(); this.dirty = true; });
+    const notes = {
+      sun: '橫軸為 a³（AU³），縱軸為 T²（年²）。<br>所有天體都落在<b style="color:var(--gold)">同一條通過原點的直線</b>上，斜率 k = T²/a³ ≈ 1 年²/AU³。<br>連離心率高達 0.967 的哈雷彗星也不例外：第三定律中的 a 是<b>半長軸</b>。',
+      earth: '橫軸為 r³（km³），縱軸為 T²（s²）。<br>繞地球的衛星落在另一條直線上，斜率 k ≈ 9.90 × 10⁻⁵ s²/km³。<br>「低軌衛星」範圍的座標軸未從 0 開始，直線仍然通過原點。',
+      log: '兩軸都取對數（SI 單位）：log T² = log a³ + log k。<br>兩個系統都是<b style="color:var(--gold)">斜率為 1 的平行直線</b>，代表 T² ∝ a³。<br>兩線的垂直距離 = log(k<sub>地</sub>/k<sub>日</sub>) ≈ 5.52，即 k<sub>地</sub>/k<sub>日</sub> ≈ 3.33 × 10⁵ = M<sub>日</sub>/M<sub>地</sub>：<b>k 由中心天體的質量決定</b>。'
+    };
+    $('#t3note').innerHTML = notes[this.mode];
+  },
+  points() {
+    const P = [];
+    if (this.mode === 'sun' || this.mode === 'log') SUNB.forEach(p => P.push({ n: p.name, sys: 'sun', a: p.am, T: p.ts, x: p.a ** 3, y: (p.T / YEAR) ** 2, col: '#' + new THREE.Color(p.color).getHexString() }));
+    if (this.mode === 'earth' || this.mode === 'log') EARTHB.forEach(s => P.push({ n: s.short, sys: 'earth', a: s.am, T: s.ts, x: s.r ** 3, y: s.T ** 2, col: '#' + new THREE.Color(s.color).getHexString(), leo: s.h < 1000 }));
+    if (this.mode === 'log') P.forEach(p => { p.x = Math.log10(p.a ** 3); p.y = Math.log10(p.T ** 2); });
+    return P;
+  },
+  update() {
+    const cv = this.cv, dpr = Math.min(devicePixelRatio, 2);
+    const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;   // 以視窗內畫布尺寸繪圖
+    const resized = cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr);
+    if (!this.dirty && !resized) return; this.dirty = false;
+    if (resized) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = '#060a15'; g.fillRect(0, 0, W, H);
+    const small = W < 700, fs = small ? 13 : 18;
+    const m = { l: small ? 70 : 120, r: small ? 20 : 50, t: small ? 60 : 80, b: small ? 60 : 84 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const R = this.RANGES[this.mode][this.range], log = this.mode === 'log';
+    const kS = 4 * Math.PI ** 2 * 86400 ** 2 / (GM_S_AUD * AU_M ** 3);       // s²/m³（僅對數圖使用）
+    const kE = 4 * Math.PI ** 2 / (GM_E * 1e9);
+    let x0 = R.x0, x1 = R.x1, y0, y1;
+    if (this.mode === 'sun') { y0 = x0; y1 = x1 * 1.04; }
+    else if (this.mode === 'earth') { y0 = x0 * 9.9e-5; y1 = x1 * 9.9e-5 * 1.04; }
+    else { y0 = 7; y1 = 21; }
+    const X = v => m.l + (v - x0) / (x1 - x0) * pw, Y = v => m.t + ph - (v - y0) / (y1 - y0) * ph;
+    // 格線與刻度
+    const ticks = (a, b, n) => { const st = Math.pow(10, Math.floor(Math.log10((b - a) / n))); const c = [1, 2, 5, 10].map(k => k * st).find(s => (b - a) / s <= n) || st * 10; const out = []; for (let v = Math.ceil(a / c) * c; v <= b + 1e-9 * c; v += c) out.push(v); return out; };
+    const tl = v => log ? String(Math.round(v)) : (Math.abs(v) >= 1e5 || (v !== 0 && Math.abs(v) < 0.01) ? sci(v, 2) : sci(v, 3).replace(/\.0+$/, ''));
+    g.font = `${fs - 2}px "Noto Sans TC",sans-serif`; g.lineWidth = 1;
+    ticks(x0, x1, small ? 4 : 7).forEach(v => { const x = X(v); g.strokeStyle = '#1b2742'; g.beginPath(); g.moveTo(x, m.t); g.lineTo(x, m.t + ph); g.stroke(); g.fillStyle = '#9fb0d0'; g.textAlign = 'center'; g.fillText(log ? v : tl(v), x, m.t + ph + fs + 4); });
+    ticks(y0, y1, small ? 5 : 7).forEach(v => { const y = Y(v); g.strokeStyle = '#1b2742'; g.beginPath(); g.moveTo(m.l, y); g.lineTo(m.l + pw, y); g.stroke(); g.fillStyle = '#9fb0d0'; g.textAlign = 'right'; g.fillText(log ? v : tl(v), m.l - 8, y + 6); });
+    g.strokeStyle = '#4a5f8a'; g.lineWidth = 2; g.strokeRect(m.l, m.t, pw, ph);
+    // 軸標題
+    g.fillStyle = '#e8eefc'; g.font = `bold ${fs}px "Noto Sans TC",sans-serif`; g.textAlign = 'center';
+    const xt = { sun: 'a³（AU³）', earth: 'r³（km³）', log: 'log₁₀( a³ / m³ )' }[this.mode];
+    const yt = { sun: 'T²（年²）', earth: 'T²（s²）', log: 'log₁₀( T² / s² )' }[this.mode];
+    g.fillText(xt, m.l + pw / 2, H - (small ? 14 : 22));
+    g.save(); g.translate(small ? 16 : 26, m.t + ph / 2); g.rotate(-Math.PI / 2); g.fillText(yt, 0, 0); g.restore();
+    const tt = { sun: '太陽系天體：T² 與 a³ 成正比', earth: '地球衛星：T² 與 r³ 成正比', log: '兩個系統的比較（對數座標）' }[this.mode];
+    g.font = `bold ${fs + 6}px "Noto Sans TC",sans-serif`; g.fillStyle = '#ffcf5a'; g.textAlign = 'left'; g.fillText(tt, m.l, m.t - (small ? 22 : 30));
+    // 理論直線
+    g.save(); g.beginPath(); g.rect(m.l, m.t, pw, ph); g.clip();
+    const line = (fx, col, label) => {
+      g.strokeStyle = col; g.lineWidth = 2.5; g.setLineDash([10, 6]); g.beginPath();
+      g.moveTo(X(x0), Y(fx(x0))); g.lineTo(X(x1), Y(fx(x1))); g.stroke(); g.setLineDash([]);
+      if (label) {
+        const lx = x0 + (x1 - x0) * 0.62; g.fillStyle = col; g.font = `bold ${fs}px "Noto Sans TC",sans-serif`;
+        const tx = Math.max(X(lx) - 10, m.l + 6 + g.measureText(label).width);
+        g.textAlign = 'right'; g.fillText(label, tx, Y(fx(lx)) - 12);
+      }
+    };
+    if (this.mode === 'sun') line(x => x, '#ffcf5a', 'T² = k a³，k = 1 年²/AU³');
+    if (this.mode === 'earth') line(x => 9.904e-5 * x, '#8fd6ff', 'T² = k r³，k = 9.90 × 10⁻⁵ s²/km³');
+    if (log) {
+      line(x => x + Math.log10(kS), '#ffcf5a', '太陽系：k = 2.97 × 10⁻¹⁹ s²/m³');
+      line(x => x + Math.log10(kE), '#8fd6ff', '繞地球：k = 9.90 × 10⁻¹⁴ s²/m³');
+    }
+    // 資料點
+    const P = this.points().filter(p => p.x >= x0 - (x1 - x0) * 0.01 && p.x <= x1 * 1.0001);
+    P.sort((a, b) => a.x - b.x);
+    let hov = null, hd = 16, leoDone = false;
+    P.forEach((p, i) => {
+      const px = X(p.x), py = Y(p.y);
+      g.fillStyle = p.col; g.strokeStyle = '#000'; g.lineWidth = 2;
+      g.beginPath(); g.arc(px, py, small ? 5 : 7, 0, TAU); g.fill(); g.stroke();
+      let lab = p.n;
+      if (p.leo && (this.mode === 'log' || this.range === 1)) { if (leoDone) lab = ''; else { lab = '低軌衛星群'; leoDone = true; } }
+      if (lab) {
+        g.font = `${fs}px "Noto Sans TC",sans-serif`; g.fillStyle = p.col;
+        const up = i % 2 === 0, tw = g.measureText(lab).width, left = px + 10 + tw > m.l + pw - 4;
+        g.textAlign = left ? 'right' : 'left';
+        g.fillText(lab, left ? px - 10 : px + 10, py + (up ? -12 : 24));
+      }
+      const d = Math.hypot(px - this.mx, py - this.my); if (d < hd) { hd = d; hov = { p, px, py }; }
+    });
+    g.restore();
+    // 提示框
+    if (hov) {
+      const p = hov.p, U = p.sys === 'sun' ? UNITS.yrau : UNITS.skm;
+      const lines = [p.n,
+        `a = ${sci(p.a / U.L)} ${U.l}`, `T = ${sci(p.T / U.T)} ${U.t}（${fmtDur(p.T)}）`,
+        `T²/a³ = ${sci(kOf(p.a, p.T, U))} ${U.t}²/${U.l}³`];
+      g.font = `${fs}px "Noto Sans TC",sans-serif`;
+      const bw = Math.max(...lines.map(s => g.measureText(s).width)) + 24, bh = lines.length * (fs + 8) + 14;
+      let bx = hov.px + 16, by = hov.py - bh - 10; if (bx + bw > W - 8) bx = hov.px - bw - 16; if (by < 8) by = hov.py + 16;
+      g.fillStyle = 'rgba(12,20,40,.95)'; g.strokeStyle = p.col; g.lineWidth = 1.5;
+      g.beginPath(); g.roundRect(bx, by, bw, bh, 8); g.fill(); g.stroke();
+      lines.forEach((s, i) => { g.fillStyle = i ? '#e8eefc' : p.col; g.font = `${i ? '' : 'bold '}${fs}px "Noto Sans TC",sans-serif`; g.textAlign = 'left'; g.fillText(s, bx + 12, by + 10 + (i + 1) * (fs + 8) - 6); });
+    }
+    // 署名
+    g.font = `${small ? 12 : 16}px "Noto Sans TC",sans-serif`; g.fillStyle = '#a9b8d8'; g.textAlign = 'right';
+    g.fillText('臺中二中 阿發老師 設計', W - 14, small ? 18 : H - 10);
+  }
+};
+
+
+/* =====================================================================
+   分頁三：第三定律（地球與另一顆行星的公轉比較）
+   ===================================================================== */
+const T3_PRESETS = [
+  { n: '水星', a: 0.387, e: 0.206, tex: 'mercurymap.jpg', color: 0x9a8f86 },
+  { n: '金星', a: 0.723, e: 0.007, tex: 'venusmap.jpg', color: 0xd9b77a },
+  { n: '火星', a: 1.524, e: 0.093, tex: 'marsmap1k.jpg', color: 0xc1440e },
+  { n: '木星', a: 5.203, e: 0.048, tex: 'jupitermap.jpg', color: 0xc9a27a },
+  { n: '土星', a: 9.537, e: 0.054, tex: 'saturnmap.jpg', color: 0xe3cf9a },
+  { n: '哈雷彗星', a: 17.834, e: 0.967, tex: 'moonmap1k.jpg', color: 0x9fe7ff }
+];
+const E_EARTH = 0.0167;
+const T3 = {
+  view: 'tilt', maxD: 700, a: 1.524, e: 0.093, name: '火星', ypS: 0.25, playing: true,
+  t: 0, phE: 0, phP: 0, S: 4, fitR: 8, viewR: 8,      // S：固定比例 1 AU = 4 場景單位（地球軌道大小永遠不變）
+  init() {
+    const s = this.scene = mkPlanetScene(); this.css = makeCss();
+    this.sun = mkSun(1); s.add(this.sun);
+    this.sunL = mkLabel('太陽', 'lbl body', 0.5, 0); this.sunL.element.style.color = '#ffd36b'; s.add(this.sunL);
+    this.earth = mkBody(1, 'earthmap1k.jpg', 0x3a6fd8, 23.4); s.add(this.earth);
+    const el = mkLabel('地球', 'lbl body', 0.5, 1); el.element.style.color = '#8fc0ff'; el.position.set(0, 1.4, 0); this.earth.add(el);
+    this.planet = mkBody(1, 'marsmap1k.jpg', 0xc1440e, 0); s.add(this.planet);
+    this.pL = mkLabel('火星', 'lbl body', 0.5, 1); this.pL.position.set(0, 1.4, 0); this.planet.add(this.pL);
+    this.orbG = new THREE.Group(); s.add(this.orbG);
+    this.rodE = mkRod(0x6ea8ff, 1); this.rodP = mkRod(0xffa94d, 1); s.add(this.rodE, this.rodP);
+    // 面板
+    $('#t3pre').innerHTML = T3_PRESETS.map((p, i) => `<button class="btn" data-p="${i}">${p.n}</button>`).join('');
+    $$('#t3pre .btn').forEach(b => b.onclick = () => this.preset(+b.dataset.p));
+    $('#t3a').addEventListener('input', ev => { this.a = Math.pow(10, +ev.target.value); this.custom(); this.build(false); });
+    $('#t3e').addEventListener('input', ev => { this.e = +ev.target.value; this.custom(); this.build(false); });
+    $('#t3spd').addEventListener('input', ev => this.setSpd(+ev.target.value)); this.setSpd(+$('#t3spd').value);
+    $('#t3play').onclick = () => { this.playing = !this.playing; $('#t3play').textContent = this.playing ? '⏸ 暫停' : '▶ 播放'; };
+    $('#t3reset').onclick = () => this.restart();
+    this.preset(2, true);
+  },
+  restart() { this.t = this.phE = this.phP = 0; },     // 兩者同時從近日點出發
+  setSpd(v) { this.ypS = Math.pow(10, v); $('#t3spdV').textContent = '1 秒 = ' + (this.ypS < 1 ? f(this.ypS * 12, 1) + ' 個月' : f(this.ypS, 1) + ' 年'); },
+  preset(i, silent = false) {
+    const p = T3_PRESETS[i];
+    this.a = p.a; this.e = p.e; this.name = p.n; this.color = p.color;
+    applyTex(this.planet.userData.spin.material, p.tex);
+    $('#t3a').value = Math.log10(p.a); $('#t3e').value = p.e;
+    $$('#t3pre .btn').forEach(b => b.classList.toggle('on', +b.dataset.p === i));
+    this.build(true, silent);
+  },
+  custom() { this.name = '自訂行星'; $$('#t3pre .btn').forEach(b => b.classList.remove('on')); },
+  get T() { return Math.pow(this.a, 1.5); },     // 年（k = 1 年²/AU³）
+  // 能同時看見兩條軌道的範圍（場景單位）與中心
+  frame() {
+    const a = this.a, e = this.e, S = this.S, ee = 1 + E_EARTH;
+    const x0 = Math.min(-a * (1 + e), -ee), x1 = Math.max(a * (1 - e), ee), bb = Math.max(a * Math.sqrt(1 - e * e), ee);
+    return { c: new THREE.Vector3((x0 + x1) / 2 * S, 0, 0.18 * Math.max((x1 - x0) / 2, bb) * S), R: Math.max((x1 - x0) / 2, bb) * S * 1.22 };
+  },
+  build(fit, silent = false) {
+    const a = this.a, e = this.e, S = this.S;
+    this.restart();
+    clearGroup(this.orbG);
+    const ecol = 0x6ea8ff, pcol = 0xffa94d;
+    const elE = { a: 1, e: E_EARTH, i: 0, O: 0, w: 0 }, elP = { a, e, i: 0, O: 0, w: 0 };
+    this.orbG.add(orbitLine(elE, S, ecol, 0.9), orbitLine(elP, S, pcol, 0.95, e > 0.8 ? 3000 : 360));
+    // 行星軌道的長軸（虛線）與半長軸 a 標示（尺寸隨畫面範圍調整）
+    const fr = this.frame(), u = fr.R / 12;
+    const cx = -a * e * S, q = a * (1 - e) * S, Q = a * (1 + e) * S;
+    this.orbG.add(fatLine([new THREE.Vector3(-Q, 0.01, 0), new THREE.Vector3(q, 0.01, 0)], 0xc8d2ff, 1.5, { dashed: true, dash: 0.3 * u, gap: 0.2 * u, opacity: 0.7 }));
+    const yA = Math.max(a * Math.sqrt(1 - e * e), 1.02) * S + 0.9 * u;
+    this.orbG.add(fatLine([new THREE.Vector3(cx, 0, yA), new THREE.Vector3(q, 0, yA)], pcol, 2.5));
+    [cx, q].forEach(x => this.orbG.add(fatLine([new THREE.Vector3(x, 0, yA - 0.25 * u), new THREE.Vector3(x, 0, yA + 0.25 * u)], pcol, 2.5)));
+    const aL = mkLabel(`行星半長軸 <i>a</i> = ${f(a, 3)} AU`, 'lbl', 0.5, 0); aL.element.style.color = '#ffb866'; aL.position.set((cx + q) / 2, 0, yA + 0.35 * u); this.orbG.add(aL);
+    this.pL.element.textContent = this.name; this.pL.element.style.color = '#ffb866';
+    $('#t3aV').textContent = f(a, 3) + ' AU'; $('#t3eV').textContent = f(e, 3);
+    this.fillInfo();
+    // 鏡頭：預設行星一律重新取景；拖曳滑桿時只在軌道超出畫面或變得太小時才取景（地球軌道大小不變）
+    this.fitR = fr.R; this.fitC = fr.c;
+    if (fit || fr.R > this.viewR * 0.98 || fr.R < this.viewR * 0.45) { this.viewR = fr.R * (fit ? 1 : 1.15); if (!silent && current === 2) flyTo(fr.c, this.viewR, this.view); }
+  },
+  fillInfo() {
+    const T = this.T, rows = [
+      ['', '地球', this.name],
+      ['半長軸 a', '1.000 AU', f(this.a, 3) + ' AU'],
+      ['離心率 e', f(E_EARTH, 3), f(this.e, 3)],
+      ['週期 T', '1.000 年', (T < 1 ? f(T * 365.256, 1) + ' 天' : f(T, 3) + ' 年')],
+      ['T²/a³', '1.000', f(T * T / this.a ** 3, 3)]
+    ];
+    $('#t3info').innerHTML = `<table class="etab" style="width:100%">${rows.map((r, i) => `<tr>${r.map((c, j) => i === 0 ? `<th>${c}</th>` : `<td${j === 2 ? ' style="color:#ffb866"' : j === 1 ? ' style="color:#8fc0ff"' : ''}>${c}</td>`).join('')}</tr>`).join('')}</table>
+      <div class="note">由第三定律：T = a<sup>3/2</sup>（年，a 以 AU 計）<br>行星週期是地球的 <b style="color:var(--gold)">${f(T, 3)}</b> 倍。<br>改變離心率 e 時，只要 a 不變，週期就不變。<br>調整參數時，兩者會同時從近日點重新出發。</div>`;
+  },
+  onShow() { this.viewR = this.fitR; flyTo(this.fitC || new THREE.Vector3(), this.fitR, this.view); },
+  setView(m) { this.view = m; this.onShow(); },
+  update(dt) {
+    if (this.playing) { const d = dt * this.ypS; this.t += d; this.phE += d; this.phP += d / this.T; }
+    const S = this.S;
+    const qe = orbitXY(1, E_EARTH, this.phE), qp = orbitXY(this.a, this.e, this.phP);
+    this.earth.position.copy(P(qe.x * S, qe.y * S)); this.planet.position.copy(P(qp.x * S, qp.y * S));
+    this.earth.userData.spin.rotation.y += dt * 1.2; this.planet.userData.spin.rotation.y += dt * 0.8;
+    // 天體大小：維持約略固定的螢幕尺寸，但不可大到蓋住近日點附近的軌道
+    const cp = camera.position, qmin = Math.min(this.a * (1 - this.e), 1 - E_EARTH) * S;
+    const rs = Math.min(cp.distanceTo(this.sun.position) * 0.022, 0.3 * qmin);
+    this.sun.scale.setScalar(rs); this.sunL.position.set(0, -rs - 0.05, rs * 0.8);
+    const rP = this.planet.position.length();
+    this.earth.scale.setScalar(Math.min(cp.distanceTo(this.earth.position) * 0.014, 0.25 * (1 - E_EARTH) * S));
+    this.planet.scale.setScalar(Math.min(cp.distanceTo(this.planet.position) * 0.013, Math.max(0.3 * rP, 0.6 * rs)));
+    const O = new THREE.Vector3();
+    this.rodE.setEnds(O, this.earth.position); this.rodP.setEnds(O, this.planet.position);
+    const rw = cp.distanceTo(controls.target) * 0.0012;
+    this.rodE.scale.x = this.rodE.scale.z = this.rodP.scale.x = this.rodP.scale.z = rw;
+    const T = this.T;
+    setHud(`<span class="t">克卜勒第三定律：T² ∝ a³</span><br>經過時間：${f(this.t, 2)} 年<br>
+      <span style="color:#8fc0ff">地球</span>：T = 1.000 年，已繞 <b>${Math.floor(this.phE)}</b> 圈<br>
+      <span style="color:#ffb866">${this.name}</span>：T = ${T < 1 ? f(T * 365.256, 1) + ' 天' : f(T, 3) + ' 年'}，已繞 <b>${Math.floor(this.phP)}</b> 圈`);
+  }
+};
+
+/* =====================================================================
+   分頁四：我們的太陽系
+   ===================================================================== */
+const AUU = 4;    // 1 AU = 4 場景單位
+const T4 = {
+  view: 'tilt', cam: 'inner', maxD: 900, minD: 1,
+  t: 0, playing: true, dps: 30, showOrb: true, showLbl: true, sel: null, follow: false,
+  CAMS: { inner: 3.7, all: 50, halley: 10 },
+  init() {
+    const s = this.scene = new THREE.Scene(); this.css = makeCss();
+    this.stars = mkStars(); s.add(this.stars);
+    s.add(new THREE.AmbientLight(0xffffff, 0.25)); s.add(new THREE.PointLight(0xffffff, 3.2, 0, 0));
+    this.sun = mkSun(1); s.add(this.sun);
+    this.sunL = mkLabel('太陽', 'lbl body', 0.5, 0); this.sunL.element.style.color = '#ffd36b'; s.add(this.sunL);
+    this.orbG = new THREE.Group(); s.add(this.orbG);
+    this.d0 = (Date.now() - J2000) / 86400000;
+    this.bodies = SUNB.map(p => {
+      const body = mkBody(1, p.tex, p.color, p.tilt || 0, p.ring);
+      if (p.comet) { body.userData.spin.material.color.set(0x8a8a8a); body.add(this.coma = mkGlow(0x9fe7ff, 7)); }
+      s.add(body);
+      const lbl = mkLabel(p.name, 'lbl body', 0.5, 1); lbl.position.set(0, 1.25, 0); body.add(lbl);
+      if (p.comet) lbl.element.style.color = '#9fe7ff';
+      this.orbG.add(orbitLine(p.el, AUU, p.color, p.comet ? 0.85 : 0.7, p.comet ? 2000 : 360));
+      return { p, body, lbl };
+    });
+    this.halley = this.bodies.find(b => b.p.comet);
+    this.makeTail(); this.makeBelt();
+    // 面板
+    $$('#t4cam .btn').forEach(b => b.onclick = () => this.setCam(b.dataset.c));
+    $('#t4spd').addEventListener('input', ev => this.setSpd(+ev.target.value)); this.setSpd(+$('#t4spd').value);
+    $('#t4play').onclick = () => { this.playing = !this.playing; $('#t4play').textContent = this.playing ? '⏸ 暫停' : '▶ 播放'; };
+    $('#t4now').onclick = () => { this.t = 0; };
+    $('#t4orb').onchange = ev => { this.showOrb = ev.target.checked; setVis(this.orbG, this.showOrb); };
+    $('#t4lbl').onchange = ev => { this.showLbl = ev.target.checked; };
+    $('#t4ast').onchange = ev => { this.belt.visible = ev.target.checked; };
+    $('#t4follow').onclick = () => this.setFollow(!this.follow);
+  },
+  setSpd(v) {
+    this.dps = Math.pow(10, v);
+    $('#t4spdV').textContent = '1 秒 = ' + (this.dps < 365 ? f(this.dps, 0) + ' 天' : f(this.dps / 365.25, 1) + ' 年');
+  },
+  makeBelt() {
+    const N = 3000; this.belt = { N, el: [] };
+    const pos = new Float32Array(N * 3);
+    for (let k = 0; k < N; k++) {
+      const a = 2.1 + Math.pow(Math.random(), 0.9) * 1.2, e = Math.random() * 0.15, i = (Math.random() ** 2) * 15 * DEG;
+      const O = Math.random() * TAU, w = Math.random() * TAU;
+      const cO = Math.cos(O), sO = Math.sin(O), cw = Math.cos(w), sw = Math.sin(w), ci = Math.cos(i), si = Math.sin(i);
+      this.belt.el.push({ a, e, b: a * Math.sqrt(1 - e * e), T: 365.256 * Math.pow(a, 1.5), M0: Math.random(),
+        m: [cO * cw - sO * sw * ci, -cO * sw - sO * cw * ci, sO * cw + cO * sw * ci, -sO * sw + cO * cw * ci, sw * si, cw * si] });
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xb8a58c, size: 2, sizeAttenuation: false, transparent: true, opacity: 0.8 }));
+    pts.frustumCulled = false; this.scene.add(pts);
+    this.belt.pts = pts; this.belt.visible = true;
+  },
+  updateBelt(d) {
+    const B = this.belt; B.pts.visible = B.visible; if (!B.visible) return;
+    const arr = B.pts.geometry.attributes.position.array;
+    for (let k = 0; k < B.N; k++) {
+      const o = B.el[k], M = TAU * (o.M0 + d / o.T);
+      let E = M + o.e * Math.sin(M);
+      for (let j = 0; j < 4; j++) E -= (E - o.e * Math.sin(E) - M) / (1 - o.e * Math.cos(E));
+      const xp = o.a * (Math.cos(E) - o.e), yp = o.b * Math.sin(E), m = o.m;
+      arr[k * 3] = (m[0] * xp + m[1] * yp) * AUU; arr[k * 3 + 1] = (m[4] * xp + m[5] * yp) * AUU; arr[k * 3 + 2] = -(m[2] * xp + m[3] * yp) * AUU;
+    }
+    B.pts.geometry.attributes.position.needsUpdate = true;
+  },
+  makeTail() {
+    const N = 900, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+    this.tailR = [];
+    for (let k = 0; k < N; k++) {
+      const u = Math.pow(Math.random(), 1.6), ang = Math.random() * TAU, rr = Math.sqrt(Math.random());
+      this.tailR.push([u, Math.cos(ang) * rr, Math.sin(ang) * rr]);
+      const fade = (1 - u) * 0.9 + 0.1;
+      col[k * 3] = 0.55 * fade; col[k * 3 + 1] = 0.85 * fade; col[k * 3 + 2] = 1.0 * fade;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    this.tail = new THREE.Points(g, new THREE.PointsMaterial({ size: 2.5, sizeAttenuation: false, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.tail.frustumCulled = false; this.scene.add(this.tail);
+  },
+  updateTail(rAU) {
+    const act = THREE.MathUtils.clamp((5 - rAU) / 3.5, 0, 1);
+    this.tail.visible = act > 0.01; this.tail.material.opacity = act;
+    this.coma.material.opacity = 0.25 + 0.75 * act;
+    if (!this.tail.visible) return;
+    const hp = this.halley.body.position, dir = hp.clone().normalize();
+    const p1 = new THREE.Vector3().crossVectors(dir, UP); if (p1.lengthSq() < 1e-6) p1.set(1, 0, 0); p1.normalize();
+    const p2 = new THREE.Vector3().crossVectors(dir, p1);
+    const L = Math.min(1.0, 0.6 / (rAU * rAU)) * AUU, Wd = L * 0.12;
+    const arr = this.tail.geometry.attributes.position.array;
+    this.tailR.forEach(([u, a, b], k) => {
+      const s = u * L, w = Wd * (0.15 + u);
+      arr[k * 3] = hp.x + dir.x * s + (p1.x * a + p2.x * b) * w;
+      arr[k * 3 + 1] = hp.y + dir.y * s + (p1.y * a + p2.y * b) * w;
+      arr[k * 3 + 2] = hp.z + dir.z * s + (p1.z * a + p2.z * b) * w;
+    });
+    this.tail.geometry.attributes.position.needsUpdate = true;
+  },
+  camR() { return this.CAMS[this.cam] * AUU; },
+  setCam(c) {
+    this.cam = c;
+    $$('#t4cam .btn').forEach(x => x.classList.toggle('on', x.dataset.c === c));
+    if (c === 'halley') { this.select(this.halley); this.setFollow(true, false); flyTo(this.halley.body.position.clone(), this.camR(), this.view); }
+    else { this.setFollow(false); flyTo(new THREE.Vector3(), this.camR(), this.view); }
+  },
+  setFollow(on, fly = true) {
+    this.follow = on && !!this.sel; $('#t4follow').classList.toggle('on', this.follow);
+    if (this.follow) { followPrev.copy(this.sel.body.position); if (fly) flyTo(this.sel.body.position.clone(), Math.max(2, this.sel.p.a * 0.35) * AUU, this.view); }
+  },
+  select(b) {
+    this.sel = b; $('#t4follow').style.display = b ? '' : 'none';
+    this.bodies.forEach(x => x.lbl.element.classList.toggle('pass', x === b));
+    if (!b && this.follow) this.setFollow(false);
+  },
+  pick(x, y) {
+    const b = pickNearest(this.bodies, x, y);
+    if (b) { if (this.follow && b !== this.sel) { this.select(b); this.setFollow(true); } else this.select(b); }
+  },
+  onShow() {
+    $$('#t4cam .btn').forEach(x => x.classList.toggle('on', x.dataset.c === this.cam));
+    const c = this.follow && this.sel ? this.sel.body.position.clone() : new THREE.Vector3();
+    if (this.follow) followPrev.copy(c);
+    flyTo(c, this.follow && this.sel ? Math.max(2, this.sel.p.a * 0.35) * AUU : this.camR(), this.view);
+  },
+  setView(m) { this.view = m; this.onShow(); },
+  update(dt) {
+    if (this.playing) this.t += dt * this.dps;
+    const d = this.d0 + this.t;
+    this.bodies.forEach(b => {
+      keplerPos(b.p.el, b.p.M0 + d / b.p.T, AUU, b.body.position);
+      b.body.userData.spin.rotation.y += dt * 0.5;
+    });
+    // 畫面大小：維持大約固定的螢幕尺寸，但不超過近日距的 1/4
+    const cp = camera.position;
+    this.sun.scale.setScalar(Math.min(cp.distanceTo(this.sun.position) * 0.02, 0.6));
+    this.sunL.position.set(0, -this.sun.scale.x - 0.1, 0);
+    const sunS = screenOf(this.sun);
+    this.bodies.forEach(b => {
+      const q = b.p.a * (1 - b.p.e) * AUU;
+      b.body.scale.setScalar(Math.min(cp.distanceTo(b.body.position) * 0.011 * b.p.rel, q * 0.25));
+      const sc = screenOf(b.body);
+      const near = Math.hypot(sc.x - sunS.x, sc.y - sunS.y) < 26;
+      b.lbl.visible = this.showLbl && (b === this.sel || !near);
+    });
+    this.updateBelt(d);
+    const hp = this.halley.body.position, rH = hp.length() / AUU;
+    this.updateTail(rH);
+    if (this.follow && this.sel) followShift(this.sel.body.position);
+    this.stars.position.copy(cp);
+    // 資訊
+    if (this.sel) {
+      const p = this.sel.p, r = this.sel.body.position.length() / AUU;
+      const v = Math.sqrt(GM_S_AUD * (2 / r - 1 / p.a)) * AU_M / 1000 / 86400;
+      const rows = [['半長軸 a', f(p.a, 3) + ' AU'], ['離心率 e', f(p.e, 3)], ['週期 T', fmtDur(p.ts)], ['T²/a³', f(kOf(p.am, p.ts, UNITS.yrau), 3) + ' 年²/AU³'],
+        ['近日距', f(p.a * (1 - p.e), 3) + ' AU'], ['遠日距', f(p.a * (1 + p.e), 2) + ' AU'], ['目前距日 r', f(r, 3) + ' AU'], ['目前速率 v', f(v, 2) + ' km/s']];
+      const h = `<div class="info-t" style="color:#${new THREE.Color(p.color).getHexString()}">${p.name}${p.note ? '（' + p.note + '）' : ''}</div><table style="width:100%">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
+      if (h !== this.infoH) { $('#t4info').innerHTML = h; this.infoH = h; }
+    }
+    const dd = new Date(J2000 + d * 86400000);
+    setHud(`<span class="t">我們的太陽系（距離與週期為真實比例）</span><br>模擬日期：${dd.getUTCFullYear()} 年 ${dd.getUTCMonth() + 1} 月 ${dd.getUTCDate()} 日<br><span class="s">哈雷彗星距太陽 ${f(rH, 2)} AU｜天體大小放大顯示</span>`);
+  }
+};
+
+/* =====================================================================
+   分頁五：我們的地球
+   ===================================================================== */
+const KMU = 1 / 1000;     // 1 場景單位 = 1000 km
+const TW = { lat: 24.15, lon: 120.68 };
+const THETA0 = (-90 - TW.lon) * DEG;      // t = 0 時讓臺灣朝向鏡頭
+const T5 = {
+  view: 'tilt', cam: 'leo', maxD: 2500, minD: 1,
+  t: 0, playing: true, sps: 120, showLbl: true, showOrb: true, sel: null, follow: false, showTW: true,
+  CAMS: { leo: 8.6, all: 44, moon: 400 },
+  init() {
+    const s = this.scene = new THREE.Scene(); this.css = makeCss();
+    this.stars = mkStars(); s.add(this.stars);
+    s.add(new THREE.AmbientLight(0xffffff, 0.22));
+    const sunL = new THREE.DirectionalLight(0xffffff, 2.6); sunL.position.set(60, 18, 40); s.add(sunL);
+    this.earth = mkBody(R_EQ * KMU, 'earthmap1k.jpg', 0x3a6fd8, 0); s.add(this.earth);
+    // 臺灣標記
+    const b = TW.lat * DEG, l = TW.lon * DEG, R = R_EQ * KMU * 1.004;
+    this.twM = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff4040 }));
+    this.twM.position.set(R * Math.cos(b) * Math.cos(l), R * Math.sin(b), -R * Math.cos(b) * Math.sin(l));
+    this.twL = mkLabel('臺灣', 'lbl tw', 0, 0.5); this.twL.position.copy(this.twM.position).multiplyScalar(1.02); this.twL.center.set(-0.15, 0.5);
+    this.earth.userData.spin.add(this.twM, this.twL);
+    // 地球自轉軸、赤道（虛線）
+    const RE = R_EQ * KMU, eq = [];
+    for (let k = 0; k <= 256; k++) { const a = k / 256 * TAU; eq.push(new THREE.Vector3(RE * 1.006 * Math.cos(a), 0, RE * 1.006 * Math.sin(a))); }
+    s.add(fatLine([new THREE.Vector3(0, -RE * 1.6, 0), new THREE.Vector3(0, RE * 1.6, 0)], 0xdfe6ff, 2.5, { dashed: true, dash: 0.35, gap: 0.22, opacity: 0.9 }));
+    s.add(fatLine(eq, 0xff6b6b, 2, { dashed: true, dash: 0.35, gap: 0.22, opacity: 0.9 }));
+    this.orbG = new THREE.Group(); s.add(this.orbG);
+    this.bodies = [];
+    EARTHB.forEach(sd => {
+      const n = sd.n || 1;
+      for (let k = 0; k < n; k++) {
+        const el = { a: sd.r, e: sd.e || 0, i: sd.i * DEG, O: (sd.O + k * 360 / n) * DEG, w: 0 };
+        let M0 = sd.geo ? (TW.lon + THETA0 / DEG) / 360 : sd.M0 + k * (1 / n) * 0.37;
+        const body = sd.moon ? mkBody(1, 'moonmap1k.jpg', 0xaaaaaa, 0) : mkSat(sd.color);
+        s.add(body);
+        const name = n > 1 ? `${sd.short}-${k + 1}` : sd.short;
+        const lbl = mkLabel(name, 'lbl body', 0.5, 1); lbl.element.style.color = '#' + new THREE.Color(sd.color).getHexString();
+        lbl.position.set(0, sd.moon ? 1.3 : 0.3, 0); body.add(lbl);
+        const ol = orbitLine(el, KMU, sd.color, sd.tw ? 0.75 : 0.6); this.orbG.add(ol);
+        this.bodies.push({ s: sd, el, M0, body, lbl, ol, name });
+      }
+    });
+    this.moon = this.bodies.find(x => x.s.moon);
+    // 「顯示衛星」勾選視窗：預設只顯示 ISS
+    this.satOn = new Set(['ISS']);
+    $('#satSelList').innerHTML = EARTHB.filter(sd => !sd.moon).map(sd =>
+      `<label class="chk"><input type="checkbox" data-sat="${sd.short}" ${this.satOn.has(sd.short) ? 'checked' : ''}><span>${sd.name}</span><span class="sw" style="background:#${new THREE.Color(sd.color).getHexString()}"></span></label>`).join('');
+    $$('#satSelList input').forEach(cb => cb.onchange = () => { cb.checked ? this.satOn.add(cb.dataset.sat) : this.satOn.delete(cb.dataset.sat); this.applySats(); });
+    const all = on => { $$('#satSelList input').forEach(cb => { cb.checked = on; on ? this.satOn.add(cb.dataset.sat) : this.satOn.delete(cb.dataset.sat); }); this.applySats(); };
+    $('#satAll').onclick = () => all(true); $('#satNone').onclick = () => all(false);
+    this.applySats();
+    this.setMoon(false);
+    // 面板
+    $$('#t5cam .btn').forEach(b => b.onclick = () => this.setCam(b.dataset.c));
+    $('#t5spd').addEventListener('input', ev => this.setSpd(+ev.target.value)); this.setSpd(+$('#t5spd').value);
+    $('#t5play').onclick = () => { this.playing = !this.playing; $('#t5play').textContent = this.playing ? '⏸ 暫停' : '▶ 播放'; };
+    $('#t5orb').onchange = ev => { this.showOrb = ev.target.checked; this.applyOrb(); };
+    $('#t5lbl').onchange = ev => { this.showLbl = ev.target.checked; };
+    $('#t5moon').onchange = ev => this.setMoon(ev.target.checked);
+    $('#t5tw').onchange = ev => { this.showTW = ev.target.checked; this.twM.visible = this.showTW; this.twL.visible = this.showTW; };
+    $('#t5follow').onclick = () => this.setFollow(!this.follow);
+  },
+  applyOrb() { this.bodies.forEach(b => setVis(b.ol, this.showOrb && b.body.visible)); },
+  applySats() {
+    this.bodies.forEach(b => {
+      if (b.s.moon) return;
+      const on = this.satOn.has(b.s.short);
+      b.body.visible = on; setVis(b.body, on);
+      if (!on && this.sel === b) this.select(null);
+    });
+    this.applyOrb();
+  },
+  // 從相機看過去，點 p 是否被地球擋住（在地球背面）
+  hidden(p) {
+    const C = camera.position, d = p.clone().sub(C), t = THREE.MathUtils.clamp(-C.dot(d) / d.dot(d), 0, 1);
+    return t < 0.999 && C.clone().addScaledVector(d, t).length() < R_EQ * KMU;
+  },
+  setMoon(on) {
+    this.moonOn = on; $('#t5moon').checked = on;
+    this.moon.body.visible = on; setVis(this.moon.body, on); this.applyOrb();
+    if (!on && this.sel === this.moon) this.select(null);
+  },
+  setSpd(v) {
+    this.sps = Math.pow(10, v); const s = this.sps;
+    $('#t5spdV').textContent = '1 秒 = ' + (s < 120 ? f(s, 0) + ' 秒' : s < 7200 ? f(s / 60, 1) + ' 分' : s < 86400 * 1.5 ? f(s / 3600, 1) + ' 小時' : f(s / 86400, 1) + ' 天');
+  },
+  camR() { return this.CAMS[this.cam]; },
+  setCam(c) {
+    this.cam = c;
+    $$('#t5cam .btn').forEach(x => x.classList.toggle('on', x.dataset.c === c));
+    if (c === 'moon') this.setMoon(true);
+    this.setFollow(false); flyTo(new THREE.Vector3(), this.camR(), this.view);
+  },
+  setFollow(on, fly = true) {
+    this.follow = on && !!this.sel; $('#t5follow').classList.toggle('on', this.follow);
+    if (this.follow) { followPrev.copy(this.sel.body.position); if (fly) flyTo(this.sel.body.position.clone(), this.sel.s.moon ? 12 : 4, this.view); }
+  },
+  select(b) {
+    this.sel = b; $('#t5follow').style.display = b ? '' : 'none';
+    if (!b) { $('#t5info').innerHTML = '尚未選取衛星。'; this.infoH = ''; if (this.follow) this.setFollow(false); }
+  },
+  pick(x, y) {
+    const b = pickNearest(this.bodies.filter(b => b.body.visible), x, y);
+    if (b) { if (this.follow && b !== this.sel) { this.select(b); this.setFollow(true); } else this.select(b); }
+  },
+  onShow() {
+    $$('#t5cam .btn').forEach(x => x.classList.toggle('on', x.dataset.c === this.cam));
+    const c = this.follow && this.sel ? this.sel.body.position.clone() : new THREE.Vector3();
+    if (this.follow) followPrev.copy(c);
+    flyTo(c, this.follow && this.sel ? (this.sel.s.moon ? 12 : 4) : this.camR(), this.view);
+  },
+  setView(m) { this.view = m; this.onShow(); },
+  update(dt) {
+    if (this.playing) this.t += dt * this.sps;
+    const t = this.t, cp = camera.position;
+    this.earth.userData.spin.rotation.y = THETA0 + TAU * t / 86164;
+    const site = new THREE.Vector3(); this.twM.getWorldPosition(site);
+    const up = site.clone().normalize(), passing = [];
+    this.bodies.forEach(b => {
+      if (!b.body.visible) return;
+      keplerPos(b.el, b.M0 + t / b.s.T, KMU, b.body.position);
+      const dist = cp.distanceTo(b.body.position);
+      if (b.s.moon) {
+        b.body.scale.setScalar(Math.max(1737 * KMU, dist * 0.012));
+        b.body.userData.spin.rotation.y = Math.atan2(-b.body.position.z, b.body.position.x) + Math.PI;
+      } else {
+        b.body.scale.setScalar(dist * 0.035); b.body.lookAt(0, 0, 0);
+      }
+      let pass = false;
+      if (this.showTW && b.s.tw) {
+        const v = b.body.position.clone().sub(site).normalize();
+        pass = v.dot(up) > Math.sin(10 * DEG);
+        if (pass) passing.push(b.name);
+      }
+      b.lbl.element.classList.toggle('pass', pass || b === this.sel);
+      b.lbl.visible = (this.showLbl || pass || b === this.sel) && !this.hidden(b.body.position);
+    });
+    if (this.showTW) this.twL.visible = !this.hidden(this.twL.getWorldPosition(new THREE.Vector3()));
+    if (this.follow && this.sel) followShift(this.sel.body.position);
+    this.stars.position.copy(cp);
+    if (this.sel) {
+      const s = this.sel.s, v = s.moon ? Math.sqrt(GM_E * (2 / this.sel.body.position.length() * KMU - 1 / s.r)) : Math.sqrt(GM_E / s.r);
+      const rows = [['離地高度 h', Math.round(s.h).toLocaleString() + ' km'], ['軌道半徑 r', Math.round(s.r).toLocaleString() + ' km'], ['軌道傾角', f(s.i, 1) + '°'],
+        ['週期 T', fmtDur(s.T) + (s.est ? '*' : '')], ['T²/r³', sci(kOf(s.am, s.ts, UNITS.si), 3) + ' s²/m³'], ['速率 v', f(v, 2) + ' km/s']];
+      const h = `<div class="info-t" style="color:#${new THREE.Color(s.color).getHexString()}">${this.sel.name}</div><table style="width:100%">${rows.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>`;
+      if (h !== this.infoH) { $('#t5info').innerHTML = h; this.infoH = h; }
+    }
+    const el = t < 172800 ? `${Math.floor(t / 3600)} 小時 ${Math.floor(t % 3600 / 60)} 分` : `${f(t / 86400, 1)} 天`;
+    let hh = `<span class="t">我們的地球（地球大小與軌道半徑為真實比例）</span><br>經過時間：${el}<br><span class="s">衛星圖示放大顯示</span>`;
+    if (this.showTW && passing.length) hh += `<br><span style="color:#ffe14d">📡 正通過臺灣上空：${passing.join('、')}</span>`;
+    setHud(hh);
+  }
+};
+
+/* ================= 分頁切換 ================= */
+const TABS = [T1, T2, T3, T4, T5];
+let current = 0;
+function switchTab(i) {
+  TABS[current].css.domElement.style.display = 'none';
+  current = i;
+  const T = TABS[i];
+  T.css.domElement.style.display = '';
+  $$('#tabs button').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
+  $$('.pane').forEach(p => p.classList.toggle('on', +p.dataset.tab === i));
+  $$('.viewbtns .btn').forEach(b => b.classList.toggle('on', b.dataset.view === T.view));
+  $('.viewbtns').style.display = T.chart ? 'none' : '';
+  $('.hint').style.display = T.chart ? 'none' : '';
+  $('.credit').style.display = T.chart ? 'none' : '';
+  hud.style.display = T.chart ? 'none' : '';
+  controls.maxDistance = T.maxD || 200; controls.minDistance = T.minD || 2;
+  $('main').classList.toggle('can-hide', i === 3 || i === 4);   // 只有 04、05 分頁可收起控制面板
+  if (i !== 4) $('#winSatSel').classList.remove('open');
+  hudHtml = ''; T.onShow();
+}
+$('#panelHide').onclick = () => $('main').classList.add('hidep');
+$('#panelShow').onclick = () => $('main').classList.remove('hidep');
+$$('#tabs button').forEach(b => b.onclick = () => switchTab(+b.dataset.i));
+$$('.viewbtns .btn').forEach(b => b.onclick = () => {
+  TABS[current].setView(b.dataset.view);
+  $$('.viewbtns .btn').forEach(x => x.classList.toggle('on', x === b));
+});
+// 點選天體（拖曳不算點選）
+{
+  let px = 0, py = 0;
+  renderer.domElement.addEventListener('pointerdown', ev => { px = ev.clientX; py = ev.clientY; });
+  renderer.domElement.addEventListener('pointerup', ev => {
+    if (Math.hypot(ev.clientX - px, ev.clientY - py) > 6) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    TABS[current].pick?.(ev.clientX - r.left, ev.clientY - r.top);
+  });
+}
+
+/* ================= 彈出視窗（可拖曳；兩個數據視窗並排） ================= */
+let zTop = 60;
+function place(w, x, y, width) {
+  w.style.width = width + 'px';
+  w.style.left = Math.max(4, x) + 'px'; w.style.top = Math.max(4, y) + 'px';
+}
+function layoutData() {
+  const p = $('#winPlanets'), s = $('#winSats'), vw = innerWidth, vh = innerHeight;
+  const po = p.classList.contains('open'), so = s.classList.contains('open');
+  if (po && so) {
+    if (vw > 820) {
+      const w = Math.min((vw - 30) / 2, 820);
+      place(p, vw / 2 - w - 5, 78, w); place(s, vw / 2 + 5, 78, w);
+      p.style.maxHeight = s.style.maxHeight = '84vh';
+    } else {
+      const w = vw * 0.94;
+      place(p, (vw - w) / 2, 8, w); place(s, (vw - w) / 2, vh / 2 + 4, w);
+      p.style.maxHeight = s.style.maxHeight = (vh / 2 - 14) + 'px';
+    }
+  } else {
+    [p, s].forEach(x => { if (x.classList.contains('open')) { const w = Math.min(vw * 0.94, 820); place(x, (vw - w) / 2, 78, w); x.style.maxHeight = '84vh'; } });
+  }
+}
+function openWin(id) {
+  const w = $('#' + id); w.classList.add('open'); w.style.zIndex = ++zTop;
+  if (id === 'winPlanets' || id === 'winSats') layoutData();
+  else if (id === 'winChart') { const ww = Math.min(innerWidth * 0.96, 1150); place(w, (innerWidth - ww) / 2, 60, ww); CHART.dirty = true; }
+  else if (id === 'winSatSel') { const ww = Math.min(innerWidth * 0.92, 380), r = stage.getBoundingClientRect(); place(w, r.right - ww - 14, r.top + 60, ww); }
+  else { const ww = Math.min(innerWidth * 0.92, 720); place(w, (innerWidth - ww) / 2, 70, ww); }
+}
+$$('[data-win]').forEach(b => b.onclick = () => openWin(b.dataset.win));
+$$('.win').forEach(w => {
+  w.querySelector('.win-x').onclick = () => w.classList.remove('open');
+  w.addEventListener('pointerdown', () => { w.style.zIndex = ++zTop; });
+  const hd = w.querySelector('.win-hd');
+  hd.addEventListener('pointerdown', ev => {
+    if (ev.target.closest('.win-x')) return;
+    const r = w.getBoundingClientRect(), ox = ev.clientX - r.left, oy = ev.clientY - r.top;
+    hd.setPointerCapture(ev.pointerId);
+    const mv = e => {
+      w.style.left = Math.min(Math.max(e.clientX - ox, -r.width + 80), innerWidth - 80) + 'px';
+      w.style.top = Math.min(Math.max(e.clientY - oy, 0), innerHeight - 40) + 'px';
+    };
+    const up = () => { hd.removeEventListener('pointermove', mv); hd.removeEventListener('pointerup', up); };
+    hd.addEventListener('pointermove', mv); hd.addEventListener('pointerup', up);
+  });
+});
+
+/* ================= 尺寸與主迴圈 ================= */
+function resize() {
+  W = stage.clientWidth; H = stage.clientHeight;
+  renderer.setSize(W, H); camera.aspect = W / H; camera.updateProjectionMatrix();
+  TABS.forEach(t => t.css && t.css.setSize(W, H));
+  lineMats.forEach(m => m.resolution.set(W, H));
+}
+CHART.init(); T1.init(); T2.init(); T3.init(); T4.init(); T5.init(); fillTables();
+document.fonts && document.fonts.ready.then(() => { CHART.dirty = true; });
+resize();
+new ResizeObserver(resize).observe(stage);
+TABS[0].css.domElement.style.display = '';
+camera.position.set(0, 60, 60); controls.target.set(0, 0, 0);
+switchTab(0);
+
+const clock = new THREE.Clock(), winChart = $('#winChart');
+function loop() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  TABS[current].update(dt);
+  stepTween(dt); controls.update();
+  if (winChart.classList.contains('open')) CHART.update();
+  if (!TABS[current].chart) {
+    renderer.render(TABS[current].scene, camera);
+    TABS[current].css.render(TABS[current].scene, camera);
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
