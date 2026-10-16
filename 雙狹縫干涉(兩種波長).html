@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雙波長干涉比較</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a2e; --panel2:#18223a; --line:#26324f;
+    --text:#e6ebf5; --muted:#93a0bb; --accent:#7cc4ff;
+    --font:"Noto Sans TC","Microsoft JhengHei","PingFang TC","Heiti TC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font)}
+  .topbar{display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:#0e1528;flex-wrap:wrap}
+  .credit{font-size:13px;color:var(--muted);border:1px solid var(--line);padding:4px 10px;border-radius:6px;white-space:nowrap}
+  .topbar h1{font-size:20px;margin:0;font-weight:600;letter-spacing:1px}
+  .layout{display:grid;gap:12px;padding:12px;
+    grid-template-columns:300px minmax(0,1fr) 400px;
+    grid-template-areas:"ctrl pat three" "calc pat three";
+    grid-template-rows:auto 1fr}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+  .panel h2{font-size:15px;margin:0 0 10px;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .ctrl{grid-area:ctrl}.pat{grid-area:pat}.three{grid-area:three;display:flex;flex-direction:column}.calc{grid-area:calc}
+  .group{margin-bottom:14px}
+  .group .lab{display:flex;align-items:center;justify-content:space-between;font-size:14px;margin-bottom:6px}
+  .group .lab span.name{display:flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid rgba(255,255,255,.4)}
+  .numbox{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+  .numbox input{width:76px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:5px;padding:3px 6px;font-size:14px;text-align:right;font-family:inherit}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{flex:1;background:var(--panel2);color:var(--muted);border:0;padding:7px 4px;font-size:13px;cursor:pointer;font-family:inherit}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:#244a73;color:#fff}
+  .toggles{display:flex;flex-direction:column;gap:8px;font-size:14px}
+  .toggles label{display:flex;align-items:center;gap:8px;cursor:pointer}
+  .btn{width:100%;margin-top:12px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--accent)}
+  .legend{font-size:12px;color:var(--muted);font-weight:400;display:flex;gap:10px;flex-wrap:wrap}
+  .legend i{font-style:normal;display:inline-flex;align-items:center;gap:4px}
+  #patWrap{width:100%}
+  #pat{display:block;width:100%}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+  #threeWrap{flex:1;min-height:420px;border-radius:8px;overflow:hidden;background:#070b16;position:relative}
+  #threeWrap canvas{display:block}
+  .calc .row{font-size:14px;line-height:1.75}
+  .calc .eq{background:var(--panel2);border-radius:6px;padding:6px 9px;margin:4px 0 8px;font-size:13.5px;line-height:1.7;overflow-x:auto}
+  .calc .ans{color:#ffd76a;font-weight:600}
+  .calc .sub{color:var(--muted);font-size:12.5px}
+  .hidden{display:none !important}
+  @media (max-width:1250px){
+    .layout{grid-template-columns:300px minmax(0,1fr);
+      grid-template-areas:"ctrl pat" "calc three";grid-template-rows:auto auto}
+    #threeWrap{min-height:380px}
+  }
+  /* 手機版新增元件：桌機預設隱藏 */
+  .m-only{display:none}
+  #sheetBackdrop{display:none}
+  @media (max-width:760px){
+    .layout{grid-template-columns:minmax(0,1fr);
+      grid-template-areas:"ctrl" "pat";padding:6px;gap:6px}
+    .topbar{padding:6px 10px;gap:8px}
+    .topbar h1{font-size:15px;letter-spacing:0}
+    .credit{font-size:11px;padding:2px 6px}
+    .three,.calc,#legend,#rangeNote{display:none}
+    .panel{padding:8px 10px}
+    .ctrl h2{display:none}
+    .ctrl .group{margin-bottom:6px}
+    .ctrl .group .lab{margin-bottom:2px}
+    .ctrl .note{margin:0 0 6px !important;font-size:11px}
+    .pat h2{display:none}
+    .toggles{flex-direction:row;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+    .lbl-calc{display:none !important}
+    .m-only{display:inline-flex}
+    #calcBtn{background:#244a73;color:#fff;border:0;border-radius:6px;padding:6px 12px;font-size:13px;font-family:inherit;cursor:pointer}
+    /* 計算說明：底部滑出面板 */
+    body.sheet-open #calcPanel{display:block !important;position:fixed;left:0;right:0;bottom:0;z-index:20;
+      max-height:75vh;overflow-y:auto;border-radius:14px 14px 0 0;padding:12px 14px 20px;
+      animation:sheetUp .22s ease-out}
+    body.sheet-open #sheetBackdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:19}
+    #calcPanel h2{justify-content:space-between}
+    #sheetClose{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px;line-height:1}
+  }
+  @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>雙狹縫干涉：不同波長的干涉比較</h1>
+  <div class="credit">臺中二中 阿發老師 設計</div>
+</header>
+
+<main class="layout">
+  <!-- 控制面板 -->
+  <section class="panel ctrl">
+    <h2>參數設定</h2>
+    <div class="group">
+      <div class="lab"><span class="name"><span class="dot" id="dot1"></span>λ₁ 波長</span>
+        <span class="numbox"><input type="number" id="n1" min="380" max="780" step="0.1">nm</span></div>
+      <input type="range" id="r1" min="380" max="780" step="1">
+    </div>
+    <div class="group">
+      <div class="lab"><span class="name"><span class="dot" id="dot2"></span>λ₂ 波長</span>
+        <span class="numbox"><input type="number" id="n2" min="380" max="780" step="0.1">nm</span></div>
+      <input type="range" id="r2" min="380" max="780" step="1">
+    </div>
+    <div class="note" style="margin:-4px 0 14px">狹縫間距 d = 0.04 cm、狹縫到光屏距離 L = 1.0 m（固定為範例值）</div>
+    <div class="toggles">
+      <label><input type="checkbox" id="tLabels">顯示亮紋、暗紋名稱</label>
+      <label class="lbl-calc"><input type="checkbox" id="tCalc" checked>顯示計算說明</label>
+      <button class="m-only" id="calcBtn" type="button">計算說明</button>
+    </div>
+  </section>
+
+  <!-- 2D 條紋 -->
+  <section class="panel pat">
+    <h2>光屏上的干涉條紋
+      <span class="legend" id="legend"></span>
+    </h2>
+    <div id="patWrap"><canvas id="pat"></canvas></div>
+    <div class="note" id="rangeNote"></div>
+  </section>
+
+  <!-- 3D 裝置 -->
+  <section class="panel three">
+    <h2>實驗裝置（示意圖，非實際比例）</h2>
+    <div id="threeWrap"></div>
+    <div class="note">拖曳可旋轉視角，滾輪或雙指可縮放。</div>
+  </section>
+
+  <!-- 計算說明 -->
+  <section class="panel calc" id="calcPanel">
+    <h2>計算說明<button class="m-only" id="sheetClose" type="button" aria-label="關閉">✕</button></h2>
+    <div id="calcBody"></div>
+  </section>
+</main>
+<div id="sheetBackdrop"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ========== 狀態 ========== */
+const state = {l1:480, l2:600, d:0.04, L:1.0, labels:false, calc:true}; // d、L 固定為範例值
+const mqMobile = window.matchMedia('(max-width:760px)');   // 手機版判斷
+const FONT = '"Noto Sans TC","Microsoft JhengHei","PingFang TC","Heiti TC",sans-serif';
+
+/* ========== 工具函式 ========== */
+function wl2rgb(w){
+  let r=0,g=0,b=0;
+  if(w<440){r=-(w-440)/60;g=0;b=1;}
+  else if(w<490){r=0;g=(w-440)/50;b=1;}
+  else if(w<510){r=0;g=1;b=-(w-510)/20;}
+  else if(w<580){r=(w-510)/70;g=1;b=0;}
+  else if(w<645){r=1;g=-(w-645)/65;b=0;}
+  else{r=1;g=0;b=0;}
+  let f=1;
+  if(w<420) f=0.3+0.7*(w-380)/40;
+  else if(w>700) f=0.3+0.7*(780-w)/80;
+  const gm=0.8;
+  return [Math.pow(r*f,gm),Math.pow(g*f,gm),Math.pow(b*f,gm)];
+}
+function cssOf(c,boost){
+  // 標籤文字用：提高亮度以便在深色背景閱讀
+  let m=Math.max(c[0],c[1],c[2],0.001); const k=boost?1/m:1;
+  const t=v=>Math.round(Math.min(1,v*k)*255);
+  const base=[t(c[0]),t(c[1]),t(c[2])];
+  if(boost){ for(let i=0;i<3;i++) base[i]=Math.round(base[i]*0.8+255*0.2); }
+  return `rgb(${base[0]},${base[1]},${base[2]})`;
+}
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;}
+function fmt(v){ if(v===0) return "0"; return String(parseFloat(Math.abs(v)<1e-12?0:v.toPrecision(3))); }
+const SUP={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+function sci(v){
+  const e=Math.floor(Math.log10(Math.abs(v)));
+  const m=v/Math.pow(10,e);
+  const ms=String(parseFloat(m.toPrecision(3)));
+  if(e===0) return ms;
+  return ms+"×10"+String(e).split("").map(ch=>SUP[ch]).join("");
+}
+function fmtL(v){return String(parseFloat(v.toFixed(1)));}
+
+/* ========== 物理計算 ========== */
+let P = {};
+function compute(){
+  const {l1,l2,d,L}=state;
+  const D1 = l1*1e-9*L/(d*1e-2)*100;   // cm
+  const D2 = l2*1e-9*L/(d*1e-2)*100;
+  const a=Math.round(l1*10), b=Math.round(l2*10);
+  const g=gcd(a,b), A=a/g, B=b/g;
+  const equal = (a===b);
+  const YB = B*D1;                         // 亮紋第一次重疊位置（m1=B, m2=A）
+  const dark = (!equal && A%2===1 && B%2===1) ? {n1:(B+1)/2, n2:(A+1)/2, y:B/2*D1} : null;
+  const b2d1 = (!equal && A%2===0) ? {m2:A/2, n1:(B+1)/2, y:(A/2)*D2} : null; // λ2亮紋落在λ1暗紋
+  const b1d2 = (!equal && B%2===0) ? {m1:B/2, n2:(A+1)/2, y:(B/2)*D1} : null; // λ1亮紋落在λ2暗紋
+  const Y = 1.0;                           // 屏上固定顯示 ±1 cm
+  P={D1,D2,A,B,equal,YB,m1:B,m2:A,dark,b2d1,b1d2,Y,
+     c1:wl2rgb(l1), c2:wl2rgb(l2)};
+}
+function intensity(y,D){ const c=Math.cos(Math.PI*y/D); return c*c; }
+function colorAt(y,which){   // which: 'l1' | 'l2' | 'mix'
+  let r=0,g=0,b=0;
+  if(which!=='l2'){ const I=intensity(y,P.D1); r+=P.c1[0]*I; g+=P.c1[1]*I; b+=P.c1[2]*I; }
+  if(which!=='l1'){ const I=intensity(y,P.D2); r+=P.c2[0]*I; g+=P.c2[1]*I; b+=P.c2[2]*I; }
+  return [Math.min(1,r),Math.min(1,g),Math.min(1,b)];
+}
+
+/* ========== 2D 條紋畫布 ========== */
+const pat=document.getElementById('pat');
+const patWrap=document.getElementById('patWrap');
+const ctx=pat.getContext('2d');
+const off=document.createElement('canvas'); off.height=1;
+const offCtx=off.getContext('2d');
+
+function tokenize(s){ return s.match(/\d+|./g); }
+
+function drawStacked(text,x,top,color,size){
+  const toks=tokenize(text);
+  ctx.fillStyle=color; ctx.font=`${size}px ${FONT}`;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  let yy=top;
+  for(const t of toks){
+    if(/\d/.test(t) && t.length>1){
+      ctx.font=`${size-1}px ${FONT}`;
+    }else ctx.font=`${size}px ${FONT}`;
+    ctx.fillText(t,x,yy); yy+=size+1;
+  }
+  return toks.length*(size+1);
+}
+function stackH(text,size){ return tokenize(text).length*(size+1); }
+
+function drawStrip(top,h,which,padX,plotW,Y,dpr){
+  const cols=Math.max(2,Math.round(plotW*dpr));
+  off.width=cols;
+  const img=offCtx.createImageData(cols,1);
+  for(let i=0;i<cols;i++){
+    const y=-Y+(i+0.5)/cols*2*Y;
+    const c=colorAt(y,which);
+    img.data[i*4]=c[0]*255; img.data[i*4+1]=c[1]*255; img.data[i*4+2]=c[2]*255; img.data[i*4+3]=255;
+  }
+  offCtx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(off,0,0,cols,1,padX,top,plotW,h);
+  ctx.strokeStyle='#3a4a6e'; ctx.lineWidth=1;
+  ctx.strokeRect(padX+0.5,top+0.5,plotW-1,h-1);
+}
+function drawTag(text,color,x,y){
+  ctx.font=`bold 13px ${FONT}`;
+  const w=ctx.measureText(text).width;
+  ctx.fillStyle='rgba(8,12,26,.78)'; ctx.fillRect(x,y,w+12,20);
+  ctx.fillStyle=color; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(text,x+6,y+10);
+}
+function fitText(text,x,y,color,maxW){
+  let size=13;
+  ctx.font=`${size}px ${FONT}`;
+  while(ctx.measureText(text).width>maxW && size>9){ size--; ctx.font=`${size}px ${FONT}`; }
+  ctx.fillStyle=color; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText(text,x,y);
+}
+
+function drawPattern(){
+  const dpr=window.devicePixelRatio||1;
+  const W=Math.max(300,patWrap.clientWidth);
+  const show=state.labels;
+  const R_L=show?72:14, R_S=mqMobile.matches?120:168, G=4, R_AX=44, R_TXT=P.equal?28:50;
+  const H=R_L+3*R_S+2*G+R_L+R_AX+R_TXT;
+  pat.width=Math.round(W*dpr); pat.height=Math.round(H*dpr);
+  pat.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+
+  const padX=18, plotW=W-2*padX, Y=P.Y;
+  const X=y=>padX+(y+Y)/(2*Y)*plotW;
+  const pxPerCm=plotW/(2*Y);
+
+  // 位置：λ₁（上）→ 混合（中）→ λ₂（下）
+  const s1=R_L;
+  const s3=s1+R_S+G;          // 混合
+  const s2=s3+R_S+G;          // λ₂
+  const axTop=s2+R_S+R_L;
+
+  // ---- 三條干涉圖樣 ----
+  drawStrip(s1,R_S,'l1',padX,plotW,Y,dpr);
+  drawStrip(s3,R_S,'mix',padX,plotW,Y,dpr);
+  drawStrip(s2,R_S,'l2',padX,plotW,Y,dpr);
+
+  // ---- 重疊位置垂直虛線（貫穿三條）----
+  const bright=[], dark=[];
+  if(!P.equal){
+    const kmax=Math.floor(Y/P.YB);
+    for(let k=-kmax;k<=kmax;k++){ if(k!==0) bright.push(k); }
+    if(P.dark){
+      const kmax2=Math.ceil(Y/P.YB)+1;
+      for(let k=-kmax2;k<=kmax2;k++){ const y=(k+0.5)*P.YB; if(Math.abs(y)<=Y) dark.push(k); }
+    }
+  }
+  for(const k of bright){
+    const x=X(k*P.YB);
+    ctx.setLineDash([5,4]); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x,s1); ctx.lineTo(x,s2+R_S); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for(const k of dark){
+    const x=X((k+0.5)*P.YB);
+    ctx.setLineDash([2,3]); ctx.strokeStyle='rgba(170,180,200,.8)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,s1); ctx.lineTo(x,s2+R_S); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // ---- 中央線（貫穿三條）----
+  const x0=X(0);
+  ctx.setLineDash([7,5]); ctx.strokeStyle='rgba(124,196,255,.95)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(x0,s1); ctx.lineTo(x0,s2+R_S); ctx.stroke(); ctx.setLineDash([]); // 不穿過名稱列，避免蓋住「中央亮紋」
+
+  // ---- 亮暗紋刻度與名稱：λ₁ 在上方、λ₂ 在下方 ----
+  drawFringeLabels(P.D1,P.c1,s1,-1,X,pxPerCm,Y,W,padX,show);
+  drawFringeLabels(P.D2,P.c2,s2+R_S,+1,X,pxPerCm,Y,W,padX,show);
+
+  // ---- 圖形名稱（圖內左下角）----
+  drawTag(`只有 λ₁（${fmtL(state.l1)} nm）`,cssOf(P.c1,true),padX+4,s1+R_S-24);
+  drawTag(`兩色混合（λ₁ ＋ λ₂）`,'#e6ebf5',padX+4,s3+R_S-24);
+  drawTag(`只有 λ₂（${fmtL(state.l2)} nm）`,cssOf(P.c2,true),padX+4,s2+R_S-24);
+
+  // ---- ★ ◇ 標記（混合圖上邊緣）----
+  for(const k of bright){
+    const x=X(k*P.YB);
+    drawStar(x,s3+11,8,'#ffd76a');
+    ctx.strokeStyle='rgba(0,0,0,.75)'; ctx.lineWidth=1.2; ctx.stroke();
+  }
+  for(const k of dark){
+    const x=X((k+0.5)*P.YB), y=s3+11, r=6;
+    ctx.beginPath(); ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y); ctx.closePath();
+    ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fill();
+    ctx.strokeStyle='#d5dceb'; ctx.lineWidth=1.6; ctx.stroke();
+  }
+
+  // ---- 座標軸（最下方）----
+  const axY=axTop+10;
+  ctx.strokeStyle='#5a6a8e'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(padX,axY); ctx.lineTo(padX+plotW,axY); ctx.stroke();
+  const step=niceStep(2*Y/(W<520?5:9));
+  ctx.fillStyle='#aab6cf'; ctx.font=`12px ${FONT}`; ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let v=Math.ceil(-Y/step-1e-9)*step; v<=Y+1e-9; v+=step){
+    const x=X(v);
+    ctx.beginPath(); ctx.moveTo(x,axY-4); ctx.lineTo(x,axY+4); ctx.stroke();
+    if(Math.abs(v)<1e-9) continue;
+    ctx.fillText(fmt(v),x,axY+7);
+  }
+  ctx.fillStyle='#7cc4ff'; ctx.font=`bold 13px ${FONT}`;
+  ctx.fillText('中央線',x0,axY+7);
+  ctx.fillStyle='#93a0bb'; ctx.font=`12px ${FONT}`; ctx.textAlign='right';
+  ctx.fillText('y（cm）',padX+plotW,axY+24);
+
+  // ---- 重疊文字說明（刻度尺下方）----
+  const tY=axTop+R_AX+12;
+  if(P.equal){
+    fitText('兩波長相同：所有亮紋與暗紋完全重合',padX,tY,'#ffd76a',plotW);
+  }else{
+    const bIn=P.YB<=Y;
+    fitText(bIn
+      ? `★ 亮紋重疊：λ₁第${P.m1}亮紋＝λ₂第${P.m2}亮紋（${fmt(P.YB)} cm）`
+      : `★ 亮紋重疊：超出 ±1 cm（λ₁第${P.m1}亮紋＝λ₂第${P.m2}亮紋，${fmt(P.YB)} cm）`,
+      padX,tY,'#ffd76a',plotW);
+    let t2;
+    if(!P.dark) t2='◇ 暗紋重疊：無（兩色暗紋永遠不會重疊）';
+    else if(P.dark.y<=Y) t2=`◇ 暗紋重疊：λ₁第${P.dark.n1}暗紋＝λ₂第${P.dark.n2}暗紋（${fmt(P.dark.y)} cm）`;
+    else t2=`◇ 暗紋重疊：超出 ±1 cm（λ₁第${P.dark.n1}暗紋＝λ₂第${P.dark.n2}暗紋，${fmt(P.dark.y)} cm）`;
+    fitText(t2,padX,tY+22,'#c3cbdc',plotW);
+  }
+
+  document.getElementById('rangeNote').textContent =
+    `顯示範圍：中央線兩側各 1 cm（固定）。▼ 為亮紋位置、▽ 為暗紋位置；λ₁ 名稱在上方、λ₂ 名稱在下方。`;
+}
+
+function placeText(t,x,y,color,W,padX){
+  ctx.font=`13px ${FONT}`; ctx.fillStyle=color; ctx.textBaseline='middle';
+  const w=ctx.measureText(t).width;
+  let tx=x+12;
+  if(tx+w>W-padX){ tx=x-12-w; }
+  if(tx<padX) tx=padX;
+  ctx.textAlign='left';
+  // 底色避免與虛線重疊難讀
+  ctx.fillStyle='rgba(18,26,46,.85)'; ctx.fillRect(tx-3,y-9,w+6,18);
+  ctx.fillStyle=color; ctx.fillText(t,tx,y);
+}
+function drawStar(x,y,r,color){
+  ctx.fillStyle=color; ctx.beginPath();
+  for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5; const rr=i%2?r*0.45:r; const px=x+rr*Math.cos(a), py=y+rr*Math.sin(a); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }
+  ctx.closePath(); ctx.fill();
+}
+function drawDiamond(x,y,r,color){
+  ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.beginPath();
+  ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y); ctx.closePath(); ctx.stroke();
+}
+function niceStep(raw){
+  const e=Math.pow(10,Math.floor(Math.log10(raw))); const f=raw/e;
+  return (f<1.5?1:f<3?2:f<7?5:10)*e;
+}
+
+function drawFringeLabels(D,c,edgeY,dir,X,pxPerCm,Y,W,padX,showText){
+  const brightCss=cssOf(c,true);
+  const darkCss='#9aa6bf';
+  const Dpx=D*pxPerCm;
+  const NEED=16;
+  let darkText, brightStep;
+  if(Dpx/2>=NEED){ darkText=true; brightStep=1; }
+  else if(Dpx>=NEED){ darkText=false; brightStep=1; }
+  else { darkText=false; brightStep=Math.ceil(NEED/Dpx); }
+  const SZ=13;
+
+  const label=(x,name,pos,color)=>{
+    if(x<padX+6||x>W-padX-6) return;
+    const h=stackH(name,SZ);
+    const top = dir<0 ? edgeY-12-h : edgeY+12;
+    drawStacked(name,x,top,color,SZ);
+  };
+  const tri=(x,filled,color)=>{
+    const s=5, tip=edgeY+(dir<0?-1:1)*1, base=edgeY+(dir<0?-1:1)*9;
+    ctx.beginPath(); ctx.moveTo(x,tip); ctx.lineTo(x-s,base); ctx.lineTo(x+s,base); ctx.closePath();
+    if(filled){ctx.fillStyle=color;ctx.fill();} else {ctx.strokeStyle=color;ctx.lineWidth=1.2;ctx.stroke();}
+  };
+
+  // 亮紋
+  const M=Math.floor(Y/D);
+  for(let m=-M;m<=M;m++){
+    const x=X(m*D);
+    tri(x,true,brightCss);
+    if(showText && Math.abs(m)%brightStep===0){
+      const name = m===0?'中央亮紋':`第${Math.abs(m)}亮紋`;
+      label(x,name,m===0?'0':fmt(Math.abs(m)*D),brightCss);
+    }
+  }
+  // 暗紋
+  if(Dpx/2>=5){
+    const N=Math.floor(Y/D+0.5);
+    for(let n=1;n<=N;n++){
+      for(const s of [-1,1]){
+        const y=s*(n-0.5)*D; if(Math.abs(y)>Y) continue;
+        const x=X(y);
+        tri(x,false,darkCss);
+        if(showText && darkText) label(x,`第${n}暗紋`,fmt((n-0.5)*D),darkCss);
+      }
+    }
+  }
+}
+
+/* ========== 計算說明 ========== */
+function renderCalc(){
+  const body=document.getElementById('calcBody');
+  const {l1,l2,d,L}=state;
+  const dm=d*1e-2;
+  const s1=fmtL(l1), s2=fmtL(l2);
+  let h='';
+  h+=`<div class="row">亮紋間距：Δy = λL ／ d</div>`;
+  h+=`<div class="eq">Δy₁ = (${sci(l1*1e-9)} m)(${fmt(L)} m) ／ (${sci(dm)} m)<br>　　= ${sci(P.D1/100)} m = <span class="ans">${fmt(P.D1)} cm</span></div>`;
+  h+=`<div class="eq">Δy₂ = (${sci(l2*1e-9)} m)(${fmt(L)} m) ／ (${sci(dm)} m)<br>　　= ${sci(P.D2/100)} m = <span class="ans">${fmt(P.D2)} cm</span></div>`;
+  h+=`<div class="row">第 n 亮紋：y = nΔy　　第 n 暗紋：y = (n − ½)Δy</div>`;
+  h+=`<div class="row" style="margin-top:6px">λ₁ 第一亮紋：<span class="ans">${fmt(P.D1)} cm</span>　λ₂ 第一亮紋：<span class="ans">${fmt(P.D2)} cm</span></div>`;
+
+  h+=`<div class="row" style="margin-top:10px"><b>亮紋第一次重疊</b>（以中央亮紋為基準）</div>`;
+  if(P.equal){
+    h+=`<div class="eq">兩波長相同，每一條亮紋都重疊。</div>`;
+  }else{
+    const inView = P.YB<=P.Y;
+    h+=`<div class="eq">m₁λ₁ = m₂λ₂　⇒　m₁ : m₂ = λ₂ : λ₁ = ${s2} : ${s1} = ${P.B} : ${P.A}<br>
+      取最小整數 m₁ = ${P.B}、m₂ = ${P.A}<br>
+      y = ${P.B} × ${fmt(P.D1)} = ${P.A} × ${fmt(P.D2)} = <span class="ans">${fmt(P.YB)} cm</span>
+      ${inView?'':'<br><span class="sub">（超出目前顯示範圍；兩波長比值的整數比太大，重疊位置很遠）</span>'}</div>`;
+    h+=`<div class="sub">之後每隔 ${fmt(P.YB)} cm 重疊一次。</div>`;
+
+    h+=`<div class="row" style="margin-top:10px"><b>暗紋重疊</b></div>`;
+    if(P.dark){
+      h+=`<div class="eq">(n₁ − ½)λ₁ = (n₂ − ½)λ₂　⇒　(2n₁ − 1) : (2n₂ − 1) = ${P.B} : ${P.A}<br>
+        n₁ = ${P.dark.n1}、n₂ = ${P.dark.n2}，y = <span class="ans">${fmt(P.dark.y)} cm</span></div>`;
+    }else{
+      h+=`<div class="eq">(2n₁ − 1) : (2n₂ − 1) = ${P.B} : ${P.A}，其中有偶數，<br>而 (2n − 1) 必為奇數，故<span class="ans">暗紋永遠不會重疊</span>。</div>`;
+    }
+
+    const extra=[];
+    if(P.b2d1) extra.push(`λ₂ 第${P.b2d1.m2}亮紋 落在 λ₁ 第${P.b2d1.n1}暗紋上（${fmt(P.b2d1.y)} cm），此處只看得到 λ₂ 的顏色。`);
+    if(P.b1d2) extra.push(`λ₁ 第${P.b1d2.m1}亮紋 落在 λ₂ 第${P.b1d2.n2}暗紋上（${fmt(P.b1d2.y)} cm），此處只看得到 λ₁ 的顏色。`);
+    if(extra.length){
+      h+=`<div class="row" style="margin-top:10px"><b>亮紋落在另一色暗紋上</b>（第一次）</div>`;
+      h+=`<div class="eq">${extra.join('<br>')}</div>`;
+    }
+  }
+  body.innerHTML=h;
+}
+
+/* ========== Three.js 3D 裝置 ========== */
+const threeWrap=document.getElementById('threeWrap');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+threeWrap.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x070b16);
+const camera=new THREE.PerspectiveCamera(40,1,0.1,200);
+camera.position.set(9,4.2,-8);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0,-0.6); controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=4; controls.maxDistance=30;
+
+scene.add(new THREE.AmbientLight(0xffffff,0.55));
+const dl=new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(5,8,6); scene.add(dl);
+
+const Z_SRC=-6.6, Z_SLIT=-2, Z_SCR=4;
+const SCR_W=6, SCR_H=2.4;
+
+// 光學軌道
+const bench=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.18,12.6),new THREE.MeshStandardMaterial({color:0x3a4256,metalness:.4,roughness:.6}));
+bench.position.set(0,-1.45,-1.2); scene.add(bench);
+
+function stand(z,h){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,h,16),new THREE.MeshStandardMaterial({color:0x8890a0,metalness:.6,roughness:.4}));
+  m.position.set(0,-1.36+h/2,z); scene.add(m);
+}
+
+// 光源
+const srcBody=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,1.3),new THREE.MeshStandardMaterial({color:0x2b3040,metalness:.5,roughness:.5}));
+srcBody.position.set(0,0,Z_SRC); scene.add(srcBody); stand(Z_SRC,0.96);
+const srcLensMat=new THREE.MeshBasicMaterial({color:0xffffff});
+const srcLens=new THREE.Mesh(new THREE.CircleGeometry(0.25,32),srcLensMat);
+srcLens.position.set(0,0,Z_SRC+0.66); scene.add(srcLens);
+
+// 入射光束
+const beamLen=(Z_SLIT)-(Z_SRC+0.66);
+const beamMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.45,blending:THREE.AdditiveBlending,depthWrite:false});
+const beam=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.25,beamLen,32,1,true),beamMat);
+beam.rotation.x=Math.PI/2; beam.position.set(0,0,Z_SRC+0.66+beamLen/2); scene.add(beam);
+
+// 雙狹縫板（狹縫範圍小於光束直徑）
+const plateMat=new THREE.MeshStandardMaterial({color:0x1d2230,metalness:.3,roughness:.7});
+const PT=0.06, PH=2.0, PWh=1.2, SH=0.4; // 板半寬、狹縫高度
+const sIn=0.06, sOut=0.10;              // 狹縫內、外緣 x
+function plateBox(x1,x2,y1,y2){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(x2-x1,y2-y1,PT),plateMat);
+  m.position.set((x1+x2)/2,(y1+y2)/2,Z_SLIT); scene.add(m);
+}
+plateBox(-PWh,-sOut,-PH/2,PH/2); plateBox(sOut,PWh,-PH/2,PH/2);
+plateBox(-sIn,sIn,-PH/2,PH/2);
+plateBox(-sOut,-sIn,SH/2,PH/2); plateBox(-sOut,-sIn,-PH/2,-SH/2);
+plateBox(sIn,sOut,SH/2,PH/2);  plateBox(sIn,sOut,-PH/2,-SH/2);
+stand(Z_SLIT,0.36);
+
+// 狹縫後的光錐
+const fanGeo=new THREE.BufferGeometry();
+(function(){
+  const n=[[-sOut,-SH/2],[sOut,-SH/2],[sOut,SH/2],[-sOut,SH/2]];
+  const f=[[-SCR_W/2,-SCR_H/2],[SCR_W/2,-SCR_H/2],[SCR_W/2,SCR_H/2],[-SCR_W/2,SCR_H/2]];
+  const v=[];
+  for(let i=0;i<4;i++){
+    const j=(i+1)%4;
+    const A=[n[i][0],n[i][1],Z_SLIT+0.04],B=[n[j][0],n[j][1],Z_SLIT+0.04],C=[f[j][0],f[j][1],Z_SCR-0.02],D=[f[i][0],f[i][1],Z_SCR-0.02];
+    v.push(...A,...B,...C,...A,...C,...D);
+  }
+  fanGeo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+})();
+const fanMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.06,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false});
+scene.add(new THREE.Mesh(fanGeo,fanMat));
+
+// 光屏
+const scrCanvas=document.createElement('canvas'); scrCanvas.width=1024; scrCanvas.height=1;
+const scrCtx=scrCanvas.getContext('2d');
+const scrTex=new THREE.CanvasTexture(scrCanvas);
+scrTex.minFilter=THREE.LinearFilter; scrTex.magFilter=THREE.LinearFilter;
+const screen=new THREE.Mesh(new THREE.PlaneGeometry(SCR_W,SCR_H),new THREE.MeshBasicMaterial({map:scrTex,side:THREE.DoubleSide}));
+screen.position.set(0,0,Z_SCR); screen.rotation.y=Math.PI; // 面向雙狹縫
+scene.add(screen);
+const frame=new THREE.Mesh(new THREE.BoxGeometry(SCR_W+0.16,SCR_H+0.16,0.08),new THREE.MeshStandardMaterial({color:0xc9ced8,roughness:.8}));
+frame.position.set(0,0,Z_SCR+0.06); scene.add(frame);
+stand(Z_SCR,0.2);
+
+// 中央線（光屏上）與光軸
+function dashed(points,color,dash,gap){
+  const g=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(...p)));
+  const l=new THREE.Line(g,new THREE.LineDashedMaterial({color,dashSize:dash,gapSize:gap}));
+  l.computeLineDistances(); scene.add(l); return l;
+}
+dashed([[0,-SCR_H/2,Z_SCR-0.015],[0,SCR_H/2,Z_SCR-0.015]],0x7cc4ff,0.12,0.08);
+dashed([[0,0,Z_SRC+0.7],[0,0,Z_SCR-0.02]],0x55607a,0.15,0.12);
+
+// L 標示
+(function(){
+  const y=-1.25, x=1.9;
+  const m=new THREE.LineBasicMaterial({color:0xaab6cf});
+  const pts=[[x,y,Z_SLIT],[x,y,Z_SCR]];
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(...p))),m));
+  for(const z of [Z_SLIT,Z_SCR]){
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,y-0.12,z),new THREE.Vector3(x,y+0.12,z)]),m));
+  }
+})();
+
+// 文字標籤
+function makeLabel(text,color,h){
+  const c=document.createElement('canvas');
+  const tex=new THREE.CanvasTexture(c); tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  sp.renderOrder=10; sp.userData={c,tex,h};
+  setLabel(sp,text,color); scene.add(sp); return sp;
+}
+function setLabel(sp,text,color){
+  const {c,tex,h}=sp.userData;
+  const fs=44, pad=16;
+  const g=c.getContext('2d'); g.font=`600 ${fs}px ${FONT}`;
+  const w=Math.ceil(g.measureText(text).width)+pad*2;
+  c.width=w; c.height=fs+pad*1.4;
+  g.font=`600 ${fs}px ${FONT}`;
+  g.fillStyle='rgba(10,16,32,.78)';
+  const r=12; g.beginPath(); g.moveTo(r,0); g.lineTo(w-r,0); g.quadraticCurveTo(w,0,w,r); g.lineTo(w,c.height-r); g.quadraticCurveTo(w,c.height,w-r,c.height); g.lineTo(r,c.height); g.quadraticCurveTo(0,c.height,0,c.height-r); g.lineTo(0,r); g.quadraticCurveTo(0,0,r,0); g.fill();
+  g.fillStyle=color||'#e6ebf5'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(text,w/2,c.height/2+2);
+  tex.needsUpdate=true;
+  sp.scale.set(h*w/c.height,h,1);
+}
+makeLabel('光源','#e6ebf5',0.32).position.set(0,0.75,Z_SRC);
+makeLabel('雙狹縫','#e6ebf5',0.32).position.set(0,1.32,Z_SLIT);
+makeLabel('光屏','#e6ebf5',0.32).position.set(0,1.85,Z_SCR);
+makeLabel('中央線','#7cc4ff',0.24).position.set(0,-SCR_H/2+0.2,Z_SCR-0.1);
+const lbD=makeLabel('','#ffd76a',0.24); lbD.position.set(0,-0.62,Z_SLIT-0.1);
+const lbL=makeLabel('','#ffd76a',0.28); lbL.position.set(1.9,-0.95,(Z_SLIT+Z_SCR)/2);
+const lbR=makeLabel('','#aab6cf',0.22); lbR.position.set(0,1.45,Z_SCR);
+
+function update3D(){
+  // 光屏貼圖
+  const img=scrCtx.createImageData(1024,1);
+  for(let i=0;i<1024;i++){
+    // 屏幕已旋轉 180°，從光源方向看過去 +y 在右手側；貼圖反向以維持一致
+    const y=P.Y-(i+0.5)/1024*2*P.Y;
+    const c=colorAt(y,'mix');
+    img.data[i*4]=c[0]*255; img.data[i*4+1]=c[1]*255; img.data[i*4+2]=c[2]*255; img.data[i*4+3]=255;
+  }
+  scrCtx.putImageData(img,0,0); scrTex.needsUpdate=true;
+
+  // 光束顏色
+  let r=0,g=0,b=0;
+  r=P.c1[0]+P.c2[0]; g=P.c1[1]+P.c2[1]; b=P.c1[2]+P.c2[2];
+  const m=Math.max(r,g,b,0.001);
+  const col=new THREE.Color(r/m,g/m,b/m);
+  beamMat.color.copy(col); fanMat.color.copy(col); srcLensMat.color.copy(col);
+
+  setLabel(lbD,`d = ${fmt(state.d)} cm`,'#ffd76a');
+  setLabel(lbL,`L = ${fmt(state.L)} m`,'#ffd76a');
+  setLabel(lbR,`屏上範圍 ±${fmt(P.Y)} cm`,'#aab6cf');
+}
+
+function resize3D(){
+  const w=threeWrap.clientWidth, h=threeWrap.clientHeight;
+  if(!w||!h) return;
+  renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize3D).observe(threeWrap);
+(function loop(){ requestAnimationFrame(loop); if(mqMobile.matches) return; controls.update(); renderer.render(scene,camera); })();
+
+/* ========== 控制項綁定 ========== */
+const $=id=>document.getElementById(id);
+const pairs=[
+  {key:'l1',r:$('r1'),n:$('n1'),min:380,max:780,dec:1},
+  {key:'l2',r:$('r2'),n:$('n2'),min:380,max:780,dec:1},
+];
+function syncInputs(){
+  for(const p of pairs){
+    p.r.value=state[p.key];
+    p.n.value=String(parseFloat(state[p.key].toFixed(p.dec)));
+  }
+}
+for(const p of pairs){
+  p.r.addEventListener('input',()=>{ state[p.key]=parseFloat(p.r.value); p.n.value=String(parseFloat(state[p.key].toFixed(p.dec))); refresh(); });
+  p.n.addEventListener('change',()=>{
+    let v=parseFloat(p.n.value);
+    if(isNaN(v)) v=state[p.key];
+    v=Math.min(p.max,Math.max(p.min,v));
+    v=parseFloat(v.toFixed(p.dec));
+    state[p.key]=v; p.n.value=String(v); p.r.value=v; refresh();
+  });
+  p.n.addEventListener('keydown',e=>{ if(e.key==='Enter') p.n.blur(); });
+}
+$('tLabels').addEventListener('change',e=>{ state.labels=e.target.checked; drawPattern(); });
+$('calcBtn').addEventListener('click',()=>document.body.classList.add('sheet-open'));
+$('sheetClose').addEventListener('click',()=>document.body.classList.remove('sheet-open'));
+$('sheetBackdrop').addEventListener('click',()=>document.body.classList.remove('sheet-open'));
+mqMobile.addEventListener('change',()=>{ document.body.classList.remove('sheet-open'); drawPattern(); });
+$('tCalc').addEventListener('change',e=>{ state.calc=e.target.checked; $('calcPanel').classList.toggle('hidden',!state.calc); });
+
+function refresh(){
+  compute();
+  $('dot1').style.background=cssOf(P.c1,false);
+  $('dot2').style.background=cssOf(P.c2,false);
+  $('legend').innerHTML=
+    `<i><span class="dot" style="background:${cssOf(P.c1,false)}"></span>λ₁ = ${fmtL(state.l1)} nm</i>`+
+    `<i><span class="dot" style="background:${cssOf(P.c2,false)}"></span>λ₂ = ${fmtL(state.l2)} nm</i>`+
+    `<i>★ 亮紋重疊　◇ 暗紋重疊</i>`;
+  drawPattern(); renderCalc(); update3D();
+}
+new ResizeObserver(()=>drawPattern()).observe(patWrap);
+
+syncInputs(); refresh(); resize3D();
+})();
+</script>
+</body>
+</html>
