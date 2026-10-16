@@ -1,818 +1,885 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高中物理：簡諧運動全攻略模擬</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: 'Noto Sans TC', sans-serif; user-select: none; }
-        canvas { touch-action: none; } /* Prevent scrolling on mobile when touching canvas */
-        .slider-thumb::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            background: #3B82F6;
-            cursor: pointer;
-            border-radius: 50%;
-        }
-        .tab-active {
-            background-color: #2563EB;
-            color: white;
-            border-bottom: 4px solid #1E40AF;
-        }
-        .tab-inactive {
-            background-color: #E5E7EB;
-            color: #374151;
-            border-bottom: 4px solid #9CA3AF;
-        }
-        .tab-inactive:hover {
-            background-color: #D1D5DB;
-        }
-        .btn-control {
-            transition: all 0.2s;
-        }
-        .btn-control:active {
-            transform: scale(0.95);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>簡諧運動模擬</title>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f2840;--line:#2d3954;--text:#e6ebf5;--muted:#9aa6c0;--accent:#4fc3f7;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;overflow:hidden}
+header{min-height:52px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:8px 16px;background:#121828;border-bottom:1px solid var(--line)}
+h1{font-size:18px;white-space:nowrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{background:transparent;border:1px solid var(--line);color:var(--muted);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+.tab.on{background:var(--accent);color:#06202c;border-color:var(--accent);font-weight:700}
+.credit{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+#app{display:flex;height:calc(100% - 52px)}
+#view{position:relative;flex:1;min-width:0;overflow:hidden}
+#view canvas.three{display:block;width:100%;height:100%;touch-action:none}
+#panel{width:310px;flex:none;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);padding:12px}
+.box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.box h3{font-size:15px;margin-bottom:10px;color:#cfe8ff}
+.box h4{font-size:13px;color:var(--muted);margin:4px 0 2px;font-weight:500}
+.row{display:flex;gap:8px}
+.btn{flex:1;background:#2a3552;border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+.btn:hover{background:#33406a}
+.lbl{font-size:13px;color:var(--muted);margin:10px 0 6px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:none;color:var(--muted);padding:7px 4px;cursor:pointer;font-size:13px;font-family:inherit}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#06202c;font-weight:700}
+.sl{margin:10px 0}
+.sl .top{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px}
+.sl .top b{color:var(--text);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;font-size:14px;cursor:pointer;user-select:none}
+.sw input{display:none}
+.sw .knob{width:40px;height:22px;border-radius:11px;background:#3a4560;position:relative;flex:none;transition:.2s}
+.sw .knob::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#cbd3e6;transition:.2s}
+.sw input:checked + .knob{background:var(--accent)}
+.sw input:checked + .knob::after{left:21px;background:#fff}
+.readout{font-size:13px;line-height:1.75;color:var(--muted);background:#141a2a;border-radius:8px;padding:8px 10px;margin-top:8px;font-variant-numeric:tabular-nums}
+.readout b{color:var(--text)}
+.sub{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.legend{font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:12px;height:4px;border-radius:2px;margin:0 4px 2px 8px;vertical-align:middle}
+.hidden{display:none !important}
+#graph{position:absolute;left:10px;right:10px;bottom:10px;height:150px;width:calc(100% - 20px);background:rgba(12,17,28,.88);border:1px solid var(--line);border-radius:10px;display:none}
+#energy{position:absolute;left:10px;top:10px;width:240px;background:rgba(12,17,28,.88);border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:none;font-size:12px}
+#energy .ttl{color:var(--muted);margin-bottom:4px}
+.ebar{display:grid;grid-template-columns:70px 1fr 62px;align-items:center;gap:6px;margin:4px 0}
+.ebar .track{height:12px;background:#222b40;border-radius:6px;overflow:hidden}
+.ebar .fill{height:100%;width:0}
+.ebar .val{text-align:right;font-variant-numeric:tabular-nums}
+#hint{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,183,77,.15);border:1px solid rgba(255,183,77,.5);color:#ffd59a;padding:6px 14px;border-radius:20px;font-size:13px;pointer-events:none;display:none;white-space:nowrap}
+@media (max-width:820px){
+  html,body{overflow:auto;height:auto}
+  #app{flex-direction:column;height:auto}
+  #view{height:58vh;flex:none}
+  #panel{width:100%;border-left:none;border-top:1px solid var(--line)}
+  #graph{height:120px}
+  #energy{width:200px;top:auto;bottom:10px}
+  #energy.withgraph{bottom:140px}
+  .credit{margin-left:0}
+}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
+<body>
+<header>
+  <h1>簡諧運動</h1>
+  <div class="tabs">
+    <button class="tab on" data-tab="0">等速圓周運動的投影</button>
+    <button class="tab" data-tab="1">彈簧–物體系統</button>
+    <button class="tab" data-tab="2">單擺</button>
+  </div>
+  <div class="credit">臺中二中 阿發老師 設計</div>
+</header>
+<div id="app">
+  <div id="view">
+    <canvas id="graph"></canvas>
+    <div id="energy">
+      <div class="ttl" id="eTitle">力學能</div>
+      <div class="ebar"><span>動能 K</span><div class="track"><div class="fill" id="eK" style="background:#ff7a7a"></div></div><span class="val" id="eKv">0</span></div>
+      <div class="ebar"><span id="eUname">位能 U</span><div class="track"><div class="fill" id="eU" style="background:#64b5f6"></div></div><span class="val" id="eUv">0</span></div>
+      <div class="ebar"><span>力學能 E</span><div class="track"><div class="fill" id="eE" style="background:#81c784"></div></div><span class="val" id="eEv">0</span></div>
+    </div>
+    <div id="hint">按住物體拖曳，放開後開始振盪</div>
+  </div>
+  <div id="panel">
+    <section class="box">
+      <div class="row">
+        <button class="btn" id="btnPlay">⏸ 暫停</button>
+        <button class="btn" id="btnReset">↺ 重置</button>
+        <button class="btn" id="btnCam">重設視角</button>
+      </div>
+      <div class="lbl">播放速度</div>
+      <div class="seg" id="speedSeg">
+        <button data-v="0.25">×0.25</button><button data-v="0.5">×0.5</button><button data-v="1" class="on">×1</button>
+      </div>
+    </section>
 
-    <!-- Header & Navigation -->
-    <header class="bg-white shadow-md z-10">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800 tracking-tight">🔬 簡諧運動 (SHM) 實驗室</h1>
-            <div class="text-sm text-gray-500 hidden md:block">拖曳物體可設定振幅</div>
+    <!-- 分頁一 -->
+    <section class="box" data-panel="0">
+      <h3>等速圓周運動的投影</h3>
+      <label class="sw"><span>💡 向下照燈（影子投在地板）</span><input type="checkbox" id="lampDown"><span class="knob"></span></label>
+      <label class="sw"><span>💡 向左照燈（影子投在左牆）</span><input type="checkbox" id="lampLeft"><span class="knob"></span></label>
+      <div class="sub">
+        <h4>顯示選項</h4>
+        <label class="sw"><span>調整半徑與週期</span><input type="checkbox" id="c1Sliders"><span class="knob"></span></label>
+        <div id="c1SliderBox" class="hidden">
+          <div class="sl"><div class="top"><span>半徑 R</span><b id="rSlV"></b></div><input type="range" id="rSl" min="1" max="2" step="0.05" value="1.5"></div>
+          <div class="sl"><div class="top"><span>週期 T</span><b id="tSlV"></b></div><input type="range" id="tSl" min="1" max="8" step="0.5" value="4"></div>
         </div>
-        <div class="flex justify-center space-x-2 pb-2 bg-gray-50">
-            <button id="btn-tab1" onclick="switchTab(1)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-active">1. 參考圓與投影</button>
-            <button id="btn-tab2" onclick="switchTab(2)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive">2. 水平彈簧系統</button>
-            <button id="btn-tab3" onclick="switchTab(3)" class="px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive">3. 單擺系統</button>
-        </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col lg:flex-row relative p-2 gap-2 overflow-hidden">
-        
-        <!-- Canvas Container -->
-        <div class="flex-1 bg-slate-900 rounded-xl shadow-lg relative flex flex-col border border-gray-700">
-            <!-- Main Simulation Canvas -->
-            <div class="relative flex-grow bg-slate-900 rounded-xl overflow-hidden cursor-crosshair">
-                <canvas id="simCanvas" class="w-full h-full block"></canvas>
-                <!-- Overlay Instructions -->
-                <div id="dragHint" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/20 text-white px-4 py-1 rounded-full text-sm pointer-events-none opacity-0 transition-opacity duration-300 backdrop-blur-sm border border-white/30">
-                    拖曳物體以改變釋放位置
-                </div>
-            </div>
-        </div>
-
-        <!-- Controls Sidebar -->
-        <div class="w-full lg:w-80 bg-white rounded-xl shadow-lg p-5 border border-gray-200 flex flex-col gap-6 overflow-y-auto">
-            
-            <!-- Global Controls -->
-            <div class="space-y-3 pb-4 border-b border-gray-200">
-                <h3 class="font-bold text-gray-700 flex items-center">⚙️ 全局設定</h3>
-                
-                <div class="flex items-center justify-between">
-                    <span class="text-gray-600">慢動作 (Slow Mo)</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="slowMoToggle" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                </div>
-
-                <div class="flex items-center justify-between">
-                    <span class="text-gray-600">顯示向量 (速度/力)</span>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="vectorToggle" class="sr-only peer" checked>
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                </div>
-                
-                <div class="flex gap-2 text-xs mt-2">
-                    <div class="flex items-center gap-1"><div class="w-3 h-3 bg-green-400 rounded-full"></div> 速度 v</div>
-                    <div id="legend-a" class="flex items-center gap-1"><div class="w-3 h-3 bg-red-400 rounded-full"></div> 受力/加速度 a</div>
-                </div>
-            </div>
-
-            <!-- Tab Specific Controls (Injected via JS) -->
-            <div id="controls-container" class="space-y-6">
-                <!-- Controls will be populated here -->
-            </div>
-
-            <div class="mt-auto text-xs text-gray-400 text-center pt-4 border-t">
-                物理大師模擬實驗室 v1.9 (修正文字切邊問題)
-            </div>
-        </div>
-    </main>
-
-    <script>
-        // --- Configuration & State ---
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-        const controlsContainer = document.getElementById('controls-container');
-        
-        let currentTab = 1;
-        let animationId;
-        let lastTime = 0;
-        let time = 0;
-        
-        // Global Settings
-        const config = {
-            slowMo: false,
-            showVectors: true,
-            pixelsPerMeter: 100, // Scale factor
-        };
-
-        // Input Handling State
-        const mouse = { x: 0, y: 0, isDown: false };
-        let draggedObject = null; // 'mass', 'bob', 'particle'
-
-        // --- Helper Functions ---
-        function updateT2Display() {
-            const T = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
-            const el = document.getElementById('calc-T2');
-            if (el) el.innerText = T.toFixed(2) + " s";
-            return T; // Return Period for sim logic
-        }
-
-        function updateT3Display() {
-            const T = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
-            const el = document.getElementById('calc-T3');
-            if (el) el.innerText = T.toFixed(2) + " s";
-            return T;
-        }
-
-        function toggleSim2Run() {
-            sim2.isRunning = !sim2.isRunning;
-            document.getElementById('btn-sim2-toggle').innerHTML = sim2.isRunning ? "⏸ 暫停" : "▶ 開始";
-            document.getElementById('btn-sim2-toggle').className = sim2.isRunning ? 
-                "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold" :
-                "btn-control w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold";
-        }
-
-        function toggleSim3Run() {
-            sim3.isRunning = !sim3.isRunning;
-            document.getElementById('btn-sim3-toggle').innerHTML = sim3.isRunning ? "⏸ 暫停" : "▶ 開始";
-            document.getElementById('btn-sim3-toggle').className = sim3.isRunning ? 
-                "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold" :
-                "btn-control w-full py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold";
-        }
-
-        // --- Phase Preservation Update Functions ---
-        
-        function updateSpringParams(newK, newM) {
-            const oldOmega = sim2.omega;
-            const currentTotalPhase = oldOmega * sim2.simTime + sim2.phase;
-            
-            if (newK !== undefined) sim2.k = parseFloat(newK);
-            if (newM !== undefined) sim2.m = parseFloat(newM);
-            
-            const newOmega = sim2.omega;
-            sim2.phase = currentTotalPhase - newOmega * sim2.simTime;
-            
-            document.getElementById('val-k').innerText = sim2.k;
-            document.getElementById('val-m').innerText = sim2.m;
-            updateT2Display();
-        }
-
-        function updatePendulumParams(newL, newM) {
-            const oldOmega = sim3.omega;
-            const currentTotalPhase = oldOmega * sim3.simTime + sim3.phase;
-
-            if (newL !== undefined) sim3.L = parseFloat(newL);
-            if (newM !== undefined) sim3.m = parseFloat(newM);
-
-            const newOmega = sim3.omega;
-            sim3.phase = currentTotalPhase - newOmega * sim3.simTime;
-
-            document.getElementById('val-L').innerText = sim3.L;
-            document.getElementById('val-m3').innerText = sim3.m;
-            updateT3Display();
-        }
-
-        // --- Sim Objects (State for each tab) ---
-        
-        const sim1 = {
-            radius: 1.5, omega: 2, angle: 0,
-            showLightH: false, showLightV: false,
-            init() { this.angle = 0; this.updateControls(); },
-            updateControls() {
-                controlsContainer.innerHTML = `
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-gray-700">實驗 1: 參考圓與投影</h3>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">角速度 ω (rad/s)</label>
-                            <input type="range" min="0.5" max="5" step="0.1" value="${this.omega}" 
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                oninput="sim1.omega = parseFloat(this.value); document.getElementById('val-omega').innerText = this.value">
-                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-omega">${this.omega}</span> rad/s</div>
-                        </div>
-                        <div class="flex flex-col gap-3 pt-2">
-                             <button onclick="sim1.showLightH = !sim1.showLightH; this.classList.toggle('bg-yellow-100'); this.classList.toggle('border-yellow-400')" 
-                                class="w-full py-2 border rounded-lg flex items-center justify-center gap-2 ${this.showLightH ? 'bg-yellow-100 border-yellow-400' : 'bg-white border-gray-300'}">
-                                🔦 右側平行光 (水平投影)
-                             </button>
-                             <button onclick="sim1.showLightV = !sim1.showLightV; this.classList.toggle('bg-yellow-100'); this.classList.toggle('border-yellow-400')" 
-                                class="w-full py-2 border rounded-lg flex items-center justify-center gap-2 ${this.showLightV ? 'bg-yellow-100 border-yellow-400' : 'bg-white border-gray-300'}">
-                                💡 上方平行光 (垂直投影)
-                             </button>
-                        </div>
-                    </div>
-                `;
-            }
-        };
-
-        const sim2 = {
-            k: 20, m: 1, amp: 1.5, phase: 0, simTime: 0,
-            isRunning: true,
-            cycleTimer: 0,
-            
-            init() {
-                this.simTime = 0;
-                this.cycleTimer = 0;
-                this.isRunning = true;
-                this.updateControls();
-            },
-            get omega() { return Math.sqrt(this.k / this.m); },
-            updateControls() {
-                controlsContainer.innerHTML = `
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-gray-700">實驗 2: 水平彈簧系統</h3>
-                        
-                        <div class="flex gap-2">
-                            <button id="btn-sim2-toggle" onclick="toggleSim2Run()" class="btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold">⏸ 暫停</button>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">彈性常數 k (N/m)</label>
-                            <input type="range" min="5" max="50" step="1" value="${this.k}" 
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                oninput="updateSpringParams(this.value, undefined)">
-                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-k">${this.k}</span> N/m</div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">物體質量 m (kg)</label>
-                            <input type="range" min="0.5" max="5" step="0.1" value="${this.m}" 
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                oninput="updateSpringParams(undefined, this.value)">
-                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-m">${this.m}</span> kg</div>
-                        </div>
-
-                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div class="text-xs text-gray-600">理論週期 T = 2π√(m/k)</div>
-                            <div class="text-lg font-bold text-blue-800" id="calc-T2">
-                                ${ (2 * Math.PI * Math.sqrt(this.m/this.k)).toFixed(2) } s
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-        };
-
-        const sim3 = {
-            L: 2, m: 1, g: 9.8, thetaMax: Math.PI / 6, phase: 0, simTime: 0,
-            isRunning: true,
-            cycleTimer: 0,
-
-            init() {
-                this.simTime = 0;
-                this.cycleTimer = 0;
-                this.isRunning = true;
-                this.updateControls();
-            },
-            get omega() { return Math.sqrt(this.g / this.L); },
-            updateControls() {
-                controlsContainer.innerHTML = `
-                    <div class="space-y-4">
-                        <h3 class="font-bold text-gray-700">實驗 3: 單擺系統</h3>
-
-                        <div class="flex gap-2">
-                            <button id="btn-sim3-toggle" onclick="toggleSim3Run()" class="btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold">⏸ 暫停</button>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">擺長 L (m)</label>
-                            <input type="range" min="0.5" max="3" step="0.1" value="${this.L}" 
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                oninput="updatePendulumParams(this.value, undefined)">
-                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-L">${this.L}</span> m</div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">擺錘質量 m (kg)</label>
-                            <input type="range" min="0.5" max="5" step="0.1" value="${this.m}" 
-                                class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                                oninput="updatePendulumParams(undefined, this.value)">
-                            <div class="text-right text-sm text-blue-600 font-bold"><span id="val-m3">${this.m}</span> kg</div>
-                        </div>
-
-                         <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div class="text-xs text-gray-600">理論週期 T = 2π√(L/g)</div>
-                            <div class="text-lg font-bold text-blue-800" id="calc-T3">
-                                ${ (2 * Math.PI * Math.sqrt(this.L/this.g)).toFixed(2) } s
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-        };
-
-        // --- Core Functions ---
-
-        function switchTab(tabIndex) {
-            currentTab = tabIndex;
-            const legendA = document.getElementById('legend-a');
-            if (legendA) {
-                if (tabIndex === 1) legendA.style.display = 'none';
-                else legendA.style.display = 'flex';
-            }
-            [1, 2, 3].forEach(i => {
-                const btn = document.getElementById(`btn-tab${i}`);
-                if (i === tabIndex) {
-                    btn.className = "px-6 py-2 rounded-t-lg font-semibold transition-all tab-active";
-                } else {
-                    btn.className = "px-6 py-2 rounded-t-lg font-semibold transition-all tab-inactive";
-                }
-            });
-            if(tabIndex === 1) sim1.init();
-            if(tabIndex === 2) sim2.init();
-            if(tabIndex === 3) sim3.init();
-        }
-
-        function resizeCanvas() {
-            const container = canvas.parentElement;
-            canvas.width = container.clientWidth * window.devicePixelRatio;
-            canvas.height = container.clientHeight * window.devicePixelRatio;
-            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        }
-
-        // --- Drawing Helpers ---
-
-        function drawArrow(ctx, x1, y1, x2, y2, color, width = 3) {
-            if (!config.showVectors) return;
-            const headLength = 10; 
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const length = Math.sqrt(dx*dx + dy*dy);
-            if (length < 5) return;
-            const angle = Math.atan2(dy, dx);
-
-            ctx.beginPath();
-            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-            ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x2, y2);
-            ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
-            ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
-            ctx.lineTo(x2, y2);
-            ctx.fillStyle = color; ctx.fill();
-        }
-
-        function drawSpring(ctx, x1, y1, x2, y2, coils, width, color) {
-            const dx = x2 - x1; const dy = y2 - y1;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            const angle = Math.atan2(dy, dx);
-            
-            ctx.save();
-            ctx.translate(x1, y1);
-            ctx.rotate(angle);
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(20, 0);
-            for (let i = 0; i <= coils; i++) {
-                const x = 20 + (len - 40) * (i / coils);
-                const y = (i % 2 === 0 ? -1 : 1) * width * (i === 0 || i === coils ? 0 : 1);
-                ctx.lineTo(x, y);
-            }
-            ctx.lineTo(len, 0);
-            ctx.lineWidth = 3; ctx.strokeStyle = color; ctx.stroke();
-            ctx.restore();
-        }
-
-        function drawTimer(ctx, x, y, time, period) {
-            ctx.save();
-            ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-            ctx.beginPath();
-            ctx.roundRect(x - 100, y - 30, 200, 60, 10);
-            ctx.fill();
-            
-            ctx.fillStyle = "#4ade80"; // Green text
-            ctx.font = "bold 42px monospace";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("t: " + time.toFixed(2) + "s", x, y);
-            ctx.restore();
-        }
-
-        function drawProjectionScreen(ctx, x, y, width, height, isHorizontal, labelType) {
-            ctx.save();
-            // Draw "Wall" or "Screen" background
-            // Light Blue (#e0f2fe)
-            ctx.fillStyle = "#e0f2fe";
-            ctx.strokeStyle = "#7dd3fc"; // Sky 300
-            ctx.lineWidth = 2;
-            
-            if (isHorizontal) {
-                // Horizontal Screen (Bottom)
-                ctx.beginPath();
-                ctx.roundRect(x, y, width, height, 5);
-                ctx.fill();
-                ctx.stroke();
-
-                // Axis Line
-                ctx.beginPath();
-                ctx.moveTo(x + 10, y + height/2);
-                ctx.lineTo(x + width - 10, y + height/2);
-                ctx.strokeStyle = "#334155"; // Slate 700
-                ctx.lineWidth = 1;
-                ctx.stroke();
-
-                // Ticks
-                const mid = x + width/2;
-                const range = (width - 40) / 2; // Approximate range A
-                
-                // Labels - Dark Text, Larger & Bold
-                ctx.fillStyle = "#0f172a"; // Slate 900
-                ctx.font = "bold 14px sans-serif";
-                ctx.textAlign = "center";
-                
-                // Center
-                ctx.beginPath(); ctx.moveTo(mid, y + height/2 - 5); ctx.lineTo(mid, y + height/2 + 5); ctx.stroke();
-                ctx.fillText("平衡點", mid, y + height + 20);
-                
-                // Left (-A)
-                ctx.beginPath(); ctx.moveTo(mid - range, y + height/2 - 5); ctx.lineTo(mid - range, y + height/2 + 5); ctx.stroke();
-                ctx.fillText("端點", mid - range, y + height + 20);
-
-                // Right (+A)
-                ctx.beginPath(); ctx.moveTo(mid + range, y + height/2 - 5); ctx.lineTo(mid + range, y + height/2 + 5); ctx.stroke();
-                ctx.fillText("端點", mid + range, y + height + 20);
-
-            } else {
-                // Vertical Screen (Left)
-                ctx.beginPath();
-                ctx.roundRect(x, y, width, height, 5);
-                ctx.fill();
-                ctx.stroke();
-
-                // Axis Line
-                ctx.beginPath();
-                ctx.moveTo(x + width/2, y + 10);
-                ctx.lineTo(x + width/2, y + height - 10);
-                ctx.strokeStyle = "#334155"; // Slate 700
-                ctx.lineWidth = 1;
-                ctx.stroke();
-
-                // Ticks
-                const mid = y + height/2;
-                const range = (height - 40) / 2;
-
-                ctx.fillStyle = "#0f172a"; // Slate 900
-                ctx.font = "bold 14px sans-serif";
-                
-                // CHANGED: Align text to the LEFT side (start of text) 
-                // and position it to the RIGHT of the wall to avoid clipping on the left edge of canvas
-                ctx.textAlign = "left"; 
-                
-                // Center
-                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid); ctx.lineTo(x + width/2 + 5, mid); ctx.stroke();
-                // Draw text at x + width + 5 (Right side of wall)
-                ctx.fillText("平衡點", x + width + 5, mid + 4);
-
-                // Top (+A)
-                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid - range); ctx.lineTo(x + width/2 + 5, mid - range); ctx.stroke();
-                ctx.fillText("端點", x + width + 5, mid - range + 4);
-
-                // Bottom (-A)
-                ctx.beginPath(); ctx.moveTo(x + width/2 - 5, mid + range); ctx.lineTo(x + width/2 + 5, mid + range); ctx.stroke();
-                ctx.fillText("端點", x + width + 5, mid + range + 4);
-            }
-            ctx.restore();
-        }
-
-
-        // --- Physics & Render Loops ---
-
-        function update(dt) {
-            if (config.slowMo) dt *= 0.2;
-            
-            // Tab 1
-            if (currentTab === 1) {
-                sim1.angle += sim1.omega * dt;
-            }
-
-            // Tab 2
-            else if (currentTab === 2) {
-                if (!draggedObject && sim2.isRunning) {
-                    sim2.simTime += dt;
-                    const period = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
-                    sim2.cycleTimer += dt;
-                    if (sim2.cycleTimer > period) sim2.cycleTimer -= period;
-                }
-            }
-
-            // Tab 3
-            else if (currentTab === 3) {
-                if (!draggedObject && sim3.isRunning) {
-                    sim3.simTime += dt;
-                    const period = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
-                    sim3.cycleTimer += dt;
-                    if (sim3.cycleTimer > period) sim3.cycleTimer -= period;
-                }
-            }
-        }
-
-        function draw() {
-            const w = canvas.width / window.devicePixelRatio;
-            const h = canvas.height / window.devicePixelRatio;
-            const cx = w / 2;
-            const cy = h / 2;
-            const ppm = config.pixelsPerMeter;
-
-            ctx.clearRect(0, 0, w, h);
-
-            // Tab 1: Reference Circle
-            if (currentTab === 1) {
-                const rPix = sim1.radius * ppm;
-                const ballX = cx + rPix * Math.cos(sim1.angle);
-                const ballY = cy - rPix * Math.sin(sim1.angle);
-                const vMag = sim1.radius * sim1.omega;
-                const vMathX = -vMag * Math.sin(sim1.angle);
-                const vMathY = vMag * Math.cos(sim1.angle);
-                const vScale = 0.3 * ppm; 
-
-                // Draw Reference Circle
-                ctx.beginPath(); ctx.arc(cx, cy, rPix, 0, Math.PI * 2);
-                ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-
-                // Draw Projection Screens
-                const screenPadding = 20; 
-                // Vertical Screen (Left)
-                drawProjectionScreen(ctx, 40, cy - rPix - screenPadding, 40, 2*rPix + 2*screenPadding, false);
-                
-                // Horizontal Screen (Bottom)
-                // CHANGED: Move horizontal screen UP by 30px (h - 90 instead of h - 60)
-                drawProjectionScreen(ctx, cx - rPix - screenPadding, h - 90, 2*rPix + 2*screenPadding, 40, true);
-
-                // Projection Lines
-                ctx.strokeStyle = "#FCD34D"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
-                if (sim1.showLightH) { ctx.beginPath(); ctx.moveTo(w, ballY); ctx.lineTo(60, ballY); ctx.stroke(); }
-                
-                // CHANGED: Target y for Vertical light is now h - 70 (top of bottom wall)
-                if (sim1.showLightV) { ctx.beginPath(); ctx.moveTo(ballX, 0); ctx.lineTo(ballX, h - 70); ctx.stroke(); }
-                ctx.setLineDash([]); 
-
-                if (sim1.showLightH) {
-                    // Shadow on Left Screen
-                    ctx.beginPath(); ctx.arc(60, ballY, 15, 0, Math.PI * 2); ctx.fillStyle = "#1e293b"; ctx.fill();
-                    // Vector
-                    drawArrow(ctx, 60, ballY, 60, ballY - vMathY * vScale, "#4ade80");
-                }
-                if (sim1.showLightV) {
-                    // Shadow on Bottom Screen
-                    // Draw at new center y = h - 70
-                    ctx.beginPath(); ctx.arc(ballX, h - 70, 15, 0, Math.PI * 2); ctx.fillStyle = "#1e293b"; ctx.fill();
-                    // Vector
-                    drawArrow(ctx, ballX, h - 70, ballX + vMathX * vScale, h - 70, "#4ade80");
-                }
-
-                // Reference Ball - Radius reduced to 15
-                ctx.beginPath(); ctx.arc(ballX, ballY, 15, 0, Math.PI * 2); ctx.fillStyle = "#ef4444"; ctx.fill();
-                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-                drawArrow(ctx, ballX, ballY, ballX + vMathX * vScale, ballY - vMathY * vScale, "#4ade80"); 
-            }
-
-            // Tab 2: Spring
-            else if (currentTab === 2) {
-                let x;
-                if (draggedObject === 'mass') {
-                    x = (mouse.x - cx) / ppm;
-                } else {
-                    x = sim2.amp * Math.cos(sim2.omega * sim2.simTime + sim2.phase);
-                }
-
-                const blockX = cx + x * ppm;
-                const blockY = cy + 50;
-                const wallX = 50;
-                
-                ctx.beginPath(); ctx.moveTo(0, blockY + 30); ctx.lineTo(w, blockY + 30);
-                ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 4; ctx.stroke();
-
-                ctx.beginPath(); ctx.moveTo(cx, blockY - 50); ctx.lineTo(cx, blockY + 50);
-                ctx.strokeStyle = "#94a3b8"; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
-                ctx.fillStyle = "#cbd5e1"; ctx.fillText("平衡點 (x=0)", cx - 30, blockY + 70);
-
-                ctx.fillStyle = "#94a3b8"; ctx.fillRect(0, blockY - 100, wallX, 130);
-                drawSpring(ctx, wallX, blockY, blockX, blockY, 15, 20, "#ffffff");
-
-                ctx.fillStyle = draggedObject ? "#F3D5A8" : "#E2C08D";
-                ctx.fillRect(blockX - 30, blockY - 30, 60, 60);
-                
-                ctx.strokeStyle = "#C19A6B"; ctx.lineWidth = 2; ctx.beginPath();
-                ctx.moveTo(blockX - 20, blockY - 20); ctx.lineTo(blockX - 20, blockY + 20);
-                ctx.moveTo(blockX, blockY - 25); ctx.lineTo(blockX, blockY + 25);
-                ctx.moveTo(blockX + 20, blockY - 20); ctx.lineTo(blockX + 20, blockY + 20);
-                ctx.stroke();
-                
-                ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(blockX - 30, blockY - 30, 60, 60);
-                ctx.fillStyle = "#5c4033"; ctx.textAlign = "center"; ctx.font = "bold 14px sans-serif"; ctx.fillText("m", blockX, blockY + 5);
-
-                const period = 2 * Math.PI * Math.sqrt(sim2.m / sim2.k);
-                drawTimer(ctx, cx, blockY + 120, sim2.cycleTimer, period);
-
-                if (!draggedObject) {
-                    const v = -sim2.amp * sim2.omega * Math.sin(sim2.omega * sim2.simTime + sim2.phase);
-                    const a = -sim2.omega * sim2.omega * x;
-                    
-                    // Reduced vectors to 1/3 length: 
-                    // Velocity: 20 -> 6.66
-                    // Accel: 5 -> 1.66
-                    const vScale = 20 / 3;
-                    const aScale = 5 / 3;
-                    
-                    drawArrow(ctx, blockX, blockY - 35, blockX + v * vScale, blockY - 35, "#4ade80");
-                    drawArrow(ctx, blockX, blockY, blockX + a * aScale, blockY, "#f87171");
-                }
-            }
-
-            // Tab 3: Pendulum
-            else if (currentTab === 3) {
-                const pivotX = cx;
-                const pivotY = 50;
-
-                let theta;
-                if (draggedObject === 'bob') {
-                    const dx = mouse.x - pivotX;
-                    const dy = mouse.y - pivotY;
-                    theta = Math.atan2(dx, dy);
-                } else {
-                    theta = sim3.thetaMax * Math.cos(sim3.omega * sim3.simTime + sim3.phase);
-                }
-
-                const visualScale = 1.5;
-                const lenPix = sim3.L * ppm * visualScale;
-                
-                const bobX = pivotX + lenPix * Math.sin(theta);
-                const bobY = pivotY + lenPix * Math.cos(theta);
-
-                ctx.fillStyle = "#94a3b8"; ctx.fillRect(cx - 50, pivotY - 10, 100, 10);
-
-                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bobX, bobY);
-                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
-
-                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(pivotX, pivotY + lenPix + 50);
-                ctx.setLineDash([5, 5]); ctx.strokeStyle = "#64748b"; ctx.stroke(); ctx.setLineDash([]);
-
-                // Reduced Size: Original (15 + mass*5) / 3
-                const bobRadius = (15 + sim3.m * 5) / 3;
-                ctx.beginPath(); ctx.arc(bobX, bobY, bobRadius, 0, Math.PI * 2);
-                ctx.fillStyle = draggedObject ? "#60A5FA" : "#3B82F6"; ctx.fill();
-                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
-
-                const period = 2 * Math.PI * Math.sqrt(sim3.L / sim3.g);
-                drawTimer(ctx, cx, h - 80, sim3.cycleTimer, period);
-
-                if (!draggedObject) {
-                    const angularVel = -sim3.thetaMax * sim3.omega * Math.sin(sim3.omega * sim3.simTime + sim3.phase);
-                    const vTangential = angularVel * lenPix;
-                    
-                    const vX = vTangential * Math.cos(theta);
-                    const vY = -vTangential * Math.sin(theta);
-                    const aTangential = -9.8 * Math.sin(theta) * 20;
-
-                    // Vectors Scale: 0.2 (old) * 1.5 = 0.3
-                    const vecScale = 0.3;
-                    
-                    drawArrow(ctx, bobX, bobY, bobX + vX * vecScale, bobY + vY * vecScale, "#4ade80");
-                    
-                    // Corrected Acceleration Direction (Tangential towards equilibrium)
-                    // Tangent vector is (cos(theta), -sin(theta))
-                    // aTangential magnitude calculated is negative when theta > 0
-                    // Correct draw logic: add (cos, -sin) scaled by magnitude
-                    drawArrow(ctx, bobX, bobY, bobX + Math.cos(theta)*aTangential * vecScale, bobY - Math.sin(theta)*aTangential * vecScale, "#f87171");
-                }
-            }
-        }
-
-        function loop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const dt = (timestamp - lastTime) / 1000;
-            lastTime = timestamp;
-            update(dt);
-            draw();
-            animationId = requestAnimationFrame(loop);
-        }
-
-        // --- Interaction Handlers ---
-
-        canvas.addEventListener('mousedown', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = (e.clientX - rect.left) * window.devicePixelRatio / rect.width * canvas.width / window.devicePixelRatio;
-            mouse.y = (e.clientY - rect.top) * window.devicePixelRatio / rect.height * canvas.height / window.devicePixelRatio;
-            mouse.isDown = true;
-            
-            const w = canvas.width / window.devicePixelRatio;
-            const h = canvas.height / window.devicePixelRatio;
-            const cx = w / 2;
-            const cy = h / 2;
-            const ppm = config.pixelsPerMeter;
-
-            if (currentTab === 2) {
-                const x = sim2.amp * Math.cos(sim2.omega * sim2.simTime + sim2.phase);
-                const blockX = cx + x * ppm;
-                const blockY = cy + 50;
-                
-                if (Math.abs(mouse.x - blockX) < 40 && Math.abs(mouse.y - blockY) < 40) {
-                    draggedObject = 'mass';
-                    canvas.style.cursor = 'grabbing';
-                    sim2.isRunning = false; // Pause while dragging
-                }
-            } else if (currentTab === 3) {
-                const theta = sim3.thetaMax * Math.cos(sim3.omega * sim3.simTime + sim3.phase);
-                const visualScale = 1.5;
-                const lenPix = sim3.L * ppm * visualScale;
-                
-                const bobX = cx + lenPix * Math.sin(theta);
-                const bobY = 50 + lenPix * Math.cos(theta);
-                
-                if (Math.hypot(mouse.x - bobX, mouse.y - bobY) < 40) {
-                    draggedObject = 'bob';
-                    canvas.style.cursor = 'grabbing';
-                    sim3.isRunning = false; // Pause while dragging
-                }
-            }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width); // Scaled for draw
-            mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
-        });
-
-        window.addEventListener('mouseup', () => {
-            mouse.isDown = false;
-            canvas.style.cursor = 'crosshair';
-            
-            if (draggedObject === 'mass') {
-                const w = canvas.width / window.devicePixelRatio;
-                const cx = w / 2;
-                const newX = (mouse.x - cx) / config.pixelsPerMeter;
-                sim2.amp = Math.abs(newX);
-                sim2.phase = newX > 0 ? 0 : Math.PI;
-                sim2.simTime = 0;
-                sim2.cycleTimer = 0; // Reset timer on release
-                sim2.isRunning = true; // Auto resume
-                document.getElementById('btn-sim2-toggle').innerHTML = "⏸ 暫停";
-                document.getElementById('btn-sim2-toggle').className = "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold";
-                if(document.getElementById('calc-T2')) 
-                    document.getElementById('calc-T2').innerText = (2 * Math.PI * Math.sqrt(sim2.m/sim2.k)).toFixed(2) + " s";
-            } else if (draggedObject === 'bob') {
-                const w = canvas.width / window.devicePixelRatio;
-                const cx = w / 2;
-                const dx = mouse.x - cx;
-                const dy = mouse.y - 50;
-                let newTheta = Math.atan2(dx, dy);
-                
-                sim3.thetaMax = Math.abs(newTheta);
-                sim3.phase = newTheta > 0 ? 0 : Math.PI;
-                sim3.simTime = 0;
-                sim3.cycleTimer = 0; // Reset timer on release
-                sim3.isRunning = true; // Auto resume
-                document.getElementById('btn-sim3-toggle').innerHTML = "⏸ 暫停";
-                document.getElementById('btn-sim3-toggle').className = "btn-control w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-bold";
-                 if(document.getElementById('calc-T3')) 
-                    document.getElementById('calc-T3').innerText = (2 * Math.PI * Math.sqrt(sim3.L/sim3.g)).toFixed(2) + " s";
-            }
-            draggedObject = null;
-        });
-
-        // Toggle Listeners
-        document.getElementById('slowMoToggle').addEventListener('change', (e) => {
-            config.slowMo = e.target.checked;
-        });
-        document.getElementById('vectorToggle').addEventListener('change', (e) => {
-            config.showVectors = e.target.checked;
-        });
-
-        // Initialize
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-        sim1.init(); 
-        switchTab(1);
-        requestAnimationFrame(loop);
-
-        setTimeout(() => {
-            document.getElementById('dragHint').classList.remove('opacity-0');
-            setTimeout(() => {
-                document.getElementById('dragHint').classList.add('opacity-0');
-            }, 4000);
-        }, 1000);
-
-    </script>
+        <label class="sw"><span>半徑線與相位角 θ</span><input type="checkbox" id="c1Phase"><span class="knob"></span></label>
+        <label class="sw"><span>速度與加速度向量</span><input type="checkbox" id="c1Vec"><span class="knob"></span></label>
+        <div class="legend hidden" id="c1VecLegend"><i style="background:#66ff88"></i>速度 v<i style="background:#ff5566"></i>加速度 a</div>
+        <label class="sw"><span>影子的位置–時間曲線</span><input type="checkbox" id="c1Trace"><span class="knob"></span></label>
+      </div>
+      <div class="readout" id="ro1"></div>
+    </section>
+
+    <!-- 分頁二 -->
+    <section class="box hidden" data-panel="1">
+      <h3>彈簧–物體系統</h3>
+      <div class="seg" id="modeSeg"><button data-v="h" class="on">水平</button><button data-v="v">鉛直</button></div>
+      <div class="sl"><div class="top"><span>彈性常數 k</span><b id="kSlV"></b></div><input type="range" id="kSl" min="10" max="100" step="1" value="20"></div>
+      <div class="sl"><div class="top"><span>物體質量 m</span><b id="m2SlV"></b></div><input type="range" id="m2Sl" min="0.1" max="2" step="0.05" value="0.5"></div>
+      <div class="readout" id="ro2"></div>
+    </section>
+
+    <!-- 分頁三 -->
+    <section class="box hidden" data-panel="2">
+      <h3>單擺</h3>
+      <div class="sl"><div class="top"><span>擺繩長度 L</span><b id="lSlV"></b></div><input type="range" id="lSl" min="0.2" max="2" step="0.05" value="1.0"></div>
+      <div class="sl"><div class="top"><span>擺錘質量 m</span><b id="m3SlV"></b></div><input type="range" id="m3Sl" min="0.1" max="2" step="0.05" value="0.5"></div>
+      <div class="readout" id="ro3"></div>
+    </section>
+
+    <!-- 共用 -->
+    <section class="box">
+      <h3>共用顯示選項</h3>
+      <label class="sw"><span>即時圖表</span><input type="checkbox" id="optGraph"><span class="knob"></span></label>
+      <div class="seg hidden" id="qSeg"><button data-v="x" class="on">x–t</button><button data-v="v">v–t</button><button data-v="a">a–t</button></div>
+      <div class="notab0">
+        <label class="sw"><span>能量長條圖</span><input type="checkbox" id="optEnergy"><span class="knob"></span></label>
+        <label class="sw"><span>阻尼</span><input type="checkbox" id="optDamp"><span class="knob"></span></label>
+        <div class="sl hidden" id="dampBox"><div class="top"><span>阻尼強度 γ（a = … − γv）</span><b id="gSlV"></b></div><input type="range" id="gSl" min="0.05" max="1" step="0.05" value="0.2"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const g = 9.8;
+const $ = id => document.getElementById(id);
+const view = $('view');
+
+/* ---------- renderer / scene ---------- */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.domElement.className = 'three';
+view.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1220);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 100);
+
+scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x202430, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(4, 8, 6); scene.add(key);
+const dirDown = new THREE.DirectionalLight(0xfff3c4, 0); dirDown.position.set(0, 10, 0); scene.add(dirDown);
+const dirLeft = new THREE.DirectionalLight(0xfff3c4, 0); dirLeft.position.set(10, 2.1, 0); scene.add(dirLeft);
+
+/* ---------- helpers ---------- */
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.05, ...o });
+
+function makeLabel(text, color = '#ffffff', h = 0.15) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.minFilter = THREE.LinearFilter;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true }));
+  sp.scale.set(h * 4, h, 1); sp.renderOrder = 20;
+  sp.userData = { cv, tex, color, text: null };
+  setLabel(sp, text); return sp;
+}
+function setLabel(sp, text) {
+  const u = sp.userData; if (u.text === text) return; u.text = text;
+  const c = u.cv.getContext('2d'); c.clearRect(0, 0, 512, 128);
+  let fs = 60; const fam = '"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif';
+  c.font = `bold ${fs}px ${fam}`;
+  const w = c.measureText(text).width; if (w > 480) { fs = Math.floor(fs * 480 / w); c.font = `bold ${fs}px ${fam}`; }
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineWidth = 10; c.strokeStyle = 'rgba(0,0,0,0.75)'; c.strokeText(text, 256, 66);
+  c.fillStyle = u.color; c.fillText(text, 256, 66);
+  u.tex.needsUpdate = true;
+}
+function makeLine(pts, color, dashed = false, opacity = 1) {
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = dashed
+    ? new THREE.LineDashedMaterial({ color, dashSize: 0.06, gapSize: 0.04, transparent: opacity < 1, opacity })
+    : new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+  const l = new THREE.Line(geo, mat); if (dashed) l.computeLineDistances(); l.frustumCulled = false; return l;
+}
+function setLine(l, pts) {
+  l.geometry.dispose(); l.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+  if (l.material.isLineDashedMaterial) l.computeLineDistances();
+}
+function makeDynLine(n, color) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  geo.setDrawRange(0, 0);
+  const l = new THREE.Line(geo, new THREE.LineBasicMaterial({ color })); l.frustumCulled = false; l.userData.n = n; return l;
+}
+function fillDyn(l, count, fn) {
+  const a = l.geometry.attributes.position.array; count = Math.min(count, l.userData.n);
+  for (let i = 0; i < count; i++) fn(i, a, i * 3);
+  l.geometry.attributes.position.needsUpdate = true; l.geometry.setDrawRange(0, count);
+}
+const _up = new THREE.Vector3(0, 1, 0), _dir = new THREE.Vector3();
+function makeArrow(color) {
+  const grp = new THREE.Group(); const mat = new THREE.MeshBasicMaterial({ color });
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1, 10), mat);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 14), mat);
+  grp.add(shaft, head); grp.userData = { shaft, head }; grp.visible = false; return grp;
+}
+function setArrow(a, origin, vec, show) {
+  const len = vec.length();
+  if (!show || len < 0.03) { a.visible = false; return; }
+  a.visible = true; a.position.copy(origin);
+  a.quaternion.setFromUnitVectors(_up, _dir.copy(vec).divideScalar(len));
+  const hl = Math.min(0.14, len * 0.5);
+  a.userData.shaft.scale.set(1, len - hl, 1); a.userData.shaft.position.y = (len - hl) / 2;
+  a.userData.head.scale.setScalar(hl / 0.14); a.userData.head.position.y = len - hl / 2;
+}
+class HelixCurve extends THREE.Curve {
+  constructor(len, r, coils) { super(); this.len = len; this.r = r; this.coils = coils; }
+  getPoint(t, target = new THREE.Vector3()) {
+    const L = this.len, lead = Math.min(0.05, L * 0.1), hl = L - 2 * lead, u = t * L;
+    if (u <= lead || u >= L - lead) return target.set(u, 0, 0);
+    const ang = (u - lead) / hl * this.coils * Math.PI * 2;
+    const ramp = Math.min(1, (u - lead) / 0.03, (L - lead - u) / 0.03);
+    return target.set(u, this.r * ramp * Math.sin(ang), this.r * ramp * Math.cos(ang));
+  }
+}
+function makeSpring(cfg) {
+  const m = new THREE.Mesh(new THREE.BufferGeometry(), std(0xc9d1dc, { metalness: 0.6, roughness: 0.35 }));
+  m.userData = { len: -1, cfg }; return m;
+}
+function updateSpring(mesh, len) {
+  if (Math.abs(mesh.userData.len - len) < 1e-4) return;
+  const c = mesh.userData.cfg; mesh.userData.len = len;
+  mesh.geometry.dispose();
+  mesh.geometry = new THREE.TubeGeometry(new HelixCurve(len, c.r, c.coils), c.coils * 24 + 10, c.wire, 6, false);
+}
+function makeRuler(min, max, vertical) {
+  const margin = 0.06, lenM = max - min + 2 * margin, L = 2048, S = 170;
+  const cv = document.createElement('canvas'); cv.width = vertical ? S : L; cv.height = vertical ? L : S;
+  const c = cv.getContext('2d');
+  c.fillStyle = 'rgba(240,232,200,0.95)'; c.fillRect(0, 0, cv.width, cv.height);
+  const ppm = L / lenM; c.strokeStyle = '#222'; c.fillStyle = '#222'; c.font = 'bold 34px sans-serif';
+  const N = Math.round((max - min) / 0.01);
+  for (let i = 0; i <= N; i++) {
+    const v = min + i * 0.01, p = (v - min + margin) * ppm;
+    const isL = i % 20 === 0, is10 = i % 10 === 0, is5 = i % 5 === 0;
+    const len = isL ? 70 : is10 ? 55 : is5 ? 38 : 22;
+    c.lineWidth = is10 ? 3 : 1.5; c.beginPath();
+    if (!vertical) { c.moveTo(p, 0); c.lineTo(p, len); } else { const y = L - p; c.moveTo(0, y); c.lineTo(len, y); }
+    c.stroke();
+    if (isL) {
+      const txt = Math.abs(v) < 1e-9 ? '0' : v.toFixed(1);
+      if (!vertical) { c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText(txt, p, 82); }
+      else { c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(txt, 78, L - p); }
+    }
+  }
+  c.font = 'bold 30px sans-serif';
+  if (!vertical) { c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText('(m)', L - 8, S - 6); }
+  else { c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText('(m)', S / 2, 8); }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  const w = vertical ? lenM * S / L : lenM, h = vertical ? lenM : lenM * S / L;
+  return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+}
+const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+const fmt = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
+
+/* ---------- global state ---------- */
+let tab = 0, running = true, speed = 1;
+const opt = { graph: false, q: 'x', energy: false, damp: false, gamma: 0.2 };
+const G1 = new THREE.Group(), G2 = new THREE.Group(), G3 = new THREE.Group();
+scene.add(G1, G2, G3);
+
+/* =====================================================
+   分頁一：等速圓周運動的投影
+   ===================================================== */
+const T1 = { R: 1.5, T: 4, theta: 0, t: 0, hist: [], lampDown: false, lampLeft: false, phase: false, vec: false, trace: false };
+const C1 = new THREE.Vector3(0, 2.6, 0), WALLX = -3.0, VZ = 0.3;
+{
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6.8, 5.2), std(0x3a4358));
+  floor.rotation.x = -Math.PI / 2; floor.position.set(0.4, 0, 1.0); G1.add(floor);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 5.6), std(0x465069));
+  wall.rotation.y = Math.PI / 2; wall.position.set(WALLX, 2.8, 1.0); G1.add(wall);
+}
+let ring1 = new THREE.Mesh(new THREE.TorusGeometry(T1.R, 0.014, 8, 128), std(0xe6ebf5, { emissive: 0x333944 }));
+ring1.position.copy(C1); G1.add(ring1);
+const center1 = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 12), std(0xffffff)); center1.position.copy(C1); G1.add(center1);
+const ball1 = new THREE.Mesh(new THREE.SphereGeometry(0.11, 32, 24), std(0xff8a3d, { emissive: 0x552200, roughness: 0.4 })); G1.add(ball1);
+
+// lamps
+const lampOnCol = 0xfff6c8, lampOffCol = 0x555b66;
+const lampDownGrp = new THREE.Group(); lampDownGrp.position.set(0, 5.1, 0);
+lampDownGrp.add(new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.14, 0.86), std(0x2a2f3a)));
+const lampDownPanel = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.03, 0.7), new THREE.MeshBasicMaterial({ color: lampOffCol }));
+lampDownPanel.position.y = -0.08; lampDownGrp.add(lampDownPanel); G1.add(lampDownGrp);
+const lampDownLbl = makeLabel('向下照燈', '#ffe9a8', 0.16); lampDownLbl.position.set(0, 5.42, 0); G1.add(lampDownLbl);
+
+const lampLeftGrp = new THREE.Group(); lampLeftGrp.position.set(3.4, 2.6, 0);
+lampLeftGrp.add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 4.8, 0.86), std(0x2a2f3a)));
+const lampLeftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.03, 4.6, 0.7), new THREE.MeshBasicMaterial({ color: lampOffCol }));
+lampLeftPanel.position.x = -0.08; lampLeftGrp.add(lampLeftPanel); G1.add(lampLeftGrp);
+{ const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.08), std(0x2a2f3a)); post.position.set(3.4, 0.1, 0); G1.add(post); }
+const lampLeftLbl = makeLabel('向左照燈', '#ffe9a8', 0.16); lampLeftLbl.position.set(3.4, 5.25, 0); G1.add(lampLeftLbl);
+
+const beamMat = () => new THREE.MeshBasicMaterial({ color: 0xfff3b0, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+const beamDown = new THREE.Mesh(new THREE.BoxGeometry(4.6, 5.02, 0.7), beamMat()); beamDown.position.set(0, 2.51, 0); G1.add(beamDown);
+const beamLeft = new THREE.Mesh(new THREE.BoxGeometry(6.32, 4.6, 0.7), beamMat()); beamLeft.position.set(0.16, 2.6, 0); G1.add(beamLeft);
+const patchMat = () => new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0.22, depthWrite: false });
+const patchFloor = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.7), patchMat()); patchFloor.rotation.x = -Math.PI / 2; patchFloor.position.set(0, 0.003, 0); G1.add(patchFloor);
+const patchWall = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 4.6), patchMat()); patchWall.rotation.y = Math.PI / 2; patchWall.position.set(WALLX + 0.003, C1.y, 0); G1.add(patchWall);
+
+// shadows
+const shMat = new THREE.MeshBasicMaterial({ color: 0x05070c, transparent: true, opacity: 0.85, depthWrite: false });
+const shFloor = new THREE.Mesh(new THREE.CircleGeometry(0.11, 32), shMat); shFloor.rotation.x = -Math.PI / 2; G1.add(shFloor);
+const shWall = new THREE.Mesh(new THREE.CircleGeometry(0.11, 32), shMat); shWall.rotation.y = Math.PI / 2; G1.add(shWall);
+const ringShMat = new THREE.MeshBasicMaterial({ color: 0x111520, transparent: true, opacity: 0.55, depthWrite: false });
+const ringShFloor = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.028), ringShMat); ringShFloor.rotation.x = -Math.PI / 2; ringShFloor.position.set(0, 0.005, 0); G1.add(ringShFloor);
+const ringShWall = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 1), ringShMat); ringShWall.rotation.y = Math.PI / 2; ringShWall.position.set(WALLX + 0.005, C1.y, 0); G1.add(ringShWall);
+// 固定半透明物件繪製順序：亮區 → 影子 → 光束（避免影子深淺隨位置改變）
+patchFloor.renderOrder = patchWall.renderOrder = 1;
+shFloor.renderOrder = shWall.renderOrder = ringShFloor.renderOrder = ringShWall.renderOrder = 2;
+beamDown.renderOrder = beamLeft.renderOrder = 3;
+
+// phase
+const radLine1 = makeDynLine(2, 0xffffff); G1.add(radLine1);
+const refLine1 = makeLine([C1, C1.clone().add(new THREE.Vector3(T1.R + 0.25, 0, 0))], 0xaab4cc, true); G1.add(refLine1);
+const arc1 = makeDynLine(65, 0xffd54f); G1.add(arc1);
+const thLbl1 = makeLabel('θ', '#ffd54f', 0.14); G1.add(thLbl1);
+
+// vectors
+const vBall = makeArrow(0x66ff88), aBall = makeArrow(0xff5566);
+const vFloor = makeArrow(0x66ff88), aFloor = makeArrow(0xff5566);
+const vWall = makeArrow(0x66ff88), aWall = makeArrow(0xff5566);
+G1.add(vBall, aBall, vFloor, aFloor, vWall, aWall);
+
+// traces
+const trFloor = makeDynLine(4000, 0x4fc3f7), trWall = makeDynLine(4000, 0xf06292);
+G1.add(trFloor, trWall);
+const axFloor = makeLine([new THREE.Vector3(0, 0.006, 0), new THREE.Vector3(0, 0.006, 3.1)], 0x8fa0c0, true);
+const axWall = makeLine([new THREE.Vector3(WALLX + 0.006, C1.y, 0), new THREE.Vector3(WALLX + 0.006, C1.y, 3.1)], 0x8fa0c0, true);
+G1.add(axFloor, axWall);
+const trFloorLbl = makeLabel('x = R cos θ（時間軸 →）', '#7fd6ff', 0.14); trFloorLbl.position.set(0, 0.2, 3.3); G1.add(trFloorLbl);
+const trWallLbl = makeLabel('y = R sin θ（時間軸 →）', '#ff9cc0', 0.14); trWallLbl.position.set(WALLX + 0.05, C1.y + T1.R + 0.3, 2.6); G1.add(trWallLbl);
+
+function rebuildRing() {
+  ring1.geometry.dispose(); ring1.geometry = new THREE.TorusGeometry(T1.R, 0.014, 8, 128);
+  ringShFloor.scale.x = 2 * T1.R; ringShWall.scale.y = 2 * T1.R;
+  setLine(refLine1, [C1, C1.clone().add(new THREE.Vector3(T1.R + 0.25, 0, 0))]);
+  trWallLbl.position.y = C1.y + T1.R + 0.3;
+}
+rebuildRing();
+
+function stepCircle(dt) {
+  if (dt <= 0) return;
+  const w = 2 * Math.PI / T1.T;
+  T1.theta = (T1.theta + w * dt) % (2 * Math.PI); T1.t += dt;
+  const x = T1.R * Math.cos(T1.theta), y = T1.R * Math.sin(T1.theta);
+  T1.hist.push({ t: T1.t, x, y });
+  while (T1.hist.length && T1.hist[0].t < T1.t - 10.3) T1.hist.shift();
+  pushGraph(0, T1.t, x, -T1.R * w * Math.sin(T1.theta), -T1.R * w * w * Math.cos(T1.theta));
+}
+function upd1() {
+  const R = T1.R, th = T1.theta, w = 2 * Math.PI / T1.T;
+  const x = R * Math.cos(th), y = R * Math.sin(th);
+  ball1.position.set(C1.x + x, C1.y + y, 0);
+  const D = T1.lampDown, Lf = T1.lampLeft;
+  lampDownPanel.material.color.setHex(D ? lampOnCol : lampOffCol);
+  lampLeftPanel.material.color.setHex(Lf ? lampOnCol : lampOffCol);
+  beamDown.visible = patchFloor.visible = shFloor.visible = ringShFloor.visible = D;
+  beamLeft.visible = patchWall.visible = shWall.visible = ringShWall.visible = Lf;
+  dirDown.intensity = (tab === 0 && D) ? 0.6 : 0;
+  dirLeft.intensity = (tab === 0 && Lf) ? 0.6 : 0;
+  shFloor.position.set(x, 0.006, 0);
+  shWall.position.set(WALLX + 0.006, C1.y + y, 0);
+
+  // phase
+  radLine1.visible = refLine1.visible = arc1.visible = thLbl1.visible = T1.phase;
+  if (T1.phase) {
+    fillDyn(radLine1, 2, (i, a, k) => { a[k] = i ? C1.x + x : C1.x; a[k + 1] = i ? C1.y + y : C1.y; a[k + 2] = 0; });
+    fillDyn(arc1, 65, (i, a, k) => { const ang = th * i / 64; a[k] = C1.x + 0.32 * Math.cos(ang); a[k + 1] = C1.y + 0.32 * Math.sin(ang); a[k + 2] = 0.001; });
+    thLbl1.position.set(C1.x + 0.55 * Math.cos(th / 2), C1.y + 0.55 * Math.sin(th / 2), 0.02);
+    setLabel(thLbl1, `θ = ${(th * 180 / Math.PI).toFixed(0)}°`);
+  }
+
+  // vectors（長度比例：|v| → 0.7、|a| → 0.55）
+  const vx = -R * w * Math.sin(th), vy = R * w * Math.cos(th);
+  const ax = -R * w * w * Math.cos(th), ay = -R * w * w * Math.sin(th);
+  const kv = 0.7 / (R * w), ka = 0.55 / (R * w * w);
+  const V = T1.vec;
+  setArrow(vBall, ball1.position, new THREE.Vector3(vx * kv, vy * kv, 0), V);
+  setArrow(aBall, ball1.position, new THREE.Vector3(ax * ka, ay * ka, 0), V);
+  setArrow(vFloor, new THREE.Vector3(x, 0.03, -0.2), new THREE.Vector3(vx * kv, 0, 0), V && D);
+  setArrow(aFloor, new THREE.Vector3(x, 0.03, -0.38), new THREE.Vector3(ax * ka, 0, 0), V && D);
+  setArrow(vWall, new THREE.Vector3(WALLX + 0.03, C1.y + y, -0.2), new THREE.Vector3(0, vy * kv, 0), V && Lf);
+  setArrow(aWall, new THREE.Vector3(WALLX + 0.03, C1.y + y, -0.38), new THREE.Vector3(0, ay * ka, 0), V && Lf);
+
+  // traces
+  const sf = T1.trace && D, sw = T1.trace && Lf;
+  trFloor.visible = axFloor.visible = trFloorLbl.visible = sf;
+  trWall.visible = axWall.visible = trWallLbl.visible = sw;
+  const H = T1.hist, n = H.length;
+  if (sf) fillDyn(trFloor, n, (i, a, k) => { const h = H[n - 1 - i]; a[k] = h.x; a[k + 1] = 0.007; a[k + 2] = (T1.t - h.t) * VZ; });
+  if (sw) fillDyn(trWall, n, (i, a, k) => { const h = H[n - 1 - i]; a[k] = WALLX + 0.007; a[k + 1] = C1.y + h.y; a[k + 2] = (T1.t - h.t) * VZ; });
+
+  $('ro1').innerHTML =
+    `ω = 2π/T = <b>${w.toFixed(3)}</b> rad/s<br>` +
+    `θ = ωt = <b>${(th * 180 / Math.PI).toFixed(1)}°</b><br>` +
+    `地板影子 x = R cos θ = <b>${fmt(x, 3)}</b> m<br>` +
+    `牆上影子 y = R sin θ = <b>${fmt(y, 3)}</b> m`;
+}
+
+/* =====================================================
+   分頁二：彈簧–物體系統
+   ===================================================== */
+const T2 = { mode: 'h', k: 20, m: 0.5, x: 0, v: 0, t: 0, dragging: false, released: false, E0: 0, scale: { x: 1, v: 1, a: 1 }, grab: 0 };
+const WALL2 = -2.2, TRACK_H = 0.02, TOP2 = 3.8, L0V = 0.6;
+// 木紋貼圖（程式產生）
+function makeWoodTex() {
+  const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#b07a43'; c.fillRect(0, 0, N, N);
+  for (let y = 0; y < N; y++) {
+    const w = Math.sin(y * 0.21) * 0.5 + Math.sin(y * 0.047 + 1.3) * 0.8 + Math.sin(y * 0.6) * 0.15;
+    const l = 0.5 + 0.5 * Math.sin(w * 3.2);
+    c.fillStyle = `rgba(${Math.round(92 + 30 * l)},${Math.round(52 + 18 * l)},${Math.round(22 + 8 * l)},${0.18 + 0.32 * (1 - l)})`;
+    c.fillRect(0, y, N, 1);
+  }
+  for (let i = 0; i < 70; i++) {
+    const y0 = Math.random() * N, amp = 2 + Math.random() * 4, f = 0.01 + Math.random() * 0.03, ph = Math.random() * 6.28;
+    c.strokeStyle = `rgba(80,42,16,${0.12 + Math.random() * 0.22})`; c.lineWidth = 0.6 + Math.random() * 1.2;
+    c.beginPath();
+    for (let x = 0; x <= N; x += 4) { const y = y0 + amp * Math.sin(x * f + ph); x ? c.lineTo(x, y) : c.moveTo(x, y); }
+    c.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return tex;
+}
+const woodMat = new THREE.MeshStandardMaterial({ map: makeWoodTex(), roughness: 0.75, metalness: 0 });
+const blockSize = m => 0.26 + 0.14 * (m - 0.1) / 1.9;
+{
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), std(0x3a4358)); floor.rotation.x = -Math.PI / 2; G2.add(floor);
+}
+const G2h = new THREE.Group(), G2v = new THREE.Group(); G2.add(G2h, G2v);
+// horizontal
+{
+  const track = new THREE.Mesh(new THREE.BoxGeometry(3.7, TRACK_H, 0.5), std(0x5a6580, { roughness: 0.3 }));
+  track.position.set(-0.35, TRACK_H / 2, 0); G2h.add(track);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.8), std(0x6b7590)); wall.position.set(WALL2 - 0.05, 0.5, 0); G2h.add(wall);
+  const ruler = makeRuler(-1.2, 1.2, false); ruler.rotation.x = -Math.PI / 2; ruler.position.set(0, 0.002, 0.45); G2h.add(ruler);
+  G2h.add(makeLine([new THREE.Vector3(0, TRACK_H, 0), new THREE.Vector3(0, 0.8, 0)], 0xffd54f, true));
+  const lb = makeLabel('平衡位置', '#ffd54f', 0.13); lb.position.set(0, 0.9, 0); G2h.add(lb);
+}
+const spring2h = makeSpring({ r: 0.08, coils: 20, wire: 0.012 }); G2h.add(spring2h);
+const block2h = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), woodMat); G2h.add(block2h);
+const hit2h = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), hitMat); G2h.add(hit2h);
+const ptr2h = makeLine([new THREE.Vector3(0, 0.004, 0.3), new THREE.Vector3(0, 0.004, 0.55)], 0xff5252); G2h.add(ptr2h);
+const mLbl2h = makeLabel('m', '#ffffff', 0.12); G2h.add(mLbl2h);
+// vertical
+{
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.9), std(0x6b7590)); ceil.position.set(0, TOP2 + 0.04, 0); G2v.add(ceil);
+}
+const spring2v = makeSpring({ r: 0.07, coils: 12, wire: 0.009 }); spring2v.rotation.z = -Math.PI / 2; spring2v.position.set(0, TOP2, 0); G2v.add(spring2v);
+const block2v = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), woodMat); G2v.add(block2v);
+const hit2v = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), hitMat); G2v.add(hit2v);
+const natLine2 = makeLine([new THREE.Vector3(-0.5, 0, 0), new THREE.Vector3(0.6, 0, 0)], 0xaab4cc, true); G2v.add(natLine2);
+const eqLine2 = makeLine([new THREE.Vector3(-0.5, 0, 0), new THREE.Vector3(0.6, 0, 0)], 0xffd54f, true); G2v.add(eqLine2);
+const natLbl2 = makeLabel('原長（彈簧下端）', '#c8d2e8', 0.12); G2v.add(natLbl2);
+const eqLbl2 = makeLabel('平衡位置（彈簧下端）', '#ffd54f', 0.12); G2v.add(eqLbl2);
+const ruler2v = makeRuler(-0.6, 0.6, true); G2v.add(ruler2v);
+const ptr2v = makeLine([new THREE.Vector3(-0.7, 0, 0), new THREE.Vector3(-0.1, 0, 0)], 0xff5252); G2v.add(ptr2v);
+const mLbl2v = makeLabel('m', '#ffffff', 0.12); G2v.add(mLbl2v);
+
+const dEq = () => T2.m * g / T2.k;
+function xLimits2() {
+  const s = blockSize(T2.m);
+  if (T2.mode === 'h') { const L0h = -s / 2 - WALL2; return [-Math.min(1.2, 0.6 * L0h), 1.2]; }
+  const d = dEq(), bottomEq = TOP2 - L0V - d;
+  return [-Math.min(0.6, bottomEq - s - 0.03), Math.min(0.6, 0.65 * L0V + d)];
+}
+function layout2v() {
+  const d = dEq(), natY = TOP2 - L0V, eqY = natY - d;
+  setLine(natLine2, [new THREE.Vector3(-0.5, natY, 0), new THREE.Vector3(0.6, natY, 0)]);
+  setLine(eqLine2, [new THREE.Vector3(-0.5, eqY, 0), new THREE.Vector3(0.6, eqY, 0)]);
+  natLbl2.position.set(1.05, natY + 0.08, 0);
+  eqLbl2.position.set(1.05, eqY - 0.08, 0);
+  ruler2v.position.set(-0.62, eqY, 0);
+}
+function resetRest2() {
+  T2.x = 0; T2.v = 0; T2.t = 0; T2.released = false; T2.dragging = false; T2.E0 = 0;
+  T2.scale = { x: 1, v: 1, a: 1 }; GB[1].length = 0;
+  if (T2.mode === 'v') layout2v();
+}
+function stepSpring(dt) {
+  if (!T2.released || T2.dragging || dt <= 0) return;
+  const w2 = T2.k / T2.m, gam = opt.damp ? opt.gamma : 0;
+  const f = (x, v) => -w2 * x - gam * v;
+  const n = Math.max(1, Math.ceil(dt / 0.002)), h = dt / n;
+  let x = T2.x, v = T2.v;
+  for (let i = 0; i < n; i++) {
+    const k1x = v, k1v = f(x, v);
+    const k2x = v + h / 2 * k1v, k2v = f(x + h / 2 * k1x, v + h / 2 * k1v);
+    const k3x = v + h / 2 * k2v, k3v = f(x + h / 2 * k2x, v + h / 2 * k2v);
+    const k4x = v + h * k3v, k4v = f(x + h * k3x, v + h * k3v);
+    x += h / 6 * (k1x + 2 * k2x + 2 * k3x + k4x);
+    v += h / 6 * (k1v + 2 * k2v + 2 * k3v + k4v);
+  }
+  T2.x = x; T2.v = v; T2.t += dt;
+  pushGraph(1, T2.t, x, v, f(x, v));
+}
+function upd2() {
+  const s = blockSize(T2.m), H = T2.mode === 'h';
+  G2h.visible = H; G2v.visible = !H;
+  if (H) {
+    const yc = TRACK_H + s / 2;
+    block2h.scale.setScalar(s); block2h.position.set(T2.x, yc, 0);
+    hit2h.scale.setScalar(s * 1.6); hit2h.position.copy(block2h.position);
+    spring2h.position.set(WALL2, yc, 0); updateSpring(spring2h, T2.x - s / 2 - WALL2);
+    ptr2h.position.x = T2.x;
+    mLbl2h.position.set(T2.x, yc + s / 2 + 0.12, 0); setLabel(mLbl2h, `${T2.m.toFixed(2)} kg`);
+  } else {
+    const d = dEq(), bottom = TOP2 - L0V - d + T2.x;
+    block2v.scale.setScalar(s); block2v.position.set(0, bottom - s / 2, 0);
+    hit2v.scale.setScalar(s * 1.6); hit2v.position.copy(block2v.position);
+    updateSpring(spring2v, TOP2 - bottom);
+    setLine(ptr2v, [new THREE.Vector3(-0.68, bottom, 0), new THREE.Vector3(-s / 2, bottom, 0)]);
+    mLbl2v.position.set(0, bottom - s / 2, s / 2 + 0.05); setLabel(mLbl2v, `${T2.m.toFixed(2)} kg`);
+  }
+  const w = Math.sqrt(T2.k / T2.m);
+  $('ro2').innerHTML =
+    `週期 T = 2π√(m/k) = <b>${(2 * Math.PI / w).toFixed(3)}</b> s<br>` +
+    `角頻率 ω = √(k/m) = <b>${w.toFixed(2)}</b> rad/s<br>` +
+    (H ? '' : `平衡伸長量 d = mg/k = <b>${(dEq() * 100).toFixed(1)}</b> cm<br>`) +
+    `${H ? '位置 x' : '位置 y（向上為正）'} = <b>${fmt(T2.x, 3)}</b> m<br>` +
+    `速度 v = <b>${fmt(T2.v, 3)}</b> m/s`;
+}
+
+/* =====================================================
+   分頁三：單擺
+   ===================================================== */
+const T3 = { L: 1.0, m: 0.5, th: 0, om: 0, t: 0, dragging: false, released: false, E0: 0, scale: { x: 1, v: 1, a: 1 }, th0: 0, lastTurn: null, turnSign: 1, period: null };
+const PIV = new THREE.Vector3(0, 2.7, 0), THMAX = Math.PI / 3;
+{
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 6), std(0x3a4358)); floor.rotation.x = -Math.PI / 2; G3.add(floor);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.04, 0.5), std(0x2a2f3a)); base.position.set(-1.3, 0.02, 0); G3.add(base);
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.78, 16), std(0x9aa3b5, { metalness: 0.5 })); post.position.set(-1.3, 1.39, 0); G3.add(post);
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 0.06), std(0x9aa3b5, { metalness: 0.5 })); beam.position.set(-0.55, 2.76, 0); G3.add(beam);
+  const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.08), std(0x444b5a)); clamp.position.copy(PIV).add(new THREE.Vector3(0, 0.03, 0)); G3.add(clamp);
+}
+const vref3 = makeLine([PIV, PIV.clone().add(new THREE.Vector3(0, -2.3, 0))], 0x8fa0c0, true); G3.add(vref3);
+const path3 = makeLine([new THREE.Vector3(), new THREE.Vector3()], 0x6f7da0, true, 0.7); G3.add(path3);
+const arm3 = new THREE.Group(); arm3.position.copy(PIV); G3.add(arm3);
+const string3 = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 8), std(0xe8e8e8)); arm3.add(string3);
+const bob3 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 32, 24), std(0xc89b6d, { metalness: 0.6, roughness: 0.35 })); arm3.add(bob3);
+const hit3 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), hitMat); arm3.add(hit3);
+const arc3 = makeDynLine(65, 0xffd54f); G3.add(arc3);
+const thLbl3 = makeLabel('θ', '#ffd54f', 0.13); G3.add(thLbl3);
+const mLbl3 = makeLabel('m', '#ffffff', 0.12); G3.add(mLbl3);
+const colLight = new THREE.Color(0xe8c39e), colHeavy = new THREE.Color(0x46505e);
+
+function layout3() {
+  string3.scale.y = T3.L; string3.position.y = -T3.L / 2;
+  bob3.position.y = -T3.L; hit3.position.y = -T3.L;
+  const pts = []; for (let i = 0; i <= 60; i++) { const a = -THMAX + 2 * THMAX * i / 60; pts.push(new THREE.Vector3(PIV.x + T3.L * Math.sin(a), PIV.y - T3.L * Math.cos(a), -0.001)); }
+  setLine(path3, pts);
+  bob3.material.color.copy(colLight).lerp(colHeavy, (T3.m - 0.1) / 1.9);
+}
+function resetRest3() {
+  T3.th = 0; T3.om = 0; T3.t = 0; T3.released = false; T3.dragging = false; T3.E0 = 0;
+  T3.scale = { x: 1, v: 1, a: 1 }; T3.period = null; T3.lastTurn = null; GB[2].length = 0;
+  layout3();
+}
+function stepPend(dt) {
+  if (!T3.released || T3.dragging || dt <= 0) return;
+  const gl = g / T3.L, gam = opt.damp ? opt.gamma : 0;
+  const f = (th, om) => -gl * Math.sin(th) - gam * om;
+  const n = Math.max(1, Math.ceil(dt / 0.002)), h = dt / n, s = T3.turnSign;
+  let th = T3.th, om = T3.om, t = T3.t;
+  for (let i = 0; i < n; i++) {
+    const om0 = om;
+    const k1t = om, k1o = f(th, om);
+    const k2t = om + h / 2 * k1o, k2o = f(th + h / 2 * k1t, om + h / 2 * k1o);
+    const k3t = om + h / 2 * k2o, k3o = f(th + h / 2 * k2t, om + h / 2 * k2o);
+    const k4t = om + h * k3o, k4o = f(th + h * k3t, om + h * k3o);
+    th += h / 6 * (k1t + 2 * k2t + 2 * k3t + k4t);
+    om += h / 6 * (k1o + 2 * k2o + 2 * k3o + k4o);
+    // 同側轉折點（ω 變號）之間的時間 = 一個週期
+    if (s * om0 > 0 && s * om <= 0) {
+      const tc = t + h * om0 / (om0 - om);
+      if (T3.lastTurn !== null) T3.period = tc - T3.lastTurn;
+      T3.lastTurn = tc;
+    }
+    t += h;
+  }
+  T3.th = th; T3.om = om; T3.t = t;
+  pushGraph(2, t, T3.L * th, T3.L * om, T3.L * f(th, om));
+}
+function upd3() {
+  arm3.rotation.z = T3.th;
+  const show = Math.abs(T3.th) > 0.004;
+  arc3.visible = thLbl3.visible = show;
+  if (show) {
+    fillDyn(arc3, 65, (i, a, k) => { const ang = T3.th * i / 64; a[k] = PIV.x + 0.35 * Math.sin(ang); a[k + 1] = PIV.y - 0.35 * Math.cos(ang); a[k + 2] = 0.002; });
+    const hm = T3.th / 2; thLbl3.position.set(PIV.x + 0.55 * Math.sin(hm) + (T3.th > 0 ? 0.12 : -0.12), PIV.y - 0.55 * Math.cos(hm), 0.02);
+    setLabel(thLbl3, `θ = ${(Math.abs(T3.th) * 180 / Math.PI).toFixed(1)}°`);
+  }
+  const bx = PIV.x + T3.L * Math.sin(T3.th), by = PIV.y - T3.L * Math.cos(T3.th);
+  mLbl3.position.set(bx, by - 0.19, 0.05); setLabel(mLbl3, `${T3.m.toFixed(2)} kg`);
+  const T0 = 2 * Math.PI * Math.sqrt(T3.L / g);
+  let meas = '—', diff = '—';
+  if (T3.released && !T3.dragging) {
+    if (T3.period) { meas = T3.period.toFixed(3) + ' s'; diff = fmt((T3.period / T0 - 1) * 100, 2) + ' %'; }
+    else meas = '量測中…';
+  }
+  $('ro3').innerHTML =
+    `小角度理論週期 T₀ = 2π√(L/g) = <b>${T0.toFixed(3)}</b> s<br>` +
+    `實際週期（模擬量測）= <b>${meas}</b><br>` +
+    `與 T₀ 的差異 = <b>${diff}</b><br>` +
+    `釋放角 θ₀ = <b>${T3.released || T3.dragging ? (Math.abs(T3.dragging ? T3.th : T3.th0) * 180 / Math.PI).toFixed(1) + '°' : '—'}</b>（上限 60°）<br>` +
+    `<span style="font-size:12px">模擬使用完整方程式 θ″ = −(g/L) sin θ，未作小角度近似</span>`;
+}
+
+/* ---------- graph ---------- */
+const GB = [[], [], []];
+function pushGraph(i, t, x, v, a) {
+  const b = GB[i]; b.push({ t, x, v, a });
+  while (b.length && b[0].t < t - 10.5) b.shift();
+}
+const graphCv = $('graph'), gctx = graphCv.getContext('2d');
+function curT() { return tab === 0 ? T1.t : tab === 1 ? T2.t : T3.t; }
+function curScale() {
+  if (tab === 0) { const w = 2 * Math.PI / T1.T; return { x: T1.R, v: T1.R * w, a: T1.R * w * w }; }
+  return tab === 1 ? T2.scale : T3.scale;
+}
+function graphMeta() {
+  const q = opt.q;
+  const units = { x: 'm', v: 'm/s', a: 'm/s²' };
+  const names = tab === 0 ? { x: '地板影子位置 x', v: '地板影子速度 vₓ', a: '地板影子加速度 aₓ' }
+    : tab === 1 ? (T2.mode === 'h' ? { x: '位置 x', v: '速度 v', a: '加速度 a' } : { x: '位置 y（向上為正）', v: '速度 v', a: '加速度 a' })
+    : { x: '弧長位移 s = Lθ', v: '切線速度 v', a: '切線加速度 aₜ' };
+  const cols = { x: '#4fc3f7', v: '#66ff88', a: '#ff6b81' };
+  return { name: names[q], unit: units[q], col: cols[q] };
+}
+function drawGraph() {
+  if (!opt.graph) { graphCv.style.display = 'none'; return; }
+  graphCv.style.display = 'block';
+  const d = Math.min(window.devicePixelRatio || 1, 2);
+  const W = graphCv.clientWidth * d, H = graphCv.clientHeight * d;
+  if (graphCv.width !== Math.round(W) || graphCv.height !== Math.round(H)) { graphCv.width = Math.round(W); graphCv.height = Math.round(H); }
+  const c = gctx; c.clearRect(0, 0, W, H);
+  const pl = 62 * d, pr = 14 * d, pt = 24 * d, pb = 22 * d, pw = W - pl - pr, ph = H - pt - pb;
+  const tNow = curT(), t0 = Math.max(0, tNow - 10);
+  const meta = graphMeta(), sc = (curScale()[opt.q] || 1) * 1.15;
+  const X = t => pl + (t - t0) / 10 * pw, Y = v => pt + ph / 2 - v / sc * ph / 2;
+  c.font = `${11 * d}px sans-serif`; c.lineWidth = 1 * d;
+  // grid
+  c.strokeStyle = 'rgba(160,175,205,0.15)'; c.fillStyle = '#9aa6c0'; c.textAlign = 'center'; c.textBaseline = 'top';
+  for (let s = Math.ceil(t0); s <= t0 + 10; s++) {
+    c.beginPath(); c.moveTo(X(s), pt); c.lineTo(X(s), pt + ph); c.stroke();
+    if (s % 2 === 0) c.fillText(s + ' s', X(s), pt + ph + 4 * d);
+  }
+  c.strokeStyle = 'rgba(160,175,205,0.5)';
+  c.beginPath(); c.moveTo(pl, Y(0)); c.lineTo(pl + pw, Y(0)); c.stroke();
+  c.beginPath(); c.moveTo(pl, pt); c.lineTo(pl, pt + ph); c.stroke();
+  c.textAlign = 'right'; c.textBaseline = 'middle';
+  const lab = sc / 1.15;
+  c.fillText('+' + lab.toPrecision(3), pl - 4 * d, Y(lab)); c.fillText('0', pl - 4 * d, Y(0)); c.fillText('−' + lab.toPrecision(3), pl - 4 * d, Y(-lab));
+  c.strokeStyle = 'rgba(160,175,205,0.12)';
+  c.beginPath(); c.moveTo(pl, Y(lab)); c.lineTo(pl + pw, Y(lab)); c.moveTo(pl, Y(-lab)); c.lineTo(pl + pw, Y(-lab)); c.stroke();
+  // curve
+  const b = GB[tab];
+  c.strokeStyle = meta.col; c.lineWidth = 2 * d; c.beginPath();
+  let started = false;
+  for (const p of b) { if (p.t < t0) continue; const xx = X(p.t), yy = Y(p[opt.q]); if (!started) { c.moveTo(xx, yy); started = true; } else c.lineTo(xx, yy); }
+  c.stroke();
+  // title
+  c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = meta.col; c.font = `bold ${12 * d}px sans-serif`;
+  const last = b.length ? b[b.length - 1][opt.q] : 0;
+  c.fillText(`${meta.name}（${meta.unit}）   目前：${fmt(last, 3)}`, pl + 6 * d, 5 * d);
+}
+
+/* ---------- energy ---------- */
+function updEnergy() {
+  const el = $('energy');
+  const show = opt.energy && tab !== 0;
+  el.style.display = show ? 'block' : 'none';
+  el.classList.toggle('withgraph', opt.graph);
+  if (!show) return;
+  let K, U, E0, dragging;
+  if (tab === 1) { K = 0.5 * T2.m * T2.v * T2.v; U = 0.5 * T2.k * T2.x * T2.x; E0 = T2.E0; dragging = T2.dragging; }
+  else { const v = T3.L * T3.om; K = 0.5 * T3.m * v * v; U = T3.m * g * T3.L * (1 - Math.cos(T3.th)); E0 = T3.E0; dragging = T3.dragging; }
+  const E = K + U, ref = dragging ? E : E0;
+  const pct = v => ref > 1e-12 ? Math.min(100, v / ref * 100) : 0;
+  $('eK').style.width = pct(K) + '%'; $('eU').style.width = pct(U) + '%'; $('eE').style.width = pct(E) + '%';
+  $('eKv').textContent = K.toFixed(3) + ' J'; $('eUv').textContent = U.toFixed(3) + ' J'; $('eEv').textContent = E.toFixed(3) + ' J';
+  if (tab === 1 && T2.mode === 'v') { $('eUname').textContent = '位能 U'; $('eTitle').textContent = '力學能（U = ½ky²：彈力位能＋重力位能，以平衡位置為零）'; }
+  else if (tab === 1) { $('eUname').textContent = '彈力位能'; $('eTitle').textContent = '力學能（U = ½kx²）'; }
+  else { $('eUname').textContent = '重力位能'; $('eTitle').textContent = '力學能（U = mgL(1−cos θ)，最低點為零）'; }
+}
+
+/* ---------- dragging（必須在 OrbitControls 之前註冊） ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), hitP = new THREE.Vector3();
+let dragging = false;
+function setRay(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (tab === 0) return;
+  setRay(e);
+  const target = tab === 1 ? (T2.mode === 'h' ? hit2h : hit2v) : hit3;
+  if (!ray.intersectObject(target, false).length) return;
+  if (!ray.ray.intersectPlane(dragPlane, hitP)) return;
+  dragging = true; controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+  if (tab === 1) {
+    T2.dragging = true; T2.released = false; T2.v = 0; T2.t = 0; GB[1].length = 0;
+    T2.grab = T2.mode === 'h' ? hitP.x - T2.x : hitP.y - T2.x;
+  } else {
+    T3.dragging = true; T3.released = false; T3.om = 0; T3.t = 0; T3.period = null; GB[2].length = 0;
+  }
+  e.preventDefault();
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  setRay(e); if (!ray.ray.intersectPlane(dragPlane, hitP)) return;
+  if (tab === 1) {
+    const [lo, hi] = xLimits2();
+    const raw = (T2.mode === 'h' ? hitP.x : hitP.y) - T2.grab;
+    T2.x = Math.max(lo, Math.min(hi, raw));
+  } else {
+    const th = Math.atan2(hitP.x - PIV.x, PIV.y - hitP.y);
+    T3.th = Math.max(-THMAX, Math.min(THMAX, th));
+  }
+});
+function endDrag() {
+  if (!dragging) return;
+  dragging = false; controls.enabled = true;
+  if (tab === 1) {
+    T2.dragging = false;
+    if (Math.abs(T2.x) < 0.003) { resetRest2(); return; }
+    const w = Math.sqrt(T2.k / T2.m), A = Math.abs(T2.x);
+    T2.released = true; T2.t = 0; T2.v = 0;
+    T2.E0 = 0.5 * T2.k * T2.x * T2.x;
+    T2.scale = { x: A, v: A * w, a: A * w * w };
+    pushGraph(1, 0, T2.x, 0, -w * w * T2.x);
+  } else {
+    T3.dragging = false;
+    if (Math.abs(T3.th) < 0.004) { resetRest3(); return; }
+    const th0 = Math.abs(T3.th);
+    T3.released = true; T3.t = 0; T3.om = 0; T3.th0 = T3.th;
+    T3.turnSign = Math.sign(T3.th); T3.lastTurn = 0; T3.period = null;
+    T3.E0 = T3.m * g * T3.L * (1 - Math.cos(T3.th));
+    T3.scale = { x: T3.L * th0, v: Math.sqrt(2 * g * T3.L * (1 - Math.cos(th0))), a: g * Math.sin(th0) };
+    pushGraph(2, 0, T3.L * T3.th, 0, -g * Math.sin(T3.th));
+  }
+}
+renderer.domElement.addEventListener('pointerup', endDrag);
+renderer.domElement.addEventListener('pointercancel', endDrag);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+
+/* ---------- camera views ---------- */
+const camDefaults = {
+  '0': { pos: [4.8, 4.3, 9.4], tgt: [-0.1, 2.5, 0.8] },
+  '1h': { pos: [0.0, 1.9, 5.0], tgt: [-0.4, 0.25, 0] },
+  '1v': { pos: [1.2, 2.4, 5.8], tgt: [0.1, 2.0, 0] },
+  '2': { pos: [0.6, 1.8, 4.6], tgt: [0, 1.55, 0] },
+};
+const camSaved = {};
+const camKey = () => tab === 1 ? '1' + T2.mode : String(tab);
+let camReady = false;
+function saveCam() { if (!camReady) return; camSaved[camKey()] = { pos: camera.position.toArray(), tgt: controls.target.toArray() }; }
+function applyCam(k, useDefault = false) {
+  camReady = true;
+  const v = (!useDefault && camSaved[k]) || camDefaults[k];
+  camera.position.fromArray(v.pos); controls.target.fromArray(v.tgt); controls.update();
+}
+
+/* ---------- UI ---------- */
+function setTab(i) {
+  saveCam(); if (dragging) endDrag();
+  tab = i;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', +b.dataset.tab === i));
+  document.querySelectorAll('[data-panel]').forEach(p => p.classList.toggle('hidden', +p.dataset.panel !== i));
+  document.querySelector('.notab0').classList.toggle('hidden', i === 0);
+  G1.visible = i === 0; G2.visible = i === 1; G3.visible = i === 2;
+  applyCam(camKey());
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(+b.dataset.tab)));
+
+$('btnPlay').addEventListener('click', () => { running = !running; $('btnPlay').textContent = running ? '⏸ 暫停' : '▶ 播放'; });
+$('btnReset').addEventListener('click', () => {
+  if (tab === 0) { T1.theta = 0; T1.t = 0; T1.hist.length = 0; GB[0].length = 0; }
+  else if (tab === 1) resetRest2(); else resetRest3();
+});
+$('btnCam').addEventListener('click', () => applyCam(camKey(), true));
+document.querySelectorAll('#speedSeg button').forEach(b => b.addEventListener('click', () => {
+  speed = +b.dataset.v; document.querySelectorAll('#speedSeg button').forEach(x => x.classList.toggle('on', x === b));
+}));
+
+function bindSlider(id, f, cb) {
+  const el = $(id), out = $(id + 'V');
+  const show = () => out.textContent = f(+el.value);
+  el.addEventListener('input', () => { show(); cb(+el.value); }); show();
+}
+// tab1
+$('lampDown').addEventListener('change', e => T1.lampDown = e.target.checked);
+$('lampLeft').addEventListener('change', e => T1.lampLeft = e.target.checked);
+$('c1Sliders').addEventListener('change', e => $('c1SliderBox').classList.toggle('hidden', !e.target.checked));
+$('c1Phase').addEventListener('change', e => T1.phase = e.target.checked);
+$('c1Vec').addEventListener('change', e => { T1.vec = e.target.checked; $('c1VecLegend').classList.toggle('hidden', !T1.vec); });
+$('c1Trace').addEventListener('change', e => T1.trace = e.target.checked);
+bindSlider('rSl', v => v.toFixed(2) + ' m', v => { T1.R = v; rebuildRing(); T1.hist.length = 0; GB[0].length = 0; });
+bindSlider('tSl', v => v.toFixed(1) + ' s', v => { T1.T = v; T1.hist.length = 0; GB[0].length = 0; });
+// tab2
+document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => {
+  if (T2.mode === b.dataset.v) return;
+  saveCam(); T2.mode = b.dataset.v;
+  document.querySelectorAll('#modeSeg button').forEach(x => x.classList.toggle('on', x === b));
+  resetRest2(); applyCam(camKey());
+}));
+bindSlider('kSl', v => v.toFixed(0) + ' N/m', v => { T2.k = v; resetRest2(); });
+bindSlider('m2Sl', v => v.toFixed(2) + ' kg', v => { T2.m = v; resetRest2(); });
+// tab3
+bindSlider('lSl', v => v.toFixed(2) + ' m', v => { T3.L = v; resetRest3(); });
+bindSlider('m3Sl', v => v.toFixed(2) + ' kg', v => { T3.m = v; resetRest3(); });
+// shared
+$('optGraph').addEventListener('change', e => { opt.graph = e.target.checked; $('qSeg').classList.toggle('hidden', !opt.graph); });
+document.querySelectorAll('#qSeg button').forEach(b => b.addEventListener('click', () => {
+  opt.q = b.dataset.v; document.querySelectorAll('#qSeg button').forEach(x => x.classList.toggle('on', x === b));
+}));
+$('optEnergy').addEventListener('change', e => opt.energy = e.target.checked);
+$('optDamp').addEventListener('change', e => { opt.damp = e.target.checked; $('dampBox').classList.toggle('hidden', !opt.damp); });
+bindSlider('gSl', v => v.toFixed(2) + ' s⁻¹', v => { opt.gamma = v; if (tab === 1) resetRest2(); else if (tab === 2) resetRest3(); });
+
+/* ---------- resize ---------- */
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h; camera.fov = camera.aspect < 1 ? 62 : 45; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(view);
+
+/* ---------- init & loop ---------- */
+resetRest2(); resetRest3();
+setTab(0); resize();
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const rdt = Math.min(clock.getDelta(), 0.05), dt = running ? rdt * speed : 0;
+  if (tab === 0) { stepCircle(dt); upd1(); }
+  else if (tab === 1) { stepSpring(dt); upd2(); }
+  else { stepPend(dt); upd3(); }
+  $('hint').style.display = (tab !== 0 && !dragging && !(tab === 1 ? T2.released : T3.released)) ? 'block' : 'none';
+  drawGraph(); updEnergy();
+  controls.update(); renderer.render(scene, camera);
+}
+animate();
+</script>
 </body>
 </html>
