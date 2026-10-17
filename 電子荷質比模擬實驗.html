@@ -1,542 +1,577 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>湯姆森荷質比實驗模擬</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #0f172a; /* slate-900 */
-            color: #f8fafc;
-            overflow: hidden;
-        }
-        canvas {
-            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
-            border-radius: 16px;
-            box-shadow: 0 0 40px rgba(34, 197, 94, 0.1) inset, 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-        /* 自訂滑桿樣式 */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            margin-top: -6px;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #475569;
-            border-radius: 2px;
-        }
-        .glow-text {
-            text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>電子荷質比 e/m 模擬</title>
+<style>
+:root{--bg:#0b1020;--panel:#141b2e;--line:#2a3555;--txt:#e6ebf5;--sub:#9aa7c2;--acc:#4fd1c5;--warn:#f6ad55;--bad:#fc8181;--ok:#68d391;}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;overflow:hidden}
+#app{display:flex;height:100%}
+#stage{position:relative;flex:1;min-width:0}
+#c{display:block;width:100%;height:100%;touch-action:none}
+#tabs{position:absolute;top:12px;left:12px;display:flex;gap:6px;z-index:5}
+.tab{background:rgba(20,27,46,.85);color:var(--sub);border:1px solid var(--line);padding:8px 14px;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit}
+.tab.active{background:var(--acc);color:#06201d;border-color:var(--acc);font-weight:700}
+#resetView{position:absolute;top:12px;right:12px;z-index:5}
+#hudBox{position:absolute;left:12px;bottom:12px;background:rgba(20,27,46,.85);border:1px solid var(--line);border-radius:10px;padding:8px;z-index:5;text-align:center}
+#hudBox .t{font-size:13px;color:var(--sub);margin-bottom:4px}
+#hud{width:180px;height:180px;display:block}
+#hudY{font-size:13px;margin-top:4px;color:#9ff5c8}
+#credit{position:absolute;right:12px;bottom:10px;font-size:12px;color:var(--sub);z-index:5;pointer-events:none}
+#panel{width:340px;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:14px 16px 24px}
+h1{font-size:20px;margin:2px 0 4px}
+.sub{color:var(--sub);font-size:13px;margin-bottom:12px;line-height:1.5}
+.ctrl{margin:12px 0}
+.ctrl .row{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:4px}
+.ctrl .val{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.btnrow{display:flex;gap:8px;margin:10px 0}
+button.b{flex:1;background:#1d2742;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 6px;font-size:14px;cursor:pointer;font-family:inherit}
+button.b:hover{border-color:var(--acc)}
+button.b.on{background:var(--acc);color:#06201d;border-color:var(--acc);font-weight:700}
+.dir{font-size:13px;color:var(--sub);line-height:1.6;margin:4px 0 8px}
+.dir b{color:var(--txt)}
+.data{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;font-size:14px;background:#0f1526;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0}
+.data .k{color:var(--sub)}
+.data .v{text-align:right;font-variant-numeric:tabular-nums}
+.status{grid-column:1/3;text-align:center;font-weight:700;padding:6px;border-radius:6px;margin-top:4px}
+.st-ok{background:rgba(104,211,145,.15);color:var(--ok)}
+.st-warn{background:rgba(246,173,85,.15);color:var(--warn)}
+.st-bad{background:rgba(252,129,129,.15);color:var(--bad)}
+.st-norm{background:rgba(154,167,194,.12);color:var(--sub)}
+.answer{background:#0f1526;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0}
+.answer .hd{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.answer .hd button{flex:none;padding:6px 12px}
+.ansBody{font-size:14px;line-height:1.75;margin-top:8px}
+.ansBody .res{color:var(--acc);font-weight:700;font-size:16px}
+.note{font-size:12px;color:var(--sub);line-height:1.6}
+.pane{display:none}.pane.active{display:block}
+@media (max-width:760px){
+ #app{flex-direction:column}
+ #stage{flex:none;height:52vh}
+ #panel{width:100%;flex:1;border-left:none;border-top:1px solid var(--line)}
+ #hud{width:120px;height:120px}
+ .tab{padding:6px 10px;font-size:14px}
+}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
 </head>
-<body class="flex flex-col md:flex-row h-screen">
+<body>
+<div id="app">
+ <div id="stage">
+  <canvas id="c"></canvas>
+  <div id="tabs">
+   <button class="tab active" data-tab="1">湯姆森實驗</button>
+   <button class="tab" data-tab="2">荷質比管</button>
+  </div>
+  <button id="resetView" class="b" style="flex:none">重置視角</button>
+  <div id="hudBox">
+   <div class="t">螢光幕（正視）</div>
+   <canvas id="hud"></canvas>
+   <div id="hudY">y = 0.00 cm</div>
+  </div>
+  <div id="credit">臺中二中 阿發老師 設計</div>
+ </div>
 
-    <!-- 左側控制面板 -->
-    <div class="w-full md:w-1/3 lg:w-1/4 bg-slate-800 p-6 flex flex-col gap-6 overflow-y-auto z-10 shadow-2xl">
-        <div>
-            <h1 class="text-2xl font-bold text-green-400 glow-text">湯姆森荷質比實驗</h1>
-            <p class="text-sm text-slate-400 mt-2">J.J. Thomson's e/m Experiment</p>
-        </div>
+ <div id="panel">
+  <h1>電子荷質比 e/m</h1>
 
-        <div class="bg-slate-700/50 p-4 rounded-xl space-y-4 border border-slate-600">
-            <div>
-                <div class="flex justify-between mb-1">
-                    <label class="text-sm font-medium">電子初速 <span class="italic">v₀</span></label>
-                    <span id="v0Val" class="text-green-400 font-mono">30.0</span>
-                </div>
-                <input type="range" id="v0Slider" min="10" max="60" value="30" step="0.1">
-            </div>
+  <section class="pane active" id="pane1">
+   <div class="sub">湯姆森實驗：電子經加速電壓加速後，進入互相垂直的電場 E 與磁場 B，再打在螢光幕上。</div>
+   <div class="ctrl"><div class="row"><span>加速電壓 V</span><span class="val" id="v1v"></span></div>
+    <input type="range" id="v1" min="100" max="2500" step="10"></div>
+   <div class="ctrl"><div class="row"><span>電場 E</span><span class="val" id="e1v"></span></div>
+    <input type="range" id="e1" min="0" max="3" step="0.005"></div>
+   <div class="ctrl"><div class="row"><span>磁場 B</span><span class="val" id="b1v"></span></div>
+    <input type="range" id="b1" min="0" max="1" step="0.005"></div>
+   <div class="btnrow"><button class="b" id="flipE">E 方向反轉</button><button class="b" id="flipB">B 方向反轉</button></div>
+   <div class="dir" id="dir1"></div>
+   <div class="btnrow"><button class="b" id="elec1">顯示電子：關</button><button class="b" id="resetP1">重設參數</button></div>
+   <div class="data" id="data1"></div>
+   <div class="answer">
+    <div class="hd"><span>荷質比 e/m</span><button class="b" id="ans1">顯示答案</button></div>
+    <div class="ansBody" id="ansBody1" hidden></div>
+   </div>
+   <p class="note">理想化模型：E 與 B 均勻，且只存在於偏向板區域；忽略邊緣效應、重力與相對論效應。</p>
+  </section>
 
-            <div>
-                <div class="flex justify-between mb-1 items-center">
-                    <label class="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-green-300 transition">
-                        <input type="checkbox" id="eSwitch" checked class="w-4 h-4 accent-green-500 cursor-pointer">
-                        <span>電場 <span class="italic">E</span> (上下)</span>
-                    </label>
-                    <span id="eVal" class="text-green-400 font-mono">0.0</span>
-                </div>
-                <!-- 調整電場滑桿範圍與步長 -->
-                <input type="range" id="eSlider" min="-37.5" max="37.5" value="0" step="0.1" class="transition-opacity">
-                <p class="text-xs text-slate-400 mt-1">正值：電場向下 (電子受力向上)</p>
-            </div>
+  <section class="pane" id="pane2">
+   <div class="sub">荷質比管：電子在均勻磁場中做等速圓周運動，管內低壓氣體受撞擊發光，顯示出電子的軌跡。</div>
+   <div class="ctrl"><div class="row"><span>加速電壓 V</span><span class="val" id="v2v"></span></div>
+    <input type="range" id="v2" min="100" max="400" step="5"></div>
+   <div class="ctrl"><div class="row"><span>磁場 B</span><span class="val" id="b2v"></span></div>
+    <input type="range" id="b2" min="0.5" max="2" step="0.01"></div>
+   <div class="dir"><b>B 方向：</b>⊙ 射出紙面（朝向觀察者）</div>
+   <div class="btnrow"><button class="b" id="elec2">顯示電子：關</button><button class="b" id="resetP2">重設參數</button></div>
+   <div class="data" id="data2"></div>
+   <div class="answer">
+    <div class="hd"><span>荷質比 e/m</span><button class="b" id="ans2">顯示答案</button></div>
+    <div class="ansBody" id="ansBody2" hidden></div>
+   </div>
+   <p class="note">從量尺讀出圓軌跡最高點的高度，就是直徑 2r。理想化模型：磁場均勻，忽略電子與氣體碰撞造成的能量損失。</p>
+  </section>
+ </div>
+</div>
 
-            <div>
-                <div class="flex justify-between mb-1 items-center">
-                    <label class="text-sm font-medium flex items-center gap-2 cursor-pointer hover:text-green-300 transition">
-                        <input type="checkbox" id="bSwitch" checked class="w-4 h-4 accent-green-500 cursor-pointer">
-                        <span>磁場 <span class="italic">B</span> (穿出/穿入)</span>
-                    </label>
-                    <span id="bVal" class="text-green-400 font-mono">0.00</span>
-                </div>
-                <!-- 調整磁場滑桿範圍與步長 -->
-                <input type="range" id="bSlider" min="-1.25" max="1.25" value="0" step="0.01" class="transition-opacity">
-                <p class="text-xs text-slate-400 mt-1">正值：磁場穿入 ⊗ (電子受力向下)</p>
-            </div>
-        </div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
-        <!-- 即時數據面板 -->
-        <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
-            <h2 class="text-sm font-bold text-slate-300 mb-3 border-b border-slate-700 pb-2">即時觀測數據</h2>
-            <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-slate-400">螢幕打擊點 Y：</span>
-                    <span id="outY" class="font-mono text-green-400">0.00</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">狀態：</span>
-                    <span id="outStatus" class="font-bold text-green-400">直線前進</span>
-                </div>
-            </div>
-        </div>
+const QM = 1.75882e11;            // e/m (C/kg)
+const V3 = (x,y,z)=>new THREE.Vector3(x,y,z);
+const $ = id=>document.getElementById(id);
 
-        <!-- 物理原理解說 -->
-        <div class="text-sm text-slate-400 leading-relaxed">
-            <p><span class="text-blue-400 font-bold">【老師提示】</span><br>
-            電子帶負電。在正交的電磁場中，若要使電子不發生偏轉（直線前進），電場力與磁場力必須大小相等、方向相反：<br>
-            <span class="block text-center my-2 text-white font-mono bg-slate-900 py-1 rounded">eE = ev₀B  ⇒  v₀ = E / B</span>
-            試著調整 E 和 B 的數值，驗證這個關係式吧！</p>
-        </div>
-    </div>
+/* ---------- 格式化 ---------- */
+const SUP={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+const sup=n=>String(n).split('').map(c=>SUP[c]).join('');
+function sci(x,d=2){
+  if(!isFinite(x)) return '—';
+  if(x===0) return '0';
+  let e=Math.floor(Math.log10(Math.abs(x))); let m=x/10**e;
+  if(Math.abs(+m.toFixed(d))>=10){m/=10;e++;}
+  return `${m.toFixed(d)} × 10${sup(e)}`;
+}
 
-    <!-- 右側動畫區 -->
-    <div class="flex-1 flex justify-center items-center p-4 lg:p-8 relative">
-        <canvas id="simCanvas" width="900" height="600" class="w-full max-w-5xl max-h-full object-contain"></canvas>
-    </div>
+/* ---------- 渲染器 / 場景 ---------- */
+const canvas=$('c'), stage=$('stage');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b1020);
+const camera=new THREE.PerspectiveCamera(45,1,0.1,500);
+const controls=new OrbitControls(camera,canvas); controls.enableDamping=true;
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const dl=new THREE.DirectionalLight(0xffffff,1.2); dl.position.set(10,20,15); scene.add(dl);
+const dl2=new THREE.DirectionalLight(0x8899ff,0.5); dl2.position.set(-15,-5,-10); scene.add(dl2);
 
-    <script>
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
+const g1=new THREE.Group(), g2=new THREE.Group(); scene.add(g1,g2);
 
-        // UI 元素
-        const v0Slider = document.getElementById('v0Slider');
-        const eSlider = document.getElementById('eSlider');
-        const bSlider = document.getElementById('bSlider');
-        const eSwitch = document.getElementById('eSwitch');
-        const bSwitch = document.getElementById('bSwitch');
-        const v0Val = document.getElementById('v0Val');
-        const eVal = document.getElementById('eVal');
-        const bVal = document.getElementById('bVal');
-        const outY = document.getElementById('outY');
-        const outStatus = document.getElementById('outStatus');
+/* ---------- 共用材質與工具 ---------- */
+const glassMat=new THREE.MeshPhysicalMaterial({color:0xa8ccff,transparent:true,opacity:0.13,roughness:0.05,metalness:0,side:THREE.DoubleSide,depthWrite:false});
+const metalMat=new THREE.MeshStandardMaterial({color:0xb4bdd0,metalness:0.8,roughness:0.35,side:THREE.DoubleSide});
+const copperMat=new THREE.MeshStandardMaterial({color:0xc07a3e,metalness:0.7,roughness:0.35});
+const darkMat=new THREE.MeshStandardMaterial({color:0x222631,metalness:0.3,roughness:0.6});
 
-        // 物理與繪圖參數
-        const originX = 150; // 電子槍出口 X (畫布座標)
-        const originY = 300; // 電子槍出口 Y (畫布座標)
-        const L = 250;       // 偏轉極板長度
-        const D = 400;       // 無場漂移區長度 (L + D = 螢幕位置)
-        const plateGap = 120; // 極板間距 (y = -60 to 60)
-        
-        // 系統狀態
-        let currentPath = [];
-        let hitPlates = false;
-        let hitGlass = false;
-        let escapedLeft = false;
-        let trapped = false;
-        let finalY = 0;
-        let pulseIndex = 0;
+function glowTexture(){
+  const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.2,'rgba(255,255,255,0.75)');
+  gr.addColorStop(0.5,'rgba(255,255,255,0.18)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);
+}
+const GLOW=glowTexture();
+function glowSprite(color,size){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,color,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+  s.scale.set(size,size,1);return s;
+}
+function makeLabel(text,{color='#e6ebf5',size=0.9}={}){
+  const fs=48,pad=18;const c=document.createElement('canvas');const ctx=c.getContext('2d');
+  const font=`600 ${fs}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+  ctx.font=font;const w=Math.ceil(ctx.measureText(text).width)+pad*2,h=Math.ceil(fs+pad*1.3);
+  c.width=w;c.height=h;ctx.font=font;
+  ctx.fillStyle='rgba(20,27,46,0.78)';
+  if(ctx.roundRect){ctx.beginPath();ctx.roundRect(0,0,w,h,14);ctx.fill();}else ctx.fillRect(0,0,w,h);
+  ctx.fillStyle=color;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,w/2,h/2+2);
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.minFilter=THREE.LinearFilter;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:false,transparent:true}));
+  sp.scale.set(size*w/h,size,1);sp.renderOrder=10;return sp;
+}
+function cylX(r,len,mat,x,y=0,open=false){ // 沿 x 軸的圓柱
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,32,1,open),mat);
+  m.rotation.z=Math.PI/2;m.position.set(x,y,0);return m;
+}
+function resample(pts,step=0.15){
+  const out=[pts[0].clone()];
+  for(let i=1;i<pts.length;i++){
+    const a=out[out.length-1],b=pts[i];const d=a.distanceTo(b);if(d<1e-6)continue;
+    const n=Math.max(1,Math.ceil(d/step));const a0=a.clone();
+    for(let k=1;k<=n;k++)out.push(a0.clone().lerp(b,k/n));
+  }
+  return out;
+}
+function taperTube(geo,curve,seg,radial,len){ // 光暈兩端漸細收尾
+  const pos=geo.attributes.position,L=curve.getLength(),c=new THREE.Vector3(),v=new THREE.Vector3();
+  for(let i=0;i<=seg;i++){
+    const t=i/seg,f=Math.min(1,Math.min(t*L,(1-t)*L)/len);if(f>=1)continue;
+    curve.getPointAt(t,c);
+    for(let j=0;j<=radial;j++){const k=i*(radial+1)+j;v.fromBufferAttribute(pos,k).sub(c).multiplyScalar(f).add(c);pos.setXYZ(k,v.x,v.y,v.z);}
+  }
+  pos.needsUpdate=true;
+}
+function makeBeam(group,coreColor,haloColor){
+  const core=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:coreColor,transparent:true,opacity:0.95}));
+  const halo=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:haloColor,transparent:true,opacity:0.3,blending:THREE.AdditiveBlending,depthWrite:false}));
+  group.add(core,halo);
+  return {set(pts){
+    const d=resample(pts);
+    if(d.length<2){core.visible=halo.visible=false;return d;}
+    core.visible=halo.visible=true;
+    const curve=new THREE.CatmullRomCurve3(d,false,'centripetal');const seg=Math.min(2000,d.length);
+    core.geometry.dispose();halo.geometry.dispose();
+    core.geometry=new THREE.TubeGeometry(curve,seg,0.045,8,false);
+    halo.geometry=new THREE.TubeGeometry(curve,seg,0.17,10,false);
+    taperTube(halo.geometry,curve,seg,10,1.0);
+    return d;
+  }};
+}
+class Runner{ // 沿軌跡移動的電子
+  constructor(group,n,color){
+    this.n=n;this.meshes=[];this.offset=0;this.L=0;this.speed=8;this.visible=false;
+    const geo=new THREE.SphereGeometry(0.12,12,12),mat=new THREE.MeshBasicMaterial({color});
+    for(let i=0;i<n;i++){const m=new THREE.Mesh(geo,mat);m.add(glowSprite(color,0.75));m.visible=false;group.add(m);this.meshes.push(m);}
+  }
+  setPath(pts){
+    this.path=pts;this.cum=[0];
+    for(let i=1;i<pts.length;i++)this.cum.push(this.cum[i-1]+pts[i].distanceTo(pts[i-1]));
+    this.L=this.cum[this.cum.length-1];
+  }
+  setVisible(v){this.visible=v;this.meshes.forEach(m=>m.visible=v);}
+  update(dt){
+    if(!this.visible||this.L<=0)return;
+    this.offset=(this.offset+this.speed*dt)%this.L;
+    for(let i=0;i<this.n;i++){
+      const s=(this.offset+i*this.L/this.n)%this.L;
+      let lo=0,hi=this.cum.length-1;
+      while(hi-lo>1){const mid=(lo+hi)>>1;if(this.cum[mid]<=s)lo=mid;else hi=mid;}
+      const seg=this.cum[hi]-this.cum[lo];const t=seg>0?(s-this.cum[lo])/seg:0;
+      this.meshes[i].position.lerpVectors(this.path[lo],this.path[hi],t);
+    }
+  }
+}
+function setArrowOpacity(a,op){
+  [a.line.material,a.cone.material].forEach(m=>{m.transparent=true;m.opacity=op;m.depthWrite=false;});
+}
 
-        // 更新 UI 顯示值並重新計算軌跡
-        function updateSim() {
-            const eOn = eSwitch.checked;
-            const bOn = bSwitch.checked;
+/* =========================================================
+   分頁一：湯姆森實驗（單位：場景 1 = 1 cm）
+   ========================================================= */
+const GUN_X=-11.25, PX1=-2.5, PX2=2.5, PL=5, GAP_H=1.5, SCREEN_X=14.95;
+const CONE_X1=7, CONE_X2=14, NECK_R=2.7, FACE_R=5.5, SCREEN_R=5.45;
+const EMAX=3e4, BMAX=1e-3;
 
-            v0Val.innerText = parseFloat(v0Slider.value).toFixed(1);
+// 玻璃管
+{
+  const prof=[[0,-17.8],[0.9,-17.7],[1.5,-17.3],[NECK_R,-16.6],[NECK_R,CONE_X1],[FACE_R,CONE_X2],[FACE_R+0.1,14.6],[FACE_R,15.0],[0,15.05]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const tube=new THREE.Mesh(new THREE.LatheGeometry(prof,72),glassMat);
+  tube.rotation.z=-Math.PI/2;tube.renderOrder=5;g1.add(tube);
+}
+// 螢光幕
+function screenTexture(){
+  const N=512,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d');
+  const s=N/(2*SCREEN_R),cx=N/2;
+  g.fillStyle='#0f2a1d';g.beginPath();g.arc(cx,cx,N/2,0,Math.PI*2);g.fill();
+  g.save();g.beginPath();g.arc(cx,cx,N/2,0,Math.PI*2);g.clip();
+  for(let i=-5;i<=5;i++){
+    g.strokeStyle=i===0?'rgba(140,255,190,0.55)':'rgba(140,255,190,0.2)';g.lineWidth=i===0?3:1.5;
+    g.beginPath();g.moveTo(cx+i*s,0);g.lineTo(cx+i*s,N);g.stroke();
+    g.beginPath();g.moveTo(0,cx+i*s);g.lineTo(N,cx+i*s);g.stroke();
+  }
+  g.fillStyle='rgba(160,255,200,0.7)';g.font='22px sans-serif';g.textAlign='left';
+  for(const i of [-4,-2,2,4])g.fillText(String(i),cx+6,cx-i*s-4);
+  g.restore();
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+{
+  const scr=new THREE.Mesh(new THREE.CircleGeometry(SCREEN_R,64),new THREE.MeshBasicMaterial({map:screenTexture(),side:THREE.DoubleSide}));
+  scr.rotation.y=Math.PI/2;scr.position.x=14.97;g1.add(scr);
+}
+// 電子槍
+{
+  g1.add(cylX(0.3,0.8,darkMat,-16.2));
+  const heat=glowSprite(0xff8a3d,1.0);heat.position.set(-15.75,0,0);g1.add(heat);
+  g1.add(cylX(0.55,1.6,metalMat,-15.0,0,true));
+  g1.add(cylX(0.5,2.6,metalMat,-12.6,0,true));
+  const disk=new THREE.Mesh(new THREE.RingGeometry(0.12,0.8,40),metalMat);
+  disk.rotation.y=Math.PI/2;disk.position.x=GUN_X;g1.add(disk);
+}
+// 偏向板
+const plateGeo=new THREE.BoxGeometry(PL,0.08,2.4);
+const plateMat=new THREE.MeshStandardMaterial({color:0xf2f5fa,metalness:0.3,roughness:0.25,emissive:0x2a2e36});
+const plateTop=new THREE.Mesh(plateGeo,plateMat),plateBot=new THREE.Mesh(plateGeo,plateMat);
+plateTop.position.y=GAP_H+0.04;plateBot.position.y=-GAP_H-0.04;g1.add(plateTop,plateBot);
+// 亥姆霍茲線圈
+const COIL_R1=6.4;
+for(const z of [-COIL_R1/2,COIL_R1/2]){
+  const t=new THREE.Mesh(new THREE.TorusGeometry(COIL_R1,0.4,20,100),copperMat);t.position.z=z;g1.add(t);
+}
+// 標籤
+{
+  const L1=makeLabel('電子槍');L1.position.set(-14,2.6,0);g1.add(L1);
+  const L2=makeLabel('亥姆霍茲線圈',{color:'#f6c08a'});L2.position.set(0,COIL_R1+1.2,COIL_R1/2);g1.add(L2);
+  const L3=makeLabel('螢光幕',{color:'#9ff5c8'});L3.position.set(15,6.6,0);g1.add(L3);
+  const L4=makeLabel('偏向板');L4.position.set(-4.6,2.4,0);g1.add(L4);
+}
+const plusL=makeLabel('+',{color:'#fc8181',size:0.8}),minusL=makeLabel('−',{color:'#90cdf4',size:0.8});
+g1.add(plusL,minusL);
+// 場向量
+const eArrows=new THREE.Group(),bArrows1=new THREE.Group();g1.add(eArrows,bArrows1);
+for(const x of [-2,-1,0,1,2])for(const z of [-0.7,0.7]){
+  const a=new THREE.ArrowHelper(V3(0,-1,0),V3(x,1.35,z),2.7,0x4db8ff,0.28,0.16);a.userData.x=x;a.userData.z=z;eArrows.add(a);
+}
+for(const x of [-1.5,1.5])for(const y of [-0.7,0.7]){
+  const a=new THREE.ArrowHelper(V3(0,0,-1),V3(x,y,1.6),3.2,0xffe14d,0.3,0.18);a.userData.x=x;a.userData.y=y;bArrows1.add(a);
+}
+// 光束、亮點、電子
+const beam1=makeBeam(g1,0xc8ffb8,0x39ff14);
+const spot=glowSprite(0x7dffb5,1.6);g1.add(spot);
+const spotOut=glowSprite(0x7dffb5,1.6);g1.add(spotOut); // 螢幕外側亮點（從管外觀看）
+const run1=new Runner(g1,14,0xfff3a0);
 
-            // 更新電場數值與 UI 狀態
-            if (eOn) {
-                eVal.innerText = parseFloat(eSlider.value).toFixed(1);
-                eVal.className = "text-green-400 font-mono";
-                eSlider.classList.remove('opacity-40');
-                eSlider.disabled = false;
-            } else {
-                eVal.innerText = "OFF";
-                eVal.className = "text-slate-500 font-mono font-bold";
-                eSlider.classList.add('opacity-40');
-                eSlider.disabled = true;
-            }
+const st1={V:1000,E:0,B:0,sE:1,sB:1,elec:false,ans:false};
+const DEF1={V:1000,E:0,B:0,sE:1,sB:1};
 
-            // 更新磁場數值與 UI 狀態
-            if (bOn) {
-                bVal.innerText = parseFloat(bSlider.value).toFixed(2);
-                bVal.className = "text-green-400 font-mono";
-                bSlider.classList.remove('opacity-40');
-                bSlider.disabled = false;
-            } else {
-                bVal.innerText = "OFF";
-                bVal.className = "text-slate-500 font-mono font-bold";
-                bSlider.classList.add('opacity-40');
-                bSlider.disabled = true;
-            }
+function rcone(X){
+  if(X<CONE_X1)return NECK_R;
+  if(X<CONE_X2)return NECK_R+(X-CONE_X1)*(FACE_R-NECK_R)/(CONE_X2-CONE_X1);
+  return FACE_R;
+}
+function traceThomson(V,E,B,sE,sB){
+  const v0=Math.sqrt(2*QM*V);
+  const Ey=-sE*E;   // sE=+1：上板為正，E 向下
+  const Bz=-sB*B;   // sB=+1：B 射入紙面（−z）
+  const acc=(vx,vy)=>[-QM*vy*Bz,-QM*(Ey-vx*Bz)]; // a = −(e/m)(E + v×B)
+  const pts=[V3(GUN_X,0,0),V3(PX1,0,0)];
+  let x=PX1/100,y=0,vx=v0,vy=0,status='ok',n=0;
+  const dt=(PL/100/v0)/1500;
+  while(x<PX2/100){
+    const k1=acc(vx,vy);
+    const v2x=vx+k1[0]*dt/2,v2y=vy+k1[1]*dt/2,k2=acc(v2x,v2y);
+    const v3x=vx+k2[0]*dt/2,v3y=vy+k2[1]*dt/2,k3=acc(v3x,v3y);
+    const v4x=vx+k3[0]*dt,v4y=vy+k3[1]*dt,k4=acc(v4x,v4y);
+    x+=dt/6*(vx+2*v2x+2*v3x+v4x);y+=dt/6*(vy+2*v2y+2*v3y+v4y);
+    vx+=dt/6*(k1[0]+2*k2[0]+2*k3[0]+k4[0]);vy+=dt/6*(k1[1]+2*k2[1]+2*k3[1]+k4[1]);
+    n++;
+    if(Math.abs(y*100)>=GAP_H){status='plate';pts.push(V3(x*100,Math.sign(y)*GAP_H,0));break;}
+    if(vx<=0||n>100000){status='plate';break;}
+    if(n%10===0)pts.push(V3(x*100,y*100,0));
+  }
+  let ys=null;
+  if(status==='ok'){
+    const xe=x*100,ye=y*100,k=vy/vx;pts.push(V3(xe,ye,0));
+    for(let X=xe;X<=SCREEN_X;X+=0.05){
+      const Y=ye+k*(X-xe);
+      if(Math.abs(Y)>rcone(X)-0.06){status='wall';pts.push(V3(X,Y,0));break;}
+    }
+    if(status==='ok'){
+      ys=ye+k*(SCREEN_X-xe);
+      if(Math.abs(ys)>SCREEN_R-0.05)status='wall';
+      pts.push(V3(SCREEN_X,ys,0));
+    }
+  }
+  return {pts,status,ys,v0};
+}
 
-            calculatePath();
-        }
+/* 螢光幕正視 HUD */
+const hud=$('hud'),hctx=hud.getContext('2d');
+function sizeHUD(){const r=hud.getBoundingClientRect(),d=Math.min(devicePixelRatio,2);hud.width=r.width*d;hud.height=r.height*d;}
+function drawHUD(res){
+  const W=hud.width,cx=W/2,s=W/(2*SCREEN_R+0.6);
+  hctx.clearRect(0,0,W,W);
+  hctx.fillStyle='#0f2a1d';hctx.beginPath();hctx.arc(cx,cx,SCREEN_R*s,0,Math.PI*2);hctx.fill();
+  hctx.save();hctx.beginPath();hctx.arc(cx,cx,SCREEN_R*s,0,Math.PI*2);hctx.clip();
+  for(let i=-5;i<=5;i++){
+    hctx.strokeStyle=i===0?'rgba(140,255,190,0.6)':'rgba(140,255,190,0.2)';hctx.lineWidth=i===0?1.6:1;
+    hctx.beginPath();hctx.moveTo(cx+i*s,0);hctx.lineTo(cx+i*s,W);hctx.stroke();
+    hctx.beginPath();hctx.moveTo(0,cx+i*s);hctx.lineTo(W,cx+i*s);hctx.stroke();
+  }
+  hctx.fillStyle='rgba(160,255,200,0.75)';hctx.font=`${Math.round(W*0.06)}px sans-serif`;
+  for(const i of [-4,-2,2,4])hctx.fillText(String(i),cx+3,cx-i*s-3);
+  if(res.status==='ok'){
+    const py=cx-res.ys*s,gr=hctx.createRadialGradient(cx,py,0,cx,py,s*0.9);
+    gr.addColorStop(0,'rgba(240,255,245,1)');gr.addColorStop(0.3,'rgba(125,255,181,0.9)');gr.addColorStop(1,'rgba(125,255,181,0)');
+    hctx.fillStyle=gr;hctx.beginPath();hctx.arc(cx,py,s*0.9,0,Math.PI*2);hctx.fill();
+  }
+  hctx.restore();
+}
 
-        // 綁定事件
-        v0Slider.addEventListener('input', updateSim);
-        eSlider.addEventListener('input', updateSim);
-        bSlider.addEventListener('input', updateSim);
-        eSwitch.addEventListener('change', updateSim);
-        bSwitch.addEventListener('change', updateSim);
+function update1(){
+  const {V,E,B,sE,sB}=st1;
+  $('v1v').textContent=`${V} V`;
+  $('e1v').textContent=`${(E/1e4).toFixed(3)} × 10⁴ V/m`;
+  $('b1v').textContent=`${(B*1e3).toFixed(3)} mT`;
+  $('dir1').innerHTML=`<b>E 方向：</b>${sE>0?'上板＋、下板－（E 向下，電力向上）':'上板－、下板＋（E 向上，電力向下）'}<br>`+
+    `<b>B 方向：</b>${sB>0?'⊗ 射入紙面（磁力向下）':'⊙ 射出紙面（磁力向上）'}`;
+  plusL.position.set(-3.1,sE>0?GAP_H+0.1:-GAP_H-0.1,0);
+  minusL.position.set(-3.1,sE>0?-GAP_H-0.1:GAP_H+0.1,0);
 
-        // 核心物理計算 (Euler Method)
-        function calculatePath() {
-            const v0 = parseFloat(v0Slider.value);
-            // 根據開關狀態決定真實物理場強
-            const E = eSwitch.checked ? parseFloat(eSlider.value) : 0;
-            const B = bSwitch.checked ? parseFloat(bSlider.value) : 0;
+  // 場向量
+  eArrows.visible=E>0;const eop=0.3+0.7*E/EMAX;
+  eArrows.children.forEach(a=>{
+    if(sE>0){a.position.set(a.userData.x,1.35,a.userData.z);a.setDirection(V3(0,-1,0));}
+    else{a.position.set(a.userData.x,-1.35,a.userData.z);a.setDirection(V3(0,1,0));}
+    setArrowOpacity(a,eop);
+  });
+  bArrows1.visible=B>0;const bop=0.3+0.7*B/BMAX;
+  bArrows1.children.forEach(a=>{
+    if(sB>0){a.position.set(a.userData.x,a.userData.y,1.6);a.setDirection(V3(0,0,-1));}
+    else{a.position.set(a.userData.x,a.userData.y,-1.6);a.setDirection(V3(0,0,1));}
+    setArrowOpacity(a,bop);
+  });
 
-            currentPath = [];
-            hitPlates = false;
-            hitGlass = false;
-            escapedLeft = false;
-            trapped = false;
-            
-            let x = 0;
-            let y = 0;
-            let vx = v0;
-            let vy = 0;
-            const dt = 0.2; // 時間步長
-            
-            // 加入步數保護機制，避免極端磁場下造成迴圈當機
-            let stepCount = 0;
-            const maxSteps = 10000; 
-            
-            // 縮小荷質比，解決靈敏度過高飛出畫面的問題 (原為1，縮為 0.02)
-            // 這樣在 E 和 B 滑桿為最高值時，射線仍會維持在螢幕刻度與管壁範圍內
-            const q_m = 0.02;
+  const res=traceThomson(V,E,B,sE,sB);
+  const d=beam1.set(res.pts);run1.setPath(d);run1.speed=res.v0/1e7*6;
+  spot.visible=spotOut.visible=res.status==='ok';if(res.status==='ok'){spot.position.set(SCREEN_X-0.05,res.ys,0);spotOut.position.set(15.1,res.ys,0);}
+  drawHUD(res);
+  $('hudY').textContent=res.status==='ok'?`y = ${res.ys>=0?'+':''}${res.ys.toFixed(2)} cm`:'無亮點';
 
-            // 模擬電子的受力
-            while (x <= L + D) {
-                currentPath.push({ x: x, y: y });
-                stepCount++;
+  const v0=res.v0,vEB=B>0?E/B:Infinity;
+  const balanced=E>0&&B>0&&Math.abs(vEB-v0)/v0<0.01;
+  // 電力與磁力方向是否相反（才可能平衡）
+  const opposite=sE===sB;
+  let stTxt,stCls;
+  if(res.status==='plate'){stTxt='電子打到偏向板';stCls='st-bad';}
+  else if(res.status==='wall'){stTxt='電子束偏出螢幕（撞到管壁）';stCls='st-bad';}
+  else if(balanced&&opposite){stTxt='✔ 力平衡：eE = evB';stCls='st-ok';}
+  else if(E>0&&B>0&&!opposite){stTxt='電力與磁力同向，無法平衡';stCls='st-warn';}
+  else{stTxt='未達力平衡';stCls='st-norm';}
+  const r=B>0?v0/(QM*B)*100:null;
+  $('data1').innerHTML=
+    `<span class="k">電子速率 v</span><span class="v">${sci(v0)} m/s</span>`+
+    `<span class="k">E / B</span><span class="v">${B>0?sci(vEB)+' m/s':'—'}</span>`+
+    `<span class="k">只有磁場時半徑 r</span><span class="v">${r?r.toFixed(2)+' cm':'—'}</span>`+
+    `<span class="k">螢幕偏移 y</span><span class="v">${res.status==='ok'?res.ys.toFixed(2)+' cm':'—'}</span>`+
+    `<span class="status ${stCls}">${stTxt}</span>`;
 
-                // 防止當機：如果在磁場中打轉太久
-                if (stepCount >= maxSteps) {
-                    trapped = true;
-                    break;
-                }
+  if(balanced&&opposite&&res.status==='ok'){
+    const em=E*E/(2*V*B*B);
+    $('ansBody1').innerHTML=`力平衡：eE = evB ⇒ v = E / B<br>加速：eV = ½mv²<br>⇒ e/m = E² / (2VB²)<br>= <span class="res">${sci(em,3)} C/kg</span><br><span class="note">公認值 1.759 × 10¹¹ C/kg</span>`;
+  }else{
+    $('ansBody1').innerHTML=`目前尚未達到力平衡。請調整 E 或 B（電力與磁力方向需相反），讓光點回到螢幕中心（v = E / B），再由 e/m = E² / (2VB²) 求出荷質比。`;
+  }
+}
 
-                let ax = 0;
-                let ay = 0;
+/* =========================================================
+   分頁二：荷質比管
+   ========================================================= */
+const SR=8, GUN_Y=-6, GLASS_IN=7.8, COIL_R2=15, B2MAX=2e-3;
+{
+  const sph=new THREE.Mesh(new THREE.SphereGeometry(SR,64,40),glassMat);sph.renderOrder=5;g2.add(sph);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,3.3,32,1,true),glassMat);stem.position.y=-9.5;g2.add(stem);
+  const sock=new THREE.Mesh(new THREE.CylinderGeometry(2.1,2.3,2.2,40),darkMat);sock.position.y=-12.2;g2.add(sock);
+  // 電子槍
+  g2.add(cylX(0.4,2.2,metalMat,-1.3,GUN_Y,true));
+  const cap=new THREE.Mesh(new THREE.RingGeometry(0.1,0.42,32),metalMat);cap.rotation.y=Math.PI/2;cap.position.set(-0.2,GUN_Y,0);g2.add(cap);
+  const heat=glowSprite(0xff8a3d,0.8);heat.position.set(-2.2,GUN_Y,0);g2.add(heat);
+  const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,5,12),metalMat);rod.position.set(-1.3,GUN_Y-2.9,0);g2.add(rod);
+  // 量尺（0 位於電子槍出口高度）
+  const H=13,c=document.createElement('canvas');c.width=160;c.height=H*120;const g=c.getContext('2d');
+  g.fillStyle='rgba(255,255,255,0.10)';g.fillRect(0,0,160,c.height);
+  g.strokeStyle='rgba(255,255,255,0.85)';g.fillStyle='rgba(255,255,255,0.9)';g.font='bold 44px sans-serif';
+  for(let mm=0;mm<=H*10;mm+=5){
+    const y=c.height-mm*12;const major=mm%10===0;
+    g.lineWidth=major?4:2;g.beginPath();g.moveTo(0,y);g.lineTo(major?70:38,y);g.stroke();
+    if(major&&mm>0)g.fillText(String(mm/10),80,y+15);
+  }
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  const ruler=new THREE.Mesh(new THREE.PlaneGeometry(1.1,H),new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide,depthWrite:false}));
+  ruler.position.set(0.55,GUN_Y+H/2,-0.35);g2.add(ruler);
+  // 線圈
+  for(const z of [-COIL_R2/2,COIL_R2/2]){
+    const tr=new THREE.Mesh(new THREE.TorusGeometry(COIL_R2,0.9,20,140),copperMat);tr.position.z=z;g2.add(tr);
+  }
+  const L1=makeLabel('電子槍');L1.position.set(-4,GUN_Y-0.2,0);g2.add(L1);
+  const L2=makeLabel('亥姆霍茲線圈',{color:'#f6c08a'});L2.position.set(0,COIL_R2+2,COIL_R2/2);g2.add(L2);
+  const L3=makeLabel('玻璃球（低壓氣體）',{color:'#bcd4ff'});L3.position.set(6.5,8.2,0);g2.add(L3);
+  const L4=makeLabel('量尺（讀直徑 2r）',{size:0.75});L4.position.set(3.2,GUN_Y+13.6,0);g2.add(L4);
+}
+const bArrows2=new THREE.Group();g2.add(bArrows2);
+for(const x of [-4,0,4])for(const y of [-2.5,1,4.5]){
+  bArrows2.add(new THREE.ArrowHelper(V3(0,0,1),V3(x,y,-2),4,0xffe14d,0.45,0.25));
+}
+const beam2=makeBeam(g2,0xc8ffb8,0x39ff14);
+const run2=new Runner(g2,12,0xfff3a0);
+const st2={V:200,B:1.0e-3,elec:false,ans:false};
+const DEF2={V:200,B:1.0e-3};
 
-                // 判斷是否在偏轉區內 (0 <= x <= L)
-                if (x >= 0 && x <= L) {
-                    // 物理計算 (標準笛卡兒座標：向右為+x，向上為+y)
-                    // E > 0 代表電場向下 (E_y = -E)。電子受力向上。
-                    // B > 0 代表磁場穿入紙面 (B_z = -B)。v 往右(+x)，v x B 向上(+y)，電子受力向下(-y)。
-                    ax = q_m * (vy * B);       // 磁力 x 分量
-                    ay = q_m * (E - vx * B);   // 電場力(E) + 磁力 y 分量(-vx * B)
-                }
+function traceTube(V,B){
+  const v0=Math.sqrt(2*QM*V),r=v0/(QM*B)*100,cy=GUN_Y+r;
+  const pts=[V3(-0.2,GUN_Y,0)];let status='full';
+  const N=480;
+  for(let i=0;i<=N;i++){
+    const th=2*Math.PI*i/N,x=r*Math.sin(th),y=cy-r*Math.cos(th);
+    if(Math.hypot(x,y)>GLASS_IN){status='hit';pts.push(V3(x,y,0));break;}
+    pts.push(V3(x,y,0));
+  }
+  return {pts,status,r,v0};
+}
+function update2(){
+  const {V,B}=st2;
+  $('v2v').textContent=`${V} V`;$('b2v').textContent=`${(B*1e3).toFixed(2)} mT`;
+  bArrows2.children.forEach(a=>setArrowOpacity(a,0.15+0.45*B/B2MAX));
+  const res=traceTube(V,B);
+  const d=beam2.set(res.pts);run2.setPath(d);run2.speed=res.v0/1e7*6;
+  const rR=Math.round(res.r*100)/100;
+  const full=res.status==='full';
+  $('data2').innerHTML=
+    `<span class="k">電子速率 v</span><span class="v">${sci(res.v0)} m/s</span>`+
+    `<span class="k">軌跡半徑 r</span><span class="v">${full?rR.toFixed(2)+' cm':'—'}</span>`+
+    `<span class="k">直徑 2r（量尺讀數）</span><span class="v">${full?(2*rR).toFixed(2)+' cm':'—'}</span>`+
+    `<span class="status ${full?'st-ok':'st-bad'}">${full?'完整圓形軌跡':'電子束撞到玻璃壁'}</span>`;
+  if(full){
+    const rm=rR/100,em=2*V/(B*B*rm*rm);
+    $('ansBody2').innerHTML=`磁力提供向心力：evB = mv²/r ⇒ v = (e/m)Br<br>加速：eV = ½mv²<br>⇒ e/m = 2V / (B²r²)<br>= <span class="res">${sci(em,3)} C/kg</span><br><span class="note">公認值 1.759 × 10¹¹ C/kg</span>`;
+  }else{
+    $('ansBody2').innerHTML=`軌跡半徑太大，電子束撞到玻璃壁，無法量出完整的圓。請增大 B 或降低 V。`;
+  }
+}
 
-                vx += ax * dt;
-                vy += ay * dt;
-                x += vx * dt;
-                y += vy * dt;
+/* ---------- UI 綁定 ---------- */
+function syncSliders1(){$('v1').value=st1.V;$('e1').value=st1.E/1e4;$('b1').value=st1.B*1e3;}
+function syncSliders2(){$('v2').value=st2.V;$('b2').value=st2.B*1e3;}
+$('v1').oninput=e=>{st1.V=+e.target.value;update1();};
+$('e1').oninput=e=>{st1.E=+e.target.value*1e4;update1();};
+$('b1').oninput=e=>{st1.B=+e.target.value*1e-3;update1();};
+$('flipE').onclick=()=>{st1.sE*=-1;update1();};
+$('flipB').onclick=()=>{st1.sB*=-1;update1();};
+$('resetP1').onclick=()=>{Object.assign(st1,DEF1);syncSliders1();update1();};
+$('v2').oninput=e=>{st2.V=+e.target.value;update2();};
+$('b2').oninput=e=>{st2.B=+e.target.value*1e-3;update2();};
+$('resetP2').onclick=()=>{Object.assign(st2,DEF2);syncSliders2();update2();};
+function bindToggle(btnId,st,run){
+  $(btnId).onclick=()=>{st.elec=!st.elec;run.setVisible(st.elec);
+    $(btnId).textContent=`顯示電子：${st.elec?'開':'關'}`;$(btnId).classList.toggle('on',st.elec);};
+}
+bindToggle('elec1',st1,run1);bindToggle('elec2',st2,run2);
+function bindAns(btnId,bodyId,st){
+  $(btnId).onclick=()=>{st.ans=!st.ans;$(bodyId).hidden=!st.ans;$(btnId).textContent=st.ans?'隱藏答案':'顯示答案';};
+}
+bindAns('ans1','ansBody1',st1);bindAns('ans2','ansBody2',st2);
 
-                // 邊界碰撞檢查
-                if (x >= 0 && x <= L) {
-                    // 檢查極板碰撞
-                    if (Math.abs(y) >= plateGap / 2) {
-                        hitPlates = true;
-                        break;
-                    }
-                } else if (x > L) {
-                    // 檢查玻璃管壁碰撞
-                    let rawX = x - L;
-                    let neckY = plateGap / 2 + 18; // 頸部平直區邊界 (78)
-                    let boundY = 200; // 螢幕最大半徑
-                    
-                    if (rawX <= 20) {
-                        // 頸部直線段
-                        boundY = neckY;
-                    } else {
-                        // 利用次方近似貝茲曲線的喇叭口擴張形狀
-                        let t = (rawX - 20) / (D - 20); 
-                        boundY = neckY + Math.pow(t, 1.5) * (200 - neckY);
-                    }
-                    
-                    if (Math.abs(y) >= boundY) {
-                        hitGlass = true;
-                        break;
-                    }
-                }
+/* ---------- 分頁與視角 ---------- */
+const VIEWS={1:{pos:V3(3,8,30),tgt:V3(1,0,0)},2:{pos:V3(10,6,46),tgt:V3(0,0,0)}};
+let tab=1;
+function resetView(){const v=VIEWS[tab];camera.position.copy(v.pos);controls.target.copy(v.tgt);controls.update();}
+function setTab(t){
+  tab=t;g1.visible=t===1;g2.visible=t===2;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',+b.dataset.tab===t));
+  $('pane1').classList.toggle('active',t===1);$('pane2').classList.toggle('active',t===2);
+  $('hudBox').style.display=t===1?'block':'none';
+  resetView();
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setTab(+b.dataset.tab));
+$('resetView').onclick=resetView;
 
-                // 若因磁力過大導致電子發生大迴旋反向飛出電子槍口
-                if (x < 0 && stepCount > 10) {
-                    escapedLeft = true;
-                    break;
-                }
-            }
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  sizeHUD();if(tab===1)update1();
+}
+window.addEventListener('resize',resize);
 
-            finalY = y;
-            pulseIndex = 0; // 重置動畫光點位置
+syncSliders1();syncSliders2();
+setTab(1);resize();update1();update2();
 
-            // 更新面板狀態
-            if (hitPlates) {
-                outY.innerText = "---";
-                outStatus.innerText = "💥 撞擊極板";
-                outStatus.className = "font-bold text-rose-500";
-            } else if (hitGlass) {
-                outY.innerText = "---";
-                outStatus.innerText = "💥 撞擊管壁";
-                outStatus.className = "font-bold text-rose-500";
-            } else if (escapedLeft) {
-                outY.innerText = "---";
-                outStatus.innerText = "↩️ 磁力過大 (反向飛出)";
-                outStatus.className = "font-bold text-orange-400";
-            } else if (trapped) {
-                outY.innerText = "---";
-                outStatus.innerText = "🌀 軌跡卡住 (困於場區)";
-                outStatus.className = "font-bold text-purple-400";
-            } else {
-                outY.innerText = y.toFixed(1);
-                if (Math.abs(y) < 1) {
-                    outStatus.innerText = "⚖️ 直線前進 (平衡)";
-                    outStatus.className = "font-bold text-blue-400";
-                } else if (y > 0) {
-                    outStatus.innerText = "↑ 向上偏轉";
-                    outStatus.className = "font-bold text-green-400";
-                } else {
-                    outStatus.innerText = "↓ 向下偏轉";
-                    outStatus.className = "font-bold text-yellow-400";
-                }
-            }
-        }
-
-        // --- 繪圖相關函數 ---
-
-        // 座標轉換：將物理座標轉換為畫布座標 (y軸反轉)
-        function cx(x) { return originX + x; }
-        function cy(y) { return originY - y; }
-
-        function drawCRT() {
-            ctx.save();
-            ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
-            ctx.lineWidth = 3;
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            
-            // 繪製陰極射線管玻璃外殼
-            const startX = originX - 100;
-            const neckTopY = originY - (plateGap/2 + 20);
-            const neckBotY = originY + (plateGap/2 + 20);
-            const screenX = originX + L + D;
-            const screenRadius = 200;
-
-            // 上半部
-            ctx.moveTo(startX, neckTopY);
-            ctx.lineTo(originX + L + 20, neckTopY);
-            ctx.bezierCurveTo(originX + L + 150, neckTopY, screenX - 50, originY - screenRadius, screenX, originY - screenRadius);
-            
-            // 螢幕弧線
-            ctx.quadraticCurveTo(screenX + 30, originY, screenX, originY + screenRadius);
-
-            // 下半部
-            ctx.bezierCurveTo(screenX - 50, originY + screenRadius, originX + L + 150, neckBotY, originX + L + 20, neckBotY);
-            ctx.lineTo(startX, neckBotY);
-            ctx.closePath();
-            
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-            ctx.fill();
-
-            // 畫螢幕刻度
-            ctx.beginPath();
-            for(let dy = -150; dy <= 150; dy += 30) {
-                let sy = originY - dy;
-                // 簡易投影弧線上的X座標補償
-                let sx = screenX + (1 - Math.pow(Math.abs(dy)/150, 2)) * 10; 
-                ctx.moveTo(sx - 5, sy);
-                ctx.lineTo(sx + 5, sy);
-                if (dy !== 0) {
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-                    ctx.font = '10px Arial';
-                    ctx.fillText(dy, sx + 10, sy + 4);
-                }
-            }
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            // 電子槍
-            ctx.fillStyle = '#475569';
-            ctx.fillRect(originX - 80, originY - 15, 70, 30);
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(originX - 10, originY - 5, 10, 10);
-            
-            ctx.restore();
-        }
-
-        function drawPlatesAndFields() {
-            const E = eSwitch.checked ? parseFloat(eSlider.value) : 0;
-            const B = bSwitch.checked ? parseFloat(bSlider.value) : 0;
-            
-            // 電場板
-            const plateThickness = 10;
-            const topPlateY_canvas = cy(plateGap / 2);
-            const botPlateY_canvas = cy(-plateGap / 2) - plateThickness;
-
-            ctx.fillStyle = '#64748b';
-            ctx.fillRect(cx(0), topPlateY_canvas - plateThickness, L, plateThickness);
-            ctx.fillRect(cx(0), botPlateY_canvas, L, plateThickness);
-
-            // 繪製電力線與電場符號
-            if (E !== 0) {
-                // 明暗度與電場強度成正比 (最少保留0.1避免完全看不見)
-                // 將最大值從 150 改為 37.5
-                const eOpacity = Math.max(0.1, Math.abs(E) / 37.5);
-                
-                // 1. 畫電力線
-                ctx.strokeStyle = `rgba(255, 255, 255, ${eOpacity * 0.7})`;
-                ctx.lineWidth = 1.5;
-                const arrowSize = 5;
-
-                for(let i = 20; i < L; i += 30) {
-                    const drawX = cx(i);
-                    // 若 E > 0 (電場向下)，電力線由上板畫至下板
-                    const startY = E > 0 ? topPlateY_canvas : botPlateY_canvas;
-                    const endY = E > 0 ? botPlateY_canvas : topPlateY_canvas;
-
-                    ctx.beginPath();
-                    ctx.moveTo(drawX, startY);
-                    ctx.lineTo(drawX, endY);
-                    ctx.stroke();
-
-                    // 畫電力線的箭頭
-                    const midY = (startY + endY) / 2;
-                    const dir = E > 0 ? 1 : -1; // +1 為畫布向下
-                    ctx.beginPath();
-                    ctx.moveTo(drawX - arrowSize, midY - dir * arrowSize);
-                    ctx.lineTo(drawX, midY);
-                    ctx.lineTo(drawX + arrowSize, midY - dir * arrowSize);
-                    ctx.stroke();
-                }
-
-                // 2. 畫極板正負電符號
-                // 紅色代表正極，藍色代表負極，顏色亮度隨電場增強
-                ctx.fillStyle = E > 0 ? `rgba(239, 68, 68, ${eOpacity + 0.2})` : `rgba(59, 130, 246, ${eOpacity + 0.2})`; 
-                ctx.font = '16px monospace';
-                const topSign = E > 0 ? '+' : '-';
-                const botSign = E > 0 ? '-' : '+';
-                
-                for(let i = 20; i < L; i += 30) {
-                    ctx.fillText(topSign, cx(i) - 4, topPlateY_canvas - 15);
-                    ctx.fillText(botSign, cx(i) - 4, botPlateY_canvas + 25);
-                }
-            }
-
-            // 磁場視覺化
-            if (B !== 0) {
-                // 將最大值從 5 改為 1.25
-                const bOpacity = Math.min(Math.abs(B) / 1.25, 1);
-                ctx.strokeStyle = `rgba(234, 179, 8, ${bOpacity})`; // 黃色系
-                ctx.fillStyle = `rgba(234, 179, 8, ${bOpacity})`;
-                ctx.lineWidth = 1.5;
-
-                const step = 25;
-                for (let px = 15; px < L; px += step) {
-                    for (let py = -plateGap/2 + 15; py < plateGap/2; py += step) {
-                        const drawX = cx(px);
-                        const drawY = cy(py);
-                        
-                        if (B > 0) {
-                            // 穿入紙面 (叉叉)
-                            const s = 4;
-                            ctx.beginPath();
-                            ctx.moveTo(drawX - s, drawY - s); ctx.lineTo(drawX + s, drawY + s);
-                            ctx.moveTo(drawX + s, drawY - s); ctx.lineTo(drawX - s, drawY + s);
-                            ctx.stroke();
-                        } else {
-                            // 穿出紙面 (點)
-                            ctx.beginPath();
-                            ctx.arc(drawX, drawY, 2, 0, Math.PI * 2);
-                            ctx.fill();
-                            ctx.beginPath();
-                            ctx.arc(drawX, drawY, 5, 0, Math.PI * 2);
-                            ctx.stroke();
-                        }
-                    }
-                }
-            }
-        }
-
-        function drawPathArray(pathArray) {
-            if (pathArray.length === 0) return;
-
-            ctx.beginPath();
-            ctx.moveTo(cx(pathArray[0].x), cy(pathArray[0].y));
-            for (let i = 1; i < pathArray.length; i++) {
-                ctx.lineTo(cx(pathArray[i].x), cy(pathArray[i].y));
-            }
-
-            ctx.strokeStyle = '#22c55e'; // 主光束
-            ctx.lineWidth = 3;
-            ctx.shadowColor = '#22c55e';
-            ctx.shadowBlur = 15;
-            
-            ctx.stroke();
-            ctx.shadowBlur = 0; // 重置
-        }
-
-        // 動畫主迴圈
-        function render() {
-            // 清空畫布
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            drawCRT();
-            drawPlatesAndFields();
-
-            // 畫當前電子束
-            drawPathArray(currentPath);
-
-            // 動畫：移動的電子光點
-            if (currentPath.length > 0) {
-                const pt = currentPath[pulseIndex];
-                ctx.beginPath();
-                ctx.arc(cx(pt.x), cy(pt.y), 4, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = '#4ade80';
-                ctx.shadowBlur = 20;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                // 打擊螢幕時的閃光
-                if (pulseIndex === currentPath.length - 1 && !hitPlates && !hitGlass && !escapedLeft && !trapped) {
-                    ctx.beginPath();
-                    ctx.arc(cx(pt.x), cy(pt.y), 15, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(74, 222, 128, 0.4)';
-                    ctx.fill();
-                }
-
-                // 推進動畫幀
-                pulseIndex += 2; // 調整移動速度
-                if (pulseIndex >= currentPath.length) {
-                    pulseIndex = 0;
-                }
-            }
-
-            requestAnimationFrame(render);
-        }
-
-        // 初始化
-        updateSim(); // 直接呼叫更新函數，確保留存的初始數值正確
-        render();
-
-    </script>
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const dt=Math.min(clock.getDelta(),0.05);
+  controls.update();
+  if(tab===1)run1.update(dt);else run2.update(dt);
+  renderer.render(scene,camera);
+});
+</script>
 </body>
 </html>
