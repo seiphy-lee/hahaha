@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>密立坎油滴實驗</title>
+<style>
+:root{
+  --bg:#0e131a; --panel:#161e28; --panel2:#1e2834; --line:#2d3a4b;
+  --text:#e7eef6; --muted:#93a2b5; --accent:#ffb347; --accent2:#5cc8ff;
+  --ok:#5ee08a; --warn:#ff7a7a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;}
+#app{display:grid;grid-template-columns:1fr 430px;grid-template-rows:auto 1fr;height:100vh;}
+header{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:8px 16px;background:#111821;border-bottom:1px solid var(--line);}
+header h1{font-size:18px;margin:0;letter-spacing:1px}
+header .credit{font-size:13px;color:var(--muted)}
+#stage{position:relative;min-height:0;min-width:0}
+#three{position:absolute;inset:0}
+#stageHint{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);pointer-events:none}
+#side{overflow-y:auto;border-left:1px solid var(--line);background:var(--panel);padding:12px;
+  display:flex;flex-direction:column;gap:10px;min-height:0}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.cardTitle{font-weight:bold;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.hint{font-weight:normal;font-size:12px;color:var(--muted)}
+#scopeWrap{position:relative;width:100%;aspect-ratio:1/1;max-width:400px;margin:0 auto}
+#scope{width:100%;height:100%;display:block;cursor:crosshair;touch-action:manipulation}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;font-size:14px}
+button{background:#2a3646;color:var(--text);border:1px solid #3a4a5e;border-radius:7px;
+  padding:6px 10px;font-size:14px;cursor:pointer;font-family:inherit}
+button:hover{background:#334257}
+button.primary{background:#d98a1f;border-color:#f0a540;color:#fff;font-weight:bold}
+button.primary:hover{background:#e99a2c}
+button.on{background:#2f6fa3;border-color:#5cc8ff}
+select{background:#2a3646;color:var(--text);border:1px solid #3a4a5e;border-radius:7px;padding:5px 8px;font-size:14px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.big{font-size:22px;font-weight:bold;font-variant-numeric:tabular-nums;color:var(--accent)}
+.muted{color:var(--muted);font-size:13px}
+.fine button{padding:4px 8px;font-size:13px;flex:1}
+.seg{display:inline-flex;margin-left:auto}
+.seg button{border-radius:0}
+.seg button:first-child{border-radius:7px 0 0 7px}
+.seg button:last-child{border-radius:0 7px 7px 0}
+.switch{position:relative;display:inline-block;width:42px;height:22px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:#3a4656;border-radius:22px;transition:.2s;cursor:pointer}
+.switch span::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked + span{background:#2f9d5a}
+.switch input:checked + span::before{transform:translateX(20px)}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tabs button{flex:1;font-weight:bold}
+.info{font-size:14px;line-height:1.7}
+.info b{color:var(--accent2)}
+.result{background:#141b24;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;line-height:1.75;margin-top:6px}
+.result .ok{color:var(--ok);font-weight:bold}
+.result .warn{color:var(--warn)}
+.formula{font-family:"Times New Roman",serif;font-style:italic;font-size:16px;color:#ffe2a8}
+.watch{font-size:32px;font-weight:bold;text-align:center;font-variant-numeric:tabular-nums;
+  background:#0b1016;border-radius:8px;padding:6px;color:#7dffb0;letter-spacing:1px}
+.note{font-size:13px;color:var(--muted);line-height:1.6;margin:4px 0 6px}
+.toggleRow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:14px}
+.toggleRow .grow{flex:1}
+sup{font-size:70%}
+@media (max-width:820px){
+  #app{display:block;height:auto}
+  header{flex-direction:column;align-items:flex-start;gap:2px}
+  #stage{height:52vh}
+  #side{border-left:none;border-top:1px solid var(--line);overflow:visible}
+}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>密立坎油滴實驗</h1>
+    <div class="credit">臺中二中 阿發老師 設計</div>
+  </header>
+
+  <div id="stage">
+    <div id="three"></div>
+    <div id="stageHint">拖曳旋轉、滾輪縮放　｜　3D 圖中油滴位置已依比例放大示意</div>
+  </div>
+
+  <div id="side">
+    <!-- 顯微鏡視野 -->
+    <div class="card">
+      <div class="cardTitle">顯微鏡視野 <span class="hint">點選油滴可追蹤</span></div>
+      <div id="scopeWrap"><canvas id="scope"></canvas></div>
+    </div>
+
+    <!-- 操作 -->
+    <div class="card">
+      <div class="row">
+        <button id="btnSpray" class="primary">💧 噴油滴</button>
+        <button id="btnClear">清除油滴</button>
+        <button id="btnPause">⏸ 暫停</button>
+      </div>
+      <div class="row">
+        <span>時間倍率</span>
+        <select id="speed">
+          <option value="1">1×（真實速度）</option>
+          <option value="2">2×</option>
+          <option value="5" selected>5×</option>
+          <option value="10">10×</option>
+          <option value="20">20×</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 電場 -->
+    <div class="card">
+      <div class="cardTitle">平行板電場 <span class="hint">板距 d = 5.0 mm</span></div>
+      <div class="row">
+        <label class="switch"><input type="checkbox" id="fieldOn" checked><span></span></label>
+        <span>電源輸出</span>
+        <div class="seg">
+          <button id="polTop" class="on">上板 ＋</button>
+          <button id="polBot">上板 －</button>
+        </div>
+      </div>
+      <div class="row"><input type="range" id="vSlider" min="0" max="1000" step="0.1" value="300"></div>
+      <div class="row"><span class="big" id="vText">300.0 V</span><span class="muted" id="eText"></span></div>
+      <div class="row fine">
+        <button data-dv="-10">−10</button><button data-dv="-1">−1</button><button data-dv="-0.1">−0.1</button>
+        <button data-dv="0.1">+0.1</button><button data-dv="1">+1</button><button data-dv="10">+10</button>
+      </div>
+    </div>
+
+    <!-- 選取油滴資訊 -->
+    <div class="card">
+      <div class="cardTitle">追蹤中的油滴</div>
+      <div class="info" id="selInfo">尚未選取，請在顯微鏡視野中點選一顆油滴。</div>
+    </div>
+
+    <!-- 測量方法分頁 -->
+    <div class="card">
+      <div class="tabs">
+        <button data-tab="balance" class="on">平衡法</button>
+        <button data-tab="terminal">終端速度法</button>
+      </div>
+
+      <div id="panelBalance">
+        <p class="note">調整電壓使油滴在視野中靜止不動，此時電力與重力平衡：</p>
+        <div class="formula" style="text-align:center;margin:4px 0 8px">qE = mg　⇒　q = mgd / V</div>
+        <div class="result" id="balResult"></div>
+      </div>
+
+      <div id="panelTerminal" hidden>
+        <p class="note">
+          步驟一：關閉電源輸出，油滴以終端速度等速下落，量出 v₁。<br>
+          步驟二：開啟電場，調整電壓使油滴等速上升，量出 v₂。<br>
+          （倒像時，下落的油滴在視野中看起來是往上走）
+        </p>
+        <div class="watch" id="watch">0.00 s</div>
+        <div class="row" style="justify-content:center">
+          <button id="swStart">▶ 開始</button><button id="swStop">■ 停止</button><button id="swReset">歸零</button>
+        </div>
+        <div class="row">
+          <span>通過格數</span>
+          <button id="divMinus">−</button><b id="divN">5</b><button id="divPlus">+</button>
+          <span class="muted">格 = <span id="distTxt">1.00</span> mm（1 格 = 0.20 mm）</span>
+        </div>
+        <div class="row">測得速率 v = <b id="vMeas">—</b></div>
+        <div class="row">
+          <button id="saveV1">存為 v₁（下落）</button>
+          <button id="saveV2">存為 v₂（上升）</button>
+          <button id="termClear">清除</button>
+        </div>
+        <div class="result" id="termResult"></div>
+      </div>
+    </div>
+
+    <!-- 切換開關 -->
+    <div class="card">
+      <div class="cardTitle">切換開關</div>
+      <div class="toggleRow"><label class="switch"><input type="checkbox" id="tgInvert" checked><span></span></label><span class="grow">顯微鏡倒立成像</span></div>
+      <div class="toggleRow"><label class="switch"><input type="checkbox" id="tgBrown"><span></span></label><span class="grow">布朗運動（示意，幅度略放大）</span></div>
+      <div class="toggleRow"><label class="switch"><input type="checkbox" id="tgXray"><span></span></label><span class="grow">X 射線改變油滴電量</span>
+        <button id="btnXray" hidden>☢ 照射</button></div>
+      <div class="toggleRow"><label class="switch"><input type="checkbox" id="tgTeacher"><span></span></label><span class="grow">教師模式（顯示油滴真實電量）</span></div>
+    </div>
+
+    <div class="muted" style="text-align:center;padding:4px 0 10px">
+      模型：油滴視為球形、忽略空氣浮力，阻力採斯托克斯定律 f = 6πηrv<br>
+      η = 1.82×10⁻⁵ Pa·s，ρ<sub>油</sub> = 886 kg/m³，g = 9.8 m/s²
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ================= 物理常數（SI 制） ================= */
+const E_CH = 1.602e-19;     // 基本電荷
+const G    = 9.8;
+const ETA  = 1.82e-5;       // 空氣黏滯係數
+const RHO  = 886;           // 油的密度
+const D    = 5.0e-3;        // 板距
+const KT   = 1.381e-23 * 298;
+const VIEW_R = 1.2e-3;      // 顯微鏡視野半徑（實際尺寸）
+const YC   = D / 2;         // 視野中心高度
+const DIV  = 0.2e-3;        // 目鏡刻度一格
+const BROWN_SCALE = 3;      // 布朗運動示意放大倍數
+const MAX_DROPS = 80;
+
+const S = 1.2 / D;          // 3D 場景：1 m → 1.2/D 單位（板間距顯示為 1.2）
+const GAP = 1.2;
+
+const state = {
+  V: 300, fieldOn: true, topPositive: true,
+  inverted: true, brown: false, xray: false, teacher: false,
+  speed: 5, paused: false, tab: 'balance'
+};
+
+let drops = [];
+let nextId = 1;
+let selected = null;
+let xrayFlash = 0;
+
+/* ================= 油滴 ================= */
+function gauss(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function makeDrop(){
+  for(let t=0;t<60;t++){
+    const r = (0.5 + Math.random()*0.5) * 1e-6;
+    const m = 4/3*Math.PI*r**3*RHO;
+    const W = m*G;
+    const valid = [];
+    for(let k=1;k<=7;k++){
+      const Vb = W*D/(k*E_CH);
+      if(Vb>=60 && Vb<=980) valid.push(k);
+    }
+    if(!valid.length) continue;
+    const k = valid[Math.floor(Math.random()*valid.length)];
+    const sign = Math.random()<0.75 ? -1 : 1;
+    return {
+      id: nextId++, r, m, n: sign*k,
+      x: (Math.random()-0.5)*1.6e-3,
+      y: D - (0.05 + Math.random()*1.1)*1e-3,
+      z: (Math.random()-0.5)*0.8e-3,
+      vy: 0, alive: true,
+      delay: 0.8 + Math.random()*1.4
+    };
+  }
+  return null;
+}
+
+function eUp(){                      // 向上為正的電場
+  if(!state.fieldOn) return 0;
+  return (state.topPositive ? -1 : 1) * state.V / D;
+}
+function termV(d){ return d.m*G/(6*Math.PI*ETA*d.r); }   // 無電場終端速率
+function dropVel(d){                 // 終端速度近似（鬆弛時間 ~10⁻⁵ s，可忽略）
+  return (d.n*E_CH*eUp() - d.m*G) / (6*Math.PI*ETA*d.r);
+}
+
+function stepDrop(d, dt){
+  d.vy = dropVel(d);
+  d.y += d.vy*dt;
+  if(state.brown && dt>0){
+    const Dd = KT/(6*Math.PI*ETA*d.r);
+    const s = Math.sqrt(2*Dd*dt)*BROWN_SCALE;
+    d.x += gauss()*s; d.y += gauss()*s; d.z += gauss()*s*0.5;
+  }
+  if(d.y<=0 || d.y>=D) d.alive = false;
+}
+
+/* ================= Three.js 場景 ================= */
+const host = document.getElementById('three');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0c1118);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+camera.position.set(7.5, 5, 8.5);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.8, 0);
+controls.enableDamping = true;
+controls.maxDistance = 30; controls.minDistance = 2;
+
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x2a2016, 0.9));
+const dl = new THREE.DirectionalLight(0xffffff, 1.4); dl.position.set(5,9,6); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0x9fc4ff, 0.5); dl2.position.set(-6,4,-5); scene.add(dl2);
+
+const metal = new THREE.MeshStandardMaterial({color:0xb9c2cc, metalness:0.35, roughness:0.35});
+const darkMetal = new THREE.MeshStandardMaterial({color:0x3a4250, metalness:0.4, roughness:0.45});
+const glass = new THREE.MeshPhysicalMaterial({color:0xcfe8ff, transparent:true, opacity:0.16, roughness:0.05, metalness:0, side:THREE.DoubleSide, depthWrite:false});
+
+// 實驗桌
+const table = new THREE.Mesh(new THREE.BoxGeometry(16,0.3,12), new THREE.MeshStandardMaterial({color:0x3b2d22, roughness:0.85}));
+table.position.y = -1.35; scene.add(table);
+
+// 下極板與底座
+const lower = new THREE.Mesh(new THREE.CylinderGeometry(3,3,0.15,64), metal);
+lower.position.y = -0.075; scene.add(lower);
+const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.9,1.05,32), darkMetal);
+ped.position.y = -0.675; scene.add(ped);
+
+// 上極板（中央小孔）
+const plateShape = new THREE.Shape(); plateShape.absarc(0,0,3,0,Math.PI*2,false);
+const hole = new THREE.Path(); hole.absarc(0,0,0.15,0,Math.PI*2,true); plateShape.holes.push(hole);
+const upperGeo = new THREE.ExtrudeGeometry(plateShape,{depth:0.15,bevelEnabled:false,curveSegments:64});
+upperGeo.rotateX(-Math.PI/2);
+const upper = new THREE.Mesh(upperGeo, metal); upper.position.y = GAP; scene.add(upper);
+
+// 絕緣透明環
+const spacer = new THREE.Mesh(new THREE.CylinderGeometry(3,3,GAP,64,1,true), glass);
+spacer.position.y = GAP/2; scene.add(spacer);
+
+// 上方噴霧室
+const chamber = new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,1.5,48,1,true), glass);
+chamber.position.y = GAP+0.15+0.75; scene.add(chamber);
+const lid = new THREE.Mesh(new THREE.CircleGeometry(1.5,48), glass);
+lid.rotation.x = -Math.PI/2; lid.position.y = GAP+0.15+1.5; scene.add(lid);
+
+// 噴霧器（油滴瓶＋橡皮球）
+const NOZ_Y = 2.55;
+const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.9,32), glass);
+bottle.position.set(2.9,2.0,0); scene.add(bottle);
+const oil = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.5,32),
+  new THREE.MeshStandardMaterial({color:0xe0b02a, transparent:true, opacity:0.75, roughness:0.2}));
+oil.position.set(2.9,1.8,0); scene.add(oil);
+const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,0.12,16), darkMetal);
+neck.position.set(2.9,2.5,0); scene.add(neck);
+const tubeMat = new THREE.MeshStandardMaterial({color:0xd8dde3, metalness:0.5, roughness:0.3});
+const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,1.6,12), tubeMat);
+nozzle.rotation.z = Math.PI/2; nozzle.position.set(2.1,NOZ_Y,0); scene.add(nozzle);
+const bulbTube = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.7,12), new THREE.MeshStandardMaterial({color:0x7a1f1f, roughness:0.6}));
+bulbTube.rotation.z = Math.PI/2; bulbTube.position.set(3.25,NOZ_Y,0); scene.add(bulbTube);
+const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.36,32,24), new THREE.MeshStandardMaterial({color:0xb02a2a, roughness:0.55}));
+bulb.position.set(3.95,NOZ_Y,0); scene.add(bulb);
+const bStand = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,2.75,8), darkMetal);
+bStand.position.set(2.9,0.18,0); scene.add(bStand);
+const bPlat = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.05,24), darkMetal);
+bPlat.position.set(2.9,1.53,0); scene.add(bPlat);
+const NOZ_TIP = new THREE.Vector3(1.3, NOZ_Y, 0);
+
+// 照明燈與光錐
+const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.7,0.7), darkMetal);
+lamp.position.set(-4.2,0.6,0); scene.add(lamp);
+const lens = new THREE.Mesh(new THREE.CircleGeometry(0.25,24), new THREE.MeshBasicMaterial({color:0xfff2c4}));
+lens.rotation.y = Math.PI/2; lens.position.set(-3.79,0.6,0); scene.add(lens);
+const lampStand = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.6,8), darkMetal);
+lampStand.position.set(-4.2,-0.45,0); scene.add(lampStand);
+const coneGeo = new THREE.ConeGeometry(0.45,4.2,32,1,true); coneGeo.rotateZ(Math.PI/2);
+const lightCone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({color:0xffe9b0, transparent:true, opacity:0.07, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide}));
+lightCone.position.set(-3.8+2.1,0.6,0); scene.add(lightCone);
+
+// 顯微鏡（沿 +z 方向觀察）
+function zCyl(r1,r2,len,mat,z0){
+  const g = new THREE.CylinderGeometry(r1,r2,len,32); g.rotateX(Math.PI/2);
+  const m = new THREE.Mesh(g,mat); m.position.set(0,GAP/2,z0+len/2); scene.add(m); return m;
+}
+zCyl(0.12,0.12,0.8,darkMetal,3.2);
+zCyl(0.19,0.19,2.0,new THREE.MeshStandardMaterial({color:0x2b3442,metalness:0.3,roughness:0.4}),4.0);
+zCyl(0.15,0.15,0.5,new THREE.MeshStandardMaterial({color:0x111111,roughness:0.6}),6.0);
+const mStand = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,1.8,8), darkMetal);
+mStand.position.set(0,-0.3,5.0); scene.add(mStand);
+const mBase = new THREE.Mesh(new THREE.BoxGeometry(1.0,0.1,1.2), darkMetal);
+mBase.position.set(0,-1.15,5.0); scene.add(mBase);
+
+// 視野範圍示意圈
+const fovPts = [];
+for(let i=0;i<64;i++){ const a=i/64*Math.PI*2; fovPts.push(new THREE.Vector3(Math.cos(a)*VIEW_R*S, YC*S+Math.sin(a)*VIEW_R*S, 0)); }
+const fovRing = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(fovPts),
+  new THREE.LineBasicMaterial({color:0x5cc8ff, transparent:true, opacity:0.55}));
+scene.add(fovRing);
+
+// 直流電源供應器
+const ps = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.2,1.1), new THREE.MeshStandardMaterial({color:0x4a5566, roughness:0.6}));
+ps.position.set(-2.4,-0.6,-3.7); scene.add(ps);
+const psCanvas = document.createElement('canvas'); psCanvas.width=256; psCanvas.height=100;
+const psTex = new THREE.CanvasTexture(psCanvas); psTex.colorSpace = THREE.SRGBColorSpace;
+const psScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.3,0.5), new THREE.MeshBasicMaterial({map:psTex}));
+psScreen.position.set(-2.65,-0.45,-3.14); scene.add(psScreen);
+function drawPS(){
+  const c = psCanvas.getContext('2d');
+  c.fillStyle='#061008'; c.fillRect(0,0,256,100);
+  c.fillStyle = state.fieldOn ? '#6dff9a' : '#2c5a3a';
+  c.font='bold 46px monospace'; c.textAlign='right';
+  c.fillText((state.fieldOn?state.V:0).toFixed(1),200,58);
+  c.font='bold 30px monospace'; c.fillText('V',240,58);
+  c.font='18px sans-serif'; c.textAlign='left';
+  c.fillText(state.fieldOn?'OUTPUT ON':'OUTPUT OFF',12,90);
+  psTex.needsUpdate = true;
+}
+const termRed = new THREE.Mesh(new THREE.SphereGeometry(0.08,16,12), new THREE.MeshStandardMaterial({color:0xd83a3a}));
+termRed.position.set(-1.75,-0.85,-3.13); scene.add(termRed);
+const termBlk = new THREE.Mesh(new THREE.SphereGeometry(0.08,16,12), new THREE.MeshStandardMaterial({color:0x222222}));
+termBlk.position.set(-1.45,-0.85,-3.13); scene.add(termBlk);
+
+function makeWire(a,b,mid1,mid2,color){
+  const curve = new THREE.CatmullRomCurve3([a,mid1,mid2,b]);
+  const m = new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.03,8), new THREE.MeshStandardMaterial({color, roughness:0.5}));
+  scene.add(m); return m;
+}
+const wireTop = makeWire(termRed.position.clone(), new THREE.Vector3(-1.6,GAP+0.08,-2.55),
+  new THREE.Vector3(-1.7,-0.4,-2.9), new THREE.Vector3(-1.7,0.9,-2.8), 0xd83a3a);
+const wireBot = makeWire(termBlk.position.clone(), new THREE.Vector3(-1.2,-0.07,-2.75),
+  new THREE.Vector3(-1.4,-1.0,-2.9), new THREE.Vector3(-1.3,-0.5,-2.8), 0x222222);
+
+// 文字標籤
+function makeLabel(text, pos, color='#e7eef6', w=1.7){
+  const cv = document.createElement('canvas'); cv.width=512; cv.height=128;
+  const c = cv.getContext('2d');
+  c.fillStyle='rgba(12,18,26,0.7)'; c.beginPath(); c.roundRect(4,24,504,80,20); c.fill();
+  c.font='bold 46px "Noto Sans TC","Microsoft JhengHei",sans-serif';
+  c.fillStyle=color; c.textAlign='center'; c.textBaseline='middle'; c.fillText(text,256,66);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+  sp.scale.set(w, w/4, 1); sp.position.copy(pos); sp.renderOrder = 10; scene.add(sp); return sp;
+}
+function makeSign(ch, color, pos){
+  const cv = document.createElement('canvas'); cv.width=128; cv.height=128;
+  const c = cv.getContext('2d');
+  c.fillStyle=color; c.beginPath(); c.arc(64,64,56,0,Math.PI*2); c.fill();
+  c.fillStyle='#fff'; c.font='bold 96px sans-serif'; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText(ch,64,70);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+  sp.scale.set(0.38,0.38,1); sp.position.copy(pos); sp.renderOrder = 11; scene.add(sp); return sp;
+}
+makeLabel('噴霧器（油滴瓶）', new THREE.Vector3(3.3,3.35,0));
+makeLabel('平行金屬板', new THREE.Vector3(-2.6,2.05,1.6));
+makeLabel('照明燈', new THREE.Vector3(-4.2,1.35,0), '#e7eef6', 1.2);
+makeLabel('顯微鏡', new THREE.Vector3(0,1.35,5.6), '#e7eef6', 1.2);
+makeLabel('直流電源', new THREE.Vector3(-2.4,0.45,-3.7), '#e7eef6', 1.3);
+const signTopP = makeSign('+','#d83a3a', new THREE.Vector3(2.3,GAP+0.35,2.1));
+const signTopN = makeSign('−','#2f6fd6', new THREE.Vector3(2.3,GAP+0.35,2.1));
+const signBotP = makeSign('+','#d83a3a', new THREE.Vector3(2.3,-0.35,2.1));
+const signBotN = makeSign('−','#2f6fd6', new THREE.Vector3(2.3,-0.35,2.1));
+
+// X 射線管
+const xrayGroup = new THREE.Group();
+xrayGroup.position.set(3.4,0.6,-2.6); scene.add(xrayGroup);
+xrayGroup.lookAt(0,0.6,0);
+{
+  const g = new THREE.CylinderGeometry(0.28,0.28,1.1,24); g.rotateX(Math.PI/2);
+  const tube = new THREE.Mesh(g, new THREE.MeshPhysicalMaterial({color:0xd6c8ff, transparent:true, opacity:0.4, roughness:0.1}));
+  tube.position.z = -0.55; xrayGroup.add(tube);
+  const g2 = new THREE.CylinderGeometry(0.1,0.1,0.6,16); g2.rotateX(Math.PI/2);
+  const anode = new THREE.Mesh(g2, darkMetal); anode.position.z = -0.6; xrayGroup.add(anode);
+}
+const beamGeo = new THREE.ConeGeometry(0.5,3.6,32,1,true); beamGeo.rotateX(-Math.PI/2); beamGeo.translate(0,0,1.8);
+const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({color:0xb48cff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide}));
+xrayGroup.add(beam);
+const xrayLabel = makeLabel('X 射線管', new THREE.Vector3(3.6,1.4,-2.8), '#d8c4ff', 1.3);
+
+// 發光貼圖
+function glowTex(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=64;
+  const c=cv.getContext('2d'); const g=c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.3,'rgba(255,255,255,0.7)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=g; c.fillRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(cv); return t;
+}
+const GLOW = glowTex();
+
+// 板間油滴（3D）
+const dropGeo = new THREE.BufferGeometry();
+const dropPos = new Float32Array(MAX_DROPS*3), dropCol = new Float32Array(MAX_DROPS*3);
+dropGeo.setAttribute('position', new THREE.BufferAttribute(dropPos,3));
+dropGeo.setAttribute('color', new THREE.BufferAttribute(dropCol,3));
+const dropPoints = new THREE.Points(dropGeo, new THREE.PointsMaterial({size:0.06, map:GLOW, vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+dropPoints.frustumCulled = false; scene.add(dropPoints);
+const selMarker = new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW, color:0xff9a2a, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+selMarker.scale.set(0.16,0.16,1); selMarker.visible=false; scene.add(selMarker);
+
+// 噴霧粒子
+const MIST_MAX = 400;
+const mist = [];
+const mistGeo = new THREE.BufferGeometry();
+const mistPos = new Float32Array(MIST_MAX*3), mistCol = new Float32Array(MIST_MAX*3);
+mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos,3));
+mistGeo.setAttribute('color', new THREE.BufferAttribute(mistCol,3));
+const mistPoints = new THREE.Points(mistGeo, new THREE.PointsMaterial({size:0.07, map:GLOW, vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+mistPoints.frustumCulled = false; scene.add(mistPoints);
+
+let bulbAnim = 0;
+function spray(){
+  bulbAnim = 0.35;
+  for(let i=0;i<220;i++){
+    if(mist.length>=MIST_MAX) mist.shift();
+    const sp = 1+Math.random()*2.2;
+    const life = 2.5+Math.random()*2;
+    mist.push({x:NOZ_TIP.x, y:NOZ_TIP.y, z:NOZ_TIP.z,
+      vx:-sp, vy:(Math.random()-0.5)*0.8, vz:(Math.random()-0.5)*1.2, life, max:life});
+  }
+  for(let i=0;i<14;i++){
+    const d = makeDrop(); if(!d) continue;
+    drops.push(d);
+  }
+  while(drops.length>MAX_DROPS){ const r=drops.shift(); if(r===selected) selected=null; }
+}
+function updateMist(dt){
+  const yBot = GAP+0.17, yTop = GAP+0.15+1.45;
+  for(const p of mist){
+    p.vx *= (1-1.6*dt); p.vz *= (1-1.6*dt); p.vy = p.vy*(1-1.6*dt) - 0.25*dt;
+    p.x += p.vx*dt; p.y += p.vy*dt; p.z += p.vz*dt;
+    const rr = Math.hypot(p.x,p.z);
+    if(p.y>GAP){
+      if(rr>1.42){ p.x*=1.42/rr; p.z*=1.42/rr; p.vx*=-0.3; p.vz*=-0.3; }
+      if(p.y>yTop){ p.y=yTop; p.vy=-Math.abs(p.vy); }
+      if(p.y<yBot && rr>0.15){ p.y=yBot; p.vy=Math.abs(p.vy)*0.2; }
+    } else if(p.y<GAP-0.25) p.life = 0;
+    p.life -= dt;
+  }
+  for(let i=mist.length-1;i>=0;i--) if(mist[i].life<=0) mist.splice(i,1);
+  for(let i=0;i<MIST_MAX;i++){
+    const p = mist[i];
+    if(p){ const a=Math.max(0,p.life/p.max);
+      mistPos.set([p.x,p.y,p.z],i*3); mistCol.set([a*0.9,a*0.8,a*0.5],i*3); }
+    else { mistPos.set([0,-100,0],i*3); mistCol.set([0,0,0],i*3); }
+  }
+  mistGeo.attributes.position.needsUpdate = true; mistGeo.attributes.color.needsUpdate = true;
+}
+
+function update3DDrops(){
+  for(let i=0;i<MAX_DROPS;i++){
+    const d = drops[i];
+    if(d && d.alive && d.delay<=0){
+      dropPos.set([d.x*S, d.y*S, d.z*S], i*3);
+      dropCol.set(d===selected ? [1,0.6,0.15] : [1,0.92,0.72], i*3);
+    } else { dropPos.set([0,-100,0],i*3); dropCol.set([0,0,0],i*3); }
+  }
+  dropGeo.attributes.position.needsUpdate = true; dropGeo.attributes.color.needsUpdate = true;
+  if(selected && selected.alive && selected.delay<=0){
+    selMarker.visible = true; selMarker.position.set(selected.x*S, selected.y*S, selected.z*S);
+  } else selMarker.visible = false;
+}
+
+function updatePolarity3D(){
+  const on = state.fieldOn;
+  signTopP.visible = on && state.topPositive;  signTopN.visible = on && !state.topPositive;
+  signBotP.visible = on && !state.topPositive; signBotN.visible = on && state.topPositive;
+  wireTop.material.color.set(state.topPositive ? 0xd83a3a : 0x222222);
+  wireBot.material.color.set(state.topPositive ? 0x222222 : 0xd83a3a);
+  drawPS();
+}
+
+/* ================= 顯微鏡視野（2D Canvas） ================= */
+const scope = document.getElementById('scope');
+const sctx = scope.getContext('2d');
+let SW = 400, dpr = 1;
+function resizeScope(){
+  dpr = Math.min(devicePixelRatio,2);
+  SW = scope.clientWidth;
+  scope.width = SW*dpr; scope.height = SW*dpr;
+}
+new ResizeObserver(resizeScope).observe(scope);
+
+function scopeGeom(){
+  const W = scope.width, cx = W/2, cy = W/2, R = W*0.48;
+  return {W,cx,cy,R,k:R/VIEW_R};
+}
+function toScreen(x,y,g){
+  let dx = x, dy = y-YC;
+  if(state.inverted){ dx=-dx; dy=-dy; }
+  return [g.cx + dx*g.k, g.cy - dy*g.k];
+}
+
+function drawScope(){
+  const g = scopeGeom(); const c = sctx; const W = g.W;
+  c.clearRect(0,0,W,W);
+  c.save();
+  c.beginPath(); c.arc(g.cx,g.cy,g.R,0,Math.PI*2); c.clip();
+  const bg = c.createRadialGradient(g.cx,g.cy,0,g.cx,g.cy,g.R);
+  bg.addColorStop(0,'#0d1520'); bg.addColorStop(0.85,'#070b11'); bg.addColorStop(1,'#020305');
+  c.fillStyle = bg; c.fillRect(0,0,W,W);
+
+  // 目鏡刻度
+  c.strokeStyle='rgba(150,230,190,0.45)'; c.lineWidth=1*dpr;
+  c.fillStyle='rgba(150,230,190,0.75)'; c.font=`${11*dpr}px sans-serif`; c.textAlign='right'; c.textBaseline='middle';
+  const halfW = 0.75e-3*g.k;
+  for(let i=0;i<=10;i++){
+    const yy = g.cy + (-1.0e-3 + i*DIV)*g.k;
+    c.beginPath(); c.moveTo(g.cx-halfW, yy); c.lineTo(g.cx+halfW, yy); c.stroke();
+    c.fillText(String(i), g.cx-halfW-6*dpr, yy);
+  }
+  c.beginPath(); c.moveTo(g.cx, g.cy-1.05e-3*g.k); c.lineTo(g.cx, g.cy+1.05e-3*g.k); c.stroke();
+
+  // 油滴
+  for(const d of drops){
+    if(!d.alive || d.delay>0) continue;
+    const [sx,sy] = toScreen(d.x,d.y,g);
+    if(Math.hypot(sx-g.cx,sy-g.cy) > g.R+20*dpr) continue;
+    const blur = Math.abs(d.z)/0.15e-3;
+    const rad = (2.4 + blur*3.2)*dpr;
+    const a = 1/(1+blur*blur*0.7);
+    const grd = c.createRadialGradient(sx,sy,0,sx,sy,rad*2.2);
+    grd.addColorStop(0,`rgba(255,250,235,${a})`);
+    grd.addColorStop(0.35,`rgba(255,225,170,${a*0.7})`);
+    grd.addColorStop(1,'rgba(255,200,120,0)');
+    c.fillStyle = grd; c.beginPath(); c.arc(sx,sy,rad*2.2,0,Math.PI*2); c.fill();
+    if(d===selected){
+      c.strokeStyle='#ffa53a'; c.lineWidth=2*dpr;
+      c.beginPath(); c.arc(sx,sy,rad*2.2+6*dpr,0,Math.PI*2); c.stroke();
+    }
+    if(state.teacher && blur<1.6){
+      c.fillStyle='rgba(120,210,255,0.95)'; c.font=`bold ${11*dpr}px sans-serif`; c.textAlign='left';
+      const nn = Math.abs(d.n);
+      c.fillText(d.n===0 ? '0' : `${d.n>0?'+':'−'}${nn===1?'':nn}e`, sx+rad*2+4*dpr, sy-6*dpr);
+    }
+  }
+
+  if(xrayFlash>0){ c.fillStyle=`rgba(170,120,255,${xrayFlash*0.35})`; c.fillRect(0,0,W,W); }
+  c.restore();
+
+  // 外框與資訊
+  c.strokeStyle='#3a4a5e'; c.lineWidth=4*dpr;
+  c.beginPath(); c.arc(g.cx,g.cy,g.R,0,Math.PI*2); c.stroke();
+  c.font=`${12*dpr}px "Noto Sans TC",sans-serif`; c.textBaseline='top';
+  c.fillStyle='#93a2b5'; c.textAlign='left';
+  c.fillText(state.inverted?'影像：倒立':'影像：正立', 6*dpr, 6*dpr);
+  c.textAlign='right';
+  c.fillText(`時間 ×${state.speed}`, W-6*dpr, 6*dpr);
+  c.textBaseline='bottom'; c.textAlign='left';
+  c.fillText('1 格 = 0.20 mm', 6*dpr, W-6*dpr);
+  if(state.paused){ c.textAlign='right'; c.fillStyle='#ffb347'; c.fillText('暫停中', W-6*dpr, W-6*dpr); }
+}
+
+function pickDrop(ev){
+  const rect = scope.getBoundingClientRect();
+  const px = (ev.clientX-rect.left)*dpr, py = (ev.clientY-rect.top)*dpr;
+  const g = scopeGeom();
+  let best=null, bd=22*dpr;
+  for(const d of drops){
+    if(!d.alive || d.delay>0) continue;
+    const [sx,sy] = toScreen(d.x,d.y,g);
+    const dd = Math.hypot(sx-px, sy-py);
+    if(dd<bd){ bd=dd; best=d; }
+  }
+  selected = best;
+}
+scope.addEventListener('pointerdown', pickDrop);
+
+/* ================= UI ================= */
+const $ = id => document.getElementById(id);
+function sci(x, digits=3){
+  if(!isFinite(x)) return '—';
+  if(x===0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  const m = x/10**e;
+  return `${m.toFixed(digits-1)} × 10<sup>${e}</sup>`;
+}
+
+function setV(v){
+  state.V = Math.min(1000, Math.max(0, Math.round(v*10)/10));
+  $('vSlider').value = state.V;
+  $('vText').textContent = state.V.toFixed(1)+' V';
+  $('eText').innerHTML = 'E = '+sci(state.V/D)+' V/m';
+  drawPS();
+}
+$('vSlider').addEventListener('input', e=>setV(parseFloat(e.target.value)));
+document.querySelectorAll('.fine button').forEach(b=>b.addEventListener('click',()=>setV(state.V+parseFloat(b.dataset.dv))));
+$('fieldOn').addEventListener('change', e=>{ state.fieldOn = e.target.checked; updatePolarity3D(); });
+$('polTop').addEventListener('click', ()=>{ state.topPositive=true; $('polTop').classList.add('on'); $('polBot').classList.remove('on'); updatePolarity3D(); });
+$('polBot').addEventListener('click', ()=>{ state.topPositive=false; $('polBot').classList.add('on'); $('polTop').classList.remove('on'); updatePolarity3D(); });
+
+$('btnSpray').addEventListener('click', spray);
+$('btnClear').addEventListener('click', ()=>{ drops=[]; selected=null; });
+$('btnPause').addEventListener('click', ()=>{
+  state.paused = !state.paused;
+  $('btnPause').textContent = state.paused ? '▶ 繼續' : '⏸ 暫停';
+});
+$('speed').addEventListener('change', e=>state.speed = parseFloat(e.target.value));
+
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  state.tab = b.dataset.tab;
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on', x===b));
+  $('panelBalance').hidden = state.tab!=='balance';
+  $('panelTerminal').hidden = state.tab!=='terminal';
+}));
+
+$('tgInvert').addEventListener('change', e=>state.inverted = e.target.checked);
+$('tgBrown').addEventListener('change', e=>state.brown = e.target.checked);
+$('tgTeacher').addEventListener('change', e=>state.teacher = e.target.checked);
+function updateXrayVis(){
+  $('btnXray').hidden = !state.xray;
+  xrayGroup.visible = state.xray; xrayLabel.visible = state.xray;
+}
+$('tgXray').addEventListener('change', e=>{ state.xray = e.target.checked; updateXrayVis(); });
+$('btnXray').addEventListener('click', ()=>{
+  xrayFlash = 1;
+  for(const d of drops){
+    if(!d.alive || Math.random()>0.6) continue;
+    const dn = (Math.random()<0.5?-1:1)*(Math.random()<0.7?1:2);
+    d.n = Math.max(-9, Math.min(9, d.n+dn));
+  }
+});
+
+// 終端速度法：碼錶（以模擬時間計時）
+const sw = {t:0, running:false};
+let divN = 5;
+let lastV = null;
+const meas = {v1:null, v2:null, V2:null};
+$('swStart').addEventListener('click', ()=>{ sw.running = true; });
+$('swStop').addEventListener('click', ()=>{
+  sw.running = false;
+  if(sw.t>0){ lastV = divN*DIV/sw.t; $('vMeas').innerHTML = (lastV*1e3).toFixed(4)+' mm/s'; }
+});
+$('swReset').addEventListener('click', ()=>{ sw.running=false; sw.t=0; lastV=null; $('vMeas').textContent='—'; });
+function setDiv(n){ divN=Math.max(1,Math.min(10,n)); $('divN').textContent=divN; $('distTxt').textContent=(divN*0.2).toFixed(2);
+  if(sw.t>0 && !sw.running){ lastV = divN*DIV/sw.t; $('vMeas').innerHTML=(lastV*1e3).toFixed(4)+' mm/s'; } }
+$('divMinus').addEventListener('click', ()=>setDiv(divN-1));
+$('divPlus').addEventListener('click', ()=>setDiv(divN+1));
+let termMsg = '';
+$('saveV1').addEventListener('click', ()=>{
+  if(lastV==null){ termMsg='請先用碼錶完成一次計時。'; return; }
+  if(state.fieldOn && state.V>0) termMsg='提醒：量 v₁ 時應關閉電源輸出（無電場）。';
+  else termMsg='';
+  meas.v1 = lastV;
+});
+$('saveV2').addEventListener('click', ()=>{
+  if(lastV==null){ termMsg='請先用碼錶完成一次計時。'; return; }
+  if(!state.fieldOn || state.V<=0){ termMsg='量 v₂ 時須開啟電場（電壓不可為 0）。'; return; }
+  termMsg=''; meas.v2 = lastV; meas.V2 = state.V;
+});
+$('termClear').addEventListener('click', ()=>{ meas.v1=meas.v2=meas.V2=null; termMsg=''; });
+
+function renderTermResult(){
+  let h = '';
+  h += `v₁ = ${meas.v1!=null ? (meas.v1*1e3).toFixed(4)+' mm/s' : '—'}<br>`;
+  h += `v₂ = ${meas.v2!=null ? (meas.v2*1e3).toFixed(4)+' mm/s' : '—'}${meas.V2!=null?`（V = ${meas.V2.toFixed(1)} V）`:''}<br>`;
+  if(meas.v1!=null){
+    const r = Math.sqrt(9*ETA*meas.v1/(2*RHO*G));
+    const m = 4/3*Math.PI*r**3*RHO;
+    h += `<span class="formula">mg = 6πηrv₁</span> ⇒ r = ${(r*1e6).toFixed(3)} μm，m = ${sci(m)} kg<br>`;
+    if(meas.v2!=null){
+      const q = (m*G + 6*Math.PI*ETA*r*meas.v2) * D / meas.V2;
+      h += `<span class="formula">qV/d = mg + 6πηrv₂</span><br>`;
+      h += `⇒ q = ${sci(q)} C ≈ <span class="ok">${(q/E_CH).toFixed(2)} e</span>`;
+    }
+  }
+  if(termMsg) h += `<br><span class="warn">${termMsg}</span>`;
+  $('termResult').innerHTML = h;
+}
+
+function renderSelInfo(){
+  if(!selected || !selected.alive){
+    selected = null;
+    $('selInfo').innerHTML = '尚未選取，請在顯微鏡視野中點選一顆油滴。';
+    return null;
+  }
+  const d = selected, v = dropVel(d), vt = termV(d);
+  let dir;
+  if(Math.abs(v) < 0.005*vt) dir = '<span style="color:#5ee08a">幾乎靜止</span>';
+  else {
+    const realUp = v>0;
+    const lookUp = state.inverted ? !realUp : realUp;
+    dir = (realUp?'上升':'下降') + `<span class="muted">（視野中看起來向${lookUp?'上':'下'}）</span>`;
+  }
+  let h = `油滴 #${d.id}　實際運動：<b>${dir}</b>`;
+  if(state.teacher){
+    h += `<br><span style="color:#78d2ff">〔教師〕r = ${(d.r*1e6).toFixed(3)} μm，m = ${sci(d.m)} kg</span>`;
+    h += `<br><span style="color:#78d2ff">〔教師〕q = ${d.n===0?'0':(d.n>0?'+':'−')+Math.abs(d.n)+'e'}，v = ${(v*1e3).toFixed(4)} mm/s（向上為正）</span>`;
+  }
+  $('selInfo').innerHTML = h;
+  return {v, vt};
+}
+
+function renderBalResult(info){
+  let h;
+  if(!selected){ h = '請先在顯微鏡視野中點選一顆油滴。'; }
+  else {
+    const d = selected;
+    h = `已知：m = ${sci(d.m)} kg（假設已由其他方法測得）<br>d = 5.0 mm，g = 9.8 m/s²<br>`;
+    if(!state.fieldOn || state.V<=0) h += '<span class="warn">請開啟電源輸出並調整電壓。</span>';
+    else if(Math.abs(info.v) >= 0.005*info.vt) h += '<span class="warn">油滴仍在移動，請繼續微調電壓（或改變極性）。</span>';
+    else {
+      const q = d.m*G*D/state.V;
+      h += `<span class="ok">油滴已平衡！</span><br>q = mgd/V = ${sci(q)} C<br>q / e ≈ <span class="ok">${(q/E_CH).toFixed(2)}</span>`;
+    }
+  }
+  $('balResult').innerHTML = h;
+}
+
+/* ================= 版面與主迴圈 ================= */
+const stage = document.getElementById('stage');
+function resize3D(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w,h); camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize3D).observe(stage);
+
+let last = performance.now(), uiTimer = 0;
+function loop(now){
+  requestAnimationFrame(loop);
+  const rdt = Math.min((now-last)/1000, 0.05); last = now;
+  const sdt = state.paused ? 0 : rdt*state.speed;
+
+  if(!state.paused){
+    updateMist(rdt);
+    for(const d of drops){
+      if(d.delay>0){ d.delay -= rdt; continue; }
+      if(d.alive) stepDrop(d, sdt);
+    }
+    drops = drops.filter(d=>d.alive);
+    if(sw.running) sw.t += sdt;
+  }
+
+  // 橡皮球擠壓動畫
+  if(bulbAnim>0){ bulbAnim -= rdt; const k = Math.sin(Math.max(0,bulbAnim)/0.35*Math.PI);
+    bulb.scale.set(1-0.35*k, 1+0.15*k, 1+0.15*k); }
+  else bulb.scale.set(1,1,1);
+
+  // X 射線閃光
+  if(xrayFlash>0){ xrayFlash = Math.max(0, xrayFlash - rdt*2.2); }
+  beam.material.opacity = xrayFlash*0.35;
+
+  update3DDrops();
+  drawScope();
+
+  uiTimer += rdt;
+  if(uiTimer>0.1){
+    uiTimer = 0;
+    const info = renderSelInfo();
+    if(state.tab==='balance') renderBalResult(info);
+    else renderTermResult();
+    $('watch').textContent = sw.t.toFixed(2)+' s';
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+setV(state.V);
+updatePolarity3D();
+updateXrayVis();
+resize3D(); resizeScope();
+requestAnimationFrame(loop);
+setTimeout(spray, 500);
+</script>
+</body>
+</html>
