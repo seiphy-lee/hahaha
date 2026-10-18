@@ -1,873 +1,1283 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>光電效應模擬動畫</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            /* 採用深色背景，與截圖一致 */
-            background-color: #0b1120; 
-            color: #f8fafc;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            font-family: 'Noto Sans TC', sans-serif;
-        }
-        
-        /* 針對特定標籤與數字使用截圖中的襯線字體 (Serif) */
-        .classic-text {
-            font-family: 'Times New Roman', 'PMingLiU', 'KaiTi', serif;
-        }
-
-        /* 自訂滑桿外觀 (基礎設定) */
-        input[type=range] {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 2px;
-            background: #e2e8f0;
-            border-radius: 2px;
-            outline: none;
-        }
-        
-        /* 針對頻率滑桿加入光譜漸進彩色 (紫外線區漸進成灰色) */
-        input[type=range]#frequencySlider {
-            height: 4px;
-            background: linear-gradient(to right, 
-                #ff0000 0%,     /* 紅光 */
-                #ff7f00 12%,    /* 橙光 */
-                #ffff00 24%,    /* 黃光 */
-                #00ff00 38%,    /* 綠光 */
-                #00ffff 50%,    /* 青光 */
-                #0000ff 62%,    /* 藍光 */
-                #8a2be2 75%,    /* 紫光 */
-                #888888 90%,    /* 進入紫外線，轉灰 */
-                #555555 100%);  /* 深灰 */
-        }
-
-        /* 針對強度滑桿隱藏預設軌道顏色，以便顯示自訂的形狀與顏色 */
-        input[type=range]#intensitySlider {
-            background: transparent !important;
-        }
-        input[type=range]#intensitySlider::-webkit-slider-runnable-track {
-            background: transparent !important;
-        }
-        input[type=range]#intensitySlider::-moz-range-track {
-            background: transparent !important;
-        }
-
-        /* 針對電壓滑桿設定左紅右藍的雙色背景 */
-        input[type=range]#voltageSlider {
-            height: 4px;
-            background: linear-gradient(to right, #ef4444 50%, #3b82f6 50%);
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 0 4px rgba(0,0,0,0.5);
-        }
-        input[type=range]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: none;
-        }
-
-        /* 自訂下拉選單 */
-        select {
-            background-color: #334155;
-            color: #e2e8f0;
-            border: 1px solid #475569;
-            border-radius: 4px;
-            padding: 4px 8px;
-            outline: none;
-            font-family: 'Noto Sans TC', sans-serif;
-        }
-        
-        /* 切換開關樣式 */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #68D391;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #68D391;
-        }
-        .toggle-checkbox {
-            right: 20px; /* 修正：讓未選取(關閉)時，小白圓正確停留在左側 */
-            z-index: 1;
-            border-color: #374151; /* 配合底色加深邊框顏色 */
-            transition: all 0.3s;
-        }
-        .toggle-label {
-            background-color: #374151; /* 修正：將關閉時的底色調得更灰黑 */
-            border-radius: 9999px;
-            transition: all 0.3s;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>光電效應模擬</title>
+<style>
+:root{--bg:#0b1220;--panel:#121b2c;--card:#18233a;--line:#28354f;--text:#e8eef7;--muted:#9fb0c8;--accent:#6fc3ff;--warm:#ffb347;}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:10px 20px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:#0e1626}
+header h1{margin:0;font-size:20px;letter-spacing:2px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{font:inherit;font-size:15px;padding:7px 16px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:700}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 370px}
+#viewport{position:relative;min-height:0;overflow:hidden;touch-action:none}
+#viewport canvas{display:block}
+#badge{position:absolute;left:16px;top:14px;padding:6px 16px;border-radius:10px;font-size:20px;font-weight:700;letter-spacing:2px;pointer-events:none}
+#badge.classic{background:rgba(255,179,71,.18);color:#ffc46b;border:1px solid rgba(255,179,71,.6)}
+#badge.actual{background:rgba(111,195,255,.16);color:#8fd2ff;border:1px solid rgba(111,195,255,.6)}
+#credit{position:absolute;right:12px;bottom:8px;font-size:12px;color:#7d8ba3;pointer-events:none}
+#hint{position:absolute;left:16px;bottom:8px;font-size:12px;color:#5f6d85;pointer-events:none}
+aside{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:14px 16px 20px}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600;letter-spacing:1px}
+.seg{display:flex;background:#0d1524;border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{flex:1;font:inherit;font-size:15px;padding:8px 6px;border:none;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button.on.classic{background:var(--warm);color:#231400;font-weight:700}
+.seg button.on.actual{background:var(--accent);color:#06121f;font-weight:700}
+.btn{font:inherit;font-size:15px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:#22304b;color:var(--text);cursor:pointer;width:100%}
+.btn:hover{filter:brightness(1.15)}
+.btn.light-on{background:#ffe36b;color:#2a2200;border-color:#ffe36b;font-weight:700}
+.row{display:flex;gap:8px}
+.ctrl{margin-bottom:12px}
+.ctrl:last-child{margin-bottom:0}
+.ctrl label{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px;gap:8px}
+.ctrl label b{font-weight:600;white-space:nowrap}
+.val{color:var(--accent);font-variant-numeric:tabular-nums;font-size:13px;text-align:right}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px;border:1px solid rgba(255,255,255,.35)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{width:100%;font:inherit;font-size:14px;padding:7px 8px;border-radius:8px;background:#0d1524;color:var(--text);border:1px solid var(--line)}
+.note{font-size:13.5px;line-height:1.75;color:#c5d1e3;margin:0}
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ro{background:#0d1524;border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.ro span{display:block;font-size:12px;color:var(--muted)}
+.ro b{font-size:19px;font-variant-numeric:tabular-nums}
+#graph{width:100%;display:block;background:#0b1322;border-radius:8px;border:1px solid var(--line)}
+.legend{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px;color:#c5d1e3}
+.legend li{margin:3px 0}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+#graph3{width:100%;display:block;background:#0b1322;border-radius:8px;border:1px solid var(--line)}
+#data3{max-height:120px;overflow-y:auto;margin-top:8px;font-size:12.5px;color:#c5d1e3;line-height:1.7}
+#fitOut{font-size:12.5px;line-height:1.7;color:#c5d1e3;margin-top:6px}
+#msg3.ok{color:#7dffa0}#msg3.warn{color:#ffb36b}
+#panel3.hands .demo-only{display:none !important}
+#bigMeter{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:270px;background:rgba(18,27,44,.94);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:none}
+#bigMeter.show{display:block}
+#bmCtrls:not(:empty){margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+#bmCtrls .ctrl label{flex-wrap:wrap;row-gap:2px}
+#bmCanvas{width:100%;display:block;border-radius:8px}
+.bmCap{text-align:center;font-size:14px;font-weight:700;color:#e8eef7;margin:2px 0 6px}
+.bmRange{display:flex;gap:6px;margin-top:8px}
+.bmRange button{flex:1;font:inherit;font-size:13px;padding:6px 2px;border-radius:8px;border:1px solid var(--line);background:#22304b;color:var(--muted);cursor:pointer}
+.bmRange button.on{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:700}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.show{display:flex}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:480px;width:100%;max-height:92vh;overflow-y:auto;padding:16px 18px}
+.modal-box h2{margin:0 0 10px;font-size:19px}
+#m3Graph{width:100%;display:block;background:#0b1322;border-radius:8px;border:1px solid var(--line)}
+#m3Body{font-size:14px;line-height:1.8;margin:10px 0}
+#m3Msg{font-size:15.5px;line-height:1.7;padding:10px 12px;border-radius:10px;margin-bottom:12px}
+#m3Msg.t1{background:rgba(93,255,138,.12);border:1px solid rgba(93,255,138,.5)}
+#m3Msg.t2{background:rgba(111,195,255,.12);border:1px solid rgba(111,195,255,.5)}
+#m3Msg.t3{background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.5)}
+@media (max-width:820px){
+  html,body{height:auto}
+  body{overflow:auto}
+  main{display:block}
+  #viewport{height:56vh}
+  aside{border-left:none;border-top:1px solid var(--line);overflow:visible}
+  #badge{font-size:16px}
+  #bigMeter{width:150px;padding:6px 8px;right:8px}
+  .bmCap{font-size:12px}
+  .bmRange{gap:3px}
+  .bmRange button{font-size:11px;padding:4px 1px}
+}
+</style>
 </head>
 <body>
-
-    <!-- 主容器：分為左右兩大欄 -->
-    <div class="max-w-[1400px] w-full flex flex-col lg:flex-row gap-5 h-full">
-        
-        <!-- 左側欄 (加寬以容納放大的字體) -->
-        <div class="w-full lg:w-[380px] shrink-0 flex flex-col gap-5">
-            <!-- 標題區塊 -->
-            <div class="bg-[#0f172a] border border-[#1e293b] rounded-lg p-5 shadow-lg text-center">
-                <h1 class="text-2xl font-bold text-slate-100 leading-snug">
-                    光電效應模擬<br>
-                    <span class="text-slate-300 text-lg font-normal">(台中二中 阿發老師設計)</span>
-                </h1>
-            </div>
-
-            <!-- 物理參數區塊 -->
-            <div class="bg-[#0f172a] border border-[#1e293b] rounded-lg p-6 shadow-lg flex-grow flex flex-col">
-                <!-- 敘述移動至此 -->
-                <p class="text-[14px] text-[#FFFF99] mb-6 leading-relaxed text-justify">
-                    探索光頻率、強度、功函數與外加電場如何影響電子的發射與運動。
-                </p>
-
-                <h3 class="text-[32px] font-bold text-[#FFFF00] mb-8 text-center leading-tight">物理參數<br><span class="font-normal text-[24px]">(Parameters)</span></h3>
-                
-                <div class="space-y-8 flex-1 font-medium">
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-300 text-[21px]">光子能量 :</span> 
-                        <span id="photonEnergy" class="font-bold text-[#06b6d4] text-[22px]">2.10 eV</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-300 text-[21px]">功函數 (W):</span> 
-                        <span id="workFunction" class="font-bold text-[#c084fc] text-[22px]">2.30 eV</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-slate-300 text-[21px]">最大動能 (K<sub>max</sub>):</span> 
-                        <span id="maxKineticEnergy" class="text-slate-500 text-[18px]">0.00 eV (未激發)</span>
-                    </div>
-                    
-                    <div class="border-t border-slate-700/50 pt-8 mt-8 space-y-8">
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-300 text-[21px]">截止電壓 (V<sub>s</sub>):</span> 
-                            <span id="stoppingVoltage" class="font-bold text-[#ef4444] text-[22px]">0.00 V</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-300 text-[21px]">外加電壓 (V):</span> 
-                            <span id="currentAppliedVolts" class="font-bold text-[#eab308] text-[22px]">0.00 V</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 右側欄：控制項與畫布 -->
-        <div class="w-full bg-[#0f172a] border border-[#1e293b] rounded-lg shadow-lg flex flex-col p-6 relative flex-grow">
-            
-            <!-- 上方控制滑桿區 -->
-            <div class="flex justify-around items-center mb-8 pt-2">
-                <!-- 光強度控制 -->
-                <div class="flex flex-col items-center gap-4 w-72">
-                    <div class="flex items-baseline gap-4 classic-text">
-                        <span class="text-[#fde047] text-lg tracking-wider">入射光強度</span>
-                        <span id="intensityValue" class="text-3xl text-white">56 %</span>
-                    </div>
-                    <div class="w-full flex flex-col">
-                        <!-- 自訂粗細漸變的背景軌道與透明滑桿 -->
-                        <div class="w-full relative h-6 flex items-center">
-                            <div id="intensityTrackBg" class="absolute left-0 w-full h-3" style="clip-path: polygon(0 50%, 100% 0%, 100% 100%); background-color: rgb(255, 255, 0);"></div>
-                            <input type="range" id="intensitySlider" min="0" max="100" step="1" value="56" class="w-full absolute z-10 appearance-none bg-transparent">
-                        </div>
-                        <div class="flex justify-between text-[22px] w-full classic-text mt-1">
-                            <span id="labelWeak" style="color: rgb(255, 255, 0);">弱</span>
-                            <span id="labelStrong" style="color: rgb(255, 255, 0);">強</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 光頻率控制 -->
-                <div class="flex flex-col items-center gap-4 w-[28rem]">
-                    <div class="flex items-baseline gap-4 classic-text">
-                        <span class="text-[#fde047] text-lg tracking-wider">入射光頻率</span>
-                        <span id="frequencyValue" class="text-3xl text-white">740 THz</span>
-                        <span id="wavelengthValue" class="text-xl text-white ml-2">(波長 405 nm)</span>
-                    </div>
-                    <div class="w-full">
-                        <!-- 範圍改為 380 ~ 1000 THz，對應紅光到紫外線 -->
-                        <input type="range" id="frequencySlider" min="380" max="1000" step="1" value="740" class="w-full">
-                        <div class="flex justify-between text-[22px] text-white mt-3 classic-text w-full">
-                            <span>紅光</span>
-                            <span>紫外線</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 下方畫布區 -->
-            <div class="w-full flex-grow flex justify-center items-center">
-                <!-- 【方案一核心】：強制鎖定畫布的原始長寬比例 (1100 / 560)，內部改用絕對定位與百分比 -->
-                <div class="relative w-full max-w-[1100px]" style="aspect-ratio: 1100 / 560;">
-                    
-                    <!-- 畫布內部絕對定位：金屬材料選擇器與動能開關 -->
-                    <div class="absolute top-4 left-10 flex flex-col gap-4 z-10">
-                        <div class="flex items-center gap-3">
-                            <span class="classic-text text-[#fde047] text-[24px] tracking-wider">金屬材料(功函數)</span>
-                            <select id="metalSelect" class="text-[16px] py-1 px-2 cursor-pointer">
-                                <option value="2.3" selected>鈉 (2.3 eV)</option>
-                                <option value="4.3">鋅 (4.3 eV)</option>
-                                <option value="4.7">銅 (4.7 eV)</option>
-                                <option value="5.1">金 (5.1 eV)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- 區分電子動能的開關 -->
-                        <div class="flex items-center gap-3 ml-2">
-                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" name="toggle" id="keToggle" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-                                <label for="keToggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-                            </div>
-                            <label for="keToggle" class="classic-text text-[#f8fafc] text-[18px] cursor-pointer">區分電子動能</label>
-                        </div>
-                    </div>
-
-                    <!-- Canvas 緊貼這個鎖定比例的容器 -->
-                <canvas id="photoelectricCanvas" width="1100" height="560" class="absolute inset-0 w-full h-full"></canvas>
-
-                <!-- 畫布內部絕對定位：外加電壓滑桿 -->
-                <div class="absolute left-[30%] transform -translate-x-1/2 flex items-start z-10" style="top: 68%;">
-                    <span class="text-[#fde047] text-[22px] tracking-widest classic-text mr-5 whitespace-nowrap relative top-[-4px]">外加電壓</span>
-                    <div class="flex flex-col w-40">
-                        <input type="range" id="voltageSlider" min="-10" max="10" step="0.1" value="0.2" class="w-full">
-                            <div class="flex justify-between w-full mt-2 classic-text text-[20px]">
-                                <span class="text-[#ef4444]">逆向</span>
-                                <span class="text-[#3b82f6]">順向</span>
-                            </div>
-                        </div>
-                        <span id="voltageValueDisplayUI" class="hidden">0.0 V</span>
-                    </div>
-
-                </div>
-            </div>
-
-        </div>
+<header>
+  <h1>光電效應</h1>
+  <div class="tabs">
+    <button class="tab active" data-tab="1">① 古典預測 vs 實際現象</button>
+    <button class="tab" data-tab="2">② 光電效應實驗</button>
+    <button class="tab" data-tab="3">③ 密立坎驗證實驗</button>
+  </div>
+</header>
+<main>
+  <div id="viewport">
+    <div id="badge" class="classic">古典預測</div>
+    <div id="hint">拖曳旋轉・滾輪縮放</div>
+    <div id="credit">臺中二中 阿發老師 設計</div>
+    <div id="bigMeter">
+      <div class="bmCap">放大安培計</div>
+      <canvas id="bmCanvas"></canvas>
+      <div class="bmRange">
+        <button data-fs="60" class="on">60 μA</button><button data-fs="6">6 μA</button><button data-fs="0.6">0.6 μA</button>
+      </div>
+      <div class="bmCap" style="font-size:11px;color:#7d8ba3">量程（與左側安培計同步）</div>
+      <div id="bmCtrls"></div>
     </div>
+  </div>
+  <aside>
+    <!-- ===== 分頁一 ===== -->
+    <section class="panel active" id="panel1">
+      <div class="card">
+        <h3>觀點切換</h3>
+        <div class="seg">
+          <button id="mClassic" class="classic on">古典預測</button>
+          <button id="mActual" class="actual">實際現象</button>
+        </div>
+      </div>
+      <div class="card">
+        <button id="lightBtn" class="btn">開始照光</button>
+      </div>
+      <div class="card">
+        <h3>入射光</h3>
+        <div class="ctrl"><label><b>頻率</b><span class="val" id="f1v"></span></label>
+          <input type="range" id="f1" min="4" max="15" step="0.1" value="7.5"></div>
+        <div class="ctrl"><label><b>強度</b><span class="val" id="i1v"></span></label>
+          <input type="range" id="i1" min="0" max="100" step="1" value="50"></div>
+      </div>
+      <div class="card">
+        <h3>金屬</h3>
+        <select id="metal1"></select>
+      </div>
+      <div class="card"><p class="note" id="note1"></p></div>
+      <button id="reset1" class="btn">重置畫面</button>
+    </section>
 
-    <script>
-        const canvas = document.getElementById('photoelectricCanvas');
-        const ctx = canvas.getContext('2d');
+    <!-- ===== 分頁二 ===== -->
+    <section class="panel" id="panel2">
+      <div class="card">
+        <h3>電流－電壓關係圖</h3>
+        <canvas id="graph"></canvas>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="sweepBtn">自動掃描</button>
+          <button class="btn" id="saveBtn">保留曲線</button>
+          <button class="btn" id="clearBtn">清除</button>
+        </div>
+        <ul class="legend" id="legend"></ul>
+        <div class="readout">
+          <div class="ro"><span>外加電壓 V<sub>AK</sub></span><b id="roV"></b></div>
+          <div class="ro"><span>光電流 I</span><b id="roI"></b></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>控制</h3>
+        <div class="ctrl"><label><b>入射光頻率</b><span class="val" id="f2v"></span></label>
+          <input type="range" id="f2" min="4" max="15" step="0.1" value="7.5"></div>
+        <div class="ctrl"><label><b>入射光強度</b><span class="val" id="i2v"></span></label>
+          <input type="range" id="i2" min="0" max="100" step="1" value="60"></div>
+        <div class="ctrl"><label><b>外加電壓 V<sub>AK</sub></b><span class="val" id="v2v"></span></label>
+          <input type="range" id="v2" min="-5" max="5" step="0.05" value="2"></div>
+      </div>
+      <div class="card">
+        <h3>金屬（陰極）</h3>
+        <select id="metal2"></select>
+      </div>
+      <div class="card">
+        <label class="chk"><input type="checkbox" id="flowChk" checked>顯示外電路電子流</label>
+        <p class="note" style="margin-top:8px">V<sub>AK</sub> &gt; 0：陽極電位較高，電子被加速飛向陽極。<br>V<sub>AK</sub> &lt; 0：反向電壓，電子被減速，動能不足者折返陰極。</p>
+      </div>
+    </section>
 
-        // UI 元素綁定
-        const frequencySlider = document.getElementById('frequencySlider');
-        const frequencyValueDisplay = document.getElementById('frequencyValue');
-        const wavelengthValueDisplay = document.getElementById('wavelengthValue');
-        const intensitySlider = document.getElementById('intensitySlider');
-        const intensityValueDisplay = document.getElementById('intensityValue');
-        const metalSelect = document.getElementById('metalSelect');
-        const voltageSlider = document.getElementById('voltageSlider');
-        const keToggle = document.getElementById('keToggle');
-        
-        // 數據顯示面板綁定
-        const photonEnergyDisplay = document.getElementById('photonEnergy');
-        const workFunctionDisplay = document.getElementById('workFunction');
-        const maxKineticEnergyDisplay = document.getElementById('maxKineticEnergy');
-        const stoppingVoltageDisplay = document.getElementById('stoppingVoltage');
-        const voltageValueDisplayUI = document.getElementById('voltageValueDisplayUI');
-        const currentAppliedVoltsDisplay = document.getElementById('currentAppliedVolts');
+    <!-- ===== 分頁三 ===== -->
+    <section class="panel" id="panel3">
+      <div class="card">
+        <h3>模式</h3>
+        <div class="seg">
+          <button id="mode3Hands" class="classic on">動手實作</button>
+          <button id="mode3Demo" class="actual">自動示範</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>截止電壓－頻率關係圖</h3>
+        <canvas id="graph3"></canvas>
+        <div id="data3"></div>
+        <label class="chk demo-only" style="margin-top:8px"><input type="checkbox" id="fitChk">顯示擬合直線與計算結果</label>
+        <div id="fitOut" class="demo-only"></div>
+        <button class="btn" id="clear3Btn" style="margin-top:8px">清除數據</button>
+      </div>
+      <div class="card">
+        <h3>測量</h3>
+        <div class="readout" style="margin-top:0">
+          <div class="ro"><span>外加電壓 V<sub>AK</sub></span><b id="ro3V"></b></div>
+          <div class="ro demo-only"><span>光電流 I</span><b id="ro3I"></b></div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn demo-only" id="find3Btn">自動尋找截止電壓</button>
+          <button class="btn" id="rec3Btn">記錄截止電壓</button>
+          <button class="btn hands-only" id="res3Btn" style="display:none">查看結果</button>
+        </div>
+        <p class="note" id="msg3" style="margin-top:8px;min-height:1.6em"></p>
+      </div>
+      <div class="card">
+        <h3>控制</h3>
+        <div id="ctrlsFV3">
+        <div class="ctrl"><label><b>入射光頻率</b><span class="val" id="f3v"></span></label>
+          <input type="range" id="f3" min="4" max="15" step="0.1" value="7.5"></div>
+        <div class="ctrl"><label><b>反向電壓 V<sub>AK</sub></b><span class="val" id="v3v"></span></label>
+          <input type="range" id="v3" min="-5" max="0" step="0.01" value="0">
+          <div class="row" style="margin-top:6px">
+            <button class="btn" id="v3m">− 0.01 V</button>
+            <button class="btn" id="v3p">+ 0.01 V</button>
+          </div></div>
+        </div>
+        <div class="ctrl"><label><b>入射光強度</b><span class="val" id="i3v"></span></label>
+          <input type="range" id="i3" min="0" max="100" step="1" value="60"></div>
+      </div>
+      <div class="card">
+        <h3>金屬（陰極）</h3>
+        <select id="metal3"></select>
+      </div>
+      <div class="card">
+        <p class="note">愛因斯坦光電方程式：eV₀ = hf − W<br>⇒ V₀ = (h/e)·f − W/e<br>V₀–f 圖為一直線：<br>・斜率 = h/e（與金屬種類無關）<br>・橫軸截距 = 底限頻率 f₀<br>・縱軸截距 = −W/e<br>密立坎（1916）以此實驗驗證了愛因斯坦的光電方程式，並測得普朗克常數 h。</p>
+      </div>
+    </section>
+  </aside>
+</main>
+<div id="confirm3" class="modal"><div class="modal-box" style="max-width:360px">
+  <h2>清除數據</h2>
+  <p class="note" id="confirm3Text" style="font-size:15px;margin-bottom:14px"></p>
+  <div class="row">
+    <button class="btn" id="confirm3No">取消</button>
+    <button class="btn" id="confirm3Yes" style="background:#c8424a;border-color:#c8424a;font-weight:700">確定清除</button>
+  </div>
+</div></div>
+<div id="modal3" class="modal"><div class="modal-box">
+  <h2 id="m3Title"></h2>
+  <canvas id="m3Graph"></canvas>
+  <div style="font-size:12px;color:#9fb0c8;margin-top:6px">● 你的數據　━ 你的趨勢線　┅ 理論直線（灰色）</div>
+  <div id="m3Body"></div>
+  <div id="m3Msg"></div>
+  <button class="btn" id="m3Close">繼續實驗</button>
+</div></div>
 
-        // 物理常數
-        const h = 4.135667696e-15; 
-        const c = 2.99792458e8; 
-        const e = 1; 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ================= 共用 =================
+const H_EV = 4.135667e-15, C_LIGHT = 299792458;
+const METALS = [
+  {id:'Cs', name:'銫 Cs', W:2.14},
+  {id:'Na', name:'鈉 Na', W:2.28},
+  {id:'K',  name:'鉀 K',  W:2.30},
+  {id:'Ca', name:'鈣 Ca', W:2.87},
+  {id:'Zn', name:'鋅 Zn', W:4.33}
+];
+const photonEV = f14 => H_EV * f14 * 1e14;              // 光子能量 (eV)
+const lambdaNm = f14 => C_LIGHT / (f14 * 1e14) * 1e9;   // 波長 (nm)
 
-        // 模擬狀態
-        let frequency = 0, intensity = 0, workFunction = 0;
-        let photonEnergy = 0, maxKineticEnergy = 0, stoppingVoltage = 0, wavelength = 0;
-        let appliedVoltage = 0; 
-        let distinguishKE = false;
+function wlRGB(nm){
+  if (nm < 380) return [0.66, 0.58, 0.92];              // 紫外光（不可見）以淡紫灰表示
+  let r, g, b;
+  if (nm < 440){ r = -(nm-440)/60; g = 0; b = 1; }
+  else if (nm < 490){ r = 0; g = (nm-440)/50; b = 1; }
+  else if (nm < 510){ r = 0; g = 1; b = -(nm-510)/20; }
+  else if (nm < 580){ r = (nm-510)/70; g = 1; b = 0; }
+  else if (nm < 645){ r = 1; g = -(nm-645)/65; b = 0; }
+  else { r = 1; g = 0; b = 0; }
+  let fac = 1;
+  if (nm < 420) fac = 0.6 + 0.4*(nm-380)/40;
+  else if (nm > 700) fac = 0.6 + 0.4*(780-nm)/80;
+  return [r*fac, g*fac, b*fac];
+}
+const wlColor = nm => new THREE.Color().fromArray(wlRGB(nm));
+const wlCss = nm => { const [r,g,b] = wlRGB(nm); return `rgb(${Math.round(r*255)},${Math.round(g*255)},${Math.round(b*255)})`; };
 
-        let electrons = [];
-        let photons = [];
-        
-        let lastTime = 0;
-        let photonAccumulator = 0;
+function freqLabel(f){
+  const nm = lambdaNm(f);
+  const tag = nm < 380 ? '（紫外光）' : '';
+  return `<span class="sw" style="background:${wlCss(nm)}"></span>${f.toFixed(1)}×10¹⁴ Hz｜λ≈${Math.round(nm)} nm${tag}`;
+}
 
-        // --- 畫布座標設定 ---
-        const tubeX = 120; 
-        const tubeY = 160;
-        const tubeWidth = 420;
-        const tubeHeight = 180;
-        
-        const plateHeight = 150;
-        const plateY = tubeY + (tubeHeight - plateHeight) / 2; 
+function fillMetal(sel, showW){
+  METALS.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.W;
+    o.textContent = showW ? `${m.name}（W = ${m.W.toFixed(2)} eV）` : m.name;
+    if (m.id === 'Na') o.selected = true;
+    sel.appendChild(o);
+  });
+}
 
-        // 左邊金屬板 (陰極)
-        const cathodeWidth = 10;
-        const cathodeX = tubeX + 20;   
-        const cathodeInnerX = cathodeX + cathodeWidth; 
-        
-        // 右邊金屬板 (陽極)
-        const anodeWidth = 10;
-        const anodeX = tubeX + tubeWidth - 20 - anodeWidth; 
-        
-        const sourceX = 650; 
-        const sourceY = 60;
-        
-        // 底部電路水平線高度
-        const circuitWireY = 470;
+function makeTextSprite(text, o = {}){
+  const size = o.size || 56, color = o.color || '#fff';
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  const font = `700 ${size}px "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif`;
+  x.font = font;
+  const w = Math.ceil(x.measureText(text).width + size*0.7), h = Math.ceil(size*1.45);
+  c.width = w; c.height = h;
+  x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';
+  if (o.stroke){ x.lineJoin = 'round'; x.lineWidth = size*0.16; x.strokeStyle = o.stroke; x.strokeText(text, w/2, h/2+2); }
+  x.fillStyle = color; x.fillText(text, w/2, h/2+2);
+  const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false, depthWrite:false}));
+  const s = o.scale || 1; sp.scale.set(s*w/h, s, 1); sp.renderOrder = 20;
+  return sp;
+}
 
-        function calculatePhysics() {
-            frequency = parseFloat(frequencySlider.value);
-            intensity = parseFloat(intensitySlider.value);
-            workFunction = parseFloat(metalSelect.value);
-            appliedVoltage = parseFloat(voltageSlider.value);
+function makeElectronTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(46,42,6,64,64,60);
+  g.addColorStop(0,'#ffffc0'); g.addColorStop(0.55,'#f0e000'); g.addColorStop(1,'#9c8a00');
+  x.fillStyle = g; x.beginPath(); x.arc(64,64,58,0,Math.PI*2); x.fill();
+  x.lineWidth = 4; x.strokeStyle = '#3a3300'; x.stroke();
+  x.fillStyle = '#111'; x.fillRect(34,59,60,10);
+  const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; return t;
+}
+function makeGlowTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.3,'rgba(255,255,255,0.55)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(c);
+}
+const eTex = makeElectronTexture(), glowTex = makeGlowTexture();
+const eMat = new THREE.SpriteMaterial({map:eTex, transparent:true});
 
-            wavelength = (c / (frequency * 1e12)) * 1e9;
-            photonEnergy = h * frequency * 1e12;
-            maxKineticEnergy = Math.max(0, photonEnergy - workFunction);
-            stoppingVoltage = maxKineticEnergy / e; 
+const vp = document.getElementById('viewport');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.localClippingEnabled = true;          // 供分頁二光束以板面裁切
+vp.insertBefore(renderer.domElement, vp.firstChild);
+const clock = new THREE.Clock();
+let T = 0, active = 1;
 
-            frequencyValueDisplay.textContent = `${frequency} THz`;
-            wavelengthValueDisplay.textContent = `(波長 ${wavelength.toFixed(0)} nm)`;
-            intensityValueDisplay.textContent = `${intensity} %`;
-            voltageValueDisplayUI.textContent = `${appliedVoltage.toFixed(1)} V`;
-            
-            photonEnergyDisplay.textContent = `${photonEnergy.toFixed(2)} eV`;
-            workFunctionDisplay.textContent = `${workFunction.toFixed(2)} eV`;
-            currentAppliedVoltsDisplay.textContent = `${appliedVoltage.toFixed(2)} V`;
-            
-            if (maxKineticEnergy > 0.005) {
-                maxKineticEnergyDisplay.innerHTML = `${maxKineticEnergy.toFixed(2)} eV`;
-                maxKineticEnergyDisplay.className = 'font-bold text-[#4ade80] text-[22px]';
-                stoppingVoltageDisplay.innerHTML = `${stoppingVoltage.toFixed(2)} V`;
-            } else {
-                maxKineticEnergyDisplay.innerHTML = `0.00 eV (未激發)`;
-                maxKineticEnergyDisplay.className = 'font-medium text-slate-500 text-[18px]';
-                stoppingVoltageDisplay.innerHTML = `0.00 V`;
-            }
+function addLights(scene){
+  scene.add(new THREE.HemisphereLight(0xdde6ff, 0x223044, 0.75));
+  const d = new THREE.DirectionalLight(0xffffff, 0.75); d.position.set(6,14,10); scene.add(d);
+}
 
-            // 更新強度滑桿與文字的顏色
-            const colorObj = wavelengthToColor(wavelength, 250); 
-            document.getElementById('intensityTrackBg').style.backgroundColor = colorObj.solid;
-            document.getElementById('labelWeak').style.color = colorObj.solid;
-            document.getElementById('labelStrong').style.color = colorObj.solid;
-        }
+// ================= 分頁一：古典 vs 實際 =================
+const S1 = new THREE.Scene(); S1.background = new THREE.Color(0x0d1525);
+const cam1 = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
+const CAM1_POS = new THREE.Vector3(-5, 10, 19), CAM1_TGT = new THREE.Vector3(0.5, 2.5, 0);
+cam1.position.copy(CAM1_POS);
+const ctl1 = new THREE.OrbitControls(cam1, renderer.domElement);
+ctl1.target.copy(CAM1_TGT); ctl1.enableDamping = true; ctl1.maxPolarAngle = Math.PI*0.49; ctl1.minDistance = 8; ctl1.maxDistance = 50;
+addLights(S1);
 
-        function wavelengthToColor(wavelength, intensity) {
-            let r, g, b;
-            if (wavelength >= 380 && wavelength < 440) {
-                r = -(wavelength - 440) / (440 - 380); g = 0; b = 1;
-            } else if (wavelength >= 440 && wavelength < 490) {
-                r = 0; g = (wavelength - 440) / (490 - 440); b = 1;
-            } else if (wavelength >= 490 && wavelength < 510) {
-                r = 0; g = 1; b = -(wavelength - 510) / (510 - 490);
-            } else if (wavelength >= 510 && wavelength < 580) {
-                r = (wavelength - 510) / (580 - 510); g = 1; b = 0;
-            } else if (wavelength >= 580 && wavelength < 645) {
-                r = 1; g = -(wavelength - 645) / (645 - 580); b = 0;
-            } else if (wavelength >= 645 && wavelength <= 750) {
-                r = 1; g = 0; b = 0;
-            } else if (wavelength < 380) {
-                r = 0.5; g = 0.5; b = 0.5; 
-            } else {
-                r = 1.0; g = 0.3; b = 0.3; 
-            }
-            
-            let a = intensity / 250; 
-            if (wavelength < 380 || wavelength > 750) a *= 0.35; 
-            
-            return {
-                fill: `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`,
-                solid: `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`
-            };
-        }
+const plate = new THREE.Mesh(new THREE.BoxGeometry(16,0.5,10), new THREE.MeshStandardMaterial({color:0xa3a9b3, metalness:0.55, roughness:0.4}));
+plate.position.y = -0.25; S1.add(plate);
+const plateEdge = new THREE.LineSegments(new THREE.EdgesGeometry(plate.geometry), new THREE.LineBasicMaterial({color:0x1a1f28}));
+plateEdge.position.copy(plate.position); S1.add(plateEdge);
 
-        class Electron {
-            constructor(x, y, ke) {
-                this.x = x;
-                this.y = y;
-                this.radius = 3;
-                
-                // 決定電子顏色
-                this.originalKE = ke; // 記錄原始動能以便重新著色
-                this.setColor();
-                
-                this.vx = Math.sqrt(ke) * 2.5; 
-                this.vy = (Math.random() - 0.5) * (this.vx * 0.3); 
-                this.active = true;
-            }
-            
-            setColor() {
-                if (distinguishKE && maxKineticEnergy > 0) {
-                    // 將動能比例映射到顏色：#00FFFF(低動能) -> #FF66FF(高動能)
-                    const ratio = Math.min(1, Math.max(0, this.originalKE / maxKineticEnergy));
-                    const r = Math.round(ratio * 255);
-                    const g = Math.round(255 - ratio * 153); // 255 漸變到 102 (即 hex 66)
-                    const b = 255; 
-                    this.color = `rgb(${r}, ${g}, ${b})`;
-                } else {
-                    this.color = '#FFFFFF';
-                }
-            }
+// 入射光束
+const SC = new THREE.Vector3(2.2, 0, 0.2);
+const ALPHA = THREE.MathUtils.degToRad(35);
+const U = new THREE.Vector3(Math.sin(ALPHA), Math.cos(ALPHA), 0);   // 由光點指向光源
+const BL = 13, BR = 3.0;
+const EXT = BR*Math.tan(ALPHA) + 0.15;                              // 光束下緣延伸到板內，避免空隙
+const beamMat = new THREE.ShaderMaterial({
+  uniforms:{ uColor:{value:new THREE.Color()}, uOpacity:{value:0.3}, uTime:{value:0}, uWave:{value:1}, uK:{value:20} },
+  vertexShader:`#include <clipping_planes_pars_vertex>
+    varying vec2 vUv; void main(){ vUv = uv; vec4 mvPosition = modelViewMatrix*vec4(position,1.0); gl_Position = projectionMatrix*mvPosition;
+      #include <clipping_planes_vertex>
+    }`,
+  fragmentShader:`#include <clipping_planes_pars_fragment>
+    uniform vec3 uColor; uniform float uOpacity; uniform float uTime; uniform float uWave; uniform float uK; varying vec2 vUv;
+    void main(){
+      #include <clipping_planes_fragment>
+      float band = mix(1.0, 0.35 + 0.65*(0.5+0.5*sin(uK*(vUv.y + uTime*0.1))), uWave);
+      gl_FragColor = vec4(uColor, uOpacity*band); }`,
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
+  clipping:true, clippingPlanes:[new THREE.Plane(new THREE.Vector3(0,1,0), 0)]   // 只保留金屬板面以上的光束
+});
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(BR, BR, BL+EXT, 48, 1, true), beamMat);
+{ const top = SC.clone().addScaledVector(U, BL), bot = SC.clone().addScaledVector(U, -EXT);
+  beam.position.copy(top).add(bot).multiplyScalar(0.5);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), U); }
+S1.add(beam);
 
-            update() {
-                // 精確計算加速度，確保當 appliedVoltage = -Vstop 時，具備最大動能的電子恰好在抵達陽極前速度歸零
-                const travelDist = anodeX - this.radius - cathodeInnerX;
-                const acceleration = appliedVoltage * (Math.pow(2.5, 2) / (2 * travelDist));
-                
-                this.vx += acceleration;
-                this.x += this.vx;
-                this.y += this.vy;
+const RX = BR/Math.cos(ALPHA), RZ = BR;
+const spot = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.5, depthWrite:false}));
+spot.rotation.x = -Math.PI/2; spot.scale.set(RX, RZ, 1); spot.position.set(SC.x, 0.012, SC.z); S1.add(spot);
 
-                if (this.x >= anodeX - this.radius) {
-                    this.active = false; 
-                } else if (this.x <= cathodeInnerX + this.radius && this.vx < 0) {
-                    this.active = false; 
-                } else if (this.y < tubeY || this.y > tubeY + tubeHeight) {
-                    this.active = false; 
-                }
-            }
+{ const a = makeTextSprite('入射光', {size:64, color:'#ffffff', stroke:'#000000', scale:1.1});
+  a.position.copy(SC).addScaledVector(U, 9.5).add(new THREE.Vector3(-5.6, 0, 0)); S1.add(a);
+  const b = makeTextSprite('金屬表面', {color:'#9fd0ff', stroke:'#0a1830', scale:0.9}); b.position.set(5.2, 0.5, 4.3); S1.add(b);
+  const c = makeTextSprite('電子', {color:'#ffc430', stroke:'#2a1a00', scale:0.9}); c.position.set(SC.x-RX-1.4, 0.6, SC.z+1.8); S1.add(c); }
 
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.closePath();
-            }
-        }
+// 光子（實際模式）
+let photonGeom = null, photonGeomF = -1;
+const photonMat = new THREE.MeshBasicMaterial({color:0xffffff});
+const glowMat = new THREE.SpriteMaterial({map:glowTex, color:0xffffff, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false});
+const PHOTON_Q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), U.clone().negate());
+function buildPhotonGeom(f){
+  const lv = 0.36*7.5/f, pts = [];
+  for (let i = 0; i <= 80; i++){
+    const z = -1 + 2*i/80, env = Math.exp(-(z*z)/(0.45*0.45));
+    pts.push(new THREE.Vector3(0.2*env*Math.sin(2*Math.PI*z/lv), 0, z));
+  }
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.035, 6, false);
+}
 
-        class Photon {
-            constructor(x, y, targetX, targetY, color) {
-                this.x = x;
-                this.y = y;
-                this.targetX = targetX; 
-                this.targetY = targetY;
-                this.radius = 2.5;
-                this.color = color;
-                this.speed = 8;
-                this.active = true;
-                
-                const dx = targetX - x;
-                const dy = targetY - y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                this.vx = (dx / dist) * this.speed;
-                this.vy = (dy / dist) * this.speed;
-            }
+const st1 = {mode:'classic', light:false, f:7.5, I:50, W:2.28};
+const E_SIZE = 0.62, E_Y = E_SIZE/2 + 0.02, BAR_W = 0.9, BAR_H = 0.13, N_SURF = 9;
+const T100 = 2.5;                  // 古典模式：強度 100% 時（鈉）累積到逸出所需秒數（示意加速）
+const PH_L = 12, PH_SPEED = 11;
+const barBgMat = new THREE.SpriteMaterial({color:0x0a0f18, transparent:true, opacity:0.85, depthTest:false, depthWrite:false});
+let surf = [], flying = [], photons = [], flashes = [], spawnQ = [], phAcc = 0;
 
-            update() {
-                if (this.x + this.vx <= this.targetX) {
-                    this.active = false;
-                    if (maxKineticEnergy > 0) {
-                        const ke = Math.random() * maxKineticEnergy; 
-                        electrons.push(new Electron(this.targetX, this.y, ke));
-                    }
-                } else {
-                    this.x += this.vx;
-                    this.y += this.vy;
-                }
-            }
+function randomSpotPoint(k = 0.82){
+  let u, v; do { u = Math.random()*2-1; v = Math.random()*2-1; } while (u*u + v*v > 1);
+  return new THREE.Vector3(SC.x + u*RX*k, E_Y, SC.z + v*RZ*k);
+}
+function randomFreePoint(){
+  let best = null, bd = -1;
+  for (let i = 0; i < 30; i++){
+    const p = randomSpotPoint(); let md = 1e9;
+    surf.forEach(e => { md = Math.min(md, e.base.distanceTo(p)); });
+    if (md > bd){ bd = md; best = p; }
+    if (md > 0.85) break;
+  }
+  return best;
+}
+function createSurfElectron(pos, appear){
+  const sp = new THREE.Sprite(eMat); sp.position.copy(pos);
+  const bg = new THREE.Sprite(barBgMat); bg.scale.set(BAR_W, BAR_H, 1); bg.renderOrder = 5;
+  const fill = new THREE.Sprite(new THREE.SpriteMaterial({color:0x5cff7a, depthTest:false, depthWrite:false})); fill.renderOrder = 6;
+  S1.add(sp, bg, fill);
+  const e = {sp, bg, fill, base:pos.clone(), energy:Math.random()*0.15, targeted:false, grow:appear ? 0 : 1, jig:0, phase:Math.random()*6.283};
+  sp.scale.setScalar(E_SIZE*Math.max(0.02, e.grow));
+  surf.push(e);
+  return e;
+}
+function emitSurf(e, speed){
+  const i = surf.indexOf(e); if (i < 0) return;
+  surf.splice(i, 1);
+  S1.remove(e.bg, e.fill); e.fill.material.dispose();
+  const th = THREE.MathUtils.degToRad(12 + Math.random()*48), ph = Math.PI + (Math.random()-0.5)*2.4;
+  const dir = new THREE.Vector3(Math.sin(th)*Math.cos(ph), Math.cos(th), Math.sin(th)*Math.sin(ph));
+  e.sp.position.copy(e.base);
+  const arrow = new THREE.ArrowHelper(dir, e.sp.position.clone(), Math.max(0.35, 0.55*speed), 0xffffff, 0.28, 0.17);
+  S1.add(arrow);
+  flying.push({sp:e.sp, vel:dir.multiplyScalar(speed), arrow});
+  spawnQ.push(T + 0.35 + Math.random()*0.6);
+}
+const vClassic = () => 4.8*Math.sqrt(st1.I/100)*(0.92 + 0.16*Math.random());     // 古典：越強越快
+const vActual = () => { const K = (photonEV(st1.f) - st1.W)*(0.55 + 0.45*Math.random()); return 2.2*Math.sqrt(K); }; // 實際：由頻率決定
 
-            draw() {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.closePath();
-            }
-        }
+function spawnPhoton(s0 = 0){
+  const idle = surf.filter(e => !e.targeted && e.grow >= 1);
+  let target = null, tp;
+  if (idle.length){ target = idle[Math.floor(Math.random()*idle.length)]; target.targeted = true; tp = target.base.clone(); }
+  else tp = randomSpotPoint();
+  const start = tp.clone().addScaledVector(U, PH_L);
+  const g = new THREE.Group();
+  const mesh = new THREE.Mesh(photonGeom, photonMat);
+  const glow = new THREE.Sprite(glowMat); glow.scale.setScalar(0.9);
+  g.add(mesh, glow); g.quaternion.copy(PHOTON_Q); S1.add(g);
+  const p = {g, mesh, start, tp, target, s:s0};
+  g.position.copy(start).addScaledVector(U, -s0);
+  photons.push(p);
+}
+function addFlash(pos){
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex, color:glowMat.color.clone(), transparent:true, blending:THREE.AdditiveBlending, depthWrite:false}));
+  sp.position.copy(pos); sp.scale.setScalar(0.6); S1.add(sp);
+  flashes.push({sp, t:0});
+}
+function clearScene1(){
+  flying.forEach(o => S1.remove(o.sp, o.arrow)); flying = [];
+  photons.forEach(p => S1.remove(p.g)); photons = [];
+  flashes.forEach(f => { S1.remove(f.sp); f.sp.material.dispose(); }); flashes = [];
+  surf.forEach(e => { S1.remove(e.sp, e.bg, e.fill); e.fill.material.dispose(); }); surf = [];
+  spawnQ = []; phAcc = 0;
+  for (let i = 0; i < N_SURF; i++) createSurfElectron(randomFreePoint(), false);
+}
+function prefillPhotons(){
+  const n = Math.round(14*st1.I/100 * PH_L/PH_SPEED);
+  for (let i = 0; i < n; i++) spawnPhoton(Math.random()*PH_L);
+}
 
-        function drawCircuitAndBattery() {
-            const centerX = tubeX + tubeWidth / 2;
-            
-            // 計算電路中的動態電流大小以決定燈泡亮度
-            let currentI = 0;
-            if (maxKineticEnergy > 0 && intensity > 0) {
-                if (appliedVoltage >= -stoppingVoltage) {
-                    const iSat = intensity * 1.5;
-                    currentI = iSat * (1 - Math.exp(-(appliedVoltage + stoppingVoltage) * 2.5));
-                }
-            }
-            // 飽和電流最大值為 100 * 1.5 = 150，換算為 0~1 的亮度
-            let bulbBrightness = Math.min(1, Math.max(0, currentI / 150));
-            // 使用非線性曲線，讓小電流時視覺更明顯
-            const visualBrightness = Math.pow(bulbBrightness, 0.4);
+function updateLight1(){
+  const nm = lambdaNm(st1.f), col = wlColor(nm), k = st1.I/100;
+  beamMat.uniforms.uColor.value.copy(col);
+  beamMat.uniforms.uK.value = 2*Math.PI*2.6*st1.f;
+  if (st1.mode === 'classic'){ beamMat.uniforms.uWave.value = 1; beamMat.uniforms.uOpacity.value = k > 0 ? 0.06 + 0.5*k : 0; }
+  else { beamMat.uniforms.uWave.value = 0; beamMat.uniforms.uOpacity.value = k > 0 ? 0.035 + 0.1*k : 0; }
+  spot.material.color.copy(col); spot.material.opacity = k > 0 ? 0.18 + 0.45*k : 0;
+  const bright = col.clone().lerp(new THREE.Color(1,1,1), 0.35);
+  photonMat.color.copy(bright); glowMat.color.copy(bright);
+  if (Math.abs(photonGeomF - st1.f) > 1e-6){
+    const old = photonGeom; photonGeom = buildPhotonGeom(st1.f); photonGeomF = st1.f;
+    photons.forEach(p => p.mesh.geometry = photonGeom);
+    if (old) old.dispose();
+  }
+}
 
-            // 燈泡 x 座標
-            const wireX = tubeX - 62; 
-            const bulbY = (plateY + plateHeight / 2 + circuitWireY) / 2;
-            // 垂直導線的 x 座標 (維持在原來位置)
-            const circuitWireX = tubeX - 40; 
+const NOTE_CLASSIC = '<b style="color:#ffc46b">古典觀點：</b>光是連續的電磁波，能量均勻分布在波前上。電子必須持續吸收能量，累積到足以掙脫金屬的束縛才能飛出。<br><b>由此預測：</b>任何頻率的光都能打出電子；光越弱，要等越久；光越強，電子飛得越快。<br><span style="color:#8a99b2;font-size:12.5px">（能量累積時間為示意加速）</span>';
+const NOTE_ACTUAL = '<b style="color:#8fd2ff">實際現象：</b>光由一顆顆光子組成，每顆光子能量 E = hf，一顆光子只能把能量交給一個電子。<br><b>實驗觀察：</b>頻率低於底限頻率時，光再強也打不出電子；一照光就立即有電子飛出；光越強，飛出的電子越多，但電子的最大速率只由頻率決定。';
 
-            ctx.strokeStyle = '#FFC000'; 
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            
-            // 左側陰極走線 (上段接至垂直導線)
-            ctx.moveTo(cathodeX + cathodeWidth/2, plateY + plateHeight / 2);
-            ctx.lineTo(circuitWireX, plateY + plateHeight / 2);
-            ctx.lineTo(circuitWireX, bulbY - 10);
-            
-            // 左側陰極走線 (下段由垂直導線接出)
-            ctx.moveTo(circuitWireX, bulbY + 10);
-            ctx.lineTo(circuitWireX, circuitWireY);
-            ctx.lineTo(centerX - 40, circuitWireY);
-            
-            // 右側陽極走線
-            ctx.moveTo(anodeX + anodeWidth/2, plateY + plateHeight / 2);
-            ctx.lineTo(tubeX + tubeWidth + 40, plateY + plateHeight / 2);
-            ctx.lineTo(tubeX + tubeWidth + 40, circuitWireY);
-            ctx.lineTo(centerX + 40, circuitWireY);
-            ctx.stroke();
+function updateMode1(){
+  const c = st1.mode === 'classic';
+  document.getElementById('mClassic').classList.toggle('on', c);
+  document.getElementById('mActual').classList.toggle('on', !c);
+  const badge = document.getElementById('badge');
+  badge.textContent = c ? '古典預測' : '實際現象';
+  badge.className = c ? 'classic' : 'actual';
+  document.getElementById('note1').innerHTML = c ? NOTE_CLASSIC : NOTE_ACTUAL;
+  clearScene1(); updateLight1();
+  if (!c && st1.light && st1.I > 0) prefillPhotons();
+}
 
-            // 繪製指示燈泡 (向左旋轉 90 度，中心點定位於 wireX)
-            ctx.save();
-            ctx.translate(wireX, bulbY);
-            ctx.rotate(-Math.PI / 2);
+function update1(dt){
+  const on = st1.light && st1.I > 0;
+  beam.visible = spot.visible = st1.light;
+  beamMat.uniforms.uTime.value = T;
 
-            // 1. 玻璃泡內部背景
-            ctx.beginPath();
-            ctx.arc(0, 0, 20, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-            ctx.fill();
+  for (let i = spawnQ.length-1; i >= 0; i--)
+    if (T >= spawnQ[i]){ spawnQ.splice(i,1); if (surf.length < N_SURF) createSurfElectron(randomFreePoint(), true); }
 
-            // 2. 燈泡光暈 (發光效果)
-            if (visualBrightness > 0) {
-                ctx.beginPath();
-                ctx.arc(0, 0, 20, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(253, 224, 71, ${visualBrightness})`; // yellow-300
-                ctx.fill();
-                ctx.shadowBlur = 15 * visualBrightness;
-                ctx.shadowColor = '#fde047';
-                ctx.fill();
-                ctx.shadowBlur = 0;
-            }
+  if (st1.mode === 'classic'){
+    const rate = on ? (st1.I/100)/T100*(2.28/st1.W) : 0;   // 吸收功率 ∝ 強度，與頻率無關
+    for (const e of surf.slice()){
+      if (e.grow < 1) continue;
+      e.energy += rate*dt;
+      if (e.energy >= 1) emitSurf(e, vClassic());
+    }
+  } else {
+    if (on){ phAcc += dt*14*st1.I/100; while (phAcc >= 1){ phAcc -= 1; spawnPhoton(); } }
+    else phAcc = 0;
+  }
 
-            // 3. 玻璃泡外殼
-            ctx.beginPath();
-            ctx.arc(0, 0, 20, 0, Math.PI * 2);
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+  for (let i = photons.length-1; i >= 0; i--){
+    const p = photons[i];
+    p.s += PH_SPEED*dt;
+    p.g.position.copy(p.start).addScaledVector(U, -p.s);
+    if (p.s >= PH_L){
+      S1.remove(p.g); photons.splice(i,1); addFlash(p.tp);
+      const e = p.target;
+      if (e && surf.includes(e)){
+        e.targeted = false;
+        if (photonEV(st1.f) > st1.W) emitSurf(e, vActual());
+        else e.jig = 0.35;            // 能量不足：電子只輕微晃動，無法逸出
+      }
+    }
+  }
 
-            // 4. 鎢絲 (M字型)
-            ctx.beginPath();
-            ctx.moveTo(-6, 10);
-            ctx.lineTo(-4, -5);
-            ctx.lineTo(0, -10);
-            ctx.lineTo(4, -5);
-            ctx.lineTo(6, 10);
-            ctx.strokeStyle = bulbBrightness > 0 ? '#fef08a' : '#64748b'; 
-            ctx.lineWidth = 2;
-            ctx.stroke();
+  for (let i = flashes.length-1; i >= 0; i--){
+    const f = flashes[i]; f.t += dt;
+    const k = f.t/0.3;
+    f.sp.scale.setScalar(0.6 + 0.9*k); f.sp.material.opacity = Math.max(0, 1-k);
+    if (k >= 1){ S1.remove(f.sp); f.sp.material.dispose(); flashes.splice(i,1); }
+  }
 
-            // 5. 燈泡底座 (連結到導線)
-            // 將底座稍微畫大一點點連接到電路導線上
-            ctx.fillStyle = '#64748b';
-            ctx.fillRect(-10, 18, 20, 12);
-            ctx.strokeStyle = '#475569';
-            ctx.strokeRect(-10, 18, 20, 12);
-            
-            ctx.restore();
+  for (let i = flying.length-1; i >= 0; i--){
+    const o = flying[i];
+    o.sp.position.addScaledVector(o.vel, dt);
+    o.arrow.position.copy(o.sp.position);
+    if (o.sp.position.distanceTo(SC) > 20){ S1.remove(o.sp, o.arrow); flying.splice(i,1); }
+  }
 
-            // 垂直文字「燈泡」
-            ctx.fillStyle = '#f8fafc';
-            ctx.font = '20px "Times New Roman", PMingLiU, serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('燈', wireX - 35, bulbY - 12);
-            ctx.fillText('泡', wireX - 35, bulbY + 12);
+  const showBar = st1.mode === 'classic';
+  for (const e of surf){
+    e.grow = Math.min(1, e.grow + dt/0.3);
+    e.sp.scale.setScalar(E_SIZE*Math.max(0.02, e.grow));
+    const p = e.sp.position.copy(e.base);
+    if (showBar && on){ const a = 0.025 + 0.085*Math.sqrt(st1.I/100); p.z += a*Math.sin(T*30 + e.phase); }
+    if (e.jig > 0){ e.jig -= dt; p.x += 0.08*Math.sin(T*70)*(Math.max(e.jig,0)/0.35); }
+    e.bg.visible = showBar && e.grow >= 1;
+    const fr = Math.min(1, e.energy);
+    e.fill.visible = e.bg.visible && fr > 0.01;
+    e.bg.position.copy(e.base).add(new THREE.Vector3(0, 0.62, 0));
+    e.fill.position.copy(e.bg.position);
+    if (e.fill.visible){
+      e.fill.scale.set(BAR_W*fr, BAR_H*0.7, 1);
+      e.fill.center.set(1/(2*fr), 0.5);
+      e.fill.material.color.setHSL(0.33*(1-fr), 0.9, 0.55);
+    }
+  }
+}
 
-            // 繪製中央電池
-            ctx.beginPath();
-            ctx.strokeStyle = '#FFFFFF'; 
-            if (Math.abs(appliedVoltage) > 0.05) {
-                const isForward = appliedVoltage > 0;
-                
-                ctx.strokeStyle = '#FFC000';
-                ctx.moveTo(centerX - 40, circuitWireY);
-                ctx.lineTo(centerX - 6, circuitWireY);
-                ctx.stroke();
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX + 40, circuitWireY);
-                ctx.lineTo(centerX + 6, circuitWireY);
-                ctx.stroke();
+// 分頁一控制
+fillMetal(document.getElementById('metal1'), false);
+document.getElementById('mClassic').onclick = () => { if (st1.mode !== 'classic'){ st1.mode = 'classic'; updateMode1(); } };
+document.getElementById('mActual').onclick = () => { if (st1.mode !== 'actual'){ st1.mode = 'actual'; updateMode1(); } };
+const lightBtn = document.getElementById('lightBtn');
+lightBtn.onclick = () => {
+  st1.light = !st1.light;
+  lightBtn.textContent = st1.light ? '停止照光' : '開始照光';
+  lightBtn.classList.toggle('light-on', st1.light);
+  if (st1.light && st1.mode === 'actual' && st1.I > 0) prefillPhotons();
+};
+const f1 = document.getElementById('f1'), i1 = document.getElementById('i1');
+function readSliders1(){
+  st1.f = +f1.value; st1.I = +i1.value;
+  document.getElementById('f1v').innerHTML = freqLabel(st1.f);
+  document.getElementById('i1v').textContent = st1.I + ' %';
+  updateLight1();
+}
+f1.oninput = readSliders1; i1.oninput = readSliders1;
+document.getElementById('metal1').onchange = e => { st1.W = +e.target.value; };
+document.getElementById('reset1').onclick = () => {
+  clearScene1(); cam1.position.copy(CAM1_POS); ctl1.target.copy(CAM1_TGT); fitCam(cam1, ctl1, 9, 20);
+  if (st1.light && st1.mode === 'actual' && st1.I > 0) prefillPhotons();
+};
 
-                ctx.strokeStyle = '#FFFFFF';
-                if (isForward) {
-                    ctx.beginPath(); ctx.lineWidth = 7;
-                    ctx.moveTo(centerX - 6, circuitWireY - 14); ctx.lineTo(centerX - 6, circuitWireY + 14);
-                    ctx.stroke();
-                    ctx.beginPath(); ctx.lineWidth = 2.5;
-                    ctx.moveTo(centerX + 6, circuitWireY - 26); ctx.lineTo(centerX + 6, circuitWireY + 26);
-                    ctx.stroke();
-                } else {
-                    ctx.beginPath(); ctx.lineWidth = 2.5;
-                    ctx.moveTo(centerX - 6, circuitWireY - 26); ctx.lineTo(centerX - 6, circuitWireY + 26);
-                    ctx.stroke();
-                    ctx.beginPath(); ctx.lineWidth = 7;
-                    ctx.moveTo(centerX + 6, circuitWireY - 14); ctx.lineTo(centerX + 6, circuitWireY + 14);
-                    ctx.stroke();
-                }
-            } else {
-                ctx.beginPath();
-                ctx.moveTo(centerX - 40, circuitWireY);
-                ctx.lineTo(centerX + 40, circuitWireY);
-                ctx.stroke();
-            }
+// ================= 分頁二：光電效應實驗電路 =================
+const S2 = new THREE.Scene(); S2.background = new THREE.Color(0x0d1525);
+const cam2 = new THREE.PerspectiveCamera(42, 1, 0.1, 300);
+cam2.position.set(0, 4.5, 24);
+const ctl2 = new THREE.OrbitControls(cam2, renderer.domElement);
+ctl2.target.set(0, 2.6, 0); ctl2.enableDamping = true; ctl2.minDistance = 8; ctl2.maxDistance = 60; ctl2.enabled = false;
+addLights(S2);
 
-            ctx.fillStyle = '#f8fafc'; 
-            ctx.font = '22px "Times New Roman", PMingLiU, serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(`${appliedVoltage.toFixed(1)} V`, centerX, circuitWireY + 45);
-        }
+const TC = new THREE.Vector3(0, 4.4, 0);
+const TUBE_R = 1.6, TUBE_HALF = 4.0;                 // 玻璃管半徑、圓柱段半長
+const XK = -3.6, XA = 3.6, PLATE_T = 0.16;           // 陰極板、陽極板位置與厚度
+const D_GAP = (XA - XK) - PLATE_T;                   // 兩極板內表面距離
+const KV = 2.35, KA = KV*KV/(2*D_GAP);   // 使折返點 s = d·K/|eV|，與能量守恆一致
 
-        // 繪製電流對電壓 (I-V) 圖表
-        function drawGraph() {
-            const Ox = 850; // 原點 X
-            const Oy = 460; // 原點 Y
-            const axisColor = '#f8fafc';
-            
-            // 繪製 X, Y 座標軸
-            ctx.strokeStyle = axisColor;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            
-            // Y 軸 (電流)
-            ctx.moveTo(Ox, Oy);
-            ctx.lineTo(Ox, 150);
-            ctx.lineTo(Ox - 6, 160); // 箭頭左
-            ctx.moveTo(Ox, 150);
-            ctx.lineTo(Ox + 6, 160); // 箭頭右
-            
-            // X 軸 (電壓)
-            ctx.moveTo(680, Oy);
-            ctx.lineTo(1050, Oy);
-            ctx.lineTo(1040, Oy - 6); // 箭頭上
-            ctx.moveTo(1050, Oy);
-            ctx.lineTo(1040, Oy + 6); // 箭頭下
-            ctx.stroke();
+// 光電管（水平膠囊形真空玻璃管）
+const capPts = [];
+for (let i = 0; i <= 16; i++){ const a = -Math.PI/2 + Math.PI/2*i/16; capPts.push(new THREE.Vector2(TUBE_R*Math.cos(a), -TUBE_HALF + TUBE_R*Math.sin(a))); }
+for (let i = 0; i <= 16; i++){ const a = Math.PI/2*i/16; capPts.push(new THREE.Vector2(TUBE_R*Math.cos(a), TUBE_HALF + TUBE_R*Math.sin(a))); }
+const glass = new THREE.Mesh(new THREE.LatheGeometry(capPts, 48),
+  new THREE.MeshPhongMaterial({color:0xbfdcff, transparent:true, opacity:0.13, depthWrite:false, shininess:90, specular:0xffffff, side:THREE.DoubleSide}));
+glass.rotation.z = -Math.PI/2; glass.position.copy(TC); S2.add(glass);
+const darkMat = new THREE.MeshStandardMaterial({color:0x2a2f38, roughness:0.6});
+const metalMat = new THREE.MeshStandardMaterial({color:0xb9bec7, metalness:0.7, roughness:0.35});
+const cathode = new THREE.Mesh(new THREE.BoxGeometry(PLATE_T, 2.0, 2.0), metalMat);
+cathode.position.set(XK, TC.y, 0); S2.add(cathode);
+const anode = new THREE.Mesh(new THREE.BoxGeometry(PLATE_T, 2.0, 2.0), new THREE.MeshStandardMaterial({color:0xd8a060, metalness:0.6, roughness:0.35}));
+anode.position.set(XA, TC.y, 0); S2.add(anode);
 
-            // 標示文字
-            ctx.fillStyle = '#f8fafc';
-            ctx.font = '20px "Times New Roman", PMingLiU, serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('電流', Ox, 135);
-            ctx.fillText('電壓', 1050, Oy - 20);
-            
-            ctx.fillStyle = '#ef4444'; // 逆向 (Red)
-            ctx.fillText('逆向', 730 - 40, Oy + 30); // 690
-            
-            ctx.fillStyle = '#3b82f6'; // 順向 (Blue)
-            ctx.fillText('順向', 980 + 40, Oy + 30); // 1020
+const wireMat = new THREE.MeshStandardMaterial({color:0xd9a35b, metalness:0.4, roughness:0.45});
+const leadMat = new THREE.MeshStandardMaterial({color:0x9aa3b0, metalness:0.5, roughness:0.4});
+function seg(a, b, r, mat){
+  const d = b.clone().sub(a), len = d.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d.normalize());
+  S2.add(m);
+}
+function wire(pts, r = 0.06, mat = wireMat){
+  for (let i = 0; i < pts.length-1; i++) seg(pts[i], pts[i+1], r, mat);
+  for (let i = 1; i < pts.length-1; i++){ const s = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat); s.position.copy(pts[i]); S2.add(s); }
+}
+const V3 = (x, y, z = 0) => new THREE.Vector3(x, y, z);
+const XEND = TUBE_HALF + TUBE_R;                     // 玻璃管兩端 x 座標
+wire([V3(XK, TC.y), V3(-XEND, TC.y)], 0.04, leadMat);  // 管內引線
+wire([V3(XA, TC.y), V3(XEND, TC.y)], 0.04, leadMat);
 
-            // 繪製 I-V 曲線
-            if (maxKineticEnergy > 0 && intensity > 0) {
-                const vScale = 60; // 每 1V 代表的像素放大 2 倍
-                const iScale = 1.5; // 每 1% 強度代表的像素
-                const iSat = intensity * iScale; // 飽滿電流高度
-                const vStopPx = stoppingVoltage * vScale; // 截止電壓位置
-                
-                const startX = Ox - vStopPx; // 曲線起點 (電流為0的地方)
-                
-                // 曲線顏色跟隨光色
-                const colorObj = wavelengthToColor(wavelength, 250);
-                ctx.strokeStyle = colorObj.solid;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                
-                for (let x = startX; x <= 1040; x++) {
-                    let v = (x - Ox) / vScale;
-                    let current = 0;
-                    if (v >= -stoppingVoltage) {
-                        current = iSat * (1 - Math.exp(-(v + stoppingVoltage) * 2.5));
-                    }
-                    let y = Oy - current;
-                    
-                    if (x === startX) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
-                }
-                ctx.stroke();
+// 外電路（陰極接左側、陽極接右側）
+const VY = 1.6;                                        // 伏特計並聯線高度
+wire([V3(-XEND, TC.y), V3(-6.5, TC.y), V3(-6.5, -3.8), V3(-1.75, -3.8)]);
+wire([V3(XEND, TC.y), V3(6.5, TC.y), V3(6.5, -3.8), V3(1.75, -3.8)]);
+wire([V3(-6.5, VY), V3(-1.25, VY)], 0.05);
+wire([V3(6.5, VY), V3(1.25, VY)], 0.05);
+[-6.5, 6.5].forEach(x => { const j = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), wireMat); j.position.set(x, VY, 0); S2.add(j); });
 
-                // 動態標示截止電壓的刻度與文字
-                ctx.beginPath();
-                ctx.moveTo(startX, Oy - 6);
-                ctx.lineTo(startX, Oy + 6);
-                ctx.strokeStyle = '#f8fafc';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                ctx.fillStyle = '#fde047'; // 黃色
-                ctx.font = '32px "Times New Roman", PMingLiU, serif'; // 放大為 2 倍
-                ctx.textAlign = 'center';
-                ctx.fillText(`${stoppingVoltage.toFixed(2)} V`, startX, Oy + 35); 
+// 光源（上方斜照陰極板）
+const KT = V3(XK + PLATE_T/2, TC.y);                   // 光照到陰極板內側中央
+const LP = KT.clone().add(V3(5.1, 5.1));               // 光源在右上方，約 45° 斜照
+const LDIR = KT.clone().sub(LP).normalize();
+const lampGroup = new THREE.Group(); lampGroup.position.copy(LP);
+lampGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), LDIR); S2.add(lampGroup);
+{ const h = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.5, 1.6, 32), new THREE.MeshStandardMaterial({color:0x3b4354, roughness:0.5}));
+  lampGroup.add(h); }
+const lensMat = new THREE.MeshBasicMaterial({color:0xffffff});
+const lens = new THREE.Mesh(new THREE.CircleGeometry(0.7, 32), lensMat);
+lens.rotation.x = -Math.PI/2; lens.position.y = 0.81; lampGroup.add(lens);   // 圓面朝 +y（朝光束方向）
+// 光束：圓柱延伸穿過板面，再以板面平面裁切，使光束末端剛好落在陰極板上
+const BEAM2_R = 0.55;
+const beam2Mat = new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.3, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide,
+  clippingPlanes:[new THREE.Plane(new THREE.Vector3(1,0,0), -KT.x)]});   // 只保留 x > 板面
+const beam2Start = LP.clone().addScaledVector(LDIR, 0.82);
+const beam2End = KT.clone().addScaledVector(LDIR, 1.2);
+const beam2 = new THREE.Mesh(new THREE.CylinderGeometry(BEAM2_R, BEAM2_R, beam2Start.distanceTo(beam2End), 32, 1, true), beam2Mat);
+beam2.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), LDIR.clone().negate());
+beam2.position.copy(beam2Start).add(beam2End).multiplyScalar(0.5); S2.add(beam2);
+// 板面上的光斑：橢圓，縱向半軸 = r / cosθ（θ 為光束與板面法線夾角）
+const cosInc = Math.abs(LDIR.x);
+const beam2Spot = new THREE.Mesh(new THREE.CircleGeometry(1, 48),
+  new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.6, blending:THREE.AdditiveBlending, depthWrite:false}));
+beam2Spot.rotation.y = Math.PI/2; beam2Spot.scale.set(BEAM2_R, BEAM2_R/cosInc, 1);
+beam2Spot.position.set(KT.x + 0.01, KT.y, 0); S2.add(beam2Spot);
 
-                // 標示當前操作點 (隨著滑桿即時移動的圓點)
-                let currentV = appliedVoltage;
-                let currentI = 0;
-                if (currentV >= -stoppingVoltage) {
-                    currentI = iSat * (1 - Math.exp(-(currentV + stoppingVoltage) * 2.5));
-                }
-                let px = Ox + currentV * vScale;
-                let py = Oy - currentI;
-                
-                if(px >= 680 && px <= 1050) {
-                    ctx.beginPath();
-                    ctx.arc(px, py, 6, 0, Math.PI * 2);
-                    ctx.fillStyle = '#fde047'; 
-                    ctx.fill();
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                }
-            }
-        }
+// 微安培計
+const AM = V3(-6.5, -1.2);
+{ const cs = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.5, 48), darkMat); cs.rotation.x = Math.PI/2; cs.position.copy(AM); S2.add(cs); }
+function makeMeterFace(){
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const x = c.getContext('2d');
+  x.fillStyle = '#f4f1e8'; x.fillRect(0,0,512,512);
+  const cx = 256, cy = 330, r = 200;
+  x.strokeStyle = '#222'; x.fillStyle = '#222'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.lineWidth = 3; x.beginPath();
+  x.arc(cx, cy, r, (-90-50)*Math.PI/180, (-90+50)*Math.PI/180); x.stroke();
+  for (let v = 0; v <= 60; v += 5){
+    const th = (-50 + 100*v/60)*Math.PI/180, major = v % 10 === 0, r2 = r - (major ? 30 : 16);
+    x.lineWidth = major ? 4 : 2;
+    x.beginPath(); x.moveTo(cx + r*Math.sin(th), cy - r*Math.cos(th)); x.lineTo(cx + r2*Math.sin(th), cy - r2*Math.cos(th)); x.stroke();
+    if (major){ x.font = 'bold 34px sans-serif'; x.fillText(v, cx + (r-58)*Math.sin(th), cy - (r-58)*Math.cos(th)); }
+  }
+  x.font = 'bold 50px sans-serif'; x.fillText('μA', 256, 410);
+  const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; return t;
+}
+{ const face = new THREE.Mesh(new THREE.CircleGeometry(1.0, 64), new THREE.MeshBasicMaterial({map:makeMeterFace()})); face.position.set(AM.x, AM.y, 0.26); S2.add(face); }
+const needlePivot = new THREE.Group(); needlePivot.position.set(AM.x, AM.y - (330/512-0.5)*2.0, 0.28); S2.add(needlePivot);
+{ const g = new THREE.BoxGeometry(0.035, 0.72, 0.01); g.translate(0, 0.36, 0);
+  needlePivot.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0xd0202a})));
+  const cap = new THREE.Mesh(new THREE.CircleGeometry(0.06, 16), new THREE.MeshBasicMaterial({color:0x222222})); cap.position.z = 0.01; needlePivot.add(cap); }
 
-        function drawScene() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+// 伏特計
+const VM = V3(0, VY);
+{ const b = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.1, 0.5), darkMat); b.position.copy(VM); S2.add(b); }
+const vmCanvas = document.createElement('canvas'); vmCanvas.width = 384; vmCanvas.height = 132;
+const vmTex = new THREE.CanvasTexture(vmCanvas); vmTex.minFilter = THREE.LinearFilter;
+{ const d = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.72), new THREE.MeshBasicMaterial({map:vmTex})); d.position.set(VM.x, VM.y, 0.26); S2.add(d); }
+let vmLast = null;
+function drawVoltmeter(V){
+  const s = (V >= 0 ? '+' : '−') + Math.abs(V).toFixed(2) + ' V';
+  if (s === vmLast) return; vmLast = s;
+  const x = vmCanvas.getContext('2d');
+  x.fillStyle = '#071a0e'; x.fillRect(0,0,384,132);
+  x.fillStyle = '#5dff8a'; x.font = 'bold 82px "Courier New",monospace'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(s, 192, 70);
+  vmTex.needsUpdate = true;
+}
 
-            drawCircuitAndBattery();
-            drawGraph(); 
+// 可調直流電源
+{ const b = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.6, 1.3), new THREE.MeshStandardMaterial({color:0x34405a, roughness:0.5})); b.position.set(0, -3.8, 0); S2.add(b);
+  const k = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.2, 24), new THREE.MeshStandardMaterial({color:0x111111})); k.rotation.x = Math.PI/2; k.position.set(0.9, -3.8, 0.72); S2.add(k);
+  const kd = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.24, 0.02), new THREE.MeshBasicMaterial({color:0xffffff})); kd.position.set(0.9, -3.68, 0.83); S2.add(kd); }
+const redMat = new THREE.MeshStandardMaterial({color:0xd8343a}), blackMat = new THREE.MeshStandardMaterial({color:0x151515});
+const termL = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), blackMat); termL.position.set(-1.8, -3.8, 0); S2.add(termL);
+const termR = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), redMat); termR.position.set(1.8, -3.8, 0); S2.add(termR);
+const plusSp = makeTextSprite('+', {size:72, color:'#ff6b6b', stroke:'#000', scale:0.75});
+const minusSp = makeTextSprite('−', {size:72, color:'#cfd6e2', stroke:'#000', scale:0.75});
+S2.add(plusSp, minusSp);
 
-            // 玻璃管背景色填滿
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
-            ctx.beginPath();
-            ctx.roundRect(tubeX, tubeY, tubeWidth, tubeHeight, 10);
-            ctx.fill();
+// 標籤
+[['光電管（真空玻璃管）', V3(1.6, TC.y+2.2), '#ffffff'], ['光電板 K（陰極）', V3(XK-1.2, TC.y+2.2), '#c9d3e2'], ['A（陽極）', V3(XA+0.9, TC.y-2.2), '#f0c08a'],
+ ['光源', V3(LP.x+1.7, LP.y+0.4), '#ffffff'], ['微安培計', V3(AM.x-2.3, AM.y), '#ffffff'], ['伏特計', V3(0, VY-0.95), '#ffffff'], ['可調直流電源', V3(0, -5.05), '#ffffff']]
+  .forEach(([t, p, c]) => { const s = makeTextSprite(t, {color:c, stroke:'#000', scale:0.58}); s.position.copy(p); S2.add(s); });
 
-            const colorObj = wavelengthToColor(wavelength, intensity);
-            const angle = Math.atan2((plateY + plateHeight/2) - sourceY, cathodeInnerX - sourceX);
+// 外電路電子流（由陽極經外電路回到陰極）
+const flowPts = [V3(XEND, TC.y), V3(6.5, TC.y), V3(6.5, -3.8), V3(1.75, -3.8), V3(-1.75, -3.8), V3(-6.5, -3.8), V3(-6.5, TC.y), V3(-XEND, TC.y)];
+const flowCum = [0]; for (let i = 1; i < flowPts.length; i++) flowCum.push(flowCum[i-1] + flowPts[i].distanceTo(flowPts[i-1]));
+const FLOW_LEN = flowCum[flowCum.length-1];
+function flowPoint(d, out){
+  d = ((d % FLOW_LEN) + FLOW_LEN) % FLOW_LEN;
+  let i = 1; while (flowCum[i] < d) i++;
+  const t = (d - flowCum[i-1])/(flowCum[i] - flowCum[i-1]);
+  return out.copy(flowPts[i-1]).lerp(flowPts[i], t);
+}
+const flowDots = [], N_FLOW = 30;
+const flowMat = new THREE.MeshBasicMaterial({color:0x8fd6ff});
+for (let i = 0; i < N_FLOW; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), flowMat); S2.add(m); flowDots.push(m); }
+let flowOffset = 0;
 
-            const frontDist = 30;
-            const frontX = sourceX + Math.cos(angle) * frontDist;
-            const frontY = sourceY + Math.sin(angle) * frontDist;
+// 狀態與物理
+const st2 = {f:7.5, I:60, V:2, W:2.28};
+function curveI(V, f, I, W){                // 光電流 (μA)
+  const E = photonEV(f);
+  if (E <= W || I <= 0) return 0;
+  const V0 = E - W;                         // 截止電壓 V0 = (hf − W)/e
+  if (V <= -V0) return 0;
+  return 0.5*I*(1 - Math.exp(-(V + V0)/0.5));   // 飽和電流 Is ∝ 強度
+}
+let tubeE = [], eAcc2 = 0, Idisp = 0;
+function spawnTubeE(){
+  const Kmax = photonEV(st2.f) - st2.W; if (Kmax <= 0) return;
+  const V = st2.V, Is = 0.5*st2.I;
+  const P = Is > 0 ? curveI(V, st2.f, st2.I, st2.W)/Is : 0;
+  let mode, K;
+  if (Math.random() < P){ mode = 'reach'; K = V < 0 ? (-V) + Math.random()*(Kmax + V) : Kmax*(0.1 + 0.9*Math.random()); }
+  else if (V < 0){ mode = 'return'; K = Math.random()*Math.min(-V, Kmax); }
+  else { mode = 'lost'; K = Math.random()*Kmax; }
+  const y0 = (Math.random()*2-1)*0.75, z0 = (Math.random()*2-1)*0.75;
+  const surfP = new THREE.Vector3(XK + PLATE_T/2, TC.y + y0, z0);     // 陰極板內側表面
+  const sp = new THREE.Sprite(eMat); sp.scale.setScalar(0.3); sp.position.copy(surfP); S2.add(sp);
+  const o = {sp, surfP, y0, z0, s:0.01, v:KV*Math.sqrt(K), mode, dy:0, dz:0,
+             vy:(Math.random()*2-1)*0.12, vz:(Math.random()*2-1)*0.12, life:0};
+  if (mode === 'lost'){ o.v *= 0.3; const ang = Math.random()*Math.PI*2, w = 1.2 + Math.random()*0.8; o.vy = Math.cos(ang)*w; o.vz = Math.sin(ang)*w; }
+  tubeE.push(o);
+}
 
-            // 在畫布上新增「入射光源」文字
-            ctx.fillStyle = '#f8fafc'; 
-            ctx.font = '24px "Times New Roman", PMingLiU, serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('入射光源', sourceX + 15, sourceY + 79);
+// I–V 圖
+const gc = document.getElementById('graph'), gx = gc.getContext('2d');
+const G = {Vmin:-5, Vmax:5, Imax:60};
+const trace = new Map();
+let saved = [], graphDirty = true;
+const PALETTE = ['#ffd34d', '#ff7b9c', '#8de08a', '#c79bff', '#ffa552', '#6fe3d6'];
+function drawGraph(){
+  const w = gc.clientWidth; if (w < 50) return;
+  const h = Math.round(w*0.72), dpr = Math.min(window.devicePixelRatio, 2);
+  if (gc.width !== Math.round(w*dpr) || gc.height !== Math.round(h*dpr)){ gc.width = Math.round(w*dpr); gc.height = Math.round(h*dpr); gc.style.height = h + 'px'; }
+  gx.setTransform(dpr, 0, 0, dpr, 0, 0); gx.clearRect(0, 0, w, h);
+  const L = 40, Rm = 10, Tm = 18, B = 28, pw = w - L - Rm, ph = h - Tm - B;
+  const X = V => L + (V - G.Vmin)/(G.Vmax - G.Vmin)*pw, Y = I => Tm + ph - (I/G.Imax)*ph;
+  gx.lineWidth = 1; gx.strokeStyle = '#1c2840';
+  for (let v = G.Vmin; v <= G.Vmax; v++){ gx.beginPath(); gx.moveTo(X(v), Tm); gx.lineTo(X(v), Tm+ph); gx.stroke(); }
+  for (let i = 0; i <= G.Imax; i += 10){ gx.beginPath(); gx.moveTo(L, Y(i)); gx.lineTo(L+pw, Y(i)); gx.stroke(); }
+  gx.strokeStyle = '#6a7c9c'; gx.lineWidth = 1.5;
+  gx.beginPath(); gx.moveTo(X(0), Tm); gx.lineTo(X(0), Tm+ph); gx.stroke();
+  gx.beginPath(); gx.moveTo(L, Y(0)); gx.lineTo(L+pw, Y(0)); gx.stroke();
+  gx.fillStyle = '#9fb0c8'; gx.font = '11px sans-serif'; gx.textAlign = 'center'; gx.textBaseline = 'top';
+  for (let v = G.Vmin; v <= G.Vmax; v++) gx.fillText(v, X(v), Tm+ph+4);
+  gx.textAlign = 'right'; gx.textBaseline = 'middle';
+  for (let i = 0; i <= G.Imax; i += 10) gx.fillText(i, L-5, Y(i));
+  gx.textAlign = 'right'; gx.textBaseline = 'bottom'; gx.fillText('V_AK (V)', L+pw, Tm+ph-3);
+  gx.textAlign = 'left'; gx.textBaseline = 'top'; gx.fillText('I (μA)', L+4, 2);
+  saved.forEach(c => {
+    gx.strokeStyle = c.color; gx.lineWidth = 2; gx.beginPath();
+    c.pts.forEach((p, k) => k ? gx.lineTo(X(p[0]), Y(p[1])) : gx.moveTo(X(p[0]), Y(p[1]))); gx.stroke();
+  });
+  if (trace.size){
+    const keys = [...trace.keys()].sort((a, b) => a - b);
+    gx.strokeStyle = '#ffffff'; gx.lineWidth = 2.4; gx.beginPath();
+    keys.forEach((k, j) => { const V = k*0.05, I = trace.get(k); j ? gx.lineTo(X(V), Y(I)) : gx.moveTo(X(V), Y(I)); });
+    gx.stroke();
+  }
+  const I = curveI(st2.V, st2.f, st2.I, st2.W);
+  gx.setLineDash([4, 4]); gx.strokeStyle = 'rgba(255,90,90,.6)'; gx.lineWidth = 1;
+  gx.beginPath(); gx.moveTo(X(st2.V), Y(0)); gx.lineTo(X(st2.V), Y(I)); gx.lineTo(L, Y(I)); gx.stroke(); gx.setLineDash([]);
+  gx.fillStyle = '#ff4d4d'; gx.beginPath(); gx.arc(X(st2.V), Y(I), 5, 0, Math.PI*2); gx.fill();
+}
+function updateLegend(){
+  document.getElementById('legend').innerHTML = saved.map(c => `<li><span class="sw" style="background:${c.color}"></span>${c.label}</li>`).join('');
+}
 
-            // 繪製光束
-            ctx.fillStyle = colorObj.fill;
-            ctx.beginPath();
-            const dx = Math.sin(angle) * 35; 
-            const dy = -Math.cos(angle) * 35;
-            ctx.moveTo(frontX - dx, frontY - dy);
-            ctx.lineTo(cathodeInnerX, plateY); 
-            ctx.lineTo(cathodeInnerX, plateY + plateHeight); 
-            ctx.lineTo(frontX + dx, frontY + dy);
-            ctx.closePath();
-            ctx.fill();
+function updateLight2(){
+  const nm = lambdaNm(st2.f), col = wlColor(nm), k = st2.I/100;
+  beam2Mat.color.copy(col); beam2Mat.opacity = 0.08 + 0.35*k; beam2.visible = k > 0;
+  beam2Spot.material.color.copy(col); beam2Spot.material.opacity = 0.25 + 0.5*k; beam2Spot.visible = k > 0;
+  lensMat.color.copy(k > 0 ? col.clone().lerp(new THREE.Color(1,1,1), 0.3) : new THREE.Color(0x333333));
+}
+const f2 = document.getElementById('f2'), i2 = document.getElementById('i2'), v2 = document.getElementById('v2');
+function readParams2(){
+  st2.f = +f2.value; st2.I = +i2.value;
+  document.getElementById('f2v').innerHTML = freqLabel(st2.f);
+  document.getElementById('i2v').textContent = st2.I + ' %';
+  trace.clear(); updateLight2(); graphDirty = true;
+}
+function readV2(){
+  st2.V = +v2.value;
+  document.getElementById('v2v').textContent = (st2.V >= 0 ? '+' : '−') + Math.abs(st2.V).toFixed(2) + ' V' + (st2.V < 0 ? '（反向）' : '');
+  setApparatusV(st2.V); graphDirty = true;
+}
+function setApparatusV(V){                     // 電源極性與伏特計（分頁二、三共用）
+  const pos = V >= 0;                          // V_AK ≥ 0：接陽極的右端為正極
+  termR.material = pos ? redMat : blackMat; termL.material = pos ? blackMat : redMat;
+  plusSp.position.set(pos ? 2.3 : -2.3, -3.15, 0); minusSp.position.set(pos ? -2.3 : 2.3, -3.15, 0);
+  drawVoltmeter(V);
+}
+let sweeping = false;
+const sweepBtn = document.getElementById('sweepBtn');
+function stopSweep(){ sweeping = false; sweepBtn.textContent = '自動掃描'; }
+f2.oninput = readParams2; i2.oninput = readParams2;
+v2.oninput = () => { stopSweep(); readV2(); };
+document.getElementById('metal2').onchange = e => { st2.W = +e.target.value; trace.clear(); graphDirty = true; };
+sweepBtn.onclick = () => {
+  if (sweeping){ stopSweep(); return; }
+  sweeping = true; sweepBtn.textContent = '停止掃描'; trace.clear(); v2.value = -5; readV2();
+};
+document.getElementById('saveBtn').onclick = () => {
+  if (saved.length >= PALETTE.length) saved.shift();
+  const used = new Set(saved.map(c => c.color));
+  const color = PALETTE.find(c => !used.has(c));
+  const pts = []; for (let k = 0; k <= 200; k++){ const V = G.Vmin + k*0.05; pts.push([V, curveI(V, st2.f, st2.I, st2.W)]); }
+  const m = METALS.find(m => m.W === st2.W);
+  saved.push({color, pts, label:`${m ? m.name : ''}｜f = ${st2.f.toFixed(1)}×10¹⁴ Hz｜強度 ${st2.I}%`});
+  updateLegend(); graphDirty = true;
+};
+document.getElementById('clearBtn').onclick = () => { saved = []; trace.clear(); updateLegend(); graphDirty = true; };
+fillMetal(document.getElementById('metal2'), true);
 
-            // 繪製光子 (圖層在金屬板下方)
-            photons.forEach(photon => { photon.update(); photon.draw(); });
-            photons = photons.filter(photon => photon.active);
+const _tmp = new THREE.Vector3();
+function update2(dt, tab3 = false){
+  if (sweeping && !tab3){
+    let V = +v2.value + 1.6*dt;
+    if (V >= 5){ V = 5; stopSweep(); }
+    v2.value = V; readV2();
+  }
+  const Kmax = photonEV(st2.f) - st2.W;
+  const noE = tab3 && mode3 === 'hands';         // 分頁三動手實作：關閉管內與導線電子動畫
+  if (Kmax > 0 && st2.I > 0 && !noE){
+    eAcc2 += dt*0.28*st2.I;
+    while (eAcc2 >= 1){ eAcc2 -= 1; if (tubeE.length < 90) spawnTubeE(); }
+  } else eAcc2 = 0;
+  for (let i = tubeE.length-1; i >= 0; i--){
+    const o = tubeE[i];
+    const a = o.mode === 'lost' ? 0 : KA*st2.V;
+    o.v += a*dt; o.s += o.v*dt; o.dy += o.vy*dt; o.dz += o.vz*dt; o.life += dt;
+    if (o.s >= D_GAP || o.s < 0 || Math.hypot(o.y0 + o.dy, o.z0 + o.dz) > TUBE_R - 0.15 || o.life > 10){ S2.remove(o.sp); tubeE.splice(i,1); continue; }
+    o.sp.position.set(o.surfP.x + o.s, o.surfP.y + o.dy, o.surfP.z + o.dz);
+  }
+  const Itarget = curveI(st2.V, st2.f, st2.I, st2.W);
+  Idisp += (Itarget - Idisp)*Math.min(1, dt*6);
+  if (Math.abs(Idisp - Itarget) < 0.005) Idisp = Itarget;
+  needlePivot.rotation.z = -THREE.MathUtils.degToRad(-50 + 100*Math.min(Idisp, 62)/60);
+  document.getElementById(tab3 ? 'ro3V' : 'roV').textContent = (st2.V >= 0 ? '+' : '−') + Math.abs(st2.V).toFixed(2) + ' V';
+  document.getElementById(tab3 ? 'ro3I' : 'roI').textContent = Idisp.toFixed(2) + ' μA';
+  const showFlow = document.getElementById('flowChk').checked && Idisp > 0.05 && !noE;
+  flowOffset += 0.07*Idisp*dt;
+  flowDots.forEach((m, k) => {
+    m.visible = showFlow;
+    if (showFlow){ flowPoint(flowOffset + k*FLOW_LEN/N_FLOW, _tmp); m.position.set(_tmp.x, _tmp.y, 0.1); }
+  });
+  if (tab3) return;
+  const key = Math.round(st2.V/0.05);
+  if (trace.get(key) !== Itarget){ trace.set(key, Itarget); graphDirty = true; }
+  if (graphDirty){ drawGraph(); graphDirty = false; }
+}
 
-            // 繪製陰極與陽極金屬板
-            ctx.fillStyle = '#64748b'; 
-            ctx.fillRect(cathodeX, plateY, cathodeWidth, plateHeight);
-            ctx.strokeStyle = '#94a3b8'; 
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cathodeX, plateY, cathodeWidth, plateHeight);
+// ================= 分頁三：密立坎驗證實驗（共用分頁二的裝置場景） =================
+const st3 = {f:7.5, I:60, V:0, W:2.28};        // 分頁三自己的裝置設定
+let st2Stash = null;
+const M_COLOR = {Cs:'#ffd34d', Na:'#ff7b9c', K:'#8de08a', Ca:'#c79bff', Zn:'#6fe3d6'};
+const E_CHG = 1.602176634e-19, H_TRUE = 6.62607015e-34;
+let mode3 = 'hands';                             // 'hands' 動手實作（預設）／'demo' 自動示範
+const D3 = {hands:[], demo:[]};                  // 兩種模式的數據分開保存
+const shown3 = {};                               // 動手實作：各金屬是否已自動彈出過結果
+let finding = false, findAcc = 0, graph3Dirty = true, bmFS = 60;
+const f3 = document.getElementById('f3'), i3 = document.getElementById('i3'), v3 = document.getElementById('v3'), m3 = document.getElementById('metal3');
+const msg3 = document.getElementById('msg3'), fitChk = document.getElementById('fitChk');
+const panel3 = document.getElementById('panel3'), bigMeter = document.getElementById('bigMeter');
+fillMetal(m3, true);
 
-            ctx.fillStyle = '#64748b'; 
-            ctx.fillRect(anodeX, plateY, anodeWidth, plateHeight);
-            ctx.strokeRect(anodeX, plateY, anodeWidth, plateHeight);
+function swapApparatus(p){                     // 切換分頁二／三的裝置狀態
+  Object.assign(st2, p);
+  updateLight2(); setApparatusV(st2.V);
+  tubeE.forEach(o => S2.remove(o.sp)); tubeE = []; eAcc2 = 0;
+  Idisp = curveI(st2.V, st2.f, st2.I, st2.W);
+}
+const st3Target = () => active === 3 ? st2 : st3;
+function setMsg(t, cls = ''){ msg3.textContent = t; msg3.className = 'note ' + cls; }
+function read3(){
+  const t = st3Target();
+  t.f = +f3.value; t.I = +i3.value; t.W = +m3.value;
+  document.getElementById('f3v').innerHTML = freqLabel(t.f);
+  document.getElementById('i3v').textContent = t.I + ' %';
+  if (active === 3) updateLight2();
+  graph3Dirty = true;
+}
+function readV3(){
+  const t = st3Target();
+  t.V = Math.round(+v3.value*100)/100;
+  document.getElementById('v3v').textContent = (t.V < 0 ? '−' : '') + Math.abs(t.V).toFixed(2) + ' V';
+  if (active === 3) setApparatusV(t.V);
+  graph3Dirty = true;
+}
+f3.oninput = () => { finding = false; setMsg(''); read3(); };
+i3.oninput = () => { finding = false; read3(); };
+m3.onchange = () => { finding = false; setMsg(''); read3(); updateData3(); };
+v3.oninput = () => { finding = false; readV3(); };
+function nudgeV3(d){ finding = false; v3.value = Math.min(0, Math.max(-5, Math.round((+v3.value + d)*100)/100)); readV3(); }
+document.getElementById('v3m').onclick = () => nudgeV3(-0.01);
+document.getElementById('v3p').onclick = () => nudgeV3(+0.01);
 
-            // 繪製光源燈罩
-            ctx.save();
-            ctx.translate(sourceX, sourceY);
-            ctx.rotate(angle);
-            ctx.fillStyle = '#475569'; 
-            ctx.beginPath();
-            ctx.moveTo(30, -35); 
-            ctx.lineTo(30, 35);
-            ctx.lineTo(-10, 16);  
-            ctx.lineTo(-25, 16);
-            ctx.lineTo(-25, -16);
-            ctx.lineTo(-10, -16);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.restore();
+// ---- 模式切換 ----
+function setMode3(m){
+  mode3 = m; finding = false; setMsg('');
+  document.getElementById('mode3Hands').classList.toggle('on', m === 'hands');
+  document.getElementById('mode3Demo').classList.toggle('on', m === 'demo');
+  panel3.classList.toggle('hands', m === 'hands');
+  placeControls3();
+  bigMeter.classList.toggle('show', active === 3 && m === 'hands');
+  tubeE.forEach(o => S2.remove(o.sp)); tubeE = []; eAcc2 = 0;
+  fitCam2(true); updateData3(); graph3Dirty = true;
+}
+document.getElementById('mode3Hands').onclick = () => { if (mode3 !== 'hands') setMode3('hands'); };
+document.getElementById('mode3Demo').onclick = () => { if (mode3 !== 'demo') setMode3('demo'); };
 
-            // 繪製電子 (圖層在玻璃框之下)
-            electrons.forEach(electron => { electron.update(); electron.draw(); });
-            electrons = electrons.filter(electron => electron.active);
+// ---- 相機：動手實作時把裝置左移，讓出右側放大安培計的位置 ----
+function fitCam2(retarget){
+  const hands = active === 3 && mode3 === 'hands';
+  let cx = 0, halfW = 10.5;
+  if (hands){
+    const vw = vp.clientWidth || 1, p = Math.min(0.5, (bigMeter.offsetWidth + 24)/vw);
+    const left = -9.9, right = 7.8;              // 裝置（含標籤）左右邊界
+    halfW = (right - left)/(1 - p)/2; cx = left + halfW;
+  }
+  if (retarget){
+    const dir = cam2.position.clone().sub(ctl2.target);
+    ctl2.target.x = cx; cam2.position.copy(ctl2.target).add(dir);
+  }
+  fitCam(cam2, ctl2, halfW, 22);
+}
 
-            // 玻璃管青色外框放在最後繪製，確保會蓋在電子之上
-            ctx.strokeStyle = '#00FFFF'; 
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.roundRect(tubeX, tubeY, tubeWidth, tubeHeight, 10);
-            ctx.stroke();
-        }
+// ---- 放大安培計 ----
+const bmCanvas = document.getElementById('bmCanvas'), bmx = bmCanvas.getContext('2d');
+bigMeter.querySelectorAll('.bmRange button').forEach(b => b.onclick = () => {
+  bmFS = +b.dataset.fs;
+  bigMeter.querySelectorAll('.bmRange button').forEach(o => o.classList.toggle('on', o === b));
+});
+function drawBigMeter(I){
+  const w = bmCanvas.clientWidth; if (w < 40) return;
+  const h = Math.round(w*0.72), dpr = Math.min(window.devicePixelRatio, 2);
+  if (bmCanvas.width !== Math.round(w*dpr) || bmCanvas.height !== Math.round(h*dpr)){ bmCanvas.width = Math.round(w*dpr); bmCanvas.height = Math.round(h*dpr); bmCanvas.style.height = h + 'px'; }
+  const x = bmx; x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.fillStyle = '#f4f1e8'; x.fillRect(0, 0, w, h);
+  const cx = w/2, cy = h*0.88, r = w*0.43, A = 55*Math.PI/180;
+  const ang = fr => -A + 2*A*fr;                 // 由鉛直方向量起的角度
+  const P = (fr, rr) => [cx + rr*Math.sin(ang(fr)), cy - rr*Math.cos(ang(fr))];
+  x.strokeStyle = '#222'; x.lineWidth = 2;
+  x.beginPath(); x.arc(cx, cy, r, -Math.PI/2 - A, -Math.PI/2 + A); x.stroke();
+  const nMaj = 6, nMin = 30, labels = bmFS === 60 ? [0,10,20,30,40,50,60] : bmFS === 6 ? [0,1,2,3,4,5,6] : ['0','0.1','0.2','0.3','0.4','0.5','0.6'];
+  for (let k = 0; k <= nMin; k++){
+    const major = k % (nMin/nMaj) === 0, half = k % (nMin/nMaj/2) === 0 && !major;
+    const len = major ? w*0.075 : half ? w*0.05 : w*0.03;
+    const [x1, y1] = P(k/nMin, r), [x2, y2] = P(k/nMin, r - len);
+    x.lineWidth = major ? 2.4 : 1.2; x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke();
+  }
+  x.fillStyle = '#222'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `bold ${Math.round(w*0.06)}px sans-serif`;
+  for (let k = 0; k <= nMaj; k++){ const [lx, ly] = P(k/nMaj, r - w*0.13); x.fillText(labels[k], lx, ly); }
+  x.font = `bold ${Math.round(w*0.075)}px sans-serif`; x.fillText('μA', cx + r*0.62, cy - r*0.08);
+  const over = I > bmFS*1.0001;
+  if (over){ x.fillStyle = '#d0202a'; x.font = `bold ${Math.round(w*0.055)}px sans-serif`; x.fillText('超過量程！', cx - r*0.55, cy - r*0.08); }
+  const fr = Math.min(I/bmFS, 1.06);
+  const [nx, ny] = P(fr, r*0.97);
+  x.strokeStyle = '#d0202a'; x.lineWidth = Math.max(2, w*0.009); x.lineCap = 'round';
+  x.beginPath(); x.moveTo(cx, cy); x.lineTo(nx, ny); x.stroke();
+  x.fillStyle = '#222'; x.beginPath(); x.arc(cx, cy, w*0.025, 0, Math.PI*2); x.fill();
+}
 
-        function animate(currentTime) {
-            drawScene();
+// ---- 記錄與結果 ----
+function noCurrentReason(t){
+  if (t.I <= 0) return '請先打開入射光（強度 > 0）。';
+  if (photonEV(t.f) <= t.W) return '入射光頻率低於此金屬的底限頻率，沒有光電子射出，無法測量截止電壓。';
+  return '';
+}
+document.getElementById('find3Btn').onclick = () => {
+  const r = noCurrentReason(st2); if (r){ setMsg(r, 'warn'); return; }
+  v3.value = 0; readV3(); finding = true; findAcc = 0; setMsg('逐漸加大反向電壓，尋找電流歸零的位置……');
+};
+document.getElementById('rec3Btn').onclick = () => {
+  const t = st2, r = noCurrentReason(t);
+  if (r){ setMsg(r, 'warn'); return; }
+  if (mode3 === 'demo'){
+    if (curveI(t.V, t.f, t.I, t.W) > 0){ setMsg('光電流尚未歸零，請再加大反向電壓。', 'warn'); return; }
+    if (curveI(t.V + 0.011, t.f, t.I, t.W) === 0){ setMsg('反向電壓已超過截止電壓。請把反向電壓調小，到電流「剛好」歸零的位置。', 'warn'); return; }
+  } else if (t.V >= 0){ setMsg('請先加上反向電壓，觀察電流歸零時的電壓再記錄。', 'warn'); return; }
+  const m = METALS.find(m => m.W === t.W), V0 = -t.V;
+  D3[mode3] = D3[mode3].filter(d => !(d.id === m.id && Math.abs(d.f - t.f) < 1e-6));
+  D3[mode3].push({id:m.id, name:m.name, f:t.f, V0});
+  D3[mode3].sort((a, b) => a.id.localeCompare(b.id) || a.f - b.f);
+  setMsg(`已記錄：${m.name}，f = ${t.f.toFixed(1)}×10¹⁴ Hz，V₀ = ${V0.toFixed(2)} V`, 'ok');
+  graph3Dirty = true; updateData3();
+  if (mode3 === 'hands'){
+    const n = groups3()[m.id].pts.length;
+    if (n >= 3 && !shown3[m.id]){ shown3[m.id] = true; openResult(m.id); }
+  }
+};
+const confirm3 = document.getElementById('confirm3');
+document.getElementById('clear3Btn').onclick = () => {
+  document.getElementById('confirm3Text').textContent =
+    `確定要清除「${mode3 === 'hands' ? '動手實作' : '自動示範'}」模式的所有數據嗎？清除後無法復原。`;
+  confirm3.classList.add('show');
+};
+document.getElementById('confirm3No').onclick = () => confirm3.classList.remove('show');
+document.getElementById('confirm3Yes').onclick = () => {
+  confirm3.classList.remove('show');
+  D3[mode3] = []; if (mode3 === 'hands') Object.keys(shown3).forEach(k => delete shown3[k]);
+  setMsg(''); graph3Dirty = true; updateData3();
+};
 
-            if (!lastTime) lastTime = currentTime;
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
+// ---- 動手實作（桌面版）：頻率、反向電壓滑桿移到放大安培計下方 ----
+const ctrlsFV3 = document.getElementById('ctrlsFV3'), ctrlsHome3 = ctrlsFV3.parentNode, ctrlsNext3 = ctrlsFV3.nextSibling;
+const wideMQ = window.matchMedia('(min-width: 821px)');
+function placeControls3(){
+  const toMeter = mode3 === 'hands' && wideMQ.matches;
+  if (toMeter && ctrlsFV3.parentNode !== document.getElementById('bmCtrls')) document.getElementById('bmCtrls').appendChild(ctrlsFV3);
+  if (!toMeter && ctrlsFV3.parentNode !== ctrlsHome3) ctrlsHome3.insertBefore(ctrlsFV3, ctrlsNext3);
+}
+wideMQ.addEventListener('change', placeControls3);
+document.getElementById('res3Btn').onclick = () => { const m = METALS.find(m => m.W === st2.W); if (m) openResult(m.id); };
+fitChk.onchange = () => { graph3Dirty = true; updateData3(); };
 
-            if (intensity > 0) {
-                const expectedPhotonsPerSecond = intensity * 0.45;
-                photonAccumulator += expectedPhotonsPerSecond * (deltaTime / 1000);
-                if (photonAccumulator > 4) photonAccumulator = 4;
+function fitLine(pts){                          // 最小平方法：V0 = a·f(Hz) + b
+  const n = pts.length; if (n < 2) return null;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  pts.forEach(p => { const x = p.f*1e14; sx += x; sy += p.V0; sxx += x*x; sxy += x*p.V0; });
+  const den = n*sxx - sx*sx; if (Math.abs(den) < 1e-6) return null;
+  const a = (n*sxy - sx*sy)/den, b = (sy - a*sx)/n;
+  return {a, b, f0:-b/a};
+}
+function groups3(){
+  const g = {};
+  D3[mode3].forEach(d => { (g[d.id] = g[d.id] || {name:d.name, pts:[]}).pts.push(d); });
+  return g;
+}
+function updateData3(){
+  const g = groups3();
+  document.getElementById('data3').innerHTML = Object.keys(g).map(id =>
+    `<div><span class="sw" style="background:${M_COLOR[id]}"></span>${g[id].name}：` +
+    g[id].pts.map(p => `(${p.f.toFixed(1)}, ${p.V0.toFixed(2)})`).join(' ') + '</div>').join('') ||
+    '<span style="color:#7d8ba3">尚無數據。數據格式：(f ×10¹⁴ Hz, V₀ V)</span>';
+  const cur = METALS.find(m => m.W === st3Target().W);
+  document.getElementById('res3Btn').style.display =
+    mode3 === 'hands' && cur && g[cur.id] && g[cur.id].pts.length >= 3 && shown3[cur.id] ? '' : 'none';
+  const out = document.getElementById('fitOut');
+  if (mode3 !== 'demo' || !fitChk.checked){ out.innerHTML = ''; return; }
+  out.innerHTML = Object.keys(g).map(id => {
+    const L = fitLine(g[id].pts);
+    if (!L) return `<div><b style="color:${M_COLOR[id]}">${g[id].name}</b>：至少需要兩個不同頻率的數據點。</div>`;
+    const h = L.a*E_CHG;
+    return `<div><b style="color:${M_COLOR[id]}">${g[id].name}</b>：斜率 h/e = ${(L.a*1e15).toFixed(3)}×10⁻¹⁵ V·s<br>` +
+      `　h = 斜率 × e = ${(h*1e34).toFixed(2)}×10⁻³⁴ J·s<br>` +
+      `　底限頻率 f₀ = ${(L.f0/1e14).toFixed(2)}×10¹⁴ Hz　功函數 W = ${(-L.b).toFixed(2)} eV</div>`;
+  }).join('') + (Object.keys(g).length ? '<div style="color:#7d8ba3">（公認值 h = 6.63×10⁻³⁴ J·s）</div>' : '');
+}
 
-                const angle = Math.atan2((plateY + plateHeight/2) - sourceY, cathodeInnerX - sourceX);
-                const frontDist = 30;
-                const frontX = sourceX + Math.cos(angle) * frontDist;
-                const frontY = sourceY + Math.sin(angle) * frontDist;
+// ---- V₀–f 圖（面板圖與結果視窗共用） ----
+const G3 = {fmin:0, fmax:16, Vmin:-5, Vmax:5};
+function drawVf(cv, g, opt){
+  const w = cv.clientWidth; if (w < 50) return;
+  const h = Math.round(w*0.8), dpr = Math.min(window.devicePixelRatio, 2);
+  if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); cv.style.height = h + 'px'; }
+  const x = cv.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+  const L = 34, Rm = 10, Tm = 18, B = 30, pw = w - L - Rm, ph = h - Tm - B;
+  const X = f => L + (f - G3.fmin)/(G3.fmax - G3.fmin)*pw, Y = V => Tm + (G3.Vmax - V)/(G3.Vmax - G3.Vmin)*ph;
+  x.save(); x.beginPath(); x.rect(L, Tm, pw, ph); x.clip();
+  x.lineWidth = 1; x.strokeStyle = '#1c2840';
+  for (let f = 0; f <= 16; f += 2){ x.beginPath(); x.moveTo(X(f), Tm); x.lineTo(X(f), Tm+ph); x.stroke(); }
+  for (let V = -5; V <= 5; V++){ x.beginPath(); x.moveTo(L, Y(V)); x.lineTo(L+pw, Y(V)); x.stroke(); }
+  x.strokeStyle = '#6a7c9c'; x.lineWidth = 1.5;
+  x.beginPath(); x.moveTo(L, Y(0)); x.lineTo(L+pw, Y(0)); x.stroke();
+  x.beginPath(); x.moveTo(X(0), Tm); x.lineTo(X(0), Tm+ph); x.stroke();
+  Object.keys(g).forEach(id => {
+    const showFit = opt.fit === 'demo' || (opt.fit === 'hands' && g[id].pts.length >= 3 && shown3[id]);
+    if (!showFit) return;
+    if (opt.fit === 'hands'){                   // 理論直線（灰色虛線）
+      const Wt = METALS.find(m => m.id === id).W;
+      x.strokeStyle = 'rgba(200,210,225,.7)'; x.lineWidth = 1.4; x.setLineDash([6, 5]);
+      x.beginPath(); x.moveTo(X(0), Y(-Wt)); x.lineTo(X(16), Y(photonEV(16) - Wt)); x.stroke(); x.setLineDash([]);
+    }
+    const Lf = fitLine(g[id].pts); if (!Lf) return;
+    const yv = f => Lf.a*f*1e14 + Lf.b, f0 = Lf.f0/1e14;
+    x.strokeStyle = M_COLOR[id]; x.lineWidth = 1.8;
+    x.setLineDash([5, 4]); x.beginPath(); x.moveTo(X(0), Y(yv(0))); x.lineTo(X(f0), Y(0)); x.stroke();
+    x.setLineDash([]); x.beginPath(); x.moveTo(X(f0), Y(0)); x.lineTo(X(16), Y(yv(16))); x.stroke();
+    x.fillStyle = M_COLOR[id];
+    x.beginPath(); x.arc(X(f0), Y(0), 3.5, 0, Math.PI*2); x.fill();
+    x.beginPath(); x.arc(X(0), Y(yv(0)), 3.5, 0, Math.PI*2); x.fill();
+  });
+  Object.keys(g).forEach(id => g[id].pts.forEach(p => {
+    x.fillStyle = M_COLOR[id]; x.strokeStyle = '#0b1322'; x.lineWidth = 1.5;
+    x.beginPath(); x.arc(X(p.f), Y(p.V0), 4.5, 0, Math.PI*2); x.fill(); x.stroke();
+  }));
+  if (opt.marker){                              // 目前的頻率與反向電壓位置
+    x.setLineDash([3, 4]); x.strokeStyle = 'rgba(255,90,90,.45)'; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(X(st2.f), Tm); x.lineTo(X(st2.f), Tm+ph); x.stroke(); x.setLineDash([]);
+    x.strokeStyle = '#ff4d4d'; x.lineWidth = 2;
+    x.beginPath(); x.arc(X(st2.f), Y(-st2.V), 5, 0, Math.PI*2); x.stroke();
+  }
+  x.restore();
+  x.fillStyle = '#9fb0c8'; x.font = '11px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'top';
+  for (let f = 0; f <= 16; f += 2) x.fillText(f, X(f), Tm+ph+4);
+  x.textAlign = 'right'; x.textBaseline = 'middle';
+  for (let V = -5; V <= 5; V++) x.fillText(V, L-5, Y(V));
+  x.textAlign = 'right'; x.textBaseline = 'bottom'; x.fillText('f (×10¹⁴ Hz)', L+pw, Y(0)-3);
+  x.textAlign = 'left'; x.textBaseline = 'top'; x.fillText('V₀ (V)', L+4, 2);
+}
+const gc3 = document.getElementById('graph3');
+function drawGraph3(){
+  drawVf(gc3, groups3(), {fit: mode3 === 'demo' ? (fitChk.checked ? 'demo' : 'none') : 'hands', marker: active === 3});
+}
 
-                while (photonAccumulator >= 1) {
-                    const targetY = plateY + Math.random() * plateHeight;
-                    const colorObj = wavelengthToColor(wavelength, intensity);
-                    
-                    const offset = (Math.random() - 0.5) * 50; 
-                    const spawnX = frontX + Math.sin(angle) * offset;
-                    const spawnY = frontY - Math.cos(angle) * offset;
+// ---- 結果彈出視窗 ----
+const FEEDBACK = {
+  t1:['太厲害了！你的測量幾乎和公認值一模一樣，密立坎看到也要點頭稱讚！👏',
+      '精準！你已經抓到「電流剛好歸零」的關鍵，實驗功力相當扎實！',
+      '漂亮！這個準確度已經是物理學家等級了，給你一個大大的讚！'],
+  t2:['做得不錯！你的數據已經清楚顯示 V₀ 與 f 成直線關係。再仔細觀察指針歸零的那一刻（試試換到小量程），下次一定更準！',
+      '很好的開始！趨勢已經抓對了。把反向電壓再微調細一點，誤差還能更小，加油！',
+      '不錯喔！離公認值只差一點點。多留意小量程下的指針，再挑戰一次吧！'],
+  t3:['嗯……普朗克常數表示：「這個數字不是我。」😆 別灰心！把安培計換到小量程、反向電壓慢慢調，再試一次！',
+      '你可能發現了一個新的物理常數……不過它大概不叫 h 😂 換到小量程、仔細找電流歸零點，你一定可以的！',
+      '密立坎當年也花了好幾年才做出漂亮的數據，你才剛開始呢！放慢腳步、用小量程再挑戰一次吧！💪']
+};
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function openResult(id){
+  const g = groups3(); if (!g[id]) return;
+  const pts = g[id].pts, Lf = fitLine(pts), m = METALS.find(mm => mm.id === id);
+  const modal = document.getElementById('modal3');
+  document.getElementById('m3Title').innerHTML = `<span class="sw" style="background:${M_COLOR[id]}"></span>實驗結果：${m.name}（${pts.length} 筆數據）`;
+  modal.classList.add('show');
+  const sub = {}; sub[id] = g[id];
+  drawVf(document.getElementById('m3Graph'), sub, {fit:'hands', marker:false});
+  const body = document.getElementById('m3Body'), msg = document.getElementById('m3Msg');
+  if (!Lf){ body.innerHTML = '數據點的頻率需要不同，才能畫出趨勢線。'; msg.textContent = ''; msg.className = ''; return; }
+  const h = Lf.a*E_CHG, err = Math.abs(h - H_TRUE)/H_TRUE*100;
+  body.innerHTML =
+    `趨勢線斜率 h/e = <b>${(Lf.a*1e15).toFixed(3)}×10⁻¹⁵ V·s</b><br>` +
+    `普朗克常數 h = 斜率 × e = <b>${(h*1e34).toFixed(2)}×10⁻³⁴ J·s</b><br>` +
+    `與公認值 6.63×10⁻³⁴ J·s 的誤差：<b>${err.toFixed(1)} %</b><br>` +
+    `底限頻率 f₀ = ${(Lf.f0/1e14).toFixed(2)}×10¹⁴ Hz　功函數 W = ${(-Lf.b).toFixed(2)} eV`;
+  const tier = err <= 3 ? 't1' : err <= 10 ? 't2' : 't3';
+  msg.textContent = pick(FEEDBACK[tier]); msg.className = tier;
+}
+document.getElementById('m3Close').onclick = () => { document.getElementById('modal3').classList.remove('show'); updateData3(); graph3Dirty = true; };
 
-                    photons.push(new Photon(spawnX, spawnY, cathodeInnerX, targetY, colorObj.solid));
-                    photonAccumulator -= 1;
-                }
-            } else {
-                photonAccumulator = 0; 
-            }
+function update3(dt){
+  if (finding){
+    findAcc += dt*1.2/0.01;                    // 每秒加大約 1.2 V，每步 0.01 V
+    while (findAcc >= 1 && finding){
+      findAcc -= 1;
+      const V = Math.round((+v3.value - 0.01)*100)/100;
+      if (V < -5){ finding = false; break; }
+      v3.value = V; readV3();
+      if (curveI(st2.V, st2.f, st2.I, st2.W) === 0){
+        finding = false; setMsg('光電流剛好歸零！按「記錄截止電壓」記下這一點。', 'ok');
+      }
+    }
+  }
+  update2(dt, true);
+  if (mode3 === 'hands') drawBigMeter(Idisp);   // 與左側安培計同一個 Idisp，數據同步
+  if (graph3Dirty){ drawGraph3(); graph3Dirty = false; }
+}
 
-            requestAnimationFrame(animate);
-        }
+// ================= 版面、分頁切換、主迴圈 =================
+function fitCam(cam, ctl, halfW, minD){
+  const need = halfW/(Math.tan(THREE.MathUtils.degToRad(cam.fov/2))*cam.aspect);
+  const dist = Math.max(minD, need);
+  const dir = cam.position.clone().sub(ctl.target).normalize();
+  cam.position.copy(ctl.target).addScaledVector(dir, dist);
+}
+function onResize(){
+  const w = vp.clientWidth, h = vp.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h);
+  [cam1, cam2].forEach(c => { c.aspect = w/h; c.updateProjectionMatrix(); });
+  fitCam(cam1, ctl1, 9, 20); fitCam2(false);
+  graphDirty = true;
+}
+new ResizeObserver(onResize).observe(vp);
+window.addEventListener('resize', () => { graphDirty = true; graph3Dirty = true; });
 
-        // 事件監聽
-        frequencySlider.addEventListener('input', calculatePhysics);
-        intensitySlider.addEventListener('input', calculatePhysics);
-        metalSelect.addEventListener('change', calculatePhysics);
-        voltageSlider.addEventListener('input', calculatePhysics);
-        
-        // 監聽動能開關
-        keToggle.addEventListener('change', function() {
-            distinguishKE = this.checked;
-            // 更新畫面上已存在的電子顏色
-            electrons.forEach(electron => electron.setColor());
-        });
+function setTab(n){
+  const prev = active;
+  if (prev === 2 && n !== 2) stopSweep();
+  if (n === 3 && prev !== 3){ st2Stash = {...st2}; active = n; swapApparatus(st3); }
+  if (prev === 3 && n !== 3){ Object.assign(st3, st2); finding = false; active = n; swapApparatus(st2Stash); }
+  active = n;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', +b.dataset.tab === n));
+  document.getElementById('panel1').classList.toggle('active', n === 1);
+  document.getElementById('panel2').classList.toggle('active', n === 2);
+  document.getElementById('panel3').classList.toggle('active', n === 3);
+  ctl1.enabled = n === 1; ctl2.enabled = n === 2 || n === 3;
+  document.getElementById('badge').style.display = n === 1 ? '' : 'none';
+  bigMeter.classList.toggle('show', n === 3 && mode3 === 'hands');
+  if (prev === 3 || n === 3) fitCam2(true);
+  graphDirty = true; graph3Dirty = true; clock.getDelta();
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => setTab(+b.dataset.tab));
 
-        // 頁面初始化時執行
-        calculatePhysics();
-        requestAnimationFrame(animate);
+readSliders1(); updateMode1();
+readParams2(); readV2();
+read3(); readV3(); setMode3('hands');
+onResize();
 
-    </script>
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05); T += dt;
+  if (active === 1){ update1(dt); ctl1.update(); renderer.render(S1, cam1); }
+  else { if (active === 3) update3(dt); else update2(dt); ctl2.update(); renderer.render(S2, cam2); }
+}
+animate();
+</script>
 </body>
 </html>
