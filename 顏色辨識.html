@@ -198,6 +198,20 @@ td.strong{font-weight:800;font-size:17px}
   .row.main dd{font-size:20px}
 }
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+/* ---------- 說明視窗 ---------- */
+.dlg{padding:0;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text);
+  width:min(92vw,34rem);max-height:84vh;box-shadow:0 12px 40px rgba(0,0,0,.28)}
+.dlg::backdrop{background:rgba(0,0,0,.5)}
+.dlg-in{padding:16px 18px 18px;max-height:84vh;overflow-y:auto}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.dlg-head h2{font-size:18px}
+.dlg-x{appearance:none;border:0;background:var(--surface-2);color:var(--text);font:inherit;font-size:18px;
+  width:40px;height:40px;border-radius:50%;cursor:pointer;flex:none}
+.dlg-info{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;overflow-wrap:anywhere}
+.dlg-info b{display:block;font-size:12.5px;color:var(--muted)}
+.dlg ul{margin:12px 0 0;padding-left:1.3em}
+.dlg li{font-size:15px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -235,6 +249,7 @@ td.strong{font-weight:800;font-size:17px}
         <label class="btn primary" for="file">選擇圖片</label>
         <input id="file" type="file" accept="image/*" hidden>
         <button class="btn" id="btnSample" type="button">載入範例色卡</button>
+        <button class="btn" id="btnHelp" type="button">說明</button>
       </div>
       <div class="stage-host" id="imgHost">
         <div class="ph" id="imgEmpty">
@@ -247,7 +262,6 @@ td.strong{font-weight:800;font-size:17px}
         </div>
         <div class="zoombar" id="zoomBar" hidden><span id="zoomVal">1.0×</span><button type="button" id="zoomReset">重設</button></div>
       </div>
-      <p class="hint small" id="imgInfo">點一下圖片，或按住拖曳，即時讀取顏色（每次取取樣點周圍 5×5 像素的平均）。電腦上可用方向鍵逐像素微調，Shift＋方向鍵一次移 10 像素。</p>
     </div>
 
     <!-- ===== 相機 ===== -->
@@ -387,6 +401,19 @@ td.strong{font-weight:800;font-size:17px}
 <p class="foot">臺中二中 阿發老師 設計・所有運算都在你的裝置上完成，圖片與相機畫面不會上傳</p>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog class="dlg" id="helpDlg" aria-labelledby="helpTitle">
+  <div class="dlg-in">
+    <div class="dlg-head"><h2 id="helpTitle">圖片取色說明</h2><button class="dlg-x" id="helpClose" type="button" aria-label="關閉">✕</button></div>
+    <p class="dlg-info"><b>目前圖片</b><span id="imgInfo">尚未載入圖片</span></p>
+    <ul>
+      <li>按「選擇圖片」，或把圖片拖曳、貼上（Ctrl／⌘＋V）到圖片區。也可以先載入範例色卡，對照已知色碼。</li>
+      <li>點一下圖片，或按住拖曳，即時讀取顏色。每次取取樣點周圍 5×5 像素的平均。</li>
+      <li>手機：雙指捏合縮放（最大 10×），雙指一起移動可平移；放大後按左上角「重設」回到原始大小。</li>
+      <li>電腦：點選圖片後，可用方向鍵逐像素微調，Shift＋方向鍵一次移 10 像素。</li>
+      <li>超過 3000 像素的圖片會自動縮小，以節省記憶體。</li>
+    </ul>
+  </div>
+</dialog>
 <div class="fs" id="fs" hidden role="dialog" aria-label="全螢幕色卡">
   <span class="fs-tip">點一下或按 Esc 關閉</span>
   <div class="fs-text"><b id="fsHex"></b><span id="fsRgb"></span></div>
@@ -626,8 +653,7 @@ function drawToCanvas(source, sw, sh, label) {
   c.imageSmoothingQuality = 'high'; c.drawImage(source, 0, 0, w, h);
   img.has = true; img.pick = null;
   $('#imgEmpty').hidden = true; $('#imgStage').hidden = false; $('#imgReticle').hidden = true;
-  $('#imgInfo').textContent = `${label}・${sw}×${sh} 像素` + (sc < 1 ? `（為節省記憶體，已縮小為 ${w}×${h}）` : '') +
-    '。點一下圖片，或按住拖曳，即時讀取顏色（取樣點周圍 5×5 像素平均）。手機上可用雙指縮放、平移圖片。';
+  $('#imgInfo').textContent = `${label}・${sw}×${sh} 像素` + (sc < 1 ? `（為節省記憶體，已縮小為 ${w}×${h}）` : '');
   imgHost.classList.add('zoomable'); resetZoom();
   refit();
 }
@@ -694,6 +720,11 @@ img.canvas.addEventListener('keydown', e => {
 });
 $('#file').addEventListener('change', e => { loadImageFile(e.target.files[0]); e.target.value = ''; });
 $('#btnSample').addEventListener('click', drawSampleChart);
+/* 說明視窗：✕、點視窗外暗色區域、Esc（dialog 內建）皆可關閉 */
+const helpDlg = $('#helpDlg');
+$('#btnHelp').addEventListener('click', () => { if (helpDlg.showModal) helpDlg.showModal(); else helpDlg.setAttribute('open', ''); });
+$('#helpClose').addEventListener('click', () => { if (helpDlg.close) helpDlg.close(); else helpDlg.removeAttribute('open'); });
+helpDlg.addEventListener('click', e => { if (e.target === helpDlg && helpDlg.close) helpDlg.close(); });
 const imgHost = $('#imgHost');
 ['dragenter', 'dragover'].forEach(t => imgHost.addEventListener(t, e => { e.preventDefault(); imgHost.classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(t => imgHost.addEventListener(t, e => { e.preventDefault(); imgHost.classList.remove('drag'); }));
