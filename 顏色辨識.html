@@ -92,6 +92,11 @@ input.bad{border-color:var(--danger);box-shadow:0 0 0 2px color-mix(in srgb,var(
 .reticle{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}
 .reticle svg{width:100%;height:100%;display:block}
 .badge{position:absolute;left:8px;top:8px;background:rgba(0,0,0,.68);color:#fff;font-size:13px;padding:4px 10px;border-radius:999px;pointer-events:none}
+/* 圖片雙指縮放 */
+.stage-host.zoomable{touch-action:none}
+.zoombar{position:absolute;left:8px;top:8px;z-index:3;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.68);color:#fff;
+  border-radius:999px;padding:3px 3px 3px 12px;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.zoombar button{appearance:none;border:0;background:#fff;color:#1b1e23;font:inherit;font-size:13.5px;border-radius:999px;min-height:34px;padding:0 12px;cursor:pointer}
 
 /* ---------- readout ---------- */
 .viz{display:flex;gap:10px;align-items:stretch}
@@ -240,6 +245,7 @@ td.strong{font-weight:800;font-size:17px}
           <canvas id="imgCanvas" tabindex="0" aria-label="圖片取色區，點選或使用方向鍵移動取樣點"></canvas>
           <div class="reticle" id="imgReticle" hidden></div>
         </div>
+        <div class="zoombar" id="zoomBar" hidden><span id="zoomVal">1.0×</span><button type="button" id="zoomReset">重設</button></div>
       </div>
       <p class="hint small" id="imgInfo">點一下圖片，或按住拖曳，即時讀取顏色（每次取取樣點周圍 5×5 像素的平均）。電腦上可用方向鍵逐像素微調，Shift＋方向鍵一次移 10 像素。</p>
     </div>
@@ -591,7 +597,7 @@ function fit(stage, host, nw, nh) {
   const s = Math.min(aw / nw, maxStageH() / nh);
   stage.style.width = Math.max(1, Math.floor(nw * s)) + 'px';
   stage.style.height = Math.max(1, Math.floor(nh * s)) + 'px';
-  if (stage.id === 'imgStage') img.canvas.style.imageRendering = s > 1.5 ? 'pixelated' : 'auto';
+  if (stage.id === 'imgStage') { img.fitS = s; applyZoom(); }   // pixelated 判斷改由 applyZoom 依「適配倍率×縮放倍率」決定
 }
 function refit() {
   fit($('#imgStage'), $('#imgHost'), img.w, img.h);
@@ -621,7 +627,8 @@ function drawToCanvas(source, sw, sh, label) {
   img.has = true; img.pick = null;
   $('#imgEmpty').hidden = true; $('#imgStage').hidden = false; $('#imgReticle').hidden = true;
   $('#imgInfo').textContent = `${label}・${sw}×${sh} 像素` + (sc < 1 ? `（為節省記憶體，已縮小為 ${w}×${h}）` : '') +
-    '。點一下圖片，或按住拖曳，即時讀取顏色（取樣點周圍 5×5 像素平均）。';
+    '。點一下圖片，或按住拖曳，即時讀取顏色（取樣點周圍 5×5 像素平均）。手機上可用雙指縮放、平移圖片。';
+  imgHost.classList.add('zoomable'); resetZoom();
   refit();
 }
 async function loadImageFile(file) {
@@ -673,7 +680,7 @@ function pickImageEvt(e) {
 }
 let dragging = false;
 img.canvas.addEventListener('pointerdown', e => {
-  if (!img.has) return; dragging = true;
+  if (!img.has || zoomLock) return; dragging = true;
   try { img.canvas.setPointerCapture(e.pointerId); } catch (_) {}
   pickImageEvt(e);
 });
@@ -695,6 +702,75 @@ document.addEventListener('paste', e => {
   const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(f => f.type.startsWith('image/'));
   if (f) { showTab('image'); loadImageFile(f); }
 });
+
+/* ---------- 圖片雙指縮放・平移（僅觸控；滑鼠操作不受影響） ----------
+   單指：取色（原行為）；雙指：捏合縮放＋一起移動平移。
+   第二指放下時，讀值退回這次手勢開始前的顏色，避免第一指誤取色。
+   取色座標用 getBoundingClientRect() 計算，已含 transform，放大後仍對準正確像素。 */
+const ZMAX = 10;
+const zoom = { z: 1, tx: 0, ty: 0 };          // tx,ty：舞台中心相對外框中心的位移（螢幕 px）
+const imgStageEl = $('#imgStage'), touchPts = new Map();
+let pinch = null, zoomLock = false, zsnap = null;
+function clampZoom() {
+  const mx = Math.max(0, (imgStageEl.offsetWidth * zoom.z - imgHost.clientWidth) / 2);
+  const my = Math.max(0, (imgStageEl.offsetHeight * zoom.z - imgHost.clientHeight) / 2);
+  zoom.tx = clamp(zoom.tx, -mx, mx); zoom.ty = clamp(zoom.ty, -my, my);
+}
+function applyZoom() {
+  if (zoom.z < 1.01) zoom.z = 1;
+  clampZoom();
+  const on = zoom.z > 1;
+  imgStageEl.style.transform = on ? `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.z})` : '';
+  $('#imgReticle').style.transform = on ? `scale(${1 / zoom.z})` : '';   // 準心反向縮放，螢幕上大小固定
+  img.canvas.style.imageRendering = (img.fitS || 1) * zoom.z > 1.5 ? 'pixelated' : 'auto';
+  $('#zoomBar').hidden = !on;
+  $('#zoomVal').textContent = zoom.z.toFixed(1) + '×';
+}
+function resetZoom() { zoom.z = 1; zoom.tx = 0; zoom.ty = 0; applyZoom(); }
+function hostPt(x, y) { const r = imgHost.getBoundingClientRect(); return { x: x - r.left - r.width / 2, y: y - r.top - r.height / 2 }; }
+function startPinch() {
+  const [a, b] = [...touchPts.values()], m = hostPt((a.x + b.x) / 2, (a.y + b.y) / 2);
+  pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: zoom.z,
+            px: (m.x - zoom.tx) / zoom.z, py: (m.y - zoom.ty) / zoom.z };   // 雙指中點下方的圖片位置（未縮放座標）
+}
+function takeZSnap() {
+  const rt = $('#imgReticle');
+  zsnap = { st: { ...state }, pick: img.pick && { ...img.pick }, rtHidden: rt.hidden, rtL: rt.style.left, rtT: rt.style.top,
+            loupe: lctx.getImageData(0, 0, loupeCv.width, loupeCv.height) };
+}
+function restoreZSnap() {
+  if (!zsnap) return;
+  const rt = $('#imgReticle');
+  Object.assign(state, zsnap.st); img.pick = zsnap.pick;
+  rt.hidden = zsnap.rtHidden; rt.style.left = zsnap.rtL; rt.style.top = zsnap.rtT;
+  lctx.putImageData(zsnap.loupe, 0, 0);
+  render();
+}
+imgHost.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || !img.has || e.target.closest('.zoombar')) return;
+  if (!touchPts.size) takeZSnap();
+  touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touchPts.size === 2) {
+    if (!zoomLock) { dragging = false; restoreZSnap(); }
+    zoomLock = true; startPinch();
+  }
+}, true);   // capture：比 canvas 的取色先執行
+imgHost.addEventListener('pointermove', e => {
+  if (!touchPts.has(e.pointerId)) return;
+  touchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!pinch || touchPts.size < 2) return;
+  const [a, b] = [...touchPts.values()], m = hostPt((a.x + b.x) / 2, (a.y + b.y) / 2);
+  zoom.z = clamp(pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0, 1, ZMAX);
+  zoom.tx = m.x - zoom.z * pinch.px; zoom.ty = m.y - zoom.z * pinch.py;
+  applyZoom();
+}, true);
+['pointerup', 'pointercancel'].forEach(t => imgHost.addEventListener(t, e => {
+  if (!touchPts.delete(e.pointerId)) return;
+  if (touchPts.size >= 2) startPinch(); else pinch = null;
+  if (!touchPts.size) zoomLock = false;      // 全部手指離開才恢復單指取色
+}, true));
+imgHost.addEventListener('gesturestart', e => e.preventDefault());   // iOS Safari：避免整頁被放大
+$('#zoomReset').addEventListener('click', resetZoom);
 
 /* ================= 相機模式 ================= */
 const video = $('#video');
