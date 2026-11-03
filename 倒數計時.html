@@ -138,6 +138,12 @@ details.settings[open]>summary::before{content:"▾ "}
 .normal-color{display:flex;align-items:center;gap:10px;margin-top:8px;color:#c7d4ee}
 .warn-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .foot{color:#5f7199;font-size:.8rem;text-align:center;padding:0 0 14px}
+/* 學生報告：鈴聲設定列 */
+.talk-opts{margin-top:0;padding:8px 12px;background:#0b1430;border:1px solid var(--line);border-radius:12px}
+.talk-opts .grp{display:inline-flex;align-items:center;gap:6px;color:#c7d4ee}
+.talk-opts input[type=number]{width:4rem;min-height:38px;background:#14224a;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:1.05rem}
+.talk-opts input[type=number]:focus{outline:2px solid var(--primary);outline-offset:1px}
+.talk-opts .grp.off{opacity:.45}
 
 /* ---------- 投影模式 ---------- */
 .mini-bar{display:none;position:fixed;right:14px;bottom:12px;gap:8px;z-index:20;opacity:.28;transition:opacity .2s}
@@ -163,6 +169,8 @@ body.present .clock-digits{font-size:min(19cqw,24vh)}
   .actions .btn{flex:1}
   .set-grid{grid-template-columns:1fr}
   .title small{display:none}
+  .tabs{display:flex;width:100%}
+  .tabs button{flex:1;padding:8px 2px;font-size:.88rem}
   body.present main.split{grid-template-rows:auto 1fr}
   body.present .clock-card{padding:36px 10px 10px}
 }
@@ -234,6 +242,7 @@ body.pip .pip-bar .btn{min-height:34px;padding:5px 12px;font-size:.9rem}
       <div class="tabs" role="tablist">
         <button id="tabDur" role="tab" class="on">⏱ 倒數時間</button>
         <button id="tabClock" role="tab">🕒 倒數到幾點</button>
+        <button id="tabTalk" role="tab">🎤 學生報告</button>
       </div>
 
       <div id="modeDur" class="ctrl-row" style="gap:10px 16px">
@@ -256,11 +265,30 @@ body.pip .pip-bar .btn{min-height:34px;padding:5px 12px;font-size:.9rem}
         <span class="hint" id="clockHint"></span>
       </div>
 
+      <div id="modeTalk" class="ctrl-row" style="gap:10px 16px;display:none">
+        <div class="time-in">
+          <input type="number" id="tH" min="0" max="99" inputmode="numeric" aria-label="小時"><span>時</span>
+          <input type="number" id="tM" min="0" max="59" inputmode="numeric" aria-label="分鐘"><span>分</span>
+          <input type="number" id="tS" min="0" max="59" inputmode="numeric" aria-label="秒"><span>秒</span>
+        </div>
+        <div class="presets" id="talkPresets"></div>
+      </div>
+
       <div class="actions">
         <button class="btn primary" id="btnStart">▶ 開始</button>
         <button class="btn" id="btnPause">⏸ 暫停</button>
         <button class="btn" id="btnReset">↺ 重設</button>
       </div>
+    </div>
+    <div class="set-line talk-opts" id="talkOpts" style="display:none">
+      <span class="grp" id="gWarn"><label class="chk"><input type="checkbox" id="tWarnOn">🔔 預告短鈴：剩</label>
+        <input type="number" id="tWarnSec" min="1" max="3599" inputmode="numeric" aria-label="預告秒數">秒時</span>
+      <span class="grp">🔔 結束長鈴
+        <input type="number" id="tLongSec" min="1" max="20" inputmode="numeric" aria-label="長鈴秒數">秒</span>
+      <span class="grp" id="gOver"><label class="chk"><input type="checkbox" id="tOverOn">超時每</label>
+        <input type="number" id="tOverSec" min="5" max="600" inputmode="numeric" aria-label="超時響鈴間隔">秒再響短鈴</span>
+      <button class="chip" id="btnTestShort">試聽短鈴</button>
+      <button class="chip" id="btnTestLong">試聽長鈴</button>
     </div>
     <div class="msg" id="msg" role="status"></div>
 
@@ -355,7 +383,8 @@ const DEFAULT_WARNS = [
 const DEFAULTS = {
   theme: 'bomb', normalColor: '#e6edf7', warns: DEFAULT_WARNS,
   vol: 70, sound: true,
-  mode: 'dur', dur: { h: 0, m: 5, s: 0 }, clock: { h: 12, m: 0, s: 0, tomorrow: false }
+  mode: 'dur', dur: { h: 0, m: 5, s: 0 }, clock: { h: 12, m: 0, s: 0, tomorrow: false },
+  talk: { h: 0, m: 5, s: 0, warnOn: true, warnSec: 30, longSec: 5, overOn: true, overSec: 30 }
 };
 const STORE_KEY = 'afa-countdown-v1';
 let cfg = JSON.parse(JSON.stringify(DEFAULTS));
@@ -369,6 +398,7 @@ try {
       if (cfg.warns.length && cfg.warns.every(w => !('tick' in w))) cfg.warns.reduce((a, b) => b.sec < a.sec ? b : a).tick = true;
     }
     if (saved.dur) cfg.dur = Object.assign(cfg.dur, saved.dur);
+    if (saved.talk) cfg.talk = Object.assign(cfg.talk, saved.talk);
   }
 } catch (e) { /* 忽略 */ }
 function saveCfg() {
@@ -553,6 +583,50 @@ const Sound = {
     else if (theme === 'balloon') this.pop();
     else if (theme === 'water') this.splash();
     else this.alarm();
+  },
+  /* ---- 計時鈴（桌上按鈴）：ringSec = 0 → 「叮」一聲；ringSec > 0 → 連續快敲 ringSec 秒 ----
+     鈴身持續振動，每敲一下就把各泛音重新激發到峰值、再指數衰減（不是每下各開一組振盪器，避免相位疊加）
+     泛音比 1 : 2.37 : 4.1 : 5.9 為鈴的非諧和泛音；另加 1.002 倍的微失諧分音，產生約 3 Hz 的拍頻餘韻 */
+  bellNow: null,
+  bell(ringSec) {
+    if (!this.ok()) return;
+    this.stopBell();
+    const c = this.ctx, t0 = c.currentTime + 0.02, F0 = 1480, RATE = 8;
+    const single = !(ringSec > 0);
+    const n = single ? 1 : Math.max(2, Math.round(ringSec * RATE));
+    const strikes = Array.from({ length: n }, (_, k) => k / RATE);
+    const tLast = t0 + strikes[n - 1];
+    const tail = single ? 0.85 : 0.6;               // 最後一下的餘韻時間常數（秒）
+    const end = tLast + tail * 7;                    // 約 -60 dB
+    const bus = c.createGain(); bus.gain.value = 1; bus.connect(this.master);
+    const P = [[1, 1, 1], [1.002, 0.6, 1], [2.37, 0.45, 0.6], [4.1, 0.22, 0.38], [5.9, 0.12, 0.25]];  // [頻率比, 振幅, 衰減比例]
+    const amps = strikes.map(() => single ? 1 : 0.75 + Math.random() * 0.2);  // 手敲力道略有不同
+    P.forEach(([r, a, ts]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = F0 * r;
+      g.gain.setValueAtTime(0, t0);
+      strikes.forEach((s, k) => {
+        const t = t0 + s, tau = (k === n - 1 ? tail : 0.09) * ts;
+        g.gain.setTargetAtTime(0.4 * a * amps[k], t, 0.0015);
+        g.gain.setTargetAtTime(0, t + 0.008, tau);
+      });
+      o.connect(g); g.connect(bus); o.start(t0); o.stop(end);
+    });
+    strikes.forEach((s, k) => {                      // 鈴錘敲擊的「喀」聲
+      const t = t0 + s, ns = this.noise(0.03), hp = c.createBiquadFilter(), g = c.createGain();
+      hp.type = 'highpass'; hp.frequency.value = 3000;
+      g.gain.setValueAtTime(0.22 * amps[k], t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+      ns.connect(hp); hp.connect(g); g.connect(bus); ns.start(t);
+    });
+    this.bellNow = { bus, ringUntil: tLast + 0.4, end };
+  },
+  get ringing() { return !!(this.bellNow && this.ctx && this.ctx.currentTime < this.bellNow.ringUntil); },
+  stopBell() {
+    const b = this.bellNow;
+    if (!b) return;
+    this.bellNow = null;
+    b.bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02);
+    setTimeout(() => { try { b.bus.disconnect(); } catch (e) { /* 忽略 */ } }, 300);
   }
 };
 
@@ -993,18 +1067,25 @@ const el = {
   dH: $('#dH'), dM: $('#dM'), dS: $('#dS'), cH: $('#cH'), cM: $('#cM'), cS: $('#cS'), cTomorrow: $('#cTomorrow'),
   btnStart: $('#btnStart'), btnPause: $('#btnPause'), btnReset: $('#btnReset'),
   miniStart: $('#miniStart'), miniReset: $('#miniReset'), miniExit: $('#miniExit'),
-  tabDur: $('#tabDur'), tabClock: $('#tabClock'), modeDur: $('#modeDur'), modeClock: $('#modeClock'), clockHint: $('#clockHint')
+  tabDur: $('#tabDur'), tabClock: $('#tabClock'), modeDur: $('#modeDur'), modeClock: $('#modeClock'), clockHint: $('#clockHint'),
+  tabTalk: $('#tabTalk'), modeTalk: $('#modeTalk'), talkOpts: $('#talkOpts'), tH: $('#tH'), tM: $('#tM'), tS: $('#tS'),
+  tWarnOn: $('#tWarnOn'), tWarnSec: $('#tWarnSec'), tLongSec: $('#tLongSec'), tOverOn: $('#tOverOn'), tOverSec: $('#tOverSec')
 };
+const TALK_BANNER = '🔔 時間到！';
+const bannerText = () => run.kind === 'talk' ? TALK_BANNER : BANNER[cfg.theme];
 const THEMES = ['bomb', 'balloon', 'water', 'plain'];
 const BANNER = { bomb: '💥 BOOM！時間到', balloon: '🎈 啪！時間到', water: '💦 嘩啦！時間到', plain: '⏰ 時間到！' };
 
 /* ---------------- 倒數狀態 ---------------- */
-const run = { state: 'idle', kind: 'dur', end: 0, total: 0, pausedRem: 0, long: false, lastSec: null, lastIdx: null, endShown: '' };
+const run = { state: 'idle', kind: 'dur', end: 0, total: 0, pausedRem: 0, long: false, lastSec: null, lastIdx: null, endShown: '', overMs: 0 };
 const view = { theme: cfg.theme, state: 'idle', p: 1, remSec: 0, color: null };
 let lastClockSec = -1, msgTimer = 0;
 
 const num = (e, max) => clamp(Math.floor(parseFloat(e.value) || 0), 0, max);
 const readDur = () => ({ h: num(el.dH, 99), m: num(el.dM, 9999), s: num(el.dS, 9999) });
+const readTalk = () => ({ h: num(el.tH, 99), m: num(el.tM, 9999), s: num(el.tS, 9999) });
+const talkSec = () => { const d = readTalk(); return Math.min(359999, d.h * 3600 + d.m * 60 + d.s); };
+const pausable = () => run.kind !== 'clock';      // 「倒數時間」與「學生報告」可暫停；「到幾點」不行
 const readClock = () => ({ h: num(el.cH, 99), m: num(el.cM, 99), s: num(el.cS, 99), tomorrow: el.cTomorrow.checked });
 function fmt(sec, long) {
   sec = Math.max(0, sec);
@@ -1034,6 +1115,11 @@ function computeStart() {
     if (sec <= 0) return { ok: false, err: '請輸入大於 0 的倒數時間' };
     return { ok: true, kind: 'dur', end: Date.now() + sec * 1000, total: sec * 1000 };
   }
+  if (cfg.mode === 'talk') {
+    const sec = talkSec();
+    if (sec <= 0) return { ok: false, err: '請輸入大於 0 的報告時間' };
+    return { ok: true, kind: 'talk', end: Date.now() + sec * 1000, total: sec * 1000 };
+  }
   const n = nowMs(), t = clockTarget(n);
   if (!t.ok) return t;
   return { ok: true, kind: 'clock', end: t.target, total: t.target - n };
@@ -1043,7 +1129,7 @@ const remAt = () => run.state === 'running' ? Math.max(0, run.end - (run.kind ==
 const endTrue = () => run.kind === 'clock' ? run.end : run.end + offsetMs;
 
 function start() {
-  Sound.ensure();
+  Sound.ensure(); Sound.stopBell();
   if (run.state === 'paused') {
     run.end = Date.now() + run.pausedRem; run.state = 'running';
     afterStateChange(); return;
@@ -1053,27 +1139,30 @@ function start() {
   if (!t.ok) { showMsg(t.err); return; }
   showMsg('');
   Stage.reset(); el.banner.className = 'banner';
-  Object.assign(run, { state: 'running', kind: t.kind, end: t.end, total: t.total, long: t.total >= 3600e3, lastSec: null, lastIdx: null });
+  Object.assign(run, { state: 'running', kind: t.kind, end: t.end, total: t.total, long: t.total >= 3600e3, lastSec: null, lastIdx: null, overMs: 0 });
   afterStateChange();
 }
 function pause() {
-  if (run.state !== 'running' || run.kind !== 'dur') return;
+  if (run.state !== 'running' || !pausable()) return;
   run.pausedRem = remAt(); run.state = 'paused'; afterStateChange();
 }
 function reset() {
+  Sound.stopBell();
   run.state = 'idle'; Stage.reset(); el.banner.className = 'banner';
   afterStateChange();
 }
 function finish() {
   run.state = 'finished';
-  Stage.burst(); Sound.finish(cfg.theme);
-  el.banner.textContent = BANNER[cfg.theme];
+  Stage.burst();
+  if (run.kind === 'talk') Sound.bell(cfg.talk.longSec); else Sound.finish(cfg.theme);
+  el.banner.textContent = bannerText();
   el.banner.className = 'banner show';
   afterStateChange();
   el.cdCard.classList.remove('finished'); void el.cdCard.offsetWidth; el.cdCard.classList.add('finished');
 }
 function toggleMain() {
-  if (run.state === 'running') { if (run.kind === 'dur') pause(); }
+  if (run.state === 'finished' && Sound.ringing) { Sound.stopBell(); return; }   // 長鈴響時：先只停鈴
+  if (run.state === 'running') { if (pausable()) pause(); }
   else start();
 }
 
@@ -1081,12 +1170,12 @@ function afterStateChange() {
   const st = run.state, active = st === 'running' || st === 'paused';
   el.btnStart.textContent = st === 'paused' ? '▶ 繼續' : '▶ 開始';
   el.btnStart.disabled = st === 'running';
-  el.btnPause.disabled = !(st === 'running' && run.kind === 'dur');
+  el.btnPause.disabled = !(st === 'running' && pausable());
   el.btnReset.disabled = st === 'idle';
-  el.miniStart.textContent = st === 'paused' ? '▶ 繼續' : (st === 'running' ? (run.kind === 'dur' ? '⏸ 暫停' : '進行中') : '▶ 開始');
-  el.miniStart.disabled = (st === 'running' && run.kind !== 'dur');
-  [el.dH, el.dM, el.dS, el.cH, el.cM, el.cS, el.cTomorrow, el.tabDur, el.tabClock].forEach(e => { e.disabled = active; });
-  document.querySelectorAll('#presets .chip').forEach(b => { b.disabled = active; });
+  el.miniStart.textContent = st === 'paused' ? '▶ 繼續' : (st === 'running' ? (pausable() ? '⏸ 暫停' : '進行中') : '▶ 開始');
+  el.miniStart.disabled = (st === 'running' && !pausable());
+  [el.dH, el.dM, el.dS, el.cH, el.cM, el.cS, el.cTomorrow, el.tabDur, el.tabClock, el.tabTalk, el.tH, el.tM, el.tS].forEach(e => { e.disabled = active; });
+  document.querySelectorAll('#presets .chip, #talkPresets .chip').forEach(b => { b.disabled = active; });
   el.cdCard.classList.toggle('paused', st === 'paused');
   if (st !== 'finished') el.cdCard.classList.remove('finished');
   lastClockSec = -1;   // 強制刷新一次提示文字
@@ -1115,6 +1204,7 @@ function update(n) {
   let remMs = 0, idleSec = 0, p = 1;
   if (st === 'idle') {
     if (cfg.mode === 'dur') { const d = readDur(); idleSec = Math.min(359999, d.h * 3600 + d.m * 60 + d.s); }
+    else if (cfg.mode === 'talk') idleSec = talkSec();
     else { const t = clockTarget(n); idleSec = t.ok ? Math.ceil((t.target - n) / 1000) : 0; }
   } else {
     remMs = remAt();
@@ -1124,7 +1214,11 @@ function update(n) {
   const warn = st === 'idle' ? null : stageFor(remSec);
   const color = warn ? warn.color : cfg.normalColor;
   const long = st === 'idle' ? idleSec >= 3600 : run.long;
-  const text = fmt(remSec, long);
+  // 學生報告：時間到之後改為超時正數 +mm:ss（無條件捨去，剛結束時顯示 +00:00）
+  const over = st === 'finished' && run.kind === 'talk';
+  if (over) run.overMs = Math.max(0, Date.now() - run.end);
+  const overSec = over ? Math.floor(run.overMs / 1000) : 0;
+  const text = over ? '+' + fmt(overSec, long) : fmt(remSec, long);
   if (el.cdDigits.textContent !== text) el.cdDigits.textContent = text;
   el.cdDigits.classList.toggle('short', !long);
   el.cdDigits.classList.toggle('idle', st === 'idle');
@@ -1134,26 +1228,41 @@ function update(n) {
   el.cdCard.classList.toggle('warn', !!warn);
   el.plainFill.style.width = (st === 'idle' ? 100 : p * 100).toFixed(2) + '%';
 
-  if (newSecond || st !== view.state) {
-    el.cdLabel.textContent = cfg.mode === 'clock' ? '倒數到中原標準時間' : '倒數時間';
+  if (newSecond || st !== view.state || (over && overSec !== run.overShown)) {
+    run.overShown = overSec;
+    const talkLabel = st === 'idle' ? cfg.mode === 'talk' : run.kind === 'talk';
+    el.cdLabel.textContent = talkLabel ? '學生報告' : (cfg.mode === 'clock' ? '倒數到中原標準時間' : '倒數時間');
     let sub = '', info = '';
     if (cfg.mode === 'clock' && st === 'idle') { const t = clockTarget(n); sub = t.label ? ' → ' + t.label : ''; }
     if (st === 'running' || st === 'paused' || st === 'finished') {
       if (run.kind === 'clock') sub = ' → ' + hms(run.end);
       info = st === 'paused' ? '⏸ 已暫停' : (st === 'finished' ? '時間到　結束於 ' + hms(endTrue()) : '預定結束：' + hms(endTrue()) + '（中原標準時間）');
+      if (over) { sub = '　超時中'; info = '已超時 ' + fmtJp(overSec) + '　（按「重設」結束）'; }
     } else info = '設定好時間後按「開始」';
     el.cdSub.textContent = sub; el.cdInfo.textContent = info;
     document.title = st === 'running' ? `${text} ｜倒數計時器` : '倒數計時器｜中原標準時間';
   }
   // 音效與階段切換
+  // 學生報告只用計時鈴：不播滴答聲、換色提示音與主題結束音效（畫面變色、動畫照常）
+  const talkRun = run.kind === 'talk';
   if (st === 'running') {
     if (remSec !== run.lastSec) {
-      if (run.lastSec !== null && remSec > 0 && cfg.warns.some(w => w.tick && remSec <= w.sec)) Sound.tick(remSec <= 10, remSec % 2);
+      if (talkRun) {
+        // 預告短鈴：剩餘秒數由 > W 跨到 ≤ W 的那一刻響一次（總時間 ≤ W 時不響）
+        const W = cfg.talk.warnSec;
+        if (cfg.talk.warnOn && run.lastSec !== null && run.lastSec > W && remSec <= W && remSec > 0) Sound.bell(0);
+      } else if (run.lastSec !== null && remSec > 0 && cfg.warns.some(w => w.tick && remSec <= w.sec)) Sound.tick(remSec <= 10, remSec % 2);
       run.lastSec = remSec;
     }
     const idx = warn ? cfg.warns.indexOf(warn) : -1;
-    if (idx !== run.lastIdx) { if (run.lastIdx !== null && idx >= 0) Sound.chime(); run.lastIdx = idx; }
-    if (remMs <= 0) finish();
+    if (idx !== run.lastIdx) { if (run.lastIdx !== null && idx >= 0 && !talkRun) Sound.chime(); run.lastIdx = idx; }
+    if (remMs <= 0) { run.lastOverSec = 0; finish(); }
+  } else if (over) {
+    // 超時再響鈴：超時累計跨過 N、2N、3N… 秒時各響一次短鈴
+    // 用「上一次到這一次之間是否跨過 N 的倍數」判斷：背景分頁計時器變慢也不會漏響或重響；長鈴還在響時不打斷它
+    const N = cfg.talk.overSec, prev = run.lastOverSec || 0;
+    if (cfg.talk.overOn && Math.floor(overSec / N) > Math.floor(prev / N) && !Sound.ringing) Sound.bell(0);
+    run.lastOverSec = overSec;
   }
   el.soundHint.style.display = (st === 'running' && cfg.sound && !Sound.ready) ? 'block' : 'none';
   Object.assign(view, { theme: cfg.theme, state: run.state, p, remSec, color: warn ? warn.color : null });
@@ -1169,8 +1278,11 @@ function setMode(m) {
   if (run.state === 'running' || run.state === 'paused') return;
   cfg.mode = m; saveCfg();
   el.tabDur.classList.toggle('on', m === 'dur'); el.tabClock.classList.toggle('on', m === 'clock');
+  el.tabTalk.classList.toggle('on', m === 'talk');
   el.modeDur.style.display = m === 'dur' ? 'flex' : 'none';
   el.modeClock.style.display = m === 'clock' ? 'flex' : 'none';
+  el.modeTalk.style.display = m === 'talk' ? 'flex' : 'none';
+  el.talkOpts.style.display = m === 'talk' ? 'flex' : 'none';
   showMsg(''); lastClockSec = -1; update(nowMs());
 }
 function writeDur(sec) {
@@ -1192,6 +1304,41 @@ el.cTomorrow.addEventListener('change', () => { lastClockSec = -1; });
 document.querySelectorAll('.time-in input, .warn-row input[type=number]').forEach(e => e.addEventListener('focus', () => e.select()));
 el.tabDur.addEventListener('click', () => setMode('dur'));
 el.tabClock.addEventListener('click', () => setMode('clock'));
+el.tabTalk.addEventListener('click', () => setMode('talk'));
+
+/* ---------------- 學生報告：時間與鈴聲設定 ---------------- */
+function writeTalk(sec) {
+  sec = clamp(Math.floor(sec), 0, 359999);
+  el.tH.value = Math.floor(sec / 3600); el.tM.value = Math.floor(sec % 3600 / 60); el.tS.value = sec % 60;
+  Object.assign(cfg.talk, { h: +el.tH.value, m: +el.tM.value, s: +el.tS.value }); saveCfg();
+}
+[[180, '3 分'], [300, '5 分'], [480, '8 分'], [600, '10 分'], [900, '15 分']].forEach(([s, t]) => {
+  const b = document.createElement('button'); b.className = 'chip'; b.textContent = t;
+  b.addEventListener('click', () => { writeTalk(s); lastClockSec = -1; update(nowMs()); });
+  $('#talkPresets').appendChild(b);
+});
+[el.tH, el.tM, el.tS].forEach(e => {
+  e.addEventListener('change', () => { const d = readTalk(); writeTalk(d.h * 3600 + d.m * 60 + d.s); });
+});
+function renderTalkOpts() {
+  const t = cfg.talk;
+  el.tWarnOn.checked = !!t.warnOn; el.tWarnSec.value = t.warnSec; el.tLongSec.value = t.longSec;
+  el.tOverOn.checked = !!t.overOn; el.tOverSec.value = t.overSec;
+  $('#gWarn').classList.toggle('off', !t.warnOn); $('#gOver').classList.toggle('off', !t.overOn);
+}
+[[el.tWarnSec, 'warnSec', 1, 3599], [el.tLongSec, 'longSec', 1, 20], [el.tOverSec, 'overSec', 5, 600]].forEach(([e, k, a, b]) => {
+  e.addEventListener('change', () => { cfg.talk[k] = clamp(Math.floor(+e.value || 0), a, b); saveCfg(); renderTalkOpts(); });
+  e.addEventListener('focus', () => e.select());
+});
+el.tWarnOn.addEventListener('change', () => { cfg.talk.warnOn = el.tWarnOn.checked; saveCfg(); renderTalkOpts(); });
+el.tOverOn.addEventListener('change', () => { cfg.talk.overOn = el.tOverOn.checked; saveCfg(); renderTalkOpts(); });
+function testBell(sec) {
+  Sound.ensure();
+  if (!cfg.sound) { showMsg('目前為靜音狀態，請先按右上角的喇叭開啟音效'); return; }
+  setTimeout(() => Sound.bell(sec), 60);
+}
+$('#btnTestShort').addEventListener('click', () => testBell(0));
+$('#btnTestLong').addEventListener('click', () => testBell(cfg.talk.longSec));
 el.btnStart.addEventListener('click', start);
 el.btnPause.addEventListener('click', pause);
 el.btnReset.addEventListener('click', reset);
@@ -1206,7 +1353,7 @@ function applyTheme(t, save) {
   THEMES.forEach(x => document.body.classList.toggle('theme-' + x, x === t));
   document.querySelectorAll('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.theme === t));
   Stage.reset();
-  if (run.state === 'finished') { Stage.burst(); el.banner.textContent = BANNER[t]; }
+  if (run.state === 'finished') { Stage.burst(); el.banner.textContent = bannerText(); }
   if (save) saveCfg();
   PiP.syncBody();   // 浮動視窗開啟時，同步小窗的主題 class
   requestAnimationFrame(() => Stage.resize());
@@ -1300,6 +1447,12 @@ function buildLink() {
   if (cfg.mode === 'dur') {
     const d = readDur(); if (d.h) q.set('h', d.h); if (d.m) q.set('m', d.m); if (d.s) q.set('s', d.s);
     if (!d.h && !d.m && !d.s) q.set('m', 5);
+  } else if (cfg.mode === 'talk') {
+    const t = cfg.talk;
+    q.set('talk', talkSec() || 300);                 // 報告秒數
+    q.set('tw', t.warnOn ? t.warnSec : 0);           // 預告短鈴秒數（0＝不響）
+    q.set('tl', t.longSec);                          // 長鈴秒數
+    q.set('to', t.overOn ? t.overSec : 0);           // 超時每幾秒再響（0＝不響）
   } else {
     const c = readClock(); q.set('at', `${pad(c.h)}:${pad(c.m)}:${pad(c.s)}`); if (c.tomorrow) q.set('tomorrow', '1');
   }
@@ -1328,6 +1481,14 @@ function applyParams() {
     const sec = Math.min(359999, iv('h') * 3600 + iv('m') * 60 + iv('s'));
     cfg.dur = { h: Math.floor(sec / 3600), m: Math.floor(sec % 3600 / 60), s: sec % 60 };
   }
+  if (q.has('talk')) {
+    cfg.mode = 'talk';
+    const sec = Math.min(359999, iv('talk')) || 300, t = cfg.talk;
+    Object.assign(t, { h: Math.floor(sec / 3600), m: Math.floor(sec % 3600 / 60), s: sec % 60 });
+    if (q.has('tw')) { const v = iv('tw'); t.warnOn = v > 0; if (v > 0) t.warnSec = Math.min(3599, v); }
+    if (q.has('tl')) t.longSec = clamp(iv('tl'), 1, 20);
+    if (q.has('to')) { const v = iv('to'); t.overOn = v > 0; if (v > 0) t.overSec = clamp(v, 5, 600); }
+  }
   if (q.has('at')) {
     const m = /^(\d{1,2})[:：](\d{1,2})(?:[:：](\d{1,2}))?$/.exec(q.get('at').trim());
     if (m) { r.hasAt = true; cfg.mode = 'clock'; cfg.clock = { h: clamp(+m[1], 0, 23), m: clamp(+m[2], 0, 59), s: clamp(+(m[3] || 0), 0, 59), tomorrow: q.get('tomorrow') === '1' }; }
@@ -1353,10 +1514,11 @@ function init() {
   }
   el.dH.value = cfg.dur.h; el.dM.value = cfg.dur.m; el.dS.value = cfg.dur.s;
   el.cH.value = cfg.clock.h; el.cM.value = cfg.clock.m; el.cS.value = cfg.clock.s; el.cTomorrow.checked = !!cfg.clock.tomorrow;
+  el.tH.value = cfg.talk.h; el.tM.value = cfg.talk.m; el.tS.value = cfg.talk.s; renderTalkOpts();
   $('#optVol').value = cfg.vol; $('#normalColor').value = cfg.normalColor;
   renderSoundBtn(); renderWarns();
   applyTheme(THEMES.includes(cfg.theme) ? cfg.theme : 'bomb', false);
-  setMode(cfg.mode === 'clock' ? 'clock' : 'dur');
+  setMode(['clock', 'talk'].includes(cfg.mode) ? cfg.mode : 'dur');
   afterStateChange();
   if (pr.present) document.body.classList.add('present');
   syncTime(false).then(() => { lastClockSec = -1; });
