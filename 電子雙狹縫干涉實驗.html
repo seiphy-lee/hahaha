@@ -1,613 +1,676 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>電子雙狹縫干涉實驗模擬</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
-        
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
-            color: #e2e8f0;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        /* 科技感發光滑桿 */
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #4ade80;
-            cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 0 0 10px #4ade80;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #1e293b;
-            border-radius: 2px;
-            border: 1px solid #334155;
-        }
-
-        /* 自訂單選按鈕 */
-        .radio-custom {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #64748b;
-            border-radius: 50%;
-            position: relative;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-        input[type="radio"]:checked + .radio-custom::after {
-            content: '';
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 8px;
-            height: 8px;
-            background: #38bdf8;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #38bdf8;
-        }
-
-        .neon-border {
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            box-shadow: 0 0 15px rgba(56, 189, 248, 0.1), inset 0 0 20px rgba(56, 189, 248, 0.05);
-        }
-
-        .canvas-container {
-            position: relative;
-            background: #020617;
-            border: 1px solid #1e293b;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
-        }
-
-        /* 3D 場景上的 HTML 標籤 */
-        .scene-label {
-            position: absolute;
-            color: #cbd5e1;
-            font-size: 1.75rem; /* 放大了 2 倍 */
-            font-weight: bold;
-            letter-spacing: 0.1em;
-            pointer-events: none;
-            text-shadow: 0 4px 6px rgba(0,0,0,0.9), 0 0 10px rgba(56, 189, 248, 0.5);
-            transform: translate(-50%, -50%); /* 確保置中對齊定位點 */
-            white-space: nowrap;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>電子雙狹縫干涉</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#121922; --line:#243041; --text:#e6edf5; --muted:#8fa0b5;
+    --accent:#5ec8ff; --phos:#7dffb0; --warn:#ffb15a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+  header{display:flex;align-items:baseline;gap:16px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header h1{margin:0;font-size:22px;letter-spacing:1px}
+  header .credit{color:var(--muted);font-size:14px}
+  .layout{display:grid;grid-template-columns:290px minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:14px 18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .panel{display:flex;flex-direction:column;gap:12px}
+  .sec h3{margin:0 0 8px;font-size:14px;color:var(--accent);font-weight:600}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button,.btn{flex:1;background:#1a2330;color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:7px 8px;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .seg button.on{background:#1e4a66;border-color:var(--accent);color:#fff}
+  .btn:hover,.seg button:hover{border-color:var(--accent)}
+  .btn.primary{background:#1e4a66;border-color:var(--accent)}
+  .row{display:flex;gap:6px;margin-top:6px}
+  .info{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:6px}
+  .info b{color:var(--text);font-weight:500}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .val{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+  .val span:last-child{color:var(--phos);font-variant-numeric:tabular-nums}
+  .tog{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;padding:4px 0;cursor:pointer}
+  .tog input{display:none}
+  .tog .sw{width:38px;height:20px;border-radius:10px;background:#2a3646;position:relative;transition:.2s;flex:none}
+  .tog .sw::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#cfd8e3;transition:.2s}
+  .tog input:checked + .sw{background:#1e7a55}
+  .tog input:checked + .sw::after{left:20px;background:#fff}
+  .count{font-size:22px;color:var(--phos);font-variant-numeric:tabular-nums;text-align:center;margin-top:6px}
+  .count small{font-size:12px;color:var(--muted)}
+  .cardhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .cardhead .t{font-size:15px;font-weight:600}
+  .cardhead .s{font-size:12px;color:var(--muted)}
+  #patWrap{width:100%}
+  #pattern{display:block;width:100%}
+  #three{width:100%;height:440px;border-radius:8px;overflow:hidden}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal.show{display:flex}
+  .modal .box{background:var(--card);border:1px solid var(--line);border-radius:12px;max-width:560px;width:100%;
+    max-height:85vh;overflow:auto;padding:18px 20px;font-size:14px;line-height:1.75}
+  .modal h2{margin:0 0 10px;font-size:18px;color:var(--accent)}
+  .eq{font-family:"Times New Roman",serif;font-size:16px;background:#0d131b;border-radius:6px;padding:6px 10px;margin:6px 0}
+  .modal .close{float:right}
+  .src{font-size:12px;color:var(--muted)}
+  @media (max-width:1100px){
+    .layout{grid-template-columns:270px minmax(0,1fr)}
+    .right{grid-column:1 / -1}
+  }
+  @media (max-width:760px){
+    .layout{grid-template-columns:1fr;padding:10px}
+    header h1{font-size:19px}
+    #three{height:300px}
+  }
+</style>
 </head>
-<body class="h-screen w-screen flex flex-col p-4 gap-4">
-
-    <!-- 標題 -->
-    <header class="flex items-center gap-4 px-4 py-2">
-        <div class="flex flex-col">
-            <h1 class="text-3xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500" style="text-shadow: 0 0 20px rgba(56,189,248,0.3);">
-                電子雙狹縫干涉實驗
-            </h1>
-            <p class="text-sm text-slate-400 tracking-wider mt-1">(臺中二中 阿發老師 設計)</p>
-        </div>
-        <div class="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent"></div>
-    </header>
-
-    <!-- 主要內容區 -->
-    <main class="flex-1 flex gap-4 h-full relative">
-        
-        <!-- 左側控制面板 -->
-        <aside class="w-80 flex flex-col gap-6 neon-border bg-slate-900/80 p-6 rounded-xl relative z-20 backdrop-blur-sm overflow-y-auto">
-            
-            <!-- 電子槍頻率 -->
-            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                <div class="flex justify-between items-center mb-2">
-                    <h2 class="text-lg font-semibold text-cyan-300">電子發射裝置</h2>
-                    <span id="freqVal" class="text-sm text-slate-400">中</span>
-                </div>
-                <label class="block text-sm mb-2 text-slate-300">電子發射頻率</label>
-                <input type="range" id="freqSlider" min="1" max="100" value="50">
-            </div>
-
-            <!-- 偵測屏幕設定 -->
-            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                <h2 class="text-lg font-semibold text-cyan-300 mb-3">偵測屏幕設定</h2>
-
-                <label class="block text-sm mb-2 text-slate-300">顯示模式</label>
-                <div class="flex flex-col gap-2 mb-4">
-                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
-                        <input type="radio" name="screenMode" id="modeAccumulate" value="accumulate" checked class="sr-only">
-                        <span class="radio-custom"></span>
-                        累積模式（如底片長時間曝光，不淡出）
-                    </label>
-                    <label class="flex items-center text-sm text-slate-300 cursor-pointer">
-                        <input type="radio" name="screenMode" id="modeFade" value="fade" class="sr-only">
-                        <span class="radio-custom"></span>
-                        淡出模式（模擬殘影效果）
-                    </label>
-                </div>
-
-                <div id="decayControl" class="hidden">
-                    <label class="block text-sm mb-2 text-slate-300">電子停留時間</label>
-                    <input type="range" id="decaySlider" min="0" max="100" value="95">
-                </div>
-            </div>
-
-            <!-- 電子統計與快進 -->
-            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                <h2 class="text-lg font-semibold text-cyan-300 mb-3">電子統計</h2>
-                <div class="text-sm text-slate-300 mb-3">
-                    已偵測電子數：<span id="electronCount" class="text-cyan-300 font-bold">0</span>
-                </div>
-                <button onclick="fastForward()" class="w-full py-2 rounded border border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/20 transition-all font-semibold tracking-widest text-sm">
-                    快進（瞬間補打 3000 顆電子）
-                </button>
-            </div>
-
-            <!-- 強度分佈曲線 -->
-            <div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-lg font-semibold text-cyan-300">強度分佈曲線</h2>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="histogramToggle" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-700 rounded-full peer-checked:bg-cyan-600 transition-all relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:w-4 after:h-4 after:rounded-full after:transition-all peer-checked:after:translate-x-4"></div>
-                    </label>
-                </div>
-                <div id="histogramWrap" class="hidden">
-                    <canvas id="histogramCanvas" width="260" height="110" class="w-full rounded border border-slate-700 bg-slate-950"></canvas>
-                </div>
-            </div>
-
-            <!-- 清除畫面按鈕 -->
-            <button onclick="clearScreen()" class="mt-auto py-2 rounded border border-red-500/50 text-red-400 hover:bg-red-500/20 transition-all font-semibold tracking-widest">
-                清除偵測屏幕
-            </button>
-            
-        </aside>
-
-        <!-- 右側 3D 視覺化區域 -->
-        <section id="three-container" class="flex-1 canvas-container relative">
-            
-            <!-- 3D 視角標籤覆蓋層 (動態追蹤定位) -->
-            <div id="label-gun" class="scene-label">電子槍</div>
-            <div id="label-barrier" class="scene-label">擋板與狹縫</div>
-            <div id="label-screen" class="scene-label">偵測屏幕</div>
-
-        </section>
-    </main>
-
-    <script>
-        // --- 全域狀態變數 ---
-        const freqSlider = document.getElementById('freqSlider');
-        const decaySlider = document.getElementById('decaySlider');
-        const decayControl = document.getElementById('decayControl');
-        const modeAccumulate = document.getElementById('modeAccumulate');
-        const modeFade = document.getElementById('modeFade');
-        const electronCountEl = document.getElementById('electronCount');
-        const histogramToggle = document.getElementById('histogramToggle');
-        const histogramWrap = document.getElementById('histogramWrap');
-        const histogramCanvas = document.getElementById('histogramCanvas');
-        const histCtx = histogramCanvas.getContext('2d');
-
-        let currentMode = 'accumulate'; // 'accumulate' | 'fade'
-        let totalElectronCount = 0;
-        const HIST_BINS = 100;
-        let histCounts = new Array(HIST_BINS).fill(0);
-
-        modeAccumulate.addEventListener('change', () => {
-            if (modeAccumulate.checked) {
-                currentMode = 'accumulate';
-                decayControl.classList.add('hidden');
-                clearScreen();
-            }
-        });
-        modeFade.addEventListener('change', () => {
-            if (modeFade.checked) {
-                currentMode = 'fade';
-                decayControl.classList.remove('hidden');
-                clearScreen();
-            }
-        });
-        histogramToggle.addEventListener('change', () => {
-            histogramWrap.classList.toggle('hidden', !histogramToggle.checked);
-        });
-
-        // --- 標籤 DOM ---
-        const labelGun = document.getElementById('label-gun');
-        const labelBarrier = document.getElementById('label-barrier');
-        const labelScreen = document.getElementById('label-screen');
-
-        // --- 物理/機率引擎參數 ---
-        const texSize = 1024; // 貼圖解析度
-        const envelopeWidth = 180; // 繞射波包寬度 
-        const fringeWidth = 35;   // 干涉條紋寬度 
-        const slitSpacing = 100;   // 對應的偏移量
-
-        // --- Three.js 場景設定 ---
-        const container = document.getElementById('three-container');
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x020617, 0.015);
-
-        // 攝影機：側面等角透視 (類似截圖視角)
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(-25, 15, 45); 
-        // 調整攝影機焦點，讓場景往右、往下移動以避免被遮擋
-        camera.lookAt(0, 2, 0);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
-
-        // 光源
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambientLight);
-        
-        const dirLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
-        dirLight.position.set(-20, 20, 20);
-        scene.add(dirLight);
-
-        // --- 建立物件 ---
-
-        // 1. 電子槍模型
-        const gunGroup = new THREE.Group();
-        gunGroup.position.set(-25, 0, 0);
-        
-        const gunBody = new THREE.Mesh(
-            new THREE.BoxGeometry(8, 6, 6),
-            new THREE.MeshPhongMaterial({ color: 0x334155, flatShading: true })
-        );
-        const gunNozzle = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.8, 0.8, 4, 16),
-            new THREE.MeshPhongMaterial({ color: 0x94a3b8 })
-        );
-        gunNozzle.rotation.z = -Math.PI / 2;
-        gunNozzle.position.set(5, 0, 0);
-        
-        gunGroup.add(gunBody);
-        gunGroup.add(gunNozzle);
-        scene.add(gunGroup);
-
-        // 電子槍開火閃光
-        const flashLight = new THREE.PointLight(0xfef08a, 0, 20);
-        flashLight.position.set(-18, 0, 0);
-        scene.add(flashLight);
-        let flashIntensity = 0;
-
-        // 電子閃爍粒子系統 (存放瞬間出現的小黃球)
-        const electronParticles = [];
-        const particleGeo = new THREE.SphereGeometry(0.12, 8, 8); 
-
-        function spawnElectronParticle(x, y, z) {
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0xfacc15, 
-                transparent: true, 
-                opacity: 1 
-            });
-            const mesh = new THREE.Mesh(particleGeo, material);
-            mesh.position.set(x, y, z);
-            scene.add(mesh);
-            electronParticles.push({ mesh, life: 1.0 });
-        }
-
-        // 2. 狹縫擋板 (使用 Shape 挖空)
-        let barrierMesh;
-        function updateBarrierGeometry() {
-            if (barrierMesh) scene.remove(barrierMesh);
-
-            const shape = new THREE.Shape();
-            // 擋板外框
-            shape.moveTo(-15, -7.5);
-            shape.lineTo(15, -7.5);
-            shape.lineTo(15, 7.5);
-            shape.lineTo(-15, 7.5);
-            shape.lineTo(-15, -7.5);
-
-            // 挖空雙狹縫
-            const slit1 = new THREE.Path();
-            slit1.moveTo(-2.5, -4);
-            slit1.lineTo(-1.5, -4);
-            slit1.lineTo(-1.5, 4);
-            slit1.lineTo(-2.5, 4);
-            slit1.lineTo(-2.5, -4);
-            shape.holes.push(slit1);
-
-            const slit2 = new THREE.Path();
-            slit2.moveTo(1.5, -4);
-            slit2.lineTo(2.5, -4);
-            slit2.lineTo(2.5, 4);
-            slit2.lineTo(1.5, 4);
-            slit2.lineTo(1.5, -4);
-            shape.holes.push(slit2);
-
-            const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false });
-            const material = new THREE.MeshPhongMaterial({ color: 0x0f172a, specular: 0x111111 });
-            
-            barrierMesh = new THREE.Mesh(geometry, material);
-            
-            // 加入明顯的白框
-            const edges = new THREE.EdgesGeometry(geometry);
-            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }));
-            barrierMesh.add(line);
-            
-            barrierMesh.position.set(0, 0, 0);
-            barrierMesh.rotation.y = Math.PI / 2; // 面向 X 軸
-            scene.add(barrierMesh);
-        }
-        updateBarrierGeometry();
-
-        // 3. 偵測屏幕 (使用隱藏的 Canvas 動態繪製貼圖)
-        const hiddenCanvas = document.createElement('canvas');
-        hiddenCanvas.width = texSize;
-        hiddenCanvas.height = texSize;
-        const ctx = hiddenCanvas.getContext('2d');
-        
-        // 初始化背景
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, texSize, texSize);
-
-        const screenTexture = new THREE.CanvasTexture(hiddenCanvas);
-        // 使用 BasicMaterial 讓屏幕自己發光不受場景光源影響
-        const screenMaterial = new THREE.MeshBasicMaterial({ map: screenTexture }); 
-        const screenGeometry = new THREE.PlaneGeometry(35, 30);
-        const screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
-        
-        // 加上屏幕的白框
-        const screenEdges = new THREE.EdgesGeometry(screenGeometry);
-        const screenLine = new THREE.LineSegments(screenEdges, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 }));
-        screenMesh.add(screenLine);
-
-        screenMesh.position.set(25, 0, 0);
-        screenMesh.rotation.y = -Math.PI / 2; // 面向電子槍
-        scene.add(screenMesh);
-
-
-        // --- UI 與互動事件 ---
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        });
-
-        // 稍微跟隨滑鼠製造 3D 視差感
-        let mouseX = 0;
-        let mouseY = 0;
-        container.addEventListener('mousemove', (e) => {
-            const rect = container.getBoundingClientRect();
-            mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        });
-
-        function clearScreen() {
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, texSize, texSize);
-            screenTexture.needsUpdate = true;
-
-            histCounts.fill(0);
-            totalElectronCount = 0;
-            electronCountEl.textContent = '0';
-            drawHistogram();
-        }
-
-        // 記錄直方圖統計（沿條紋方向 z 軸分箱計數）
-        function recordHistogram(z) {
-            let bin = Math.floor((z / texSize) * HIST_BINS);
-            bin = Math.max(0, Math.min(HIST_BINS - 1, bin));
-            histCounts[bin]++;
-        }
-
-        // 繪製即時強度分佈曲線圖
-        function drawHistogram() {
-            const w = histogramCanvas.width;
-            const h = histogramCanvas.height;
-            histCtx.clearRect(0, 0, w, h);
-
-            const maxCount = Math.max(1, ...histCounts);
-            const barWidth = w / HIST_BINS;
-
-            histCtx.fillStyle = 'rgba(56, 189, 248, 0.7)';
-            for (let i = 0; i < HIST_BINS; i++) {
-                const barHeight = (histCounts[i] / maxCount) * (h - 4);
-                histCtx.fillRect(i * barWidth, h - barHeight, Math.max(1, barWidth - 1), barHeight);
-            }
-
-            histCtx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
-            histCtx.beginPath();
-            histCtx.moveTo(0, h - 1);
-            histCtx.lineTo(w, h - 1);
-            histCtx.stroke();
-        }
-
-        // 實際在畫布上畫一個命中點；glow 控制是否使用發光陰影（快進大量繪製時關閉以維持效能）
-        function paintHit(targetZ, targetY, glow) {
-            if (currentMode === 'accumulate') {
-                // 累積模式：使用疊加(lighter)混合，命中密度越高該處越亮，
-                // 藉此讓干涉條紋隨電子數增加自然浮現出明暗漸層，且不會淡出。
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.beginPath();
-                ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-                if (glow) {
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = '#ffffff';
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.globalCompositeOperation = 'source-over';
-            } else {
-                // 淡出模式：維持原本不透明點的畫法，搭配 animate() 中的淡出處理
-                ctx.beginPath();
-                ctx.arc(targetZ, targetY, 4, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                if (glow) {
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = '#ffffff';
-                }
-                ctx.fill();
-                ctx.shadowBlur = 0;
-            }
-        }
-
-        function hitScreen(targetZ) {
-            // 在屏幕 Y 軸上給予隨機分佈 (垂直方向的擴散)
-            let targetY = texSize/2 + (Math.random() - 0.5) * texSize * 0.7;
-
-            paintHit(targetZ, targetY, true);
-            recordHistogram(targetZ);
-
-            totalElectronCount++;
-            electronCountEl.textContent = totalElectronCount;
-            if (histogramToggle.checked) drawHistogram();
-
-            screenTexture.needsUpdate = true;
-        }
-
-        // 快進：瞬間補打大量電子，模擬長時間曝光後的統計結果
-        function fastForward() {
-            const burstCount = 3000;
-            for (let i = 0; i < burstCount; i++) {
-                let z = getQuantumTargetZ();
-                let y = texSize/2 + (Math.random() - 0.5) * texSize * 0.7;
-                paintHit(z, y, false);
-                recordHistogram(z);
-                totalElectronCount++;
-            }
-            electronCountEl.textContent = totalElectronCount;
-            screenTexture.needsUpdate = true;
-            drawHistogram();
-        }
-
-        // --- 核心物理/機率引擎 ---
-        function getQuantumTargetZ() {
-            let maxAttempts = 200;
-            for(let i=0; i<maxAttempts; i++) {
-                // z 代表貼圖上的水平座標 (映射到 3D 的 Z 軸分佈)
-                let z = (Math.random() - 0.5) * texSize; 
-                
-                let envelope = Math.exp(-(z*z) / (2 * envelopeWidth * envelopeWidth));
-                let interference = Math.pow(Math.cos(Math.PI * z / fringeWidth), 2);
-                let prob = envelope * interference;
-
-                if (Math.random() < prob) {
-                    return z + texSize / 2; // 轉換回 0 ~ texSize
-                }
-            }
-            return texSize / 2;
-        }
-
-        // --- 動態標籤更新 ---
-        function updateLabelsPosition() {
-            const widthHalf = container.clientWidth / 2;
-            const heightHalf = container.clientHeight / 2;
-
-            // 將標籤定位在裝置正上方的 3D 座標，並轉換成 2D 螢幕座標
-            // 同時微調 Y 軸，讓文字可以與模型保持適當的垂直間距
-            const posGun = new THREE.Vector3(-25, 9, 0).project(camera);
-            labelGun.style.left = (posGun.x * widthHalf + widthHalf) + 'px';
-            labelGun.style.top = (-(posGun.y * heightHalf) + heightHalf) + 'px';
-
-            const posBarrier = new THREE.Vector3(0, 14, 0).project(camera);
-            labelBarrier.style.left = (posBarrier.x * widthHalf + widthHalf) + 'px';
-            labelBarrier.style.top = (-(posBarrier.y * heightHalf) + heightHalf) + 'px';
-
-            const posScreen = new THREE.Vector3(25, 21, 0).project(camera);
-            labelScreen.style.left = (posScreen.x * widthHalf + widthHalf) + 'px';
-            labelScreen.style.top = (-(posScreen.y * heightHalf) + heightHalf) + 'px';
-        }
-
-        // --- 動畫迴圈 ---
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // 1. 處理攝影機視差 (微微移動)
-            const targetCamX = -25 + mouseX * 3;
-            const targetCamY = 15 + mouseY * 3;
-            camera.position.x += (targetCamX - camera.position.x) * 0.05;
-            camera.position.y += (targetCamY - camera.position.y) * 0.05;
-            // 同步對齊更新後的焦點
-            camera.lookAt(0, 2, 0);
-
-            // 同步更新 3D 追蹤標籤位置
-            updateLabelsPosition();
-
-            // 2. 處理屏幕殘影淡出（僅淡出模式生效；累積模式下電子擊中點永久保留）
-            if (currentMode === 'fade') {
-                let retention = decaySlider.value;
-                let fadeAlpha = 1 - (retention / 100);
-                if (fadeAlpha > 0) {
-                    // 用底色覆蓋產生淡出
-                    ctx.fillStyle = `rgba(15, 23, 42, ${fadeAlpha * 0.2})`;
-                    ctx.fillRect(0, 0, texSize, texSize);
-                    screenTexture.needsUpdate = true;
-                }
-            }
-
-            // 3. 槍口閃光衰減
-            if (flashIntensity > 0) {
-                flashIntensity -= 1.5;
-                flashLight.intensity = Math.max(0, flashIntensity);
-            }
-
-            // 4. 更新閃爍粒子狀態
-            for (let i = electronParticles.length - 1; i >= 0; i--) {
-                let p = electronParticles[i];
-                p.life -= 0.04; // 衰減速度
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    p.mesh.material.dispose();
-                    electronParticles.splice(i, 1);
-                } else {
-                    p.mesh.material.opacity = p.life;
-                    // 稍微縮小粒子放大的幅度，維持小亮點的細緻感
-                    p.mesh.scale.setScalar(1 + (1 - p.life) * 0.3); 
-                }
-            }
-
-            // 5. 發射電子邏輯 (瞬間塌縮，沒有連續軌跡)
-            let freq = parseInt(freqSlider.value);
-            if (Math.random() < (freq / 100) * 1.5) {
-                let burst = Math.floor(freq / 20) + 1;
-                for(let i=0; i<burst; i++){
-                    flashIntensity = 15; // 觸發閃光
-                    let z = getQuantumTargetZ();
-                    hitScreen(z); // 瞬間抵達屏幕
-                    
-                    // 【視覺特效】在電子槍口隨機製造粒子
-                    // 修正座標至槍口最右側：中心x=-25 + 槍管位移x=5 + 槍管長度一半x=2 = -18
-                    spawnElectronParticle(
-                        -18, 
-                        (Math.random() - 0.5) * 0.6, 
-                        (Math.random() - 0.5) * 0.6
-                    );
-
-                    // 【視覺特效】在狹縫處隨機製造粒子 (雙狹縫)
-                    let slitY = (Math.random() - 0.5) * 6; // 狹縫高度範圍
-                    // 隨機選定左/右狹縫
-                    let slitZ = Math.random() < 0.5 ? -2.0 + (Math.random()-0.5)*0.8 : 2.0 + (Math.random()-0.5)*0.8;
-                    // 稍微推前至擋板表面，避免被擋板本身遮住
-                    spawnElectronParticle(-0.3, slitY, slitZ);
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        drawHistogram();
-        animate();
-
-    </script>
+<body>
+<header>
+  <h1>電子雙狹縫干涉實驗</h1>
+  <span class="credit">臺中二中 阿發老師 設計</span>
+</header>
+
+<main class="layout">
+  <!-- 控制面板 -->
+  <aside class="panel">
+    <div class="card sec">
+      <h3>實驗基準</h3>
+      <div class="seg" id="presetSeg">
+        <button data-v="jonsson" class="on">Jönsson 1961</button>
+        <button data-v="bach">Bach 2013</button>
+      </div>
+      <div class="info" id="presetInfo"></div>
+    </div>
+
+    <div class="card sec">
+      <h3>加速電壓</h3>
+      <div class="val"><span>V</span><span id="vVal"></span></div>
+      <input type="range" id="vSlider">
+      <div class="info">德布羅意波長 λ = <b id="lamVal"></b></div>
+    </div>
+
+    <div class="card sec">
+      <h3>狹縫</h3>
+      <div class="seg" id="slitSeg">
+        <button data-v="both" class="on">雙縫全開</button>
+        <button data-v="L">只開左縫</button>
+        <button data-v="R">只開右縫</button>
+      </div>
+      <label class="tog" style="margin-top:8px">路徑偵測器（測量電子通過哪一縫）
+        <input type="checkbox" id="detTog"><span class="sw"></span></label>
+    </div>
+
+    <div class="card sec">
+      <h3>電子發射</h3>
+      <div class="val"><span>發射速率</span><span id="rateVal"></span></div>
+      <input type="range" id="rateSlider" min="0" max="100" value="23">
+      <div class="row">
+        <button class="btn primary" id="runBtn">⏸ 暫停</button>
+        <button class="btn" id="addBtn">+1000 顆</button>
+        <button class="btn" id="clrBtn">清除</button>
+      </div>
+      <div class="count">N = <span id="nVal">0</span> <small>顆電子</small></div>
+    </div>
+
+    <div class="card sec">
+      <h3>顯示</h3>
+      <label class="tog">理論機率曲線＋統計直方圖<input type="checkbox" id="curveTog"><span class="sw"></span></label>
+      <label class="tog">比較 P₁、P₂、P₁+P₂、P₁₂<input type="checkbox" id="cmpTog"><span class="sw"></span></label>
+      <div class="row"><button class="btn" id="calcBtn">計算說明</button></div>
+    </div>
+  </aside>
+
+  <!-- 中央：螢光屏圖樣 -->
+  <section class="center">
+    <div class="card">
+      <div class="cardhead">
+        <span class="t">螢光屏圖樣（放大觀察）</span>
+        <span class="s" id="axisInfo"></span>
+      </div>
+      <div id="patWrap"><canvas id="pattern"></canvas></div>
+      <div class="note" id="magInfo"></div>
+    </div>
+  </section>
+
+  <!-- 右側：3D 裝置 -->
+  <section class="right">
+    <div class="card">
+      <div class="cardhead"><span class="t">實驗裝置</span><span class="s">可拖曳旋轉、滾輪縮放</span></div>
+      <div id="three"></div>
+      <div class="note">示意圖，未依比例</div>
+    </div>
+  </section>
+</main>
+
+<div class="modal" id="calcModal">
+  <div class="box">
+    <button class="btn close" id="calcClose">關閉</button>
+    <h2>計算說明</h2>
+    <div id="calcBody"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ================= 物理常數與實驗參數 =================
+const PHYS = {h:6.62607015e-34, m:9.1093837015e-31, e:1.602176634e-19, c:2.99792458e8};
+function lambdaOf(V){
+  const E = PHYS.e * V;
+  return PHYS.h / Math.sqrt(2*PHYS.m*E*(1 + E/(2*PHYS.m*PHYS.c*PHYS.c)));
+}
+const PRESETS = {
+  jonsson:{
+    a:0.5e-6, d:2.0e-6, L:0.35,
+    V:{min:20000, max:100000, step:1000, def:50000},
+    R:10, tick:2, unit:'μm',
+    axis:'橫軸：螢光屏位置 y（μm），L = 350 mm',
+    fmtV:v=>(v/1000).toFixed(0)+' kV',
+    info:'縫寬 a = <b>0.5 μm</b>　縫距 d = <b>2.0 μm</b><br>狹縫到螢光屏 L = <b>350 mm</b><br><span>第一個真正的電子雙狹縫實驗</span>'
+  },
+  bach:{
+    a:62e-9, d:272e-9, L:null,
+    V:{min:300, max:1500, step:10, def:600},
+    R:1500, tick:500, unit:'μrad',
+    axis:'橫軸：繞射角 θ（μrad）',
+    fmtV:v=>v.toFixed(0)+' V',
+    info:'縫寬 a = <b>62 nm</b>　縫距 d = <b>272 nm</b><br>以可移動遮罩開關單縫，並逐顆記錄電子<br><span>原實驗以四極透鏡放大成像，以繞射角表示</span>'
+  }
+};
+
+const state = {preset:'jonsson', V:50000, slitMode:'both', detector:false,
+  running:true, rate:5, showCurve:false, showCompare:false, lam:0};
+const P = () => PRESETS[state.preset];
+function effMode(){
+  if(state.slitMode==='L') return 'L';
+  if(state.slitMode==='R') return 'R';
+  return state.detector ? 'detect' : 'both';
+}
+
+// ================= 機率分布 =================
+// 左縫在 -d/2，右縫在 +d/2（從電子槍看向螢光屏）
+// P1 = A1², P2 = A2², P12 = P1 + P2 + 2A1A2 cos φ，偵測路徑時 P = P1 + P2
+function sinc(x){ return Math.abs(x)<1e-9 ? 1 : Math.sin(x)/x; }
+function probs(u){
+  const p = P(), lam = state.lam;
+  let s1, s2, sc;
+  if(p.L){ // u 單位 μm：Jönsson，單縫包絡中心在各縫正後方
+    const y = u*1e-6;
+    s1 = (y + p.d/2)/p.L; s2 = (y - p.d/2)/p.L; sc = y/p.L;
+  } else { // u 單位 μrad：遠場
+    s1 = s2 = sc = u*1e-6;
+  }
+  const A1 = sinc(Math.PI*p.a*s1/lam), A2 = sinc(Math.PI*p.a*s2/lam);
+  const ph = 2*Math.PI*p.d*sc/lam;
+  const p1 = A1*A1, p2 = A2*A2;
+  return {p1, p2, sum:p1+p2, p12:p1+p2+2*A1*A2*Math.cos(ph)};
+}
+function pOf(q, m){ return m==='both'?q.p12 : m==='L'?q.p1 : m==='R'?q.p2 : q.sum; }
+
+const NG = 2001;
+let pre = {max:{}, int:{}};
+function precompute(){
+  state.lam = lambdaOf(state.V);
+  const R = P().R, du = 2*R/(NG-1);
+  const modes = ['both','L','R','detect'];
+  modes.forEach(m=>{pre.max[m]=0; pre.int[m]=0;});
+  for(let i=0;i<NG;i++){
+    const q = probs(-R + i*du);
+    modes.forEach(m=>{ const v=pOf(q,m); if(v>pre.max[m]) pre.max[m]=v; pre.int[m]+=v*du; });
+  }
+}
+function sample(m){
+  const R = P().R, bound = pre.max[m]*1.02;
+  for(let k=0;k<100000;k++){
+    const u = (Math.random()*2-1)*R;
+    if(Math.random()*bound < pOf(probs(u), m)) return u;
+  }
+  return 0;
+}
+
+// ================= 螢光屏累積畫布 =================
+// A. 以「電子數密度」記錄，顯示時依目前最亮處自動調整亮度（避免中央過曝）
+// B. 新打到的電子先閃光，約 0.3 秒內降回正常亮度，之後永久保留
+const HW = 800, HH = 320;
+const hitCanvas = document.createElement('canvas'); hitCanvas.width=HW; hitCanvas.height=HH;
+const hctx = hitCanvas.getContext('2d');
+const hitImg = hctx.createImageData(HW, HH);
+const dens = new Float32Array(HW*HH);
+let densMax = 0;
+const kern = [];                       // 每顆電子的光點：高斯分布，峰值 = 1
+for(let dy=-3; dy<=3; dy++) for(let dx=-3; dx<=3; dx++){
+  const w = Math.exp(-(dx*dx+dy*dy)/(2*1.2*1.2)); if(w>0.02) kern.push(dx,dy,w);
+}
+const LUT_N = 1024, lut = new Uint8ClampedArray(LUT_N*3);   // 亮度 → 螢光綠色階
+for(let i=0;i<LUT_N;i++){
+  const b = Math.pow(i/(LUT_N-1), 0.6);
+  lut[i*3] = 4+200*b*b; lut[i*3+1] = 8+247*b; lut[i*3+2] = 6+140*b+70*b*b;
+}
+const dot = document.createElement('canvas'); dot.width=dot.height=12;   // 閃光
+(function(){
+  const c=dot.getContext('2d'), g=c.createRadialGradient(6,6,0,6,6,6);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.35,'rgba(200,255,220,0.8)'); g.addColorStop(1,'rgba(120,255,170,0)');
+  c.fillStyle=g; c.fillRect(0,0,12,12);
+})();
+const FLASH_T = 0.3, hitFlashes = [];
+let flashOn = false;
+const NB = 200;
+let bins = new Uint32Array(NB), N = 0, texDirty = true;
+function clearHits(){
+  dens.fill(0); densMax = 0; hitFlashes.length = 0;
+  bins.fill(0); N=0; texDirty=true;
+  flights.forEach(f=>{f.s.visible=false; f.s.userData.busy=false;}); flights.length=0;
+  waves.forEach(w=>{w.line.visible=false; w.line.userData.busy=false;}); waves.length=0;
+  updateCount();
+}
+function addHit(u, v){
+  const R = P().R;
+  const b = Math.floor((u+R)/(2*R)*NB); if(b>=0 && b<NB) bins[b]++;
+  N++;
+  const cx = Math.round((u/R*0.5+0.5)*(HW-1)), cy = Math.round((v*0.5+0.5)*(HH-1));
+  for(let k=0;k<kern.length;k+=3){
+    const x=cx+kern[k], y=cy+kern[k+1];
+    if(x<0||x>=HW||y<0||y>=HH) continue;
+    const d = dens[y*HW+x] += kern[k+2];
+    if(d>densMax) densMax=d;
+  }
+  if(hitFlashes.length>=150) hitFlashes.shift();
+  hitFlashes.push({x:cx, y:cy, t:0});
+  texDirty = true;
+}
+function renderHits(dt){
+  for(let i=hitFlashes.length-1;i>=0;i--){ hitFlashes[i].t+=dt; if(hitFlashes[i].t>=FLASH_T) hitFlashes.splice(i,1); }
+  if(!texDirty && !hitFlashes.length && !flashOn) return false;
+  // 亮度基準：由直方圖最高格推算亮紋中心的平均密度（不受個別雜訊尖峰影響）
+  // 每格 4 px 寬；縱向三角分布中心每列占 (1/0.85)(2/HH)；每顆光點總權重 ≈ 8.9；×0.7 讓最亮處略微飽和、整體較明亮
+  let maxBin = 0; for(let i=0;i<NB;i++) if(bins[i]>maxBin) maxBin=bins[i];
+  const ref = Math.max(1, maxBin/(HW/NB) * (1/0.85)*(2/HH) * 8.9 * 0.7);
+  const px = hitImg.data, s = (LUT_N-1)/ref;
+  for(let i=0,j=0;i<dens.length;i++,j+=4){
+    const q = Math.min(LUT_N-1, (dens[i]*s)|0)*3;
+    px[j]=lut[q]; px[j+1]=lut[q+1]; px[j+2]=lut[q+2]; px[j+3]=255;
+  }
+  hctx.putImageData(hitImg,0,0);
+  if(hitFlashes.length){
+    hctx.globalCompositeOperation='lighter';
+    hitFlashes.forEach(f=>{ hctx.globalAlpha = 1-f.t/FLASH_T; hctx.drawImage(dot, f.x-6, f.y-6); });
+    hctx.globalAlpha = 1; hctx.globalCompositeOperation='source-over';
+  }
+  flashOn = hitFlashes.length>0; texDirty = false;
+  return true;
+}
+
+// ================= 中央圖樣繪製 =================
+const patCanvas = document.getElementById('pattern'), pctx = patCanvas.getContext('2d');
+function niceNum(x){ return Math.abs(x)<1e-9 ? '0' : String(+x.toFixed(3)); }
+function drawPattern(){
+  const wrap = document.getElementById('patWrap');
+  const W = wrap.clientWidth, dpr = Math.min(window.devicePixelRatio||1, 2);
+  const mx = 12, stripH = Math.round((W-2*mx)/2.5), axisH = 30;
+  const graphOn = state.showCurve || state.showCompare;
+  const graphH = graphOn ? Math.round(W*0.36) : 0;
+  const H = stripH + axisH + graphH;
+  if(patCanvas.width !== Math.round(W*dpr) || patCanvas.height !== Math.round(H*dpr)){
+    patCanvas.width = Math.round(W*dpr); patCanvas.height = Math.round(H*dpr);
+    patCanvas.style.height = H+'px';
+  }
+  const c = pctx; c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,W,H);
+  const p = P(), R = p.R, gw = W-2*mx;
+  const X = u => mx + (u+R)/(2*R)*gw;
+
+  // 螢光屏
+  c.drawImage(hitCanvas, mx, 0, gw, stripH);
+  c.strokeStyle='#2f3d50'; c.lineWidth=1; c.strokeRect(mx+0.5,0.5,gw-1,stripH-1);
+  c.setLineDash([4,6]); c.strokeStyle='rgba(255,255,255,0.25)';
+  c.beginPath(); c.moveTo(X(0),0); c.lineTo(X(0),stripH); c.stroke(); c.setLineDash([]);
+
+  // 刻度
+  c.fillStyle='#8fa0b5'; c.strokeStyle='#5a6a80'; c.font='12px system-ui';
+  for(let t=-R; t<=R+1e-9; t+=p.tick){
+    const x = X(t); c.beginPath(); c.moveTo(x,stripH); c.lineTo(x,stripH+6); c.stroke();
+    c.textAlign = t<=-R+1e-9 ? 'left' : t>=R-1e-9 ? 'right' : 'center';
+    c.fillText(t>=R-1e-9 ? niceNum(t)+' '+p.unit : niceNum(t), x, stripH+20);
+  }
+
+  if(graphOn){
+    const y0 = stripH+axisH+6, gh = graphH-14, yb = y0+gh;
+    const yMax = pre.max.both*1.08;
+    const Y = v => yb - v/yMax*gh;
+    c.strokeStyle='#2a3646'; c.lineWidth=1;
+    for(let k=0;k<=4;k++){ const yy=yb-k*gh/4; c.beginPath(); c.moveTo(mx,yy); c.lineTo(W-mx,yy); c.stroke(); }
+    const m = effMode();
+    // 直方圖（換算成與理論曲線相同的機率密度單位）
+    if(state.showCurve && N>0){
+      const bw = 2*R/NB, scale = pre.int[m]/(N*bw);
+      c.fillStyle='rgba(125,255,176,0.28)';
+      for(let i=0;i<NB;i++){
+        const h = bins[i]*scale; if(h<=0) continue;
+        const x1 = X(-R+i*bw), x2 = X(-R+(i+1)*bw);
+        const yy = Math.max(Y(h), y0);
+        c.fillRect(x1, yy, Math.max(1,x2-x1-0.5), yb-yy);
+      }
+    }
+    const plot = (key, color, lw, dash) => {
+      c.strokeStyle=color; c.lineWidth=lw; c.setLineDash(dash||[]); c.beginPath();
+      for(let px=0; px<=gw; px++){
+        const u = -R + px/gw*2*R, q = probs(u);
+        const v = key==='p1'?q.p1 : key==='p2'?q.p2 : key==='sum'?q.sum : q.p12;
+        const yy = Y(v); px===0 ? c.moveTo(mx+px,yy) : c.lineTo(mx+px,yy);
+      }
+      c.stroke(); c.setLineDash([]);
+    };
+    const legend = [];
+    if(state.showCompare){
+      plot('p1','#5aa9ff',1.5,[5,4]); plot('p2','#ffad5a',1.5,[5,4]);
+      plot('sum','#c58cff',2); plot('p12','#ffffff',2);
+      legend.push(['#5aa9ff','P₁ 只開左縫'],['#ffad5a','P₂ 只開右縫'],['#c58cff','P₁+P₂'],['#ffffff','P₁₂ 雙縫']);
+    }
+    if(state.showCurve){
+      const key = m==='both'?'p12' : m==='L'?'p1' : m==='R'?'p2' : 'sum';
+      plot(key,'#7dffb0',2.5);
+      legend.push(['#7dffb0','目前理論曲線']);
+    }
+    c.font='12px system-ui'; c.textAlign='left';
+    legend.forEach((l,i)=>{
+      const lx = mx+8 + (i%3)*Math.min(150,gw/3), ly = y0+14 + Math.floor(i/3)*16;
+      c.fillStyle=l[0]; c.fillRect(lx, ly-8, 14, 3); c.fillStyle='#cfd8e3'; c.fillText(l[1], lx+19, ly-3);
+    });
+    c.fillStyle='#8fa0b5'; c.textAlign='right'; c.fillText('機率密度（相對）', W-mx-4, y0+12);
+  }
+
+  // 放大倍率說明
+  const mag = document.getElementById('magInfo');
+  if(p.L){
+    const realW = 2*R*1e-3;                 // mm
+    const shownW = gw*25.4/96;              // mm（以 96 dpi 估算）
+    const r = shownW/realW, e = Math.floor(Math.log10(r));
+    mag.textContent = `螢光屏實際寬度 ${2*R} μm，畫面約放大 ${(r/10**e).toFixed(1)}×10${sup(e)} 倍`;
+  } else {
+    mag.textContent = `角度範圍 ±${R} μrad（±${(R*1e-6*180/Math.PI).toFixed(3)}°）`;
+  }
+}
+function sup(n){ const s='⁰¹²³⁴⁵⁶⁷⁸⁹'; return String(n).split('').map(ch=>s[+ch]||ch).join(''); }
+
+// ================= Three.js 裝置 =================
+const threeWrap = document.getElementById('three');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+threeWrap.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b0f14);
+const camera = new THREE.PerspectiveCamera(40,1,0.1,200);
+camera.position.set(-8.5,6.5,11);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0.8,-0.2,0); controls.enableDamping = true;
+scene.add(new THREE.AmbientLight(0xffffff,0.45));
+const dl = new THREE.DirectionalLight(0xffffff,0.8); dl.position.set(-4,8,6); scene.add(dl);
+
+const V3 = THREE.Vector3;
+function box(w,h,d,x,y,z,mat){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); scene.add(m); return m; }
+const matBase = new THREE.MeshStandardMaterial({color:0x1b2430,roughness:0.9});
+const matMetal = new THREE.MeshStandardMaterial({color:0x8a96a8,metalness:0.6,roughness:0.4});
+const matDark = new THREE.MeshStandardMaterial({color:0x2a3340,metalness:0.4,roughness:0.6});
+box(16,0.2,5, 0.5,-2.1,0, matBase);
+
+// 電子槍
+const gun = new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.45,1.6,32), matDark);
+gun.rotation.z = Math.PI/2; gun.position.set(-6.4,0,0); scene.add(gun);
+const anode = new THREE.Mesh(new THREE.TorusGeometry(0.32,0.08,12,32), matMetal);
+anode.rotation.y = Math.PI/2; anode.position.set(-5.58,0,0); scene.add(anode);
+box(0.3,1.6,0.3, -6.4,-1.25,0, matDark);
+
+// 光暈貼圖
+const glowTex = (function(){
+  const cv=document.createElement('canvas'); cv.width=cv.height=64; const c=cv.getContext('2d');
+  const g=c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.3,'rgba(255,255,255,0.6)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  c.fillStyle=g; c.fillRect(0,0,64,64); return new THREE.CanvasTexture(cv);
+})();
+const cathode = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xffa060,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+cathode.position.set(-5.5,0,0); cathode.scale.set(0.5,0.5,0.5); scene.add(cathode);
+
+// 雙狹縫板（x = 0），縫中心 z = ±0.45，縫寬 0.1，縫高 y ∈ [-1.2, 1.2]
+const SZ = 0.45, G = 0.1;
+box(0.08,3,1.5, 0,0,-1.25, matMetal);
+box(0.08,3,0.8, 0,0,0, matMetal);
+box(0.08,3,1.5, 0,0,1.25, matMetal);
+[-SZ,SZ].forEach(z=>{ box(0.08,0.3,G, 0,1.35,z, matMetal); box(0.08,0.3,G, 0,-1.35,z, matMetal); });
+box(0.2,0.45,0.2, 0,-1.75,0, matDark);
+
+// 遮罩
+const mask = box(0.05,3.2,0.55, 0.22,0,-1.55, new THREE.MeshStandardMaterial({color:0xb08d57,metalness:0.7,roughness:0.35}));
+function maskTarget(){ return state.slitMode==='L' ? SZ : state.slitMode==='R' ? -SZ : -1.55; }
+
+// 路徑偵測器
+const detGroup = new THREE.Group(); scene.add(detGroup);
+const detMats = [];
+[-SZ,SZ].forEach(z=>{
+  const mat = new THREE.MeshStandardMaterial({color:0x553344,emissive:0xff4466,emissiveIntensity:0.15});
+  detMats.push(mat);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.32,0.32), mat); b.position.set(0.5,1.75,z); detGroup.add(b);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.1,0.25,16), matDark); lens.position.set(0.5,1.48,z); detGroup.add(lens);
+});
+const detFlash = [0,0];
+
+// 螢光屏（x = 7，面向電子槍；貼圖右方 = +z）
+const screenTex = new THREE.CanvasTexture(hitCanvas);
+const screen = new THREE.Mesh(new THREE.PlaneGeometry(6,2.4), new THREE.MeshBasicMaterial({map:screenTex}));
+screen.rotation.y = -Math.PI/2; screen.position.set(7,0,0); scene.add(screen);
+box(0.1,2.6,6.2, 7.07,0,0, matDark);
+box(0.25,0.9,0.25, 7.07,-1.65,0, matDark);
+
+// 標籤
+function label(text, x,y,z){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=64; const c=cv.getContext('2d');
+  c.font='bold 30px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillStyle='#e6edf5'; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText(text,128,32);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),depthTest:false,transparent:true}));
+  s.position.set(x,y,z); s.scale.set(1.8,0.45,1); scene.add(s); return s;
+}
+label('電子槍',-6.4,0.95,0);
+label('雙狹縫',0,1.95,-1.2);
+label('螢光屏',7,1.65,0);
+const detLabel = label('路徑偵測器',0.5,2.35,0);
+const maskLabel = label('遮罩',0.3,-1.9,-0.9); maskLabel.scale.set(1.2,0.3,1);
+
+// 物件池
+const elecPool = [], flashPool = [], wavePool = [];
+for(let i=0;i<60;i++){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x9fd8ff,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+  s.visible=false; s.userData.busy=false; scene.add(s); elecPool.push(s);
+}
+for(let i=0;i<40;i++){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x9dffc4,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));
+  s.visible=false; s.userData.busy=false; scene.add(s); flashPool.push(s);
+}
+const arcPts=[]; for(let i=0;i<=48;i++){ const a=-1.25+2.5*i/48; arcPts.push(new V3(Math.cos(a),0,Math.sin(a))); }
+const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
+for(let i=0;i<40;i++){
+  const l=new THREE.Line(arcGeo,new THREE.LineBasicMaterial({color:0x8fd3ff,transparent:true,opacity:0.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+  l.visible=false; l.userData.busy=false; scene.add(l); wavePool.push(l);
+}
+const getFree = pool => { const o = pool.find(x=>!x.userData.busy); if(o){o.userData.busy=true; o.visible=true;} return o; };
+const release = o => { o.userData.busy=false; o.visible=false; };
+
+const flights=[], waves=[], flashes=[];
+const GUN = new V3(-5.5,0,0), T1=0.55, T2=0.55;
+function launch(u,v,slit){
+  const s = getFree(elecPool); if(!s) return false;
+  const wave = slit===0, ys = -v*1.0;
+  const p1 = wave ? new V3(-0.12,ys,0) : new V3(0,ys,slit*SZ);
+  const p2 = new V3(6.97,-v*1.2,u/P().R*3);
+  s.scale.set(0.28,0.28,0.28); s.material.opacity=1; s.position.copy(GUN);
+  flights.push({s,t:0,stage:0,u,v,slit,wave,p1,p2,showWave:state.rate<=12});
+  return true;
+}
+function spawnWaves(y){
+  [-SZ,SZ].forEach(z=>{
+    const l=getFree(wavePool); if(!l) return;
+    l.position.set(0.05,y,z); l.scale.set(0.01,1,0.01); l.material.opacity=0.7;
+    waves.push({line:l,t:0});
+  });
+}
+function spawnFlash(p){
+  const s=getFree(flashPool); if(!s) return;
+  s.position.copy(p); s.scale.set(0.5,0.5,0.5); s.material.opacity=1;
+  flashes.push({s,t:0});
+}
+
+function emitOne(){
+  const m = effMode(), u = sample(m), v = (Math.random()+Math.random()-1)*0.85;
+  let slit = 0;
+  if(m==='L') slit=-1;
+  else if(m==='R') slit=1;
+  else if(m==='detect'){ const q=probs(u); slit = Math.random()*q.sum < q.p1 ? -1 : 1; }
+  // 抽樣顯示：每秒最多約 40 顆播放飛行動畫，其餘直接打點
+  if(Math.random() < Math.min(1, 40/state.rate) && launch(u,v,slit)) return;
+  if(state.detector && slit!==0) detFlash[slit<0?0:1]=1;
+  addHit(u,v);
+}
+
+function updateFlights(dt){
+  for(let i=flights.length-1;i>=0;i--){
+    const f=flights[i]; f.t+=dt;
+    if(f.stage===0){
+      const k=Math.min(f.t/T1,1);
+      f.s.position.lerpVectors(GUN,f.p1,k);
+      if(f.wave && k>0.6){ // 波包擴展、涵蓋兩縫
+        const e=(k-0.6)/0.4, sc=0.28+e*1.3;
+        f.s.scale.set(sc,sc,sc); f.s.material.opacity=1-e*0.65;
+      }
+      if(k>=1){
+        f.stage=1; f.t=0;
+        if(f.wave){ f.s.visible=false; }
+        if(state.detector && f.slit!==0) detFlash[f.slit<0?0:1]=1;
+      }
+    } else {
+      const k=Math.min(f.t/T2,1);
+      if(!f.wave) f.s.position.lerpVectors(f.p1,f.p2,k);
+      if(k>=1){
+        addHit(f.u,f.v); spawnFlash(f.p2);
+        release(f.s); flights.splice(i,1);
+      }
+    }
+  }
+  for(let i=waves.length-1;i>=0;i--){
+    const w=waves[i]; w.t+=dt; const k=w.t/T2;
+    const r=0.01+k*7.2; w.line.scale.set(r,1,r); w.line.material.opacity=0.7*(1-k);
+    if(k>=1){ release(w.line); waves.splice(i,1); }
+  }
+  for(let i=flashes.length-1;i>=0;i--){
+    const f=flashes[i]; f.t+=dt; const k=f.t/0.35;
+    f.s.material.opacity=1-k;
+    if(k>=1){ release(f.s); flashes.splice(i,1); }
+  }
+}
+
+// ================= UI =================
+const $ = id => document.getElementById(id);
+function rateFromSlider(s){ return Math.max(1, Math.round(Math.pow(10, s/100*3))); }
+function updateCount(){ $('nVal').textContent = N.toLocaleString(); }
+function updateReadouts(){
+  const p=P();
+  $('vVal').textContent = p.fmtV(state.V);
+  $('lamVal').textContent = (state.lam*1e12).toFixed(2)+' pm';
+  $('presetInfo').innerHTML = p.info;
+  $('axisInfo').textContent = p.axis;
+  $('rateVal').textContent = state.rate+' 顆/秒';
+  detGroup.visible = state.detector; detLabel.visible = state.detector;
+  maskLabel.visible = state.slitMode!=='both';
+}
+function applyPreset(){
+  const p=P();
+  const s=$('vSlider'); s.min=p.V.min; s.max=p.V.max; s.step=p.V.step; s.value=p.V.def;
+  state.V=p.V.def;
+  precompute(); clearHits(); updateReadouts();
+}
+function segBind(id, key, after){
+  $(id).querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    $(id).querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+    state[key]=b.dataset.v; after();
+  }));
+}
+segBind('presetSeg','preset',applyPreset);
+segBind('slitSeg','slitMode',()=>{ clearHits(); updateReadouts(); });
+$('detTog').addEventListener('change',e=>{ state.detector=e.target.checked; clearHits(); updateReadouts(); });
+$('vSlider').addEventListener('input',e=>{ state.V=+e.target.value; precompute(); clearHits(); updateReadouts(); });
+$('rateSlider').addEventListener('input',e=>{ state.rate=rateFromSlider(+e.target.value); updateReadouts(); });
+$('runBtn').addEventListener('click',()=>{ state.running=!state.running; $('runBtn').textContent = state.running?'⏸ 暫停':'▶ 發射'; });
+$('addBtn').addEventListener('click',()=>{
+  const m=effMode();
+  for(let i=0;i<1000;i++) addHit(sample(m),(Math.random()+Math.random()-1)*0.85);
+  updateCount();
+});
+$('clrBtn').addEventListener('click',clearHits);
+$('curveTog').addEventListener('change',e=>{ state.showCurve=e.target.checked; });
+$('cmpTog').addEventListener('change',e=>{ state.showCompare=e.target.checked; });
+$('calcBtn').addEventListener('click',()=>{ $('calcBody').innerHTML=calcHTML(); $('calcModal').classList.add('show'); });
+$('calcClose').addEventListener('click',()=>$('calcModal').classList.remove('show'));
+$('calcModal').addEventListener('click',e=>{ if(e.target.id==='calcModal') $('calcModal').classList.remove('show'); });
+
+function calcHTML(){
+  const p=P(), lam=state.lam;
+  const lamNR = PHYS.h/Math.sqrt(2*PHYS.m*PHYS.e*state.V);
+  const pm = x => (x*1e12).toFixed(2)+' pm';
+  let s = `<p><b>1. 德布羅意波長</b>（含相對論修正）</p>
+  <div class="eq">λ = h / √( 2meV (1 + eV / 2mc²) )</div>
+  <p>V = ${p.fmtV(state.V)}　→　λ = <b>${pm(lam)}</b>（不含相對論修正：${pm(lamNR)}）</p>
+  <p><b>2. 機率分布</b></p>
+  <div class="eq">P₁₂ = P₁ + P₂ + 2√(P₁P₂) cos(2πd sinθ / λ)</div>
+  <p>P₁、P₂ 為只開單縫時的單縫繞射分布。偵測電子通過哪一縫時，干涉項消失：P = P₁ + P₂。</p>`;
+  if(p.L){
+    const dy=lam*p.L/p.d, env=lam*p.L/p.a;
+    s += `<p><b>3. Jönsson 實驗數值</b>（a = 0.5 μm，d = 2.0 μm，L = 350 mm）</p>
+    <p>條紋間距 Δy = λL/d = <b>${(dy*1e6).toFixed(2)} μm</b></p>
+    <p>單縫包絡第一暗紋：距各縫正後方 λL/a = ${(env*1e6).toFixed(2)} μm</p>
+    <p>條紋間距不到 1 μm，肉眼無法分辨，Jönsson 需以電子光學再放大才能觀察。</p>`;
+  } else {
+    const dt=lam/p.d, env=lam/p.a;
+    s += `<p><b>3. Bach 實驗數值</b>（a = 62 nm，d = 272 nm）</p>
+    <p>條紋角間距 Δθ = λ/d = <b>${(dt*1e6).toFixed(0)} μrad</b>（${(dt*180/Math.PI).toFixed(4)}°）</p>
+    <p>單縫包絡第一暗紋 θ = λ/a = ${(env*1e6).toFixed(0)} μrad</p>
+    <p>原實驗經靜電四極透鏡放大後成像，論文未給等效屏距，故以繞射角表示。</p>`;
+  }
+  const r = p.d/lam;
+  s += `<p><b>4. 與光的雙狹縫比較</b></p>
+  <p>電子：d/λ ≈ ${r.toExponential(1).replace('e+',' × 10^')}　｜　可見光（λ = 600 nm，d = 0.25 mm）：d/λ ≈ 4.2 × 10^2</p>
+  <p>電子的狹縫絕對尺寸遠小於光的狹縫，但相對於電子波長反而更寬，因此條紋角間距更小。</p>
+  <p class="src">資料來源：C. Jönsson, Z. Phys. 161, 454 (1961)；R. Bach et al., New J. Phys. 15, 033018 (2013)。<br>模擬採夫琅禾費近似；3D 裝置為示意圖，未依比例。</p>`;
+  return s;
+}
+
+// ================= 主迴圈 =================
+function resize3D(){
+  const w=threeWrap.clientWidth, h=threeWrap.clientHeight;
+  renderer.setSize(w,h,false); renderer.domElement.style.width=w+'px'; renderer.domElement.style.height=h+'px';
+  camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize3D).observe(threeWrap);
+
+let acc=0, last=performance.now();
+function loop(now){
+  const dt=Math.min((now-last)/1000,0.1); last=now;
+  if(state.running){
+    acc += state.rate*dt;
+    let n=0; while(acc>=1 && n<2000){ emitOne(); acc--; n++; }
+    if(n) updateCount();
+  }
+  updateFlights(dt);
+  mask.position.z += (maskTarget()-mask.position.z)*Math.min(1,dt*6);
+  for(let i=0;i<2;i++){ detFlash[i]=Math.max(0,detFlash[i]-dt*3); detMats[i].emissiveIntensity=0.15+detFlash[i]*1.6; }
+  cathode.material.opacity = 0.75+0.25*Math.sin(now*0.006);
+  if(renderHits(dt)) screenTex.needsUpdate=true;
+  drawPattern();
+  controls.update();
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+
+state.rate = rateFromSlider(+$('rateSlider').value);
+applyPreset();
+resize3D();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
