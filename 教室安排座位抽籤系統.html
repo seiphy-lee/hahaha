@@ -1,735 +1,1648 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>教室安排座位抽籤系統</title>
-    <!-- 更換為支援樣式 (Style) 的 SheetJS 版本 -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-    <style>
-        :root {
-            --primary-color: #2c3e50;
-            --accent-color: #3498db;
-            --desk-bg-empty: #bdc3c7; /* 未抽籤座位顏色 (灰) */
-            --desk-border-empty: #95a5a6;
-            --desk-bg-filled: #2ecc71; /* 已抽籤座位顏色 (綠) */
-            --desk-border-filled: #27ae60;
-            --void-color: #34495e; /* 無效座位 */
-            --text-color: #ffffff; 
-            --podium-color: #d35400;
-        }
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>換座位抽籤｜臺中二中 阿發老師 設計</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#131924; --panel2:#1a2230; --line:#2a3445;
+  --text:#e6ebf2; --muted:#8b97a9; --accent:#4da3ff; --gold:#f2c14e;
+  --ok:#3ecf8e; --warn:#ffb84d; --err:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;font-size:14px;overflow:hidden}
+#app{display:flex;height:calc(100vh - 36px)}
+#tabbar{height:36px;display:flex;align-items:flex-end;gap:4px;padding:0 10px;background:#0a0d13;border-bottom:1px solid var(--line)}
+#tabbar button{border-radius:8px 8px 0 0;border-bottom:none;padding:6px 16px;background:#161d29;color:var(--muted)}
+#tabbar button.on{background:var(--panel);color:var(--text);border-color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}
+#classicPane{height:calc(100vh - 36px);background:#0c2461}
+#classicPane iframe{width:100%;height:100%;border:0;display:block}
+#noticeBox .mbox{width:460px}
+#side{width:292px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:12px 12px 20px}
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#toolbar{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);align-items:center}
+#stage{flex:1;position:relative;min-height:0;overflow:hidden;touch-action:none}
+#stage canvas{display:block}
 
-        * {
-            box-sizing: border-box;
-        }
+h1{font-size:17px;margin:0 0 2px}
+.credit{color:var(--muted);font-size:12px;margin-bottom:10px}
+.sec{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+.sec h3{margin:0 0 8px;font-size:14px;color:var(--accent)}
+.row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.row label{color:var(--muted)}
+.hint{color:var(--muted);font-size:12px;line-height:1.5}
+select,input[type=number]{background:#0e131c;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:14px}
+select{max-width:100%}
+input[type=number]{width:62px}
+input[type=text],textarea{background:#0e131c;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:14px;font-family:inherit}
+textarea{width:100%;resize:vertical;line-height:1.5}
+#rosterBox .mbox{width:580px}
+input[type=range]{flex:1;accent-color:var(--accent)}
+button{background:#222c3c;color:var(--text);border:1px solid #33405a;border-radius:7px;padding:6px 11px;font-size:14px;cursor:pointer;white-space:nowrap}
+button:hover:not(:disabled){background:#2b384d}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#1f6fd1;border-color:#2f83ec}
+button.primary:hover:not(:disabled){background:#2a7fe6}
+#toolbar button{padding:6px 9px;font-size:13px}
+#toolbar .sep{margin:0 2px}
+#btnAddEx.ready{background:#FFC000;border-color:#e6ad00;color:#1a1a1a;font-weight:bold}
+#btnStart{background:#FFC000;border-color:#e6ad00;color:#1a1a1a;font-weight:bold}
+#btnStart:hover:not(:disabled){background:#ffcd33}
+button.gold{background:#7a5a10;border-color:#a87d1c}
+button.small{padding:3px 8px;font-size:12px}
+.seg{display:inline-flex;border:1px solid #33405a;border-radius:7px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:#1a2230}
+.seg button.on{background:#1f6fd1}
+.sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+.radio{display:flex;gap:10px}
+.radio label{color:var(--text);cursor:pointer}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0c2461; /* 深藍色背景 */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            margin: 0;
-            color: #333;
-            height: 100vh;
-            overflow: hidden; /* 防止整個頁面捲動，只讓內容區捲動 */
-        }
+#exList{list-style:none;margin:6px 0 0;padding:0;max-height:150px;overflow-y:auto}
+#exList li{display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid var(--line);font-size:13px}
+#lockList{font-size:13px;margin-top:6px;color:#ffe08a;line-height:1.6}
 
-        h1 {
-            color: white;
-            margin: 0 0 20px 0;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            font-size: 4rem; /* 字體放大為 2 倍 */
-            flex-shrink: 0;
-            text-align: center;
-        }
+#banner{position:absolute;left:10px;top:10px;padding:7px 12px;border-radius:8px;font-size:14px;max-width:calc(100% - 20px);
+  background:rgba(20,26,36,.88);border:1px solid var(--line);pointer-events:none;white-space:pre-line}
+#banner.ok{border-color:var(--ok);color:#bff5dc}
+#banner.warn{border-color:var(--warn);color:#ffe2b8}
+#banner.err{border-color:var(--err);color:#ffd0d0}
+#opHint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
+#demoTag{position:absolute;right:10px;top:10px;font-size:12px;padding:4px 8px;border-radius:6px;background:#123a2a;color:#9fe8c4;border:1px solid #2a6b4f}
+#busy{position:absolute;right:10px;bottom:8px;font-size:13px;color:var(--accent);display:none}
 
-        /* 主佈局容器 */
-        .main-layout {
-            display: flex;
-            width: 100%;
-            max-width: 1600px;
-            height: calc(100vh - 140px);
-            gap: 30px;
-        }
+#ghost{position:fixed;pointer-events:none;z-index:50;padding:6px 12px;border-radius:8px;background:#1e3a5f;border:2px solid var(--accent);
+  color:#fff;font-weight:bold;display:none;transform:translate(-50%,-50%);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 
-        /* 左側邊欄 */
-        .sidebar {
-            width: 350px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 15px; /* 卡片間距 */
-            overflow-y: auto;
-            padding-right: 5px; /* 預留捲軸空間 */
-        }
+.pop{position:absolute;z-index:40;background:var(--panel2);border:1px solid var(--gold);border-radius:10px;padding:10px;width:230px;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.pop .pt{font-weight:bold;color:var(--gold);margin-bottom:6px}
+.pop select{width:100%}
+.hidden{display:none !important}
 
-        /* 右側顯示區 */
-        .display-area {
-            flex-grow: 1;
-            background-color: transparent;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow: auto; /* 讓座位圖可以捲動 */
-            padding: 20px;
-        }
+#toasts{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{padding:8px 16px;border-radius:8px;background:#1a2230;border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.5);max-width:620px;white-space:pre-line;animation:tin .2s}
+.toast.ok{border-color:var(--ok)} .toast.warn{border-color:var(--warn)} .toast.err{border-color:var(--err)}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
-        /* 白色卡片樣式 */
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:flex;align-items:center;justify-content:center}
+.mbox{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:340px;max-width:90vw;max-height:90vh;overflow:auto}
+.mbox .mt{font-weight:bold;font-size:15px;margin-bottom:10px}
+.mbox .mm{white-space:pre-line;line-height:1.6;margin-bottom:14px}
+#helpBox .mbox{width:760px}
+#helpBody{line-height:1.75;font-size:14px}
+#helpBody h4{margin:16px 0 4px;color:var(--accent);font-size:15px}
+#helpBody h4:first-child{margin-top:0}
+#helpBody ul{margin:0;padding-left:20px}
+#helpBody b{color:#ffd98a}
+#helpBody .key{display:inline-block;padding:0 6px;border:1px solid #33405a;border-radius:5px;background:#222c3c;font-size:13px}
+.mrow{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+#exportImg{max-width:80vw;max-height:62vh;display:block;margin:0 auto;border-radius:6px;background:#fff}
 
-        /* 區塊標題 */
-        .section-header {
-            font-weight: bold;
-            color: var(--primary-color);
-            border-bottom: 2px solid #ecf0f1;
-            padding-bottom: 8px;
-            margin-bottom: 5px;
-            font-size: 1rem;
-        }
-
-        /* 輸入框樣式 */
-        .input-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        input[type="number"] {
-            padding: 8px;
-            border: 1px solid #bdc3c7;
-            border-radius: 5px;
-            width: 70px;
-        }
-
-        textarea {
-            height: 150px;
-            padding: 10px;
-            border: 1px solid #bdc3c7;
-            border-radius: 5px;
-            resize: vertical;
-            font-size: 0.9rem;
-            width: 100%;
-        }
-
-        /* 按鈕樣式 */
-        button {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: transform 0.1s, opacity 0.2s;
-            font-size: 0.95rem;
-            color: white;
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        .btn-full { width: 100%; }
-        
-        .btn-dark { background-color: #2c3e50; } /* 生成按鈕 */
-        .btn-blue { background-color: #3498db; } /* 藍色按鈕 (匯入) */
-        .btn-red { background-color: #e74c3c; }  /* 清除按鈕 */
-        .btn-green { background-color: #27ae60; } /* 綠色按鈕 (開始/Excel) */
-        
-        /* 匯入按鈕特殊樣式 */
-        .btn-import { 
-            background-color: #3498db; /* 改為藍色 */
-            font-size: 0.8rem; 
-            padding: 5px 10px; 
-        } 
-
-        .btn-row {
-            display: flex;
-            gap: 10px;
-        }
-
-        /* 提示文字改為紅色 */
-        small { 
-            color: #e74c3c; 
-            display: block; 
-            margin-top: -5px; 
-            font-weight: bold;
-        }
-
-        /* 狀態列改為藍色 */
-        .status-bar {
-            font-weight: bold;
-            color: #3498db;
-            font-size: 0.9rem;
-        }
-
-        /* 儲存區塊 */
-        .storage-area {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            gap: 5px;
-        }
-
-        .storage-slot {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .storage-slot span {
-            font-size: 0.75rem;
-            color: #7f8c8d;
-            font-weight: bold;
-        }
-
-        .storage-btns {
-            display: flex;
-            width: 100%;
-            gap: 2px;
-        }
-
-        .btn-sm {
-            padding: 5px 0;
-            font-size: 0.75rem;
-            flex: 1;
-            border-radius: 3px;
-        }
-        .btn-save { background-color: #95a5a6; }
-        .btn-load { background-color: #34495e; }
-
-        /* === 講台與座位區 === */
-
-        /* 講桌 */
-        .podium {
-            width: 300px;
-            height: 60px;
-            background-color: var(--podium-color);
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
-            margin-bottom: 40px;
-            box-shadow: 0 6px 10px rgba(0,0,0,0.3);
-            font-weight: bold;
-            letter-spacing: 1px;
-            position: relative;
-            font-size: 1.1rem;
-            border: 2px solid #a04000;
-        }
-        
-        /* 移除上方的 (黑板方向) 文字 */
-        .podium::after {
-            content: none;
-        }
-
-        /* 座位網格 */
-        #classroom {
-            display: grid;
-            gap: 15px;
-            margin-bottom: 50px; /* 底部留白 */
-        }
-
-        /* 座位本體 */
-        .desk {
-            width: 120px;
-            height: 80px;
-            /* 尚未抽籤前為灰色 */
-            background-color: var(--desk-bg-empty); 
-            border: 3px solid var(--desk-border-empty);
-            border-radius: 10px;
-            
-            /* 字體與排版設定 */
-            color: white;
-            font-weight: bold;
-            font-size: 1.25rem; /* 字體縮小 (1.8 * 0.7 ~= 1.25) */
-            display: flex;
-            justify-content: center; /* 左右置中 */
-            align-items: center;     /* 上下置中 */
-            text-align: center;
-            line-height: 1.1;
-            padding: 5px;
-            word-break: break-all;   /* 自動換行 */
-            white-space: normal;     /* 允許換行 */
-
-            cursor: pointer;
-            position: relative;
-            transition: all 0.2s ease;
-            user-select: none;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
-        }
-
-        .desk:active {
-            box-shadow: 0 2px 0 rgba(0,0,0,0.2);
-            transform: translateY(2px);
-        }
-
-        /* 排除座位的樣式 (X) */
-        .desk.void {
-            background-color: rgba(0, 0, 0, 0.2);
-            border: 2px dashed rgba(255, 255, 255, 0.3);
-            color: rgba(255, 255, 255, 0.3);
-            box-shadow: none;
-        }
-        
-        .desk.void::after {
-            content: "✕";
-            font-size: 2rem;
-            opacity: 0.5;
-        }
-
-        /* 名字顯現動畫 (抽中後變綠色) */
-        .desk.filled {
-            background-color: var(--desk-bg-filled);
-            border-color: var(--desk-border-filled);
-            box-shadow: 0 4px 0 #1e8449;
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-        
-        .desk.filled:active {
-            box-shadow: 0 2px 0 #1e8449;
-        }
-
-        @keyframes popIn {
-            0% { transform: scale(0); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-    </style>
+#printArea{display:none}
+@media print{
+  @page{size:landscape;margin:10mm}
+  html,body{background:#fff;overflow:visible;height:auto}
+  body > *{display:none !important}
+  #printArea{display:block !important}
+  #printArea img{width:100%;height:auto}
+}
+</style>
 </head>
 <body>
+<div id="tabbar">
+  <button id="tabNew" class="on">🪑 換座位抽籤（新版 3D）</button>
+  <button id="tabClassic">📋 舊版抽籤程式</button>
+</div>
+<div id="app">
+  <!-- ============ 側邊欄 ============ -->
+  <aside id="side">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h1>🪑 換座位抽籤</h1>
+      <button id="btnHelp" class="small">❓ 使用說明</button>
+    </div>
+    <div class="credit">臺中二中 阿發老師 設計</div>
 
-    <h1>教室安排座位抽籤系統 <span style="color: #ffd700;">(阿發老師設計)</span></h1>
-
-    <div class="main-layout">
-        <!-- 左側邊欄：控制面板 -->
-        <div class="sidebar">
-            
-            <!-- 卡片 1: 步驟 1 (設定矩陣) -->
-            <div class="card">
-                <div>
-                    <div class="section-header">1. 設定教室矩陣</div>
-                    <div class="input-row">
-                        列 (橫向 Rows): <input type="number" id="rows" value="7" min="1">
-                        排 (直向 Cols): <input type="number" id="cols" value="7" min="1">
-                    </div>
-                </div>
-                
-                <button class="btn-dark btn-full" onclick="generateGrid()">生成/重置座位表</button>
-                <small>提示：點擊座位可設為空座位(不加入抽籤)。</small>
-            </div>
-
-            <!-- 卡片 2: 步驟 2 (輸入名單) -->
-            <div class="card">
-                <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
-                    2. 輸入學生名單
-                    <input type="file" id="csvInput" accept=".csv" style="display: none;" onchange="handleCSVImport(this)">
-                    <button class="btn-import" onclick="document.getElementById('csvInput').click()">📂 匯入名單(CSV)</button>
-                </div>
-
-                <textarea id="student-list" placeholder="01張三&#10;02李四&#10;03王五&#10;..."></textarea>
-                
-                <div class="status-bar" id="status-text">目前名單：0 人 | 可用座位：0</div>
-
-                <!-- 常用名單儲存區 -->
-                <div class="storage-area">
-                    <div class="storage-slot">
-                        <span>名單 1</span>
-                        <div class="storage-btns">
-                            <button class="btn-sm btn-save" onclick="saveList(1)">存</button>
-                            <button class="btn-sm btn-load" onclick="loadList(1)">讀</button>
-                        </div>
-                    </div>
-                    <div class="storage-slot">
-                        <span>名單 2</span>
-                        <div class="storage-btns">
-                            <button class="btn-sm btn-save" onclick="saveList(2)">存</button>
-                            <button class="btn-sm btn-load" onclick="loadList(2)">讀</button>
-                        </div>
-                    </div>
-                    <div class="storage-slot">
-                        <span>名單 3</span>
-                        <div class="storage-btns">
-                            <button class="btn-sm btn-save" onclick="saveList(3)">存</button>
-                            <button class="btn-sm btn-load" onclick="loadList(3)">讀</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 卡片 3: 步驟 3 (執行操作) -->
-            <div class="card">
-                <div class="section-header">3. 執行操作</div>
-                <button class="btn-green btn-full" style="margin-bottom: 10px;" onclick="startLottery()">🚀 開始隨機安排座位</button>
-                <div class="btn-row">
-                    <button class="btn-red" style="flex:1" onclick="clearNames()">🧹 清除名字</button>
-                    <button class="btn-green" style="flex:1" onclick="exportToExcel()">📊 下載 Excel</button>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- 右側主畫面：座位顯示 -->
-        <div class="display-area">
-            <div class="podium">講台位置</div>
-            <div id="classroom"></div>
-        </div>
+    <div class="sec">
+      <h3>班級名單</h3>
+      <div class="row"><select id="selClass" style="flex:1"></select></div>
+      <div class="row">
+        <button id="btnNewClass" class="small">➕ 新增班級</button>
+        <button id="btnEditClass" class="small">✏️ 編輯名單</button>
+        <button id="btnDelClass" class="small">🗑 刪除</button>
+      </div>
+      <div class="hint" id="stuInfo">尚未載入</div>
     </div>
 
-    <script>
-        // Fisher-Yates Shuffle 演算法
-        function shuffle(array) {
-            let currentIndex = array.length,  randomIndex;
-            while (currentIndex != 0) {
-                randomIndex = Math.floor(Math.random() * currentIndex);
-                currentIndex--;
-                [array[currentIndex], array[randomIndex]] = [
-                    array[randomIndex], array[currentIndex]];
-            }
-            return array;
-        }
+    <div class="sec">
+      <h3>教室座位</h3>
+      <div class="row">
+        <label>直排</label><input type="number" id="inCols" min="1" max="12" value="7">
+        <label>橫列</label><input type="number" id="inRows" min="1" max="12" value="6">
+      </div>
+      <div class="hint" id="seatInfo"></div>
+      <div class="row" style="margin-top:8px">
+        <label>點選座位：</label>
+        <div class="radio">
+          <label><input type="radio" name="tool" value="toggle" checked> 停用／恢復</label>
+          <label><input type="radio" name="tool" value="lock"> 鎖定學生</label>
+        </div>
+      </div>
+      <div class="row">
+        <button id="btnEnableAll" class="small">恢復全部座位</button>
+        <button id="btnClearLocks" class="small">清除全部鎖定</button>
+      </div>
+      <div id="lockList"></div>
+    </div>
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            // 預設生成 42 個名字方便測試
-            let demoNames = [];
-            // 產生一些測試用的假名單
-            const lastNames = ['陳','林','黃','張','李','王','吳','劉','蔡','楊'];
-            const firstNames = ['冠宇','怡君','雅婷','宗翰','佳穎','家豪','承恩','欣妤','彥廷','詩涵'];
-            
-            for(let i=0; i<42; i++) {
-                 // 使用 padStart 來確保數字都有兩位數 (如: 01, 02... 42)
-                 let seatNum = String(i + 1).padStart(2, '0');
-                 let name = lastNames[i % 10] + firstNames[i % 10];
-                 
-                 // 將座號與名字結合
-                 demoNames.push(`${seatNum}${name}`);
-            }
-            
-            document.getElementById('student-list').value = demoNames.join('\n');
-            
-            generateGrid();
-            updateCount();
-        });
+    <div class="sec">
+      <h3>排除相鄰</h3>
+      <div class="row"><select id="exA" style="width:100%"></select></div>
+      <div class="row"><select id="exB" style="width:100%"></select></div>
+      <div class="row">
+        <button id="btnAddEx" class="small">新增：這兩位不坐相鄰</button>
+        <label><input type="checkbox" id="chkDiag"> 含斜對角</label>
+      </div>
+      <ul id="exList"></ul>
+    </div>
 
-        document.getElementById('student-list').addEventListener('input', updateCount);
+    <div class="sec">
+      <h3>抽籤動畫</h3>
+      <div class="row">
+        <label>演示總時間</label>
+        <input type="range" id="inDur" min="3" max="60" step="1" value="15">
+        <span id="durVal" style="width:40px;text-align:right">15 秒</span>
+      </div>
+      <div class="row"><label><input type="checkbox" id="chkSound" checked> 音效</label></div>
+    </div>
 
-        function updateCount() {
-            const names = getNames();
-            const validSeats = document.querySelectorAll('.desk:not(.void)').length;
-            const status = document.getElementById('status-text');
-            
-            // 判斷顏色：如果不相等，數字顯示紅色；否則預設繼承藍色
-            const numColor = (names.length !== validSeats) ? '#e74c3c' : 'inherit';
-            
-            let statusHtml = `目前名單：<span style="color:${numColor}">${names.length}</span> 人 | 可用座位：<span style="color:${numColor}">${validSeats}</span>`;
-            
-            if(names.length > validSeats) {
-                statusHtml += ' <span style="color:#e74c3c; margin-left:10px; font-weight:bold;">(⚠️ 座位不足！)</span>';
-            }
-            
-            status.innerHTML = statusHtml;
-        }
+    <div class="sec">
+      <h3>想連動 Google 試算表？</h3>
+      <div class="hint">建立一份屬於您自己的試算表副本，名單與座位表會直接存在您的 Google 試算表中（功能與本網頁相同）。</div>
+      <div class="row"><button id="btnCopy" class="primary">📄 建立我的試算表副本</button></div>
+      <div class="hint">第一次使用需要授權，步驟請看「使用說明」第 10 項。</div>
+    </div>
 
-        function getNames() {
-            const raw = document.getElementById('student-list').value;
-            return raw.split('\n').map(n => n.trim()).filter(n => n !== '');
-        }
+    <div class="sec hint">
+      ・名單與設定只存在這台電腦的瀏覽器，不會上傳到任何伺服器。<br>
+      ・換電腦或清除瀏覽器資料後會消失，請記得「下載 Excel」保存座位表。<br>
+      ・排好後，可直接拖曳名牌交換座位。
+    </div>
+  </aside>
 
-        // CSV 匯入功能
-        function handleCSVImport(input) {
-            const file = input.files[0];
-            if (!file) return;
+  <!-- ============ 主畫面 ============ -->
+  <div id="main">
+    <div id="toolbar">
+      <div class="seg" id="segMode">
+        <button data-v="2d">2D</button><button data-v="3d" class="on">3D</button>
+      </div>
+      <div class="seg" id="segView">
+        <button data-v="student" class="on">學生視角</button><button data-v="teacher">教師視角</button>
+      </div>
+      <button id="btnResetCam" class="small">重設視角</button>
+      <div class="sep"></div>
+      <button id="btnStart" class="primary">▶ 開始排座位</button>
+      <button id="btnSkip" class="gold hidden">⏭ 跳過動畫</button>
+      <button id="btnClear">清除座位</button>
+      <div class="sep"></div>
+      <button id="btnPng">匯出 PNG</button>
+      <button id="btnPrint">列印</button>
+      <button id="btnSend" class="primary">📥 下載 Excel</button>
+      <button id="btnLoad">📂 載入 Excel</button>
+      <input type="file" id="loadFileIn" accept=".xlsx" hidden>
+    </div>
+    <div id="stage">
+      <div id="banner"></div>
+      <div id="demoTag">🔒 網頁版｜資料只存在這台電腦</div>
+      <div id="opHint"></div>
+      <div id="busy"></div>
+      <div id="lockPop" class="pop hidden">
+        <div class="pt">🔒 鎖定座位 <span id="lpSeat"></span></div>
+        <select id="lpSel"></select>
+        <div class="row" style="justify-content:flex-end;margin-top:8px">
+          <button id="lpClear" class="small">取消鎖定</button>
+          <button id="lpOk" class="small primary">確定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                let processedText = text.replace(/,/g, '\n').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                
-                const currentText = document.getElementById('student-list').value;
-                
-                if(currentText.trim() !== "") {
-                    if(!confirm("是否要覆蓋現有名單？\n(取消 = 附加在現有名單後方)")) {
-                        document.getElementById('student-list').value += '\n' + processedText;
-                    } else {
-                        document.getElementById('student-list').value = processedText;
-                    }
-                } else {
-                    document.getElementById('student-list').value = processedText;
-                }
-                
-                input.value = '';
-                updateCount();
-            };
-            reader.readAsText(file); 
-        }
+<!-- 第二分頁：舊版抽籤程式（獨立檔案，以 iframe 原封不動載入） -->
+<div id="classicPane" class="hidden"><iframe id="classicFrame" title="舊版抽籤程式"></iframe></div>
 
-        function saveList(slotId) {
-            const currentList = document.getElementById('student-list').value;
-            if(!currentList.trim()) {
-                alert('目前的文字框是空的，無法儲存！');
-                return;
-            }
-            localStorage.setItem('classroom_seat_list_' + slotId, currentList);
-            alert(`名單 ${slotId} 已成功儲存到瀏覽器！`);
-        }
+<div id="noticeBox" class="modal hidden">
+  <div class="mbox">
+    <div class="mt">📢 舊版抽籤程式在第二分頁</div>
+    <div class="mm">換座位抽籤已改版成新版（3D 教室、動畫抽籤、條件設定）。
+舊版的抽籤程式完整保留在上方「📋 舊版抽籤程式」分頁，使用方法完全不變，之前「存」的名單也都還在。</div>
+    <label style="color:var(--muted)"><input type="checkbox" id="noticeHide"> 不再顯示</label>
+    <div class="mrow"><button id="noticeClassic">前往舊版</button><button id="noticeOk" class="primary">知道了</button></div>
+  </div>
+</div>
 
-        function loadList(slotId) {
-            const savedList = localStorage.getItem('classroom_seat_list_' + slotId);
-            if(savedList) {
-                if(confirm(`確定要載入「名單 ${slotId}」嗎？\n目前的輸入框內容將被覆蓋。`)) {
-                    document.getElementById('student-list').value = savedList;
-                    updateCount();
-                }
-            } else {
-                alert(`名單 ${slotId} 目前是空的，請先儲存！`);
-            }
-        }
+<div id="ghost"></div>
+<div id="toasts"></div>
 
-        function generateGrid() {
-            const rows = parseInt(document.getElementById('rows').value);
-            const cols = parseInt(document.getElementById('cols').value);
-            const classroom = document.getElementById('classroom');
-            
-            // 設定 CSS Grid
-            classroom.style.gridTemplateColumns = `repeat(${cols}, 120px)`; /* 配合 desk 寬度 */
-            classroom.style.gridTemplateRows = `repeat(${rows}, 80px)`;    /* 配合 desk 高度 */
-            classroom.innerHTML = ''; 
+<div id="confirmBox" class="modal hidden">
+  <div class="mbox">
+    <div class="mt">確認</div>
+    <div class="mm" id="cfMsg"></div>
+    <div class="mrow"><button id="cfNo">取消</button><button id="cfYes" class="primary">確定</button></div>
+  </div>
+</div>
 
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const desk = document.createElement('div');
-                    desk.className = 'desk';
-                    desk.dataset.index = r * cols + c;
-                    
-                    desk.addEventListener('click', function() {
-                        if (this.classList.contains('filled')) return; 
-                        this.classList.toggle('void');
-                        if (this.classList.contains('void')) {
-                            this.innerText = '';
-                        }
-                        updateCount();
-                    });
+<div id="exportBox" class="modal hidden">
+  <div class="mbox">
+    <div class="mt">座位表圖片</div>
+    <img id="exportImg" alt="座位表">
+    <div class="hint" style="margin-top:8px">若按「下載 PNG」沒有反應，請在圖片上按右鍵 →「另存圖片」。</div>
+    <div class="mrow"><button id="exClose">關閉</button><button id="exDl" class="primary">下載 PNG</button></div>
+  </div>
+</div>
 
-                    classroom.appendChild(desk);
-                }
-            }
-            updateCount();
-        }
+<div id="rosterBox" class="modal hidden">
+  <div class="mbox">
+    <div class="mt" id="rsTitle">新增班級</div>
+    <div class="row"><label>班級名稱</label><input type="text" id="rsName" placeholder="例如：201" style="flex:1"></div>
+    <div class="hint" style="margin:6px 0">每行一位學生：「座號　姓名」，可用 Tab、逗號或空白分隔。<br>
+      可直接從 Excel／Google 試算表選取「座號、姓名」兩欄複製貼上；只有姓名時會自動編座號。</div>
+    <textarea id="rsText" rows="13" placeholder="1&#9;王小明&#10;2&#9;李小華&#10;3&#9;張大同"></textarea>
+    <div class="row">
+      <button id="rsFile" class="small">📂 上傳 CSV／Excel</button>
+      <input type="file" id="rsFileIn" accept=".csv,.txt,.xlsx" hidden>
+      <button id="rsDemo" class="small">填入示範名單</button>
+      <span id="rsCount" class="hint"></span>
+    </div>
+    <div class="mrow"><button id="rsCancel">取消</button><button id="rsSave" class="primary">儲存</button></div>
+  </div>
+</div>
 
-        function clearNames() {
-            const desks = document.querySelectorAll('.desk');
-            desks.forEach(desk => {
-                desk.classList.remove('filled');
-                if(!desk.classList.contains('void')) desk.innerText = '';
-            });
-        }
+<div id="helpBox" class="modal hidden">
+  <div class="mbox">
+    <div class="mt">❓ 使用說明</div>
+    <div id="helpBody">
+      <h4>1. 建立學生名單</h4>
+      <ul>
+        <li>按 <span class="key">➕ 新增班級</span>，輸入班級名稱，再輸入名單，以下三種方式擇一：
+          <ul>
+            <li><b>貼上</b>：從 Excel／Google 試算表選取「座號、姓名」兩欄，複製後貼到文字框。</li>
+            <li><b>上傳 CSV</b>：每行「座號,姓名」（UTF-8 或 Big5 編碼皆可）。</li>
+            <li><b>上傳 Excel（.xlsx）</b>：第一個工作表中，標題列有「座號」「姓名」最好；沒有標題時以 A 欄為座號、B 欄為姓名。</li>
+          </ul></li>
+        <li>可建立多個班級，用上方選單切換；<span class="key">✏️ 編輯名單</span> 可修改，<span class="key">🗑 刪除</span> 可刪除班級。</li>
+      </ul>
+      <h4>2. 設定教室座位</h4>
+      <ul>
+        <li>輸入 <b>直排</b>（左右幾行）與 <b>橫列</b>（前後幾排），預設 7 排 6 列。</li>
+        <li>畫面左上角會提示「學生人數」與「可用座位數」是否相符。</li>
+        <li>座位比學生多時，選「點選座位：<b>停用／恢復</b>」，點一下座位即停用（變成虛線框），再點一下恢復。</li>
+      </ul>
+      <h4>3. 鎖定學生（預先指定座位）</h4>
+      <ul>
+        <li>選「點選座位：<b>鎖定學生</b>」，點座位後選擇學生，該座位會出現 🔒 金框。</li>
+        <li>抽籤時，被鎖定的學生<b>固定坐在指定座位</b>，其他學生隨機分配。適合視力、身體等特殊需求。</li>
+      </ul>
+      <h4>4. 排除相鄰</h4>
+      <ul>
+        <li>選擇學生 A、學生 B，按 <span class="key">新增</span>，抽籤時這兩人不會坐在一起（前後左右）。</li>
+        <li>勾選「含斜對角」，斜對角也不能相鄰。可設定多組。</li>
+      </ul>
+      <h4>5. 開始排座位</h4>
+      <ul>
+        <li>調整「<b>演示總時間</b>」（全部學生入座所需的秒數）與「音效」開關。</li>
+        <li>按 <span class="key">▶ 開始排座位</span>，名牌會從講台的抽籤箱逐一飛到座位上。</li>
+        <li>動畫中可按 <span class="key">⏭ 跳過動畫</span> 直接完成；不滿意可再按 <span class="key">▶ 開始排座位（重抽）</span>，會先詢問確認。</li>
+        <li>按 <span class="key">清除座位</span> 會清空名牌，之後才能再停用座位或鎖定學生。</li>
+      </ul>
+      <h4>6. 手動調整座位</h4>
+      <ul>
+        <li>排好後，<b>按住名牌拖曳到另一個座位</b>即可兩人互換；拖到空位則直接移過去。</li>
+        <li>若交換後違反「排除相鄰」設定，會跳出提醒。</li>
+      </ul>
+      <h4>7. 檢視與操作</h4>
+      <ul>
+        <li><span class="key">2D</span>／<span class="key">3D</span>：切換平面座位表或立體教室。</li>
+        <li><span class="key">學生視角</span>／<span class="key">教師視角</span>：學生視角講台在前方（上方）；教師視角為站在講台看學生，切換時教室會旋轉。</li>
+        <li>3D：左鍵拖曳空白處旋轉、右鍵拖曳平移、滾輪縮放。</li>
+        <li>2D：滾輪縮放、右鍵拖曳平移。</li>
+        <li><span class="key">重設視角</span>：回到預設畫面。</li>
+      </ul>
+      <h4>8. 輸出與存檔</h4>
+      <ul>
+        <li><span class="key">匯出 PNG</span>：產生座位表圖片（依目前視角）；若無法下載，請在圖片上按右鍵另存。</li>
+        <li><span class="key">列印</span>：直接列印座位表圖片。</li>
+        <li><span class="key">📥 下載 Excel</span>：下載「座位表_班級_日期.xlsx」，內含「教師視角」（主要座位表）與「學生視角」兩個工作表，各自列印成一頁。</li>
+        <li><span class="key">📂 載入 Excel</span>：選擇之前下載的座位表 Excel 檔，即可還原座位，繼續調整。（請勿修改檔案中的座位表內容）</li>
+      </ul>
+      <h4>9. 小提醒</h4>
+      <ul>
+        <li>名單與教室設定（排列數、停用座位、鎖定、排除相鄰、動畫時間）會<b>依班級自動儲存在這台電腦的瀏覽器</b>，下次開啟自動帶入。</li>
+        <li>資料<b>不會上傳</b>到任何伺服器；但換電腦、換瀏覽器或清除瀏覽資料後會消失，請用「下載 Excel」保存座位表。</li>
+      </ul>
+      <h4>10. Google 試算表版（名單與座位表存在自己的試算表）</h4>
+      <ul>
+        <li>按左側 <span class="key">📄 建立我的試算表副本</span> →「建立副本」，會在您的 Google 雲端硬碟產生一份試算表。</li>
+        <li>在副本中，每班一個工作表，<b>A1「座號」、B1「姓名」</b>，第 2 列起輸入學生名單（可先刪除示範班級）。</li>
+        <li>重新整理試算表，上方選單會出現「🪑 換座位」→「開啟換座位抽籤」。</li>
+        <li>第一次開啟需要授權：選擇您的 Google 帳號 → 出現「Google 尚未驗證這個應用程式」時，按「<b>進階</b>」→「<b>前往（不安全）</b>」→「允許」。<br>
+          這是因為程式在您自己的副本中執行，並未送交 Google 審核；程式只會存取這份試算表本身。</li>
+        <li>試算表版的「傳回試算表」會把座位表直接寫成工作表，「從試算表載入」可讀回之前的座位表。</li>
+        <li>想用<b>新分頁</b>開啟（選單「在新分頁開啟換座位抽籤」）：Apps Script「部署」→「新增部署作業」→ 網頁應用程式（執行身分：我；存取：只有我自己）。之後修改程式，請用「管理部署作業」→ 編輯 →「新版本」更新，不要再新增部署作業。</li>
+      </ul>
+    </div>
+    <div class="mrow"><button id="helpClose" class="primary">關閉</button></div>
+  </div>
+</div>
 
-        function startLottery() {
-            const names = getNames();
-            const shuffledNames = shuffle([...names]); 
-            const allDesks = Array.from(document.querySelectorAll('.desk'));
-            const availableDesks = allDesks.filter(d => !d.classList.contains('void'));
+<div id="printArea"><img id="printImg" alt=""></div>
 
-            if (shuffledNames.length > availableDesks.length) {
-                alert(`錯誤：學生人數 (${shuffledNames.length}) 多於可用座位 (${availableDesks.length})。請增加座位或減少學生。`);
-                return;
-            }
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+'use strict';
 
-            if (shuffledNames.length < availableDesks.length) {
-                const status = document.getElementById('status-text');
-                status.innerHTML = `目前名單：${names.length} 人 | 可用座位：${availableDesks.length} <span style="color:red; margin-left:10px; font-weight:bold;">(⚠️ 學生人數小於座位數量)</span>`;
-                alert("學生人數小於座位數量，暫不執行排列。");
-                return;
-            }
+/* =====================================================
+ * 1. 資料存取：瀏覽器本機儲存（localStorage）
+ * ===================================================== */
+// Google 試算表範本的「建立副本」連結（格式：https://docs.google.com/spreadsheets/d/試算表ID/copy）
+const TEMPLATE_COPY_URL = '';
+const EXCELJS_URL = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+const LSK = 'seatLottery.';
+const MEM = {};   // localStorage 無法使用時的備援（僅本次開啟有效）
+let lsOK = true;
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ lsOK=false; return k in MEM?MEM[k]:d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ lsOK=false; MEM[k]=v; return false; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} delete MEM[k]; }
+};
+const LOCAL = {
+  getClassList:()=>Object.keys(LS.get(LSK+'classes',{})).sort((a,b)=>a.localeCompare(b,'zh-Hant',{numeric:true})),
+  getStudents:c=>(LS.get(LSK+'classes',{})[c]||[]),
+  getConfig:c=>LS.get(LSK+'cfg.'+c,null),
+  saveConfig:(c,v)=>LS.set(LSK+'cfg.'+c,v),
+  saveClass:(c,stu)=>{ const o=LS.get(LSK+'classes',{}); o[c]=stu; return LS.set(LSK+'classes',o); },
+  renameClass:(a,b)=>{ const o=LS.get(LSK+'classes',{}); const cfg=LS.get(LSK+'cfg.'+a,null);
+    delete o[a]; LS.set(LSK+'classes',o); LS.del(LSK+'cfg.'+a); if(cfg) LS.set(LSK+'cfg.'+b,cfg); },
+  deleteClass:c=>{ const o=LS.get(LSK+'classes',{}); delete o[c]; LS.set(LSK+'classes',o); LS.del(LSK+'cfg.'+c); }
+};
+function gas(fn,...args){
+  return new Promise((res,rej)=>{ try{ res(LOCAL[fn](...args)); }catch(e){ rej(e); } });
+}
 
-            clearNames();
+/* =====================================================
+ * 2. 狀態
+ * ===================================================== */
+const S = {
+  classes:[], cls:null, students:[], stuMap:new Map(),
+  rows:6, cols:7,
+  disabled:new Set(),       // 停用座位 key
+  locks:new Map(),          // key -> 座號
+  excl:[],                  // [[座號A,座號B]]
+  diag:false,
+  dur:15, sound:true,
+  mode:'3d', view:'student', tool:'toggle',
+  assign:new Map(),         // key -> 座號（目前顯示）
+  phase:'idle'              // idle | anim | done
+};
+const key=(r,c)=>r+','+c;
+const parseKey=k=>k.split(',').map(Number);
+const pairKey=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+const fmt=st=>st?(st.no+' '+st.name):'?';
+const $=id=>document.getElementById(id);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function seatName(k){const [r,c]=parseKey(k);return `前起第${r+1}列・左起第${c+1}排`;}
 
-            const seatsForLottery = shuffle([...availableDesks]);
-            
-            let animations = [];
-            for(let i=0; i < shuffledNames.length; i++) {
-                animations.push({
-                    desk: seatsForLottery[i],
-                    name: shuffledNames[i]
-                });
-            }
+/* =====================================================
+ * 3. 介面小工具：toast / confirm / busy
+ * ===================================================== */
+function toast(msg,type='',ms=3200){
+  const d=document.createElement('div'); d.className='toast '+type; d.textContent=msg;
+  $('toasts').appendChild(d); setTimeout(()=>d.remove(),ms);
+}
+function uiConfirm(msg,yes='確定',no='取消'){
+  return new Promise(res=>{
+    $('cfMsg').textContent=msg; $('cfYes').textContent=yes; $('cfNo').textContent=no;
+    $('confirmBox').classList.remove('hidden');
+    const done=v=>{$('confirmBox').classList.add('hidden');$('cfYes').onclick=$('cfNo').onclick=null;res(v);};
+    $('cfYes').onclick=()=>done(true); $('cfNo').onclick=()=>done(false);
+  });
+}
+function setBusy(t){ $('busy').textContent=t||''; $('busy').style.display=t?'block':'none'; }
 
-            const finalSequence = shuffle(animations);
+/* =====================================================
+ * 4. Three.js 場景
+ * ===================================================== */
+const SX=1.7, SZ=1.5, LABEL_Y=1.25;
+const stage=$('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+stage.insertBefore(renderer.domElement, stage.firstChild);
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b0e14);
+const camP=new THREE.PerspectiveCamera(45,1,0.1,300);
+const camO=new THREE.OrthographicCamera(-10,10,10,-10,0.1,300);
+const controls=new THREE.OrbitControls(camP, renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=0.12;
+controls.maxPolarAngle=Math.PI*0.48; controls.minDistance=3; controls.maxDistance=80;
+scene.add(new THREE.HemisphereLight(0xffffff,0x3a4658,0.95));
+const dl=new THREE.DirectionalLight(0xffffff,0.65); dl.position.set(6,14,9); scene.add(dl);
 
-            let delay = 0;
-            const interval = 100;
+const G={ // 共用幾何
+  top:new THREE.BoxGeometry(1.2,0.05,0.6),
+  leg:new THREE.BoxGeometry(0.05,0.72,0.05),
+  cSeat:new THREE.BoxGeometry(0.46,0.04,0.42),
+  cBack:new THREE.BoxGeometry(0.46,0.42,0.04),
+  cLeg:new THREE.BoxGeometry(0.04,0.42,0.04)
+};
+G.edge=new THREE.EdgesGeometry(G.top);
+const SHARED=new Set(Object.values(G));
+const M={
+  leg:new THREE.MeshStandardMaterial({color:0x7d8898,metalness:.3,roughness:.6}),
+  chair:new THREE.MeshStandardMaterial({color:0x3f6fb5,roughness:.6}),
+  edge:new THREE.LineBasicMaterial({color:0x8b97a9})
+};
+const SHARED_MAT=new Set(Object.values(M));
 
-            finalSequence.forEach(item => {
-                setTimeout(() => {
-                    item.desk.innerText = item.name;
-                    item.desk.classList.add('filled');
-                }, delay);
-                delay += interval;
-            });
-        }
+let room=new THREE.Group(); scene.add(room);
+const seats=new Map();   // key -> {key,deskMat,legs,chair,edge,label,flash}
+const pickables=[];
+let lotteryPos=new THREE.Vector3(0,1.3,-2.4);
+let hoverKey=null;
 
-        function exportToExcel() {
-            const rows = parseInt(document.getElementById('rows').value);
-            const cols = parseInt(document.getElementById('cols').value);
-            const classroom = document.getElementById('classroom');
-            const desks = classroom.children;
+function seatPos(r,c){ return new THREE.Vector3((c-(S.cols-1)/2)*SX,0,r*SZ); }
+function roomBounds(){ return {W:S.cols*SX, zMin:-4.1, zMax:(S.rows-1)*SZ+1.0}; }
 
-            let gridData = [];
-            for (let r = 0; r < rows; r++) {
-                let rowData = [];
-                for (let c = 0; c < cols; c++) {
-                    const index = r * cols + c;
-                    const desk = desks[index];
-                    let text = desk.innerText;
-                    
-                    if (desk.classList.contains('void')) {
-                        text = "(X)";
-                    } else if (text === "") {
-                        text = "(空)";
-                    }
-                    rowData.push(text);
-                }
-                gridData.push(rowData);
-            }
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+const LBL_STYLE={
+  stud:{bg:'#1e3a5f',bd:'#4da3ff',fg:'#ffffff'},
+  lock:{bg:'#4a3a10',bd:'#f2c14e',fg:'#ffe08a'},
+  lockedStud:{bg:'#1e3a5f',bd:'#f2c14e',fg:'#ffffff'},
+  title:{bg:'#3b2a12',bd:'#c99a45',fg:'#ffd98a'}
+};
+const LBL_AR=208/256;          // 名牌畫布高寬比
+const CARD2D_W=1.58;           // 2D 名牌卡片寬度（世界單位）
+function makeLabel(){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=208;
+  const tex=new THREE.CanvasTexture(cv); tex.minFilter=THREE.LinearFilter; tex.generateMipmaps=false;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
+  sp.scale.set(1.5,1.5*LBL_AR,1);
+  return {cv,ctx:cv.getContext('2d'),tex,sprite:sp};
+}
+function drawLabel(lb,text,style){
+  const {ctx}=lb; ctx.clearRect(0,0,256,208);
+  if(!text){ lb.sprite.visible=false; return; }
+  lb.sprite.visible=true;
+  const st=LBL_STYLE[style]||LBL_STYLE.stud;
+  const font=s=>`bold ${s}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(S.mode==='2d'&&style!=='title'){
+    // 2D：大卡片（上：座號，下：姓名）
+    roundRect(ctx,6,6,244,196,22); ctx.fillStyle=st.bg; ctx.fill();
+    ctx.lineWidth=6; ctx.strokeStyle=st.bd; ctx.stroke();
+    const sp=text.indexOf(' '), no=sp<0?'':text.slice(0,sp), nm=sp<0?text:text.slice(sp+1);
+    ctx.fillStyle=st.fg; ctx.globalAlpha=0.8; ctx.font=font(44); ctx.fillText(no,128,54); ctx.globalAlpha=1;
+    let fs=88; ctx.font=font(fs); while(ctx.measureText(nm).width>228&&fs>30){fs-=2;ctx.font=font(fs);}
+    ctx.fillText(nm,128,140);
+  }else{
+    // 3D：原本的長條名牌（置於畫布中央）
+    roundRect(ctx,5,61,246,86,18); ctx.fillStyle=st.bg; ctx.fill();
+    ctx.lineWidth=5; ctx.strokeStyle=st.bd; ctx.stroke();
+    let fs=46; ctx.font=font(fs); while(ctx.measureText(text).width>226&&fs>18){fs-=2;ctx.font=font(fs);}
+    ctx.fillStyle=st.fg; ctx.fillText(text,128,106);
+  }
+  lb.tex.needsUpdate=true;
+}
+function disposeObj(o){
+  o.traverse(n=>{
+    if(n.geometry&&!SHARED.has(n.geometry)) n.geometry.dispose();
+    if(n.material){ const ms=Array.isArray(n.material)?n.material:[n.material];
+      ms.forEach(m=>{ if(SHARED_MAT.has(m)) return; if(m.map) m.map.dispose(); m.dispose(); }); }
+  });
+}
 
-            function expandGridWithSpacers(originalGrid) {
-                if (originalGrid.length === 0) return [];
-                const R = originalGrid.length;
-                const C = originalGrid[0].length;
-                let newGrid = [];
+function makeSeat(r,c){
+  const k=key(r,c), g=new THREE.Group(); g.position.copy(seatPos(r,c));
+  const deskMat=new THREE.MeshStandardMaterial({color:0xc9a26b,roughness:.7,transparent:true,opacity:1});
+  const top=new THREE.Mesh(G.top,deskMat); top.position.y=0.75; g.add(top);
+  const legs=new THREE.Group();
+  [[-.55,-.25],[.55,-.25],[-.55,.25],[.55,.25]].forEach(([x,z])=>{const l=new THREE.Mesh(G.leg,M.leg);l.position.set(x,0.36,z);legs.add(l);});
+  g.add(legs);
+  const chair=new THREE.Group(); chair.position.z=0.58;
+  const cs=new THREE.Mesh(G.cSeat,M.chair); cs.position.y=0.44; chair.add(cs);
+  const cb=new THREE.Mesh(G.cBack,M.chair); cb.position.set(0,0.67,0.2); chair.add(cb);
+  [[-.2,-.18],[.2,-.18],[-.2,.18],[.2,.18]].forEach(([x,z])=>{const l=new THREE.Mesh(G.cLeg,M.leg);l.position.set(x,0.21,z);chair.add(l);});
+  g.add(chair);
+  const edge=new THREE.LineSegments(G.edge,M.edge); edge.position.y=0.76; edge.visible=false; g.add(edge);
+  const label=makeLabel(); label.sprite.position.y=LABEL_Y; g.add(label.sprite);
+  // 點擊判定：直接使用看得到的物件（桌面、桌腳、椅子、名牌）
+  [top,...legs.children,...chair.children,label.sprite].forEach(o=>{ o.userData.key=k; pickables.push(o); });
+  room.add(g);
+  seats.set(k,{key:k,deskMat,legs,chair,edge,label,flash:0});
+}
 
-                for (let r = 0; r < R; r++) {
-                    let newRow = [];
-                    for (let c = 0; c < C; c++) {
-                        newRow.push(originalGrid[r][c]);
-                        if (c < C - 1) {
-                            newRow.push("");
-                        }
-                    }
-                    newGrid.push(newRow);
-                    
-                    if (r < R - 1) {
-                        let spacerRow = new Array(newRow.length).fill("");
-                        newGrid.push(spacerRow);
-                    }
-                }
-                return newGrid;
-            }
+function buildRoom(){
+  scene.remove(room); disposeObj(room);
+  room=new THREE.Group(); scene.add(room); seats.clear(); pickables.length=0; hoverKey=null;
+  const {W,zMin,zMax}=roomBounds(), D=zMax-zMin, cz=(zMin+zMax)/2;
+  // 地板
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(W+3,D+3),new THREE.MeshStandardMaterial({color:0x1d2430,roughness:.95}));
+  floor.rotation.x=-Math.PI/2; floor.position.set(0,0,cz); room.add(floor); floor2D=floor;
+  // 黑板
+  const bw=Math.min(Math.max(W-1,4),9);
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(bw+0.2,1.5,0.06),new THREE.MeshStandardMaterial({color:0x8a6d3b}));
+  frame.position.set(0,1.55,-3.95); room.add(frame);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(bw,1.3,0.08),new THREE.MeshStandardMaterial({color:0x1f4d3a,roughness:.9}));
+  board.position.set(0,1.55,-3.92); room.add(board);
+  // 講台
+  const pod=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.22,1.4),new THREE.MeshStandardMaterial({color:0x6b4f2a,roughness:.8}));
+  pod.position.set(0,0.11,-2.6); room.add(pod);
+  const tdesk=new THREE.Mesh(new THREE.BoxGeometry(1.4,0.9,0.6),new THREE.MeshStandardMaterial({color:0x9c7a4a,roughness:.7}));
+  tdesk.position.set(0,0.22+0.45,-2.45); room.add(tdesk);
+  // 抽籤箱
+  const box=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.38,0.45),new THREE.MeshStandardMaterial({color:0xc0392b,roughness:.5}));
+  box.position.set(0,1.12+0.19,-2.45); room.add(box);
+  lotteryPos=new THREE.Vector3(0,1.55,-2.45);
+  // 講台標籤
+  const tl=makeLabel(); drawLabel(tl,'講　台','title'); tl.sprite.scale.set(2.0,2.0*LBL_AR,1);
+  tl.sprite.position.set(0,2.6,-2.9); room.add(tl.sprite);
+  // 座位
+  for(let r=0;r<S.rows;r++) for(let c=0;c<S.cols;c++) makeSeat(r,c);
+  // 3D 教室佈置（牆壁與裝飾）
+  buildDecor(W,zMax); applyModeVis();
+  refreshAll(); fitCameras();
+}
 
-            let studentBaseData = gridData;
-            let teacherBaseData = [...gridData].reverse().map(row => [...row].reverse());
+/* =====================================================
+ * 4b. 3D 教室佈置（只在 3D 顯示；靠近鏡頭的牆自動淡出）
+ *     木地板、牆面、窗戶、門、時鐘、橫幅、公約、公布欄、三角旗、盆栽、暖色燈光
+ * ===================================================== */
+let floor2D=null, decor=null, walls=[], clockHands=null;
+const WALL_H=3.4, WALL_T=0.15;
+function applyModeVis(){ const d3=S.mode==='3d'; if(decor) decor.visible=d3; if(floor2D) floor2D.visible=!d3; }
+function canvasTex(w,h,draw){
+  const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+  draw(cv.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(cv); t.anisotropy=4; return t;
+}
+const DFONT=(s,b)=>`${b?'bold ':''}${s}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+function fitText(c,txt,max,size,bold){ let s=size; c.font=DFONT(s,bold); while(c.measureText(txt).width>max&&s>10){s-=2;c.font=DFONT(s,bold);} }
+function woodFloorTex(){
+  return canvasTex(512,512,(c,w,h)=>{
+    const rows=8, ph=h/rows;
+    for(let r=0;r<rows;r++){
+      let x=-(r%2)*130;
+      while(x<w){
+        const len=190+Math.random()*130;
+        c.fillStyle=`hsl(${24+Math.random()*6},${38+Math.random()*10}%,${30+Math.random()*8}%)`;
+        c.fillRect(x,r*ph,len,ph);
+        c.strokeStyle='rgba(90,55,25,.18)'; c.lineWidth=1;
+        for(let g=0;g<5;g++){ const y=r*ph+5+Math.random()*(ph-10); c.beginPath(); c.moveTo(x,y); c.bezierCurveTo(x+len*.3,y+3,x+len*.6,y-3,x+len,y); c.stroke(); }
+        c.fillStyle='rgba(60,35,15,.5)'; c.fillRect(x,r*ph,2,ph);
+        x+=len;
+      }
+      c.fillStyle='rgba(60,35,15,.55)'; c.fillRect(0,r*ph,w,2);
+    }
+  });
+}
+/* 一面牆：區域座標中牆面沿 x 方向，室內面在 z=0、朝 +z；裝飾放在 z>0 */
+function makeWall(len,color){
+  const w={g:new THREE.Group(),mats:[],alpha:null,len};   // alpha=null：第一次更新時直接採用目標值
+  w.mat=o=>{ const base=o.opacity===undefined?1:o.opacity;
+    const m=new THREE.MeshStandardMaterial(Object.assign({roughness:.85},o)); m.transparent=base<1;
+    if(o.side) m.side=o.side; w.mats.push({m,base}); return m; };
+  w.box=(sx,sy,sz,x,y,z,m)=>{ const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m); o.position.set(x,y,z); w.g.add(o); return o; };
+  w.plane=(sx,sy,x,y,z,m)=>{ const o=new THREE.Mesh(new THREE.PlaneGeometry(sx,sy),m); o.position.set(x,y,z); w.g.add(o); return o; };
+  w.box(len,WALL_H,WALL_T,0,WALL_H/2,-WALL_T/2,w.mat({color}));                 // 牆面
+  w.box(len,0.18,0.03,0,0.09,0.015,w.mat({color:0x9c6b3f,roughness:.6}));        // 踢腳板
+  return w;
+}
+function placeWall(w,x,z,ry,nx,nz){
+  w.g.position.set(x,0,z); w.g.rotation.y=ry; decor.add(w.g);
+  w.p=new THREE.Vector3(x,0,z); w.n=new THREE.Vector3(nx,0,nz); walls.push(w);
+  // 牆頂線：牆淡出時仍留著，標示牆的位置
+  const rg=new THREE.Group(); rg.position.copy(w.g.position); rg.rotation.y=ry;
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(w.len,0.05,WALL_T+0.03),new THREE.MeshStandardMaterial({color:0xf2c14e,roughness:.5,transparent:true}));
+  rail.position.set(0,WALL_H+0.025,-WALL_T/2); rg.add(rail); decor.add(rg); w.rail=rail.material;
+}
+/* 窗框（白色四邊＋中間直櫺） */
+function windowFrame(w,cx,cy,ww,wh,glassMat){
+  const fm=w.mat({color:0xffffff,roughness:.5});
+  w.plane(ww,wh,cx,cy,0.02,glassMat);
+  w.box(ww+0.12,0.08,0.08,cx,cy+wh/2,0.04,fm); w.box(ww+0.12,0.08,0.08,cx,cy-wh/2,0.04,fm);
+  w.box(0.08,wh,0.08,cx-ww/2,cy,0.04,fm); w.box(0.08,wh,0.08,cx+ww/2,cy,0.04,fm);
+  w.box(0.05,wh,0.06,cx,cy,0.04,fm);
+}
+/* 三角旗串 */
+function pennants(w,len,y){
+  const cols=[0xff6b6b,0xffd93d,0x6bcb77,0x4d96ff,0xc77dff,0xff9f43];
+  const sh=new THREE.Shape(); sh.moveTo(-0.17,0); sh.lineTo(0.17,0); sh.lineTo(0,-0.36); sh.lineTo(-0.17,0);
+  const geo=new THREE.ShapeGeometry(sh);
+  w.box(len-0.4,0.015,0.015,0,y,0.06,w.mat({color:0x8a6d3b}));
+  const n=Math.floor((len-0.8)/0.5);
+  for(let i=0;i<n;i++){
+    const x=-(n-1)*0.25+i*0.5;
+    const m=new THREE.Mesh(geo,w.mat({color:cols[i%cols.length],side:THREE.DoubleSide,roughness:.7}));
+    m.position.set(x,y-0.01-Math.abs(Math.sin(i*1.3))*0.04,0.065); m.rotation.z=(i%2?1:-1)*0.06; w.g.add(m);
+  }
+}
+function buildDecor(W,zMax){
+  decor=new THREE.Group(); room.add(decor); walls=[]; clockHands=null;
+  const xL=-(W/2+1.3), xR=W/2+1.3, zF=-4.05, zB=zMax+1.3;
+  const IW=xR-xL, ID=zB-zF, cz=(zF+zB)/2, bw=Math.min(Math.max(W-1,4),9);
+  // 木地板
+  const ft=woodFloorTex(); ft.wrapS=ft.wrapT=THREE.RepeatWrapping; ft.repeat.set(IW/4,ID/4);
+  const fl=new THREE.Mesh(new THREE.PlaneGeometry(IW,ID),new THREE.MeshStandardMaterial({map:ft,roughness:.75}));
+  fl.rotation.x=-Math.PI/2; fl.position.set(0,0.003,cz); decor.add(fl);
+  // 暖色燈光（從窗戶側照入）
+  const sun=new THREE.DirectionalLight(0xffd59a,0.45); sun.position.set(xR+8,9,cz-2);
+  sun.target.position.set(0,0,cz); decor.add(sun); decor.add(sun.target);
+  decor.add(new THREE.AmbientLight(0xffeedd,0.15));
 
-            let expandedStudentData = expandGridWithSpacers(studentBaseData);
-            let expandedTeacherData = expandGridWithSpacers(teacherBaseData);
+  /* ---- 前牆（黑板牆，淺薄荷綠）：橫幅、時鐘、班級公約 ---- */
+  const fw=makeWall(IW+2*WALL_T,0xdff3e4); placeWall(fw,0,zF,0,0,1);
+  const clsName=S.cls?(/班$/.test(S.cls)?S.cls:S.cls+' 班'):'我們的教室';
+  const banTex=canvasTex(1024,128,(c,w,h)=>{
+    roundRect(c,4,4,w-8,h-8,40); c.fillStyle='#ff8fab'; c.fill(); c.lineWidth=6; c.strokeStyle='#ffffff'; c.stroke();
+    const txt=`★ ${clsName} ★ 一起加油！`; fitText(c,txt,w-80,74,true);
+    c.fillStyle='#ffffff'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(txt,w/2,h/2+4);
+  });
+  fw.plane(Math.min(4.2,IW-1),0.52,0,2.92,0.03,fw.mat({map:banTex,transparent:true}));
+  // 時鐘（顯示實際時間）
+  const ckX=Math.min(bw/2+1.0,IW/2-0.6), ckY=2.05;
+  const faceTex=canvasTex(256,256,(c,w,h)=>{
+    c.fillStyle='#fffaf0'; c.beginPath(); c.arc(128,128,126,0,Math.PI*2); c.fill();
+    c.fillStyle='#5a4320'; c.textAlign='center'; c.textBaseline='middle'; c.font=DFONT(34,true);
+    for(let i=1;i<=12;i++){ const a=i/12*Math.PI*2; c.fillText(String(i),128+Math.sin(a)*96,128-Math.cos(a)*96); }
+    for(let i=0;i<60;i++){ const a=i/60*Math.PI*2, r1=i%5?116:110; c.strokeStyle='#8a6d3b'; c.lineWidth=i%5?2:4;
+      c.beginPath(); c.moveTo(128+Math.sin(a)*r1,128-Math.cos(a)*r1); c.lineTo(128+Math.sin(a)*122,128-Math.cos(a)*122); c.stroke(); }
+  });
+  const face=new THREE.Mesh(new THREE.CircleGeometry(0.4,40),fw.mat({map:faceTex}));
+  face.position.set(ckX,ckY,0.05); fw.g.add(face);
+  const rim=new THREE.Mesh(new THREE.TorusGeometry(0.42,0.05,10,40),fw.mat({color:0xff9f43,roughness:.4}));
+  rim.position.set(ckX,ckY,0.06); fw.g.add(rim);
+  const hand=(len,wd,col,z)=>{ const g=new THREE.Group(); g.position.set(ckX,ckY,z);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(wd,len,0.01),fw.mat({color:col})); m.position.y=len/2-0.04; g.add(m); fw.g.add(g); return g; };
+  clockHands={h:hand(0.22,0.035,0x3b2a12,0.065),m:hand(0.32,0.025,0x3b2a12,0.07),s:hand(0.34,0.012,0xe74c3c,0.075)};
+  // 班級公約海報
+  const psX=-ckX;
+  const posterTex=canvasTex(256,340,(c,w,h)=>{
+    c.fillStyle='#fff8e1'; c.fillRect(0,0,w,h); c.strokeStyle='#ffb74d'; c.lineWidth=10; c.strokeRect(5,5,w-10,h-10);
+    c.fillStyle='#e65100'; c.textAlign='center'; c.font=DFONT(38,true); c.fillText('班級公約',w/2,58);
+    const items=['準時到校','認真上課','互相幫忙','保持整潔']; c.textAlign='left'; c.font=DFONT(28,false);
+    items.forEach((t,i)=>{ c.fillStyle=['#ef5350','#42a5f5','#66bb6a','#ab47bc'][i]; c.fillText('●',30,118+i*56); c.fillStyle='#4e342e'; c.fillText(t,64,118+i*56); });
+  });
+  fw.plane(0.75,1.0,psX,1.75,0.03,fw.mat({map:posterTex}));
 
-            const wb = XLSX.utils.book_new();
+  /* ---- 後牆：公布欄 ---- */
+  const bk=makeWall(IW+2*WALL_T,0xfff3dc); placeWall(bk,0,zB,Math.PI,0,-1);
+  const bbW=Math.min(IW*0.6,7), bbH=1.5;
+  const bbTex=canvasTex(1024,Math.round(1024*bbH/bbW),(c,w,h)=>{
+    c.fillStyle='#c98f58'; c.fillRect(0,0,w,h);
+    for(let i=0;i<1600;i++){ c.fillStyle=`rgba(${90+Math.random()*60},${50+Math.random()*40},20,.25)`; c.fillRect(Math.random()*w,Math.random()*h,2,2); }
+    const notes=['#fff176','#80deea','#f48fb1','#a5d6a7','#ffcc80','#ce93d8'];
+    const n=Math.max(4,Math.floor(w/150));
+    for(let i=0;i<n;i++){
+      const nw=100+Math.random()*30, nh=90+Math.random()*30, x=30+i*(w-60)/n+Math.random()*20, y=50+Math.random()*(h-nh-70);
+      c.save(); c.translate(x+nw/2,y+nh/2); c.rotate((Math.random()-.5)*0.25);
+      c.fillStyle='rgba(0,0,0,.18)'; c.fillRect(-nw/2+4,-nh/2+5,nw,nh);
+      c.fillStyle=notes[i%notes.length]; c.fillRect(-nw/2,-nh/2,nw,nh);
+      c.strokeStyle='rgba(0,0,0,.25)'; c.lineWidth=3;
+      for(let l=0;l<3;l++){ c.beginPath(); c.moveTo(-nw/2+12,-nh/2+30+l*20); c.lineTo(nw/2-12-Math.random()*25,-nh/2+30+l*20); c.stroke(); }
+      c.fillStyle=['#e53935','#1e88e5','#43a047'][i%3]; c.beginPath(); c.arc(0,-nh/2+8,7,0,Math.PI*2); c.fill();
+      c.restore();
+    }
+    roundRect(c,w/2-110,6,220,46,14); c.fillStyle='#ffffff'; c.fill();
+    c.fillStyle='#d84315'; c.font=DFONT(32,true); c.textAlign='center'; c.textBaseline='middle'; c.fillText('公 布 欄',w/2,30);
+  });
+  bk.plane(bbW,bbH,0,1.7,0.03,bk.mat({map:bbTex}));
+  const bf=bk.mat({color:0x8a5a2b,roughness:.6});
+  bk.box(bbW+0.16,0.08,0.06,0,1.7+bbH/2,0.04,bf); bk.box(bbW+0.16,0.08,0.06,0,1.7-bbH/2,0.04,bf);
+  bk.box(0.08,bbH,0.06,-bbW/2,1.7,0.04,bf); bk.box(0.08,bbH,0.06,bbW/2,1.7,0.04,bf);
 
-            const ws_student = XLSX.utils.aoa_to_sheet(expandedStudentData, {origin: "A3"});
-            XLSX.utils.sheet_add_aoa(ws_student, [["講桌"]], {origin: "E1"});
+  /* ---- 左牆（走廊側）：前門、後門、走廊窗、三角旗；區域 x = cz - 世界 z ---- */
+  const lw=makeWall(ID,0xfff3dc); placeWall(lw,xL,cz,Math.PI/2,1,0);
+  const doorAt=lx=>{
+    const dm=lw.mat({color:0xd9894a,roughness:.6}), fm=lw.mat({color:0xffffff,roughness:.5});
+    lw.box(1.16,2.3,0.06,lx,1.15,0.03,fm);
+    lw.box(1.0,2.2,0.06,lx,1.1,0.06,dm);
+    lw.plane(0.5,0.55,lx,1.65,0.095,lw.mat({color:0xbfe3ff,roughness:.2,opacity:.85}));
+    const knob=new THREE.Mesh(new THREE.SphereGeometry(0.05,12,8),lw.mat({color:0xf2c14e,metalness:.6,roughness:.3}));
+    knob.position.set(lx+0.35,1.05,0.11); lw.g.add(knob);
+  };
+  const dEdge=ID/2-1.1;
+  doorAt(dEdge); doorAt(-dEdge);
+  const cwSpan=2*dEdge-1.6, cwN=Math.max(0,Math.floor(cwSpan/2.0));
+  const cGlass=lw.mat({color:0xcfe9ff,roughness:.2,opacity:.8});
+  for(let i=0;i<cwN;i++){ const lx=-(cwN-1)*1.0+i*2.0; windowFrame(lw,lx,2.15,1.5,0.75,cGlass); }
+  pennants(lw,ID,WALL_H-0.18);
 
-            const ws_teacher = XLSX.utils.aoa_to_sheet(expandedTeacherData, {origin: "A3"});
-            XLSX.utils.sheet_add_aoa(ws_teacher, [["教室後方 (Back)"]], {origin: "A1"});
+  /* ---- 右牆（窗戶側）：大窗、窗簾、三角旗；區域 x = 世界 z - cz ---- */
+  const rw=makeWall(ID,0xfff3dc); placeWall(rw,xR,cz,-Math.PI/2,-1,0);
+  const skyTex=canvasTex(256,256,(c,w,h)=>{
+    const g=c.createLinearGradient(0,0,0,h); g.addColorStop(0,'#7cc6ff'); g.addColorStop(1,'#dff3ff'); c.fillStyle=g; c.fillRect(0,0,w,h);
+    c.fillStyle='rgba(255,255,255,.95)';
+    [[70,80],[180,140],[110,200]].forEach(([x,y])=>{ c.beginPath(); c.arc(x,y,22,0,Math.PI*2); c.arc(x+24,y-8,26,0,Math.PI*2); c.arc(x+50,y,20,0,Math.PI*2); c.fill(); });
+    c.fillStyle='#7cc87c'; c.beginPath(); c.moveTo(0,h); c.quadraticCurveTo(w*.35,h*.78,w*.7,h*.9); c.quadraticCurveTo(w*.85,h*.84,w,h*.88); c.lineTo(w,h); c.fill();
+  });
+  const sGlass=rw.mat({map:skyTex,roughness:.3,emissive:0x335577,emissiveIntensity:.25});
+  const curtain=rw.mat({color:0xffb4a2,roughness:.9});
+  const sill=rw.mat({color:0xffffff,roughness:.5});
+  const wN=Math.max(2,Math.floor(ID/2.6)), sp=ID/wN;
+  for(let i=0;i<wN;i++){
+    const lx=-ID/2+sp*(i+0.5);
+    windowFrame(rw,lx,1.75,1.6,1.35,sGlass);
+    rw.box(1.9,0.06,0.18,lx,1.75-0.72,0.09,sill);
+    rw.box(0.28,1.75,0.06,lx-0.95,1.78,0.1,curtain); rw.box(0.28,1.75,0.06,lx+0.95,1.78,0.1,curtain);
+    rw.box(2.3,0.05,0.05,lx,2.68,0.12,sill);
+  }
+  pennants(rw,ID,WALL_H-0.18);
 
-            const gridRowCount = expandedTeacherData.length;
-            const gridEndRowIdx = 2 + gridRowCount - 1;
-            const spacerRowIdx = gridEndRowIdx + 1;
-            const podiumRowIdx = spacerRowIdx + 1;
+  /* ---- 盆栽（地上，不隨牆淡出） ---- */
+  const plant=(x,z,s)=>{
+    const g=new THREE.Group(); g.position.set(x,0,z); g.scale.setScalar(s);
+    const pot=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.19,0.45,18),new THREE.MeshStandardMaterial({color:0xd9774b,roughness:.8}));
+    pot.position.y=0.225; g.add(pot);
+    const lm=new THREE.MeshStandardMaterial({color:0x4caf50,roughness:.8}), lm2=new THREE.MeshStandardMaterial({color:0x66bb6a,roughness:.8});
+    [[0,0.75,0,0.32,lm],[0.17,0.62,0.06,0.24,lm2],[-0.16,0.65,-0.05,0.25,lm2],[0.02,0.98,0.02,0.22,lm2]].forEach(([px,py,pz,r,m])=>{
+      const b=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),m); b.position.set(px,py,pz); g.add(b); });
+    decor.add(g);
+  };
+  plant(xL+0.55,zB-0.55,1.1); plant(xR-0.55,zB-0.55,1.1); plant(xR-0.55,zF+0.6,0.95);
+}
+/* 每格更新：靠近鏡頭的牆淡出、時鐘走動 */
+function updateDecor(){
+  if(!decor||!decor.visible) return;
+  const c=camP.position;
+  for(const w of walls){
+    const d=(c.x-w.p.x)*w.n.x+(c.z-w.p.z)*w.n.z;      // >0：鏡頭在牆的室內側
+    const target=d<0.5?0:1;
+    if(w.alpha===null) w.alpha=target;
+    w.alpha+=(target-w.alpha)*0.15; if(Math.abs(target-w.alpha)<0.01) w.alpha=target;
+    w.g.visible=w.alpha>0.02;
+    w.rail.opacity=0.25+0.75*w.alpha; w.rail.depthWrite=w.alpha>0.999;
+    const fading=w.alpha<0.999;
+    for(const {m,base} of w.mats){
+      m.opacity=base*w.alpha;
+      const tr=fading||base<1;
+      if(m.transparent!==tr){ m.transparent=tr; m.needsUpdate=true; }
+      m.depthWrite=!fading;
+    }
+  }
+  if(clockHands){
+    const d=new Date(), s=d.getSeconds()+d.getMilliseconds()/1000, mi=d.getMinutes()+s/60, h=(d.getHours()%12)+mi/60;
+    clockHands.s.rotation.z=-s/60*Math.PI*2; clockHands.m.rotation.z=-mi/60*Math.PI*2; clockHands.h.rotation.z=-h/12*Math.PI*2;
+  }
+}
 
-            XLSX.utils.sheet_add_aoa(ws_teacher, [["講桌"]], {origin: {r: podiumRowIdx, c: 4}});
+function refreshSeat(k){
+  const s=seats.get(k); if(!s) return;
+  const dis=S.disabled.has(k);
+  s.deskMat.opacity=dis?0.13:1; s.deskMat.depthWrite=!dis;
+  s.legs.visible=!dis; s.chair.visible=!dis&&S.mode==='3d'; s.edge.visible=dis;
+  const lw=S.mode==='2d'?CARD2D_W:1.5; s.label.sprite.scale.set(lw,lw*LBL_AR,1);
+  if(dis){ drawLabel(s.label,null); return; }
+  const a=S.assign.get(k), l=S.locks.get(k);
+  if(a) drawLabel(s.label,fmt(S.stuMap.get(a)), l===a?'lockedStud':'stud');
+  else if(l) drawLabel(s.label,'🔒'+fmt(S.stuMap.get(l)),'lock');
+  else drawLabel(s.label,null);
+}
+function refreshAll(){ for(const k of seats.keys()) refreshSeat(k); }
 
-            const borderStyle = {
-                top: { style: "thin", color: { rgb: "000000" } },
-                bottom: { style: "thin", color: { rgb: "000000" } },
-                left: { style: "thin", color: { rgb: "000000" } },
-                right: { style: "thin", color: { rgb: "000000" } }
-            };
-            const centerStyle = { vertical: "center", horizontal: "center", wrapText: true };
-            const podiumFont = { sz: 16, name: "Arial", bold: true };
-            const normalFont = { sz: 12, name: "Arial" };
+function fitCameras(){
+  const w=stage.clientWidth||1, h=stage.clientHeight||1; renderer.setSize(w,h);
+  const a=w/h, {W,zMin,zMax}=roomBounds(), D=zMax-zMin, cz=(zMin+zMax)/2;
+  // 2D：只框住「黑板～最後一列名牌」，邊界留小幅空白
+  const oz0=-4.1-0.7, oz1=(S.rows-1)*SZ+CARD2D_W*LBL_AR/2+0.7, ocz=(oz0+oz1)/2;
+  let hw=(W+0.3)/2, hh=(oz1-oz0+0.2)/2;
+  if(hw/hh>a) hh=hw/a; else hw=hh*a;
+  camO.left=-hw; camO.right=hw; camO.top=hh; camO.bottom=-hh; camO.zoom=1; camO.updateProjectionMatrix();
+  camO.position.set(0,60,ocz); camO.up.set(0,0,S.view==='student'?-1:1); camO.lookAt(0,0,ocz);
+  camP.aspect=a; camP.updateProjectionMatrix();
+}
+function resetCam3D(){
+  const {W,zMin,zMax}=roomBounds(), cz=(zMin+zMax)/2, size=Math.max(W,zMax-zMin), d=size*0.85+4;
+  if(S.view==='student') camP.position.set(0,d*0.8,zMax+d*0.6);
+  else camP.position.set(0,d*0.8,zMin-d*0.6);
+  controls.target.set(0,0.6,cz); controls.update();
+}
+const activeCam=()=>S.mode==='2d'?camO:camP;
+new ResizeObserver(()=>fitCameras()).observe(stage);
 
-            function applyGridStyles(ws, startRow, rowCount, colCount) {
-                const maxColIndex = Math.max(colCount, 9); 
-                const colWidths = [];
-                for(let c = 0; c < maxColIndex; c++) {
-                    colWidths.push({ wch: (c % 2 === 0) ? 9 : 2 });
-                }
-                ws['!cols'] = colWidths;
+/* =====================================================
+ * 5. 滑鼠：點選、懸停、拖曳交換
+ * ===================================================== */
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+function pickSeat(ev){
+  const rc=renderer.domElement.getBoundingClientRect();
+  if(ev.clientX<rc.left||ev.clientX>rc.right||ev.clientY<rc.top||ev.clientY>rc.bottom) return null;
+  ndc.set(((ev.clientX-rc.left)/rc.width)*2-1, -((ev.clientY-rc.top)/rc.height)*2+1);
+  ray.setFromCamera(ndc,activeCam());
+  const vis=o=>{ for(;o;o=o.parent) if(!o.visible) return false; return true; };
+  const hit=ray.intersectObjects(pickables,false).find(h=>vis(h.object));
+  return hit?hit.object.userData.key:null;
+}
+let ptr=null;
+const ghost=$('ghost');
+stage.addEventListener('pointerdown',e=>{
+  if(e.button!==0) return;
+  if(e.target!==renderer.domElement) return;
+  closeLockPop();
+  if(S.phase==='anim'||viewAnim) return;
+  const k=pickSeat(e); if(!k) return;
+  controls.enabled=false;             // 在座位上按下時，不要旋轉視角
+  ptr={key:k,x:e.clientX,y:e.clientY,drag:false};
+},true);
+window.addEventListener('pointermove',e=>{
+  if(ptr){
+    if(!ptr.drag && S.assign.has(ptr.key) && Math.hypot(e.clientX-ptr.x,e.clientY-ptr.y)>6){
+      ptr.drag=true; ghost.textContent=fmt(S.stuMap.get(S.assign.get(ptr.key))); ghost.style.display='block';
+    }
+    if(ptr.drag){ ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px'; hoverKey=pickSeat(e); }
+    return;
+  }
+  if(e.target===renderer.domElement){
+    hoverKey=S.phase==='anim'?null:pickSeat(e);
+    renderer.domElement.style.cursor=hoverKey?(S.assign.has(hoverKey)?'grab':'pointer'):(S.mode==='3d'?'move':'default');
+  }else hoverKey=null;
+});
+window.addEventListener('pointerup',e=>{
+  if(!ptr) return;
+  const p=ptr; ptr=null; controls.enabled=(S.mode==='3d'); ghost.style.display='none';
+  const t=pickSeat(e);
+  if(p.drag){ if(t&&t!==p.key) doSwap(p.key,t); return; }
+  if(t===p.key) onSeatClick(p.key,e);
+});
 
-                if(!ws['!rows']) ws['!rows'] = [];
-                
-                for(let r = 0; r < rowCount; r++) {
-                    const currentRow = startRow + r;
-                    ws['!rows'][currentRow] = { hpt: (r % 2 === 0) ? 40 : 15 };
+/* ---------- 2D：滾輪縮放（以滑鼠位置為中心）、右鍵拖曳平移 ---------- */
+function world2D(ev){
+  const rc=renderer.domElement.getBoundingClientRect();
+  camO.updateMatrixWorld();
+  return new THREE.Vector3(((ev.clientX-rc.left)/rc.width)*2-1, -((ev.clientY-rc.top)/rc.height)*2+1, 0).unproject(camO);
+}
+renderer.domElement.addEventListener('wheel',e=>{
+  if(S.mode!=='2d'||viewAnim) return;
+  e.preventDefault();
+  const before=world2D(e);
+  camO.zoom=Math.min(6,Math.max(0.6,camO.zoom*Math.exp(-e.deltaY*0.0015)));
+  camO.updateProjectionMatrix();
+  const after=world2D(e);
+  camO.position.x+=before.x-after.x; camO.position.z+=before.z-after.z;
+},{passive:false});
+let pan2D=null;
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(S.mode!=='2d'||e.button!==2||viewAnim) return;
+  pan2D=world2D(e); renderer.domElement.style.cursor='move';
+});
+window.addEventListener('pointermove',e=>{
+  if(!pan2D) return;
+  const w=world2D(e); camO.position.x+=pan2D.x-w.x; camO.position.z+=pan2D.z-w.z;
+});
+window.addEventListener('pointerup',e=>{ if(pan2D&&e.button===2){ pan2D=null; renderer.domElement.style.cursor='default'; } });
 
-                    for(let c = 0; c < colCount; c++) {
-                        if (r % 2 === 0 && c % 2 === 0) {
-                            const cellRef = XLSX.utils.encode_cell({c: c, r: currentRow});
-                            if(!ws[cellRef]) ws[cellRef] = {t:'s', v:''};
-                            if(!ws[cellRef].s) ws[cellRef].s = {};
-                            ws[cellRef].s.border = borderStyle;
-                            ws[cellRef].s.alignment = centerStyle;
-                            ws[cellRef].s.font = normalFont;
-                        }
-                    }
-                }
-            }
+function onSeatClick(k,e){
+  if(S.assign.size>0){ toast('座位已排定。若要停用座位或鎖定學生，請先按「清除座位」。','warn'); return; }
+  if(S.tool==='toggle'){
+    if(S.disabled.has(k)) S.disabled.delete(k);
+    else { S.disabled.add(k); S.locks.delete(k); }
+    refreshSeat(k); updateStatus(); renderLockList(); saveCfgSoon();
+  }else{
+    if(S.disabled.has(k)){ toast('這個座位已停用，請先恢復。','warn'); return; }
+    openLockPop(k,e);
+  }
+}
+function doSwap(a,b){
+  if(S.disabled.has(b)){ toast('該座位已停用。','warn'); return; }
+  const va=S.assign.get(a), vb=S.assign.get(b);
+  if(vb) S.assign.set(a,vb); else S.assign.delete(a);
+  S.assign.set(b,va);
+  refreshSeat(a); refreshSeat(b);
+  seats.get(a).flash=1; seats.get(b).flash=1; ensureAudio(); sfx('ding');
+  const v=violations();
+  if(v.length) toast('注意：'+v.join('、')+'\n目前相鄰，違反「排除相鄰」設定。','warn',4500);
+}
 
-            const totalRows = expandedStudentData.length;
-            const totalCols = expandedStudentData[0].length;
+/* ---------- 鎖定座位彈窗 ---------- */
+let lockKey=null;
+function openLockPop(k,e){
+  lockKey=k;
+  $('lpSeat').textContent='（'+seatName(k)+'）';
+  const sel=$('lpSel'); sel.innerHTML='';
+  const cur=S.locks.get(k);
+  const lockedElse=new Set([...S.locks].filter(([kk])=>kk!==k).map(([,no])=>no));
+  const o0=document.createElement('option'); o0.value=''; o0.textContent='— 選擇學生 —'; sel.appendChild(o0);
+  S.students.forEach(st=>{ if(lockedElse.has(st.no)) return;
+    const o=document.createElement('option'); o.value=st.no; o.textContent=fmt(st); if(st.no===cur) o.selected=true; sel.appendChild(o); });
+  const pop=$('lockPop'), rc=stage.getBoundingClientRect();
+  pop.classList.remove('hidden');
+  const x=Math.min(e.clientX-rc.left+10, rc.width-pop.offsetWidth-8);
+  const y=Math.min(e.clientY-rc.top+10, rc.height-pop.offsetHeight-8);
+  pop.style.left=Math.max(8,x)+'px'; pop.style.top=Math.max(8,y)+'px';
+}
+function closeLockPop(){ $('lockPop').classList.add('hidden'); lockKey=null; }
+$('lpOk').onclick=()=>{
+  const v=$('lpSel').value;
+  if(lockKey){ if(v) S.locks.set(lockKey,v); else S.locks.delete(lockKey); refreshSeat(lockKey); }
+  closeLockPop(); renderLockList(); saveCfgSoon();
+};
+$('lpClear').onclick=()=>{ if(lockKey){ S.locks.delete(lockKey); refreshSeat(lockKey);} closeLockPop(); renderLockList(); saveCfgSoon(); };
 
-            applyGridStyles(ws_student, 2, totalRows, totalCols);
-            applyGridStyles(ws_teacher, 2, totalRows, totalCols);
+/* =====================================================
+ * 6. 抽籤演算法（含鎖定、排除相鄰）
+ * ===================================================== */
+function enabledKeys(){ const a=[]; for(let r=0;r<S.rows;r++)for(let c=0;c<S.cols;c++){const k=key(r,c); if(!S.disabled.has(k)) a.push(k);} return a; }
+function neighbors(k){
+  const [r,c]=parseKey(k), out=[];
+  const d=S.diag?[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]:[[-1,0],[1,0],[0,-1],[0,1]];
+  for(const [dr,dc] of d){ const rr=r+dr, cc=c+dc; if(rr>=0&&rr<S.rows&&cc>=0&&cc<S.cols) out.push(key(rr,cc)); }
+  return out;
+}
+function violations(){
+  const pos=new Map(); for(const [k,no] of S.assign) pos.set(no,k);
+  const out=[];
+  for(const [a,b] of S.excl){ const ka=pos.get(a), kb=pos.get(b); if(ka&&kb&&neighbors(ka).includes(kb)) out.push(`${fmt(S.stuMap.get(a))} 與 ${fmt(S.stuMap.get(b))}`); }
+  return out;
+}
+function solve(){
+  const fixed=new Map(S.locks);
+  const bad=new Set(S.excl.map(([a,b])=>pairKey(a,b)));
+  for(const [k,no] of fixed) for(const nk of neighbors(k)){
+    const o=fixed.get(nk);
+    if(o&&bad.has(pairKey(no,o))) return {ok:false,msg:`鎖定的座位中，${fmt(S.stuMap.get(no))} 與 ${fmt(S.stuMap.get(o))} 被設定為不可相鄰，請修改鎖定或排除設定。`};
+  }
+  const lockedNos=new Set(fixed.values());
+  const studs=S.students.map(s=>s.no).filter(no=>!lockedNos.has(no));
+  const free=enabledKeys().filter(k=>!fixed.has(k));
+  const cons=new Set(S.excl.flat());
+  const order=[...shuffle(studs.filter(n=>cons.has(n))), ...shuffle(studs.filter(n=>!cons.has(n)))];
+  const asg=new Map(), used=new Set(); let steps=0;
+  const ok=(no,k)=>{ for(const nk of neighbors(k)){ const o=asg.has(nk)?asg.get(nk):fixed.get(nk); if(o!==undefined&&bad.has(pairKey(no,o))) return false; } return true; };
+  function dfs(i){
+    if(i===order.length) return true;
+    if(++steps>200000) return false;
+    const no=order[i];
+    for(const k of shuffle(free.slice())){
+      if(used.has(k)||!ok(no,k)) continue;
+      asg.set(k,no); used.add(k);
+      if(dfs(i+1)) return true;
+      asg.delete(k); used.delete(k);
+    }
+    return false;
+  }
+  if(!dfs(0)) return {ok:false,msg:'找不到同時符合所有「排除相鄰」條件的排法，請減少條件或增加座位。'};
+  return {ok:true,map:asg};
+}
 
-            function applyPodium(ws, rIdx) {
-                if(!ws['!merges']) ws['!merges'] = [];
-                ws['!merges'].push({ s: {r: rIdx, c: 4}, e: {r: rIdx, c: 8} });
+/* =====================================================
+ * 7. 抽籤流程與動畫
+ * ===================================================== */
+let anim=null;
+async function startDraw(){
+  if(S.phase==='anim') return;
+  closeLockPop();
+  if(!S.students.length){ toast('尚未載入學生名單。','err'); return; }
+  if(S.assign.size){
+    const ok=await uiConfirm(`重新抽籤會清除目前的座位（包含手動調整的部分），確定要重抽嗎？\n\n建議先按「📥 下載 Excel」保存目前的座位。`,'確定重抽','取消');
+    if(!ok) return;
+  }
+  const en=enabledKeys().length, n=S.students.length;
+  if(en<n){ toast(`座位不足：可用座位 ${en} 個、學生 ${n} 人。\n請增加直排／橫列數，或恢復停用的座位。`,'err',5000); return; }
+  if(en>n){
+    const go=await uiConfirm(`可用座位 ${en} 個，比學生 ${n} 人多 ${en-n} 個。\n\n建議先點選多餘的座位將其停用。\n若直接抽籤，多出的座位會隨機空著。`,'直接抽籤','回去調整');
+    if(!go) return;
+  }
+  const res=solve(); if(!res.ok){ toast(res.msg,'err',5000); return; }
+  ensureAudio();
+  S.assign.clear(); for(const [k,no] of S.locks) S.assign.set(k,no);
+  refreshAll();
+  startAnim(shuffle([...res.map.entries()]));
+}
+function makeFlyer(no){
+  const lb=makeLabel(); drawLabel(lb,fmt(S.stuMap.get(no)),'stud');
+  lb.sprite.position.copy(lotteryPos); lb.sprite.renderOrder=10; lb.sprite.material.depthTest=false;
+  room.add(lb.sprite); return lb.sprite;
+}
+function startAnim(items){
+  const N=items.length, T=S.dur*1000;
+  if(N===0){ finishDraw(); return; }
+  let flight=Math.min(1200,Math.max(350,T/N*1.8)); if(flight>T) flight=T;
+  const interval=N>1?(T-flight)/(N-1):0;
+  anim={t0:performance.now(),done:0,
+    items:items.map(([k,no],i)=>({k,no,launch:i*interval,flight,state:0,sp:null,
+      to:seatPos(...parseKey(k)).add(new THREE.Vector3(0,LABEL_Y,0))}))};
+  S.phase='anim'; updateButtons(); updateStatus();
+}
+function stepAnim(now){
+  const t=now-anim.t0;
+  for(const it of anim.items){
+    if(it.state===0&&t>=it.launch){ it.state=1; it.sp=makeFlyer(it.no); sfx('whoosh'); }
+    if(it.state===1){
+      const p=(t-it.launch)/it.flight;
+      if(p>=1){ land(it,true); continue; }
+      const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      it.sp.position.lerpVectors(lotteryPos,it.to,e);
+      it.sp.position.y+=3.2*4*p*(1-p);
+      const s=1+0.7*Math.sin(Math.PI*p); it.sp.scale.set(1.5*s,1.5*LBL_AR*s,1);
+    }
+  }
+  if(anim&&anim.done===anim.items.length) finishDraw();
+}
+function land(it,sound){
+  it.state=2;
+  if(it.sp){ room.remove(it.sp); disposeObj(it.sp); it.sp=null; }
+  S.assign.set(it.k,it.no); refreshSeat(it.k); seats.get(it.k).flash=1;
+  if(sound) sfx('ding');
+  anim.done++;
+}
+function skipAnim(){ if(!anim) return; for(const it of anim.items) if(it.state!==2) land(it,false); finishDraw(); }
+function finishDraw(){
+  anim=null; S.phase='done'; sfx('fanfare'); updateButtons(); updateStatus();
+  toast('座位排定完成！可直接拖曳名牌交換座位。','ok');
+  setTimeout(async()=>{
+    if(S.phase!=='done') return;
+    if(await uiConfirm('座位排定完成！\n\n是否下載 Excel 座位表？\n（若想先拖曳調整座位，請按「稍後再說」，調整後再按「📥 下載 Excel」）','下載 Excel','稍後再說')) downloadExcel();
+  },600);
+}
+function clearSeats(){
+  if(anim){ for(const it of anim.items) if(it.sp){room.remove(it.sp);disposeObj(it.sp);} anim=null; }
+  S.assign.clear(); S.phase='idle'; refreshAll(); updateButtons(); updateStatus();
+}
 
-                for (let c = 4; c <= 8; c++) {
-                    const cellRef = XLSX.utils.encode_cell({c: c, r: rIdx});
-                    if(!ws[cellRef]) ws[cellRef] = {t:'s', v:''};
-                    if(!ws[cellRef].s) ws[cellRef].s = {};
-                    ws[cellRef].s.border = borderStyle;
-                }
+/* =====================================================
+ * 8. 音效（Web Audio 合成）
+ * ===================================================== */
+let actx=null, noiseBuf=null; const lastSfx={};
+function ensureAudio(){
+  if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)();
+    noiseBuf=actx.createBuffer(1,actx.sampleRate*0.25,actx.sampleRate);
+    const d=noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  }catch(e){ actx=null; } }
+  if(actx&&actx.state==='suspended') actx.resume();
+}
+function tone(f,t0,dur,type,vol){
+  const o=actx.createOscillator(), g=actx.createGain(); o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0+dur+0.05);
+}
+function sfx(name){
+  if(!S.sound||!actx) return;
+  const now=performance.now(); if(lastSfx[name]&&now-lastSfx[name]<45) return; lastSfx[name]=now;
+  const t=actx.currentTime;
+  if(name==='ding'){ tone(1046.5,t,0.35,'sine',0.16); tone(1568,t,0.22,'sine',0.05); }
+  else if(name==='whoosh'){
+    const src=actx.createBufferSource(); src.buffer=noiseBuf;
+    const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=1.2;
+    bp.frequency.setValueAtTime(500,t); bp.frequency.exponentialRampToValueAtTime(2600,t+0.2);
+    const g=actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.07,t+0.04); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
+    src.connect(bp).connect(g).connect(actx.destination); src.start(t); src.stop(t+0.25);
+  }
+  else if(name==='fanfare'){ [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,t+i*0.12,i===3?0.8:0.4,'triangle',0.18)); }
+}
 
-                const mainCellRef = XLSX.utils.encode_cell({c: 4, r: rIdx});
-                ws[mainCellRef].s.alignment = centerStyle;
-                ws[mainCellRef].s.font = podiumFont;
+/* =====================================================
+ * 9. 匯出 PNG／列印／傳回試算表
+ * ===================================================== */
+function displayCells(view){
+  const R=S.rows, C=S.cols, teacher=(view||S.view)==='teacher', out=[];
+  for(let i=0;i<R;i++){ const row=[];
+    for(let j=0;j<C;j++){
+      const r=teacher?R-1-i:i, c=teacher?C-1-j:j, k=key(r,c);
+      if(S.disabled.has(k)) row.push('X');
+      else { const no=S.assign.get(k), st=no&&S.stuMap.get(no); row.push(st?{no:st.no,name:st.name}:null); }
+    }
+    out.push(row);
+  }
+  return out;
+}
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function makeChartCanvas(){
+  const cells=displayCells(), R=S.rows, C=S.cols, teacher=S.view==='teacher';
+  const cw=150, ch=80, gap=10, pad=40, titleH=64, podH=52, podGap=26, footH=30;
+  const W=pad*2+C*cw+(C-1)*gap, gridH=R*ch+(R-1)*gap;
+  const H=pad+titleH+podH+podGap+gridH+footH+pad/2;
+  const k=2, cv=document.createElement('canvas'); cv.width=W*k; cv.height=H*k;
+  const ctx=cv.getContext('2d'); ctx.scale(k,k);
+  const F=(s,b)=>`${b?'bold ':''}${s}px "Noto Sans TC","Microsoft JhengHei",sans-serif`;
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#222'; ctx.font=F(26,true); ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(`${S.cls||''}　座位表（${teacher?'教師視角':'學生視角'}）　${todayStr()}`,W/2,pad+titleH/2-6);
+  const podW=Math.min(W-pad*2,cw*3), podX=(W-podW)/2;
+  const gridY=teacher?pad+titleH:pad+titleH+podH+podGap;
+  const podY=teacher?gridY+gridH+podGap:pad+titleH;
+  roundRect(ctx,podX,podY,podW,podH,8); ctx.fillStyle='#e8dcc8'; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle='#8a6d3b'; ctx.stroke();
+  ctx.fillStyle='#5a4320'; ctx.font=F(22,true); ctx.fillText('講　台',W/2,podY+podH/2);
+  for(let i=0;i<R;i++) for(let j=0;j<C;j++){
+    const x=pad+j*(cw+gap), y=gridY+i*(ch+gap), cell=cells[i][j];
+    roundRect(ctx,x,y,cw,ch,8);
+    if(cell==='X'){ ctx.setLineDash([6,5]); ctx.strokeStyle='#c8c8c8'; ctx.lineWidth=1.5; ctx.stroke(); ctx.setLineDash([]); continue; }
+    if(!cell){ ctx.fillStyle='#fafafa'; ctx.fill(); ctx.strokeStyle='#bbb'; ctx.lineWidth=1.5; ctx.stroke(); continue; }
+    ctx.fillStyle='#eef4ff'; ctx.fill(); ctx.strokeStyle='#3a6ea5'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#666'; ctx.font=F(17,false); ctx.textAlign='left'; ctx.fillText(cell.no,x+10,y+18);
+    let fs=30; ctx.font=F(fs,true); while(ctx.measureText(cell.name).width>cw-16&&fs>14){fs-=2;ctx.font=F(fs,true);}
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.fillText(cell.name,x+cw/2,y+ch/2+8);
+  }
+  ctx.fillStyle='#999'; ctx.font=F(13,false); ctx.textAlign='right'; ctx.fillText('臺中二中 阿發老師 設計',W-pad,H-pad/2-6);
+  return cv;
+}
+function needSeated(){
+  if(S.phase==='anim'){ toast('動畫進行中，請稍候或按「跳過動畫」。','warn'); return false; }
+  if(!S.assign.size){ toast('請先排好座位。','warn'); return false; }
+  return true;
+}
+let exportURL='';
+function exportPng(){
+  if(!needSeated()) return;
+  exportURL=makeChartCanvas().toDataURL('image/png');
+  $('exportImg').src=exportURL; $('exportBox').classList.remove('hidden');
+}
+$('exClose').onclick=()=>$('exportBox').classList.add('hidden');
+$('exDl').onclick=()=>{
+  const a=document.createElement('a'); a.href=exportURL;
+  a.download=`座位表_${S.cls||''}_${todayStr().replace(/\//g,'')}.png`;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+function printChart(){
+  if(!needSeated()) return;
+  const img=$('printImg'); img.onload=()=>{ img.onload=null; setTimeout(()=>window.print(),50); };
+  img.src=makeChartCanvas().toDataURL('image/png');
+}
+/* ---------- Excel（ExcelJS，需要時才載入） ---------- */
+let excelP=null;
+function ensureExcelJS(){
+  if(window.ExcelJS) return Promise.resolve();
+  if(!excelP) excelP=new Promise((res,rej)=>{
+    const sc=document.createElement('script'); sc.src=EXCELJS_URL; sc.onload=res;
+    sc.onerror=()=>{ excelP=null; rej(new Error('無法載入 Excel 元件，請確認網路連線。')); };
+    document.head.appendChild(sc);
+  });
+  return excelP;
+}
+function xlBlock(ws,top,cells,teacher,R,C,label){
+  if(C>1) ws.mergeCells(top,1,top,C);
+  const l=ws.getCell(top,1); l.value='▍'+label;
+  l.font={bold:true,size:12,color:{argb:teacher?'FFC00000':'FF555555'}}; l.alignment={vertical:'middle'};
+  ws.getRow(top).height=20;
+  const gridTop=teacher?top+1:top+3, gapRow=teacher?top+R+1:top+2, podRow=teacher?top+R+2:top+1;
+  const thin={style:'thin',color:{argb:'FF666666'}};
+  for(let i=0;i<R;i++){
+    ws.getRow(gridTop+i).height=42;
+    for(let j=0;j<C;j++){
+      const c=ws.getCell(gridTop+i,1+j), v=cells[i][j];
+      c.border={top:thin,left:thin,bottom:thin,right:thin};
+      c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; c.font={size:12};
+      if(v==='X') c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9D9D9'}};
+      else if(v) c.value=v.no+'\n'+v.name;
+    }
+  }
+  const w=C>=3?(C%2?3:2):C, st=Math.floor((C-w)/2)+1;
+  if(w>1) ws.mergeCells(podRow,st,podRow,st+w-1);
+  const brown={style:'thin',color:{argb:'FF8A6D3B'}};
+  for(let j=st;j<st+w;j++){
+    const c=ws.getCell(podRow,j);
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8DCC8'}};
+    c.border={top:brown,bottom:brown,left:j===st?brown:undefined,right:j===st+w-1?brown:undefined};
+  }
+  const pc=ws.getCell(podRow,st); pc.value='講　台'; pc.font={bold:true,size:13}; pc.alignment={horizontal:'center',vertical:'middle'};
+  ws.getRow(podRow).height=24; ws.getRow(gapRow).height=8;
+}
+async function downloadExcel(){
+  if(!needSeated()) return;
+  setBusy('產生 Excel 中…');
+  try{
+    await ensureExcelJS();
+    const wb=new ExcelJS.Workbook(); wb.creator='臺中二中 阿發老師 設計';
+    const R=S.rows, C=S.cols, date=todayStr();
+    const sheet=(name,title,cells,teacher,label)=>{
+      const ws=wb.addWorksheet(name,{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:1,
+        horizontalCentered:true,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
+      for(let j=1;j<=C;j++) ws.getColumn(j).width=14;
+      if(C>1) ws.mergeCells(1,1,1,C);
+      const t=ws.getCell(1,1); t.value=title; t.font={bold:true,size:14}; t.alignment={horizontal:'center',vertical:'middle'};
+      ws.getRow(1).height=28;
+      xlBlock(ws,2,cells,teacher,R,C,label);
+    };
+    sheet('教師視角',`${S.cls}　座位表（教師視角）　${date}`,displayCells('teacher'),true,'教師視角（主要座位表）');
+    sheet('學生視角',`${S.cls}　座位表（學生視角）　${date}`,displayCells('student'),false,'學生視角');
+    const wd=wb.addWorksheet('_data',{state:'veryHidden'});
+    wd.getCell('A1').value=JSON.stringify({app:'seat-lottery',v:1,cls:S.cls,rows:R,cols:C,disabled:[...S.disabled],assign:Object.fromEntries(S.assign)});
+    const buf=await wb.xlsx.writeBuffer();
+    const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a'); a.href=url; a.download=`座位表_${S.cls}_${date.replace(/\//g,'')}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),3000);
+    toast('已下載 Excel 座位表。','ok');
+  }catch(e){ toast('產生 Excel 失敗：'+(e&&e.message||e),'err',5000); }
+  setBusy('');
+}
+async function loadExcelFile(file){
+  if(S.phase==='anim'){ toast('動畫進行中，請稍候或按「跳過動畫」。','warn'); return; }
+  if(!S.cls){ toast('請先建立或選擇班級。','warn'); return; }
+  setBusy('讀取 Excel…');
+  let d;
+  try{
+    await ensureExcelJS();
+    const wb=new ExcelJS.Workbook(); await wb.xlsx.load(await file.arrayBuffer());
+    const ws=wb.getWorksheet('_data'), txt=ws&&ws.getCell('A1').text;
+    if(!txt) throw new Error('這個檔案不是本程式下載的座位表（找不到座位資料）。');
+    d=JSON.parse(txt);
+  }catch(e){ setBusy(''); toast('載入失敗：'+(e&&e.message||e),'err',6000); return; }
+  setBusy('');
+  if(d.cls&&d.cls!==S.cls){
+    const ok=await uiConfirm(`這份座位表是「${d.cls}」，目前選擇的班級是「${S.cls}」。\n仍要依座號對應到目前班級嗎？`,'載入','取消');
+    if(!ok) return;
+  }
+  if(S.assign.size){ const ok=await uiConfirm('載入後會取代目前畫面上的座位，確定嗎？','載入','取消'); if(!ok) return; }
+  applyLoaded(d,file.name);
+}
+function applyLoaded(d,name){
+  clearSeats();
+  S.rows=clampInt(d.rows,1,12,S.rows); S.cols=clampInt(d.cols,1,12,S.cols);
+  S.disabled=new Set((d.disabled||[]).filter(inGrid));
+  S.locks=new Map([...S.locks].filter(([k])=>inGrid(k)&&!S.disabled.has(k)));
+  const missing=[];
+  for(const [k,no] of Object.entries(d.assign||{})){
+    if(!inGrid(k)||S.disabled.has(k)) continue;
+    if(S.stuMap.has(no)) S.assign.set(k,no); else missing.push(no);
+  }
+  const seated=new Set(S.assign.values());
+  const unseated=S.students.filter(st=>!seated.has(st.no)).map(fmt);
+  S.phase=S.assign.size?'done':'idle';
+  syncInputs(); buildRoom(); resetCam3D(); renderLockList(); updateStatus(); updateButtons(); saveCfgSoon();
+  let msg=`已載入「${name}」`;
+  if(missing.length) msg+=`\n名單中找不到的座號：${missing.join('、')}`;
+  if(unseated.length) msg+=`\n尚未排入座位的學生：${unseated.join('、')}`;
+  const w=missing.length||unseated.length;
+  toast(msg,w?'warn':'ok',w?8000:3500);
+}
 
-                if(!ws['!rows']) ws['!rows'] = [];
-                ws['!rows'][rIdx] = { hpt: 40 };
-            }
+/* ---------- 班級名單：新增／編輯／刪除 ---------- */
+let rsEditing=null;   // 編輯中的班級名稱；null 表示新增
+function openRoster(cls){
+  rsEditing=cls;
+  $('rsTitle').textContent=cls?`編輯名單：${cls}`:'新增班級';
+  $('rsName').value=cls||'';
+  $('rsText').value=cls?LOCAL.getStudents(cls).map(s=>s.no+'\t'+s.name).join('\n'):'';
+  updateRsCount(); $('rosterBox').classList.remove('hidden');
+  setTimeout(()=>(cls?$('rsText'):$('rsName')).focus(),50);
+}
+function closeRoster(){ $('rosterBox').classList.add('hidden'); }
+function parseRoster(text){
+  const out=[];
+  for(const raw of text.split(/\r?\n/)){
+    const line=raw.trim(); if(!line) continue;
+    let parts=line.split(/\t|,|，/).map(x=>x.trim().replace(/^"(.*)"$/,'$1').trim()).filter(Boolean);
+    if(parts.length<2) parts=line.split(/\s+/).filter(Boolean);
+    if(!out.length&&/座號|姓名/.test(line)) continue;            // 標題列
+    if(parts.length>=2&&/^\d+$/.test(parts[0])) out.push({no:parts[0],name:parts.slice(1).join(' ')});
+    else out.push({no:null,name:parts.join(' ')});
+  }
+  let max=Math.max(0,...out.filter(x=>x.no).map(x=>parseInt(x.no,10)));
+  out.forEach(x=>{ if(!x.no) x.no=String(++max); });
+  return out;
+}
+function updateRsCount(){
+  const list=parseRoster($('rsText').value);
+  const dup=list.length-new Set(list.map(x=>x.no)).size;
+  $('rsCount').textContent=`共 ${list.length} 人`+(dup?`（⚠ 有 ${dup} 個重複座號）`:'');
+  $('rsCount').style.color=dup?'var(--err)':'';
+}
+function decodeText(buf){
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(buf).replace(/^\uFEFF/,''); }
+  catch(e){ return new TextDecoder('big5').decode(buf); }
+}
+async function readRosterFile(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(ext==='xls'){ toast('不支援舊版 .xls，請在 Excel 中「另存新檔」為 .xlsx 或 CSV。','err',6000); return; }
+  const buf=await file.arrayBuffer();
+  let text='';
+  if(ext==='xlsx'){
+    await ensureExcelJS();
+    const wb=new ExcelJS.Workbook(); await wb.xlsx.load(buf);
+    const ws=wb.worksheets.find(w=>w.state==='visible')||wb.worksheets[0];
+    if(!ws) throw new Error('Excel 檔中沒有工作表。');
+    let cNo=1, cName=2, start=1;
+    for(let r=1;r<=Math.min(5,ws.rowCount);r++){
+      const row=ws.getRow(r); let a=0,b=0;
+      row.eachCell((cell,col)=>{ const t=String(cell.text).trim(); if(t==='座號') a=col; if(t==='姓名') b=col; });
+      if(b){ cNo=a||0; cName=b; start=r+1; break; }
+    }
+    const lines=[];
+    for(let r=start;r<=ws.rowCount;r++){
+      const row=ws.getRow(r);
+      const nm=String(row.getCell(cName).text||'').trim(); if(!nm) continue;
+      const no=cNo?String(row.getCell(cNo).text||'').trim():'';
+      lines.push(no?no+'\t'+nm:nm);
+    }
+    text=lines.join('\n');
+  }else text=decodeText(buf);
+  $('rsText').value=text;
+  if(!$('rsName').value.trim()) $('rsName').value=file.name.replace(/\.[^.]+$/,'');
+  updateRsCount();
+  toast(`已讀取「${file.name}」，請確認名單後按「儲存」。`,'ok');
+}
+async function saveRoster(){
+  const name=$('rsName').value.trim();
+  const list=parseRoster($('rsText').value);
+  if(!name){ toast('請輸入班級名稱。','warn'); return; }
+  if(!list.length){ toast('名單是空的。','warn'); return; }
+  if(new Set(list.map(x=>x.no)).size!==list.length){ toast('名單中有重複的座號，請修正。','err'); return; }
+  const exists=LOCAL.getClassList().includes(name);
+  if(exists&&name!==rsEditing){ const ok=await uiConfirm(`班級「${name}」已存在，要覆蓋它的名單嗎？`,'覆蓋','取消'); if(!ok) return; }
+  if(rsEditing&&name!==rsEditing) LOCAL.renameClass(rsEditing,name);
+  LOCAL.saveClass(name,list);
+  closeRoster(); refreshClassList(name); await loadClass(name);
+  toast(`已儲存「${name}」名單，共 ${list.length} 人。`,'ok');
+  if(!lsOK) toast('此瀏覽器無法長期儲存資料（可能是無痕模式），關閉網頁後名單會消失。','warn',7000);
+}
+function refreshClassList(sel){
+  S.classes=LOCAL.getClassList();
+  const el=$('selClass'); el.innerHTML='';
+  if(!S.classes.length){ const o=document.createElement('option'); o.value=''; o.textContent='（尚無班級，請新增）'; el.appendChild(o); }
+  S.classes.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;el.appendChild(o);});
+  if(sel) el.value=sel;
+}
+async function deleteClass(){
+  if(!S.cls) return;
+  const ok=await uiConfirm(`確定要刪除班級「${S.cls}」嗎？\n名單與教室設定都會刪除，無法復原。`,'刪除','取消');
+  if(!ok) return;
+  LOCAL.deleteClass(S.cls); refreshClassList();
+  if(S.classes.length) await loadClass(S.classes[0]); else resetEmpty();
+}
+function resetEmpty(){
+  clearSeats(); S.cls=null; S.students=[]; S.stuMap=new Map(); S.locks.clear(); S.excl=[]; S.disabled.clear();
+  fillStudentSelects(); renderExList(); renderLockList(); buildRoom(); updateStatus(); updateButtons();
+}
 
-            applyPodium(ws_student, 0); 
-            ws_student['!rows'][1] = { hpt: 15 };
+/* =====================================================
+ * 10. 設定儲存（依班級）
+ * ===================================================== */
+let cfgTimer=null;
+function cfgObj(){ return {rows:S.rows,cols:S.cols,disabled:[...S.disabled],locks:Object.fromEntries(S.locks),excl:S.excl,diag:S.diag,dur:S.dur,sound:S.sound}; }
+function saveCfgSoon(){
+  if(!S.cls) return; clearTimeout(cfgTimer);
+  const cls=S.cls;
+  cfgTimer=setTimeout(()=>{ gas('saveConfig',cls,cfgObj()).catch(e=>toast('設定儲存失敗：'+(e.message||e),'err')); },800);
+}
+function inGrid(k){ const [r,c]=parseKey(k); return r>=0&&r<S.rows&&c>=0&&c<S.cols; }
+function applyCfg(cfg){
+  cfg=cfg||{};
+  S.rows=clampInt(cfg.rows,1,12,6); S.cols=clampInt(cfg.cols,1,12,7);
+  S.disabled=new Set((cfg.disabled||[]).filter(inGrid));
+  S.locks=new Map(Object.entries(cfg.locks||{}).filter(([k,no])=>inGrid(k)&&S.stuMap.has(no)&&!S.disabled.has(k)));
+  S.excl=(cfg.excl||[]).filter(([a,b])=>S.stuMap.has(a)&&S.stuMap.has(b));
+  S.diag=!!cfg.diag;
+  if(cfg.dur) S.dur=clampInt(cfg.dur,3,60,15);
+  if(cfg.sound!==undefined) S.sound=!!cfg.sound;
+  syncInputs();
+}
+function clampInt(v,a,b,d){ v=parseInt(v,10); if(isNaN(v)) return d; return Math.min(b,Math.max(a,v)); }
 
-            ws_teacher['!rows'][0] = { hpt: 30 };
-            ws_teacher['!rows'][1] = { hpt: 15 };
-            ws_teacher['!rows'][spacerRowIdx] = { hpt: 15 };
-            applyPodium(ws_teacher, podiumRowIdx);
+/* =====================================================
+ * 11. 介面同步
+ * ===================================================== */
+function syncInputs(){
+  $('inRows').value=S.rows; $('inCols').value=S.cols; $('chkDiag').checked=S.diag;
+  $('inDur').value=S.dur; $('durVal').textContent=S.dur+' 秒'; $('chkSound').checked=S.sound;
+}
+function updateStatus(){
+  const en=enabledKeys().length, total=S.rows*S.cols, n=S.students.length, b=$('banner');
+  $('seatInfo').textContent=`座位 ${total} 個（停用 ${total-en}）・可用 ${en} 個`;
+  $('stuInfo').textContent=S.cls?`${S.cls}：學生 ${n} 人`:'尚未載入';
+  if(S.phase==='anim'){ b.className=''; b.textContent='🎲 抽籤中…'; return; }
+  if(S.phase==='done'){ b.className='ok'; b.textContent='✅ 座位已排定，可拖曳名牌交換座位'; return; }
+  if(!n){ b.className='warn'; b.textContent='請選擇班級名單'; return; }
+  if(en===n){ b.className='ok'; b.textContent=`學生 ${n} 人／可用座位 ${en} 個 ✔ 人數相符，可以開始排座位`; }
+  else if(en>n){ b.className='warn'; b.textContent=`學生 ${n} 人／可用座位 ${en} 個 → 座位多 ${en-n} 個\n請點選多餘的座位將其停用（再點一下可恢復）`; }
+  else { b.className='err'; b.textContent=`學生 ${n} 人／可用座位 ${en} 個 → 座位不足 ${n-en} 個\n請增加直排／橫列數，或恢復停用的座位`; }
+}
+function updateButtons(){
+  const a=S.phase==='anim', has=S.assign.size>0;
+  $('btnStart').disabled=a; $('btnClear').disabled=a||!has;
+  $('btnSkip').classList.toggle('hidden',!a);
+  ['btnPng','btnPrint','btnSend'].forEach(id=>$(id).disabled=a||!has);
+  $('btnLoad').disabled=a||!S.cls;
+  $('btnEditClass').disabled=$('btnDelClass').disabled=a||!S.cls; $('btnNewClass').disabled=a;
+  $('inRows').disabled=$('inCols').disabled=a; $('selClass').disabled=a;
+  $('btnStart').textContent=has&&!a?'▶ 開始排座位（重抽）':'▶ 開始排座位';
+}
+function updateOpHint(){
+  $('opHint').textContent=S.mode==='3d'
+    ?'3D：拖曳空白處旋轉、右鍵平移、滾輪縮放｜點選座位：停用或鎖定｜排定後拖曳名牌可交換'
+    :'2D：滾輪縮放、右鍵拖曳平移｜點選座位停用或鎖定｜排定後拖曳名牌可交換';
+}
+function fillStudentSelects(){
+  [$('exA'),$('exB')].forEach((sel,i)=>{
+    sel.innerHTML=''; const o0=document.createElement('option'); o0.value=''; o0.textContent=i?'— 學生 B —':'— 學生 A —'; sel.appendChild(o0);
+    S.students.forEach(st=>{const o=document.createElement('option');o.value=st.no;o.textContent=fmt(st);sel.appendChild(o);});
+  });
+  if(typeof updateExBtn==='function') updateExBtn();
+}
+function renderExList(){
+  const ul=$('exList'); ul.innerHTML='';
+  S.excl.forEach((p,i)=>{
+    const li=document.createElement('li'); const sp=document.createElement('span');
+    sp.textContent=`${fmt(S.stuMap.get(p[0]))} ✕ ${fmt(S.stuMap.get(p[1]))}`;
+    const bt=document.createElement('button'); bt.className='small'; bt.textContent='刪除';
+    bt.onclick=()=>{ S.excl.splice(i,1); renderExList(); saveCfgSoon(); };
+    li.appendChild(sp); li.appendChild(bt); ul.appendChild(li);
+  });
+  if(!S.excl.length){ const li=document.createElement('li'); li.style.color='var(--muted)'; li.textContent='（無）'; ul.appendChild(li); }
+}
+function renderLockList(){
+  const d=$('lockList');
+  if(!S.locks.size){ d.textContent=''; return; }
+  d.textContent='🔒 已鎖定：'+[...S.locks].map(([k,no])=>`${fmt(S.stuMap.get(no))}（${seatName(k)}）`).join('、');
+}
 
-            XLSX.utils.book_append_sheet(wb, ws_student, "後視角(學生視角)");
-            XLSX.utils.book_append_sheet(wb, ws_teacher, "前視角(老師視角)");
+/* =====================================================
+ * 12. 事件
+ * ===================================================== */
+$('segMode').onclick=e=>{
+  const v=e.target.dataset.v; if(!v||viewAnim) return; S.mode=v;
+  [...$('segMode').children].forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  controls.enabled=(v==='3d'); refreshAll(); fitCameras(); updateOpHint(); applyModeVis();
+};
+$('segView').onclick=e=>{
+  const v=e.target.dataset.v; if(!v||v===S.view||viewAnim) return; S.view=v;
+  [...$('segView').children].forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  startViewRotate();
+};
+/* ---------- 視角切換：旋轉教室 180° 過場動畫 ---------- */
+let viewAnim=null;
+const AXIS_Y=new THREE.Vector3(0,1,0);
+function startViewRotate(){
+  closeLockPop(); hoverKey=null;
+  const t=controls.target.clone();
+  viewAnim={t0:performance.now(),dur:1200,target:t,off:camP.position.clone().sub(t),up0:camO.up.clone()};
+  controls.enabled=false;
+}
+function stepViewAnim(now){
+  const p=Math.min(1,(now-viewAnim.t0)/viewAnim.dur);
+  const e=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2, th=Math.PI*e;
+  camP.position.copy(viewAnim.target).add(viewAnim.off.clone().applyAxisAngle(AXIS_Y,th)); camP.lookAt(viewAnim.target);
+  camO.up.copy(viewAnim.up0).applyAxisAngle(AXIS_Y,th); camO.lookAt(camO.position.x,0,camO.position.z);
+  if(p>=1){
+    viewAnim=null;
+    camO.up.set(0,0,S.view==='student'?-1:1); camO.lookAt(camO.position.x,0,camO.position.z);
+    controls.enabled=(S.mode==='3d'); controls.update();
+  }
+}
+$('btnResetCam').onclick=()=>{ fitCameras(); resetCam3D(); };
+$('btnStart').onclick=startDraw;
+$('btnSkip').onclick=skipAnim;
+$('btnClear').onclick=clearSeats;
+$('btnPng').onclick=exportPng;
+$('btnPrint').onclick=printChart;
+$('btnSend').onclick=downloadExcel;
+$('btnLoad').onclick=()=>{ if(S.phase==='anim') return; $('loadFileIn').value=''; $('loadFileIn').click(); };
+$('loadFileIn').onchange=e=>{ const f=e.target.files[0]; if(f) loadExcelFile(f); };
+$('btnNewClass').onclick=()=>openRoster(null);
+$('btnEditClass').onclick=()=>{ if(S.cls) openRoster(S.cls); else openRoster(null); };
+$('btnDelClass').onclick=deleteClass;
+$('rsCancel').onclick=closeRoster;
+$('rsSave').onclick=saveRoster;
+$('rsText').oninput=updateRsCount;
+$('rsFile').onclick=()=>{ $('rsFileIn').value=''; $('rsFileIn').click(); };
+$('rsFileIn').onchange=e=>{ const f=e.target.files[0]; if(f) readRosterFile(f).catch(err=>toast('讀取失敗：'+(err.message||err),'err',6000)); };
+$('rsDemo').onclick=()=>{
+  const sur='王李張劉陳楊黃趙吳周徐孫馬朱胡郭何林高羅'.split('');
+  const giv=['小明','志豪','怡君','雅婷','家豪','冠宇','宜蓁','承恩','詩涵','柏翰','思妤','宥廷','品妍','子晴','建宏','俊傑','佳穎','宇軒','欣怡','明哲'];
+  const lines=[];   // 36 個不重複姓名：前 20 人姓氏各不同；後 16 人姓氏重複但名字錯開
+  for(let i=0;i<36;i++) lines.push((i+1)+'\t'+sur[i%20]+giv[(i*7+Math.floor(i/20))%20]);
+  $('rsText').value=lines.join('\n'); if(!$('rsName').value.trim()) $('rsName').value='示範班';
+  updateRsCount();
+};
+$('btnCopy').onclick=()=>{
+  if(!TEMPLATE_COPY_URL){ toast('作者尚未設定試算表範本連結。','warn'); return; }
+  window.open(TEMPLATE_COPY_URL,'_blank','noopener');
+};
+$('btnHelp').onclick=()=>$('helpBox').classList.remove('hidden');
+$('helpClose').onclick=()=>$('helpBox').classList.add('hidden');
+$('helpBox').onclick=e=>{ if(e.target===$('helpBox')) $('helpBox').classList.add('hidden'); };
 
-            XLSX.writeFile(wb, "班級座位表.xlsx");
-        }
-    </script>
+function onGridChange(){
+  const r=clampInt($('inRows').value,1,12,S.rows), c=clampInt($('inCols').value,1,12,S.cols);
+  $('inRows').value=r; $('inCols').value=c;
+  if(r===S.rows&&c===S.cols) return;
+  if(S.assign.size){ clearSeats(); toast('教室座位已變更，已清除目前排定的座位。','warn'); }
+  S.rows=r; S.cols=c;
+  S.disabled=new Set([...S.disabled].filter(inGrid));
+  S.locks=new Map([...S.locks].filter(([k])=>inGrid(k)));
+  buildRoom(); resetCam3D(); updateStatus(); renderLockList(); saveCfgSoon();
+}
+$('inRows').onchange=onGridChange; $('inCols').onchange=onGridChange;
+document.querySelectorAll('input[name=tool]').forEach(r=>r.onchange=()=>{ S.tool=r.value; closeLockPop(); });
+$('btnEnableAll').onclick=()=>{
+  if(S.assign.size){ toast('座位已排定，請先按「清除座位」。','warn'); return; }
+  S.disabled.clear(); refreshAll(); updateStatus(); saveCfgSoon();
+};
+$('btnClearLocks').onclick=()=>{
+  if(S.assign.size){ toast('座位已排定，請先按「清除座位」。','warn'); return; }
+  S.locks.clear(); refreshAll(); renderLockList(); saveCfgSoon();
+};
+$('btnAddEx').onclick=()=>{
+  const a=$('exA').value, b=$('exB').value;
+  if(!a||!b){ toast('請選擇兩位學生。','warn'); return; }
+  if(a===b){ toast('請選擇兩位不同的學生。','warn'); return; }
+  if(S.excl.some(p=>pairKey(p[0],p[1])===pairKey(a,b))){ toast('這組已經設定過了。','warn'); return; }
+  S.excl.push([a,b]); renderExList(); saveCfgSoon();
+  $('exA').value=''; $('exB').value=''; updateExBtn();
+};
+function updateExBtn(){
+  const a=$('exA').value, b=$('exB').value;
+  $('btnAddEx').classList.toggle('ready',!!a&&!!b&&a!==b);
+}
+$('exA').onchange=$('exB').onchange=updateExBtn;
+$('chkDiag').onchange=()=>{ S.diag=$('chkDiag').checked; saveCfgSoon(); };
+$('inDur').oninput=()=>{ S.dur=+$('inDur').value; $('durVal').textContent=S.dur+' 秒'; };
+$('inDur').onchange=saveCfgSoon;
+$('chkSound').onchange=()=>{ S.sound=$('chkSound').checked; if(S.sound) ensureAudio(); saveCfgSoon(); };
+$('selClass').onchange=()=>{ if($('selClass').value) loadClass($('selClass').value); };
+
+
+/* =====================================================
+ * 13. 載入
+ * ===================================================== */
+async function loadClass(name){
+  if(S.phase==='anim') clearSeats();
+  closeLockPop(); setBusy('讀取名單中…');
+  try{
+    const [stu,cfg]=await Promise.all([gas('getStudents',name),gas('getConfig',name)]);
+    S.cls=name;
+    S.students=(stu||[]).map((s,i)=>({no:s.no||('#'+(i+1)),name:s.name}));
+    S.stuMap=new Map(S.students.map(s=>[s.no,s]));
+    if(S.stuMap.size!==S.students.length) toast('名單中有重複的座號，請按「編輯名單」修正。','err',5000);
+    applyCfg(cfg);
+    S.assign.clear(); S.phase='idle';
+    fillStudentSelects(); renderExList(); renderLockList();
+    buildRoom(); resetCam3D(); updateStatus(); updateButtons();
+  }catch(e){ toast('讀取失敗：'+(e&&e.message||e),'err',5000); }
+  setBusy('');
+}
+/* ---------- 分頁：新版／舊版抽籤程式 ---------- */
+const CLASSIC_URL='seat-lottery-classic.html';   // 舊版程式檔案（與本檔放在同一資料夾）
+const NOTICE_KEY=LSK+'hideClassicNotice';
+let TAB='new', newShown=false, pendingRoster=false;
+function showTab(t){
+  TAB=t;
+  $('tabNew').classList.toggle('on',t==='new'); $('tabClassic').classList.toggle('on',t==='classic');
+  $('app').classList.toggle('hidden',t!=='new'); $('classicPane').classList.toggle('hidden',t!=='classic');
+  if(t==='classic'){
+    const f=$('classicFrame'); if(!f.getAttribute('src')) f.setAttribute('src',CLASSIC_URL);
+    if(location.hash!=='#classic') history.replaceState(null,'','#classic');
+  }else{
+    if(location.hash) history.replaceState(null,'',location.pathname+location.search);
+    fitCameras();
+    if(!newShown){ newShown=true; firstShowNew(); }
+  }
+}
+function firstShowNew(){
+  const next=()=>{ if(pendingRoster){ pendingRoster=false; openRoster(null); toast('歡迎使用！請先建立班級名單（可先按「填入示範名單」試用）。','ok',6000); } };
+  if(LS.get(NOTICE_KEY,false)){ next(); return; }
+  $('noticeHide').checked=false; $('noticeBox').classList.remove('hidden');
+  const close=goClassic=>{ if($('noticeHide').checked) LS.set(NOTICE_KEY,true); $('noticeBox').classList.add('hidden');
+    if(goClassic) showTab('classic'); else next(); };
+  $('noticeOk').onclick=()=>close(false); $('noticeClassic').onclick=()=>close(true);
+}
+$('tabNew').onclick=()=>showTab('new');
+$('tabClassic').onclick=()=>showTab('classic');
+window.addEventListener('hashchange',()=>showTab(location.hash==='#classic'?'classic':'new'));
+
+async function init(){
+  buildRoom(); resetCam3D(); updateStatus(); updateButtons(); updateOpHint(); renderExList();
+  requestAnimationFrame(loop);
+  refreshClassList();
+  if(S.classes.length) await loadClass(S.classes[0]);
+  else { updateButtons(); pendingRoster=true; }
+  showTab(location.hash==='#classic'?'classic':'new');
+}
+
+/* =====================================================
+ * 14. 繪製迴圈
+ * ===================================================== */
+function loop(now){
+  requestAnimationFrame(loop);
+  if(anim) stepAnim(now);
+  if(viewAnim) stepViewAnim(now);
+  if(TAB!=='new') return;                 // 舊版分頁顯示中：暫停 3D 繪圖以省電
+  if(S.mode==='3d') updateDecor();
+  for(const s of seats.values()){
+    if(s.flash>0) s.flash=Math.max(0,s.flash-0.025);
+    const h=(s.key===hoverKey)?1:0, f=s.flash;
+    s.deskMat.emissive.setRGB(f*0.9+h*0.08, f*0.7+h*0.16, f*0.1+h*0.28);
+  }
+  if(S.mode==='3d'&&!viewAnim) controls.update();
+  renderer.render(scene,activeCam());
+}
+
+window.__seat={S,solve,neighbors,startDraw,skipAnim,displayCells,seats,activeCam,controls}; // 測試用
+init();
+})();
+</script>
 </body>
 </html>
